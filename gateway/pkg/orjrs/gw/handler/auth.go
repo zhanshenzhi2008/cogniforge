@@ -23,6 +23,24 @@ type User struct {
 // In-memory user store (replace with database in production)
 var users = make(map[string]*User)
 
+func init() {
+	// 创建默认管理员账号
+	adminPassword := "admin123"
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(adminPassword), bcrypt.DefaultCost)
+	if err != nil {
+		panic("Failed to hash admin password: " + err.Error())
+	}
+	admin := &User{
+		ID:        generateID(),
+		Email:     "admin@cogniforge.local",
+		Name:      "admin",
+		Password:  string(hashedPassword),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+	users[admin.Email] = admin
+}
+
 // RegisterRequest represents registration request
 type RegisterRequest struct {
 	Email    string `json:"email" binding:"required,email"`
@@ -32,8 +50,9 @@ type RegisterRequest struct {
 
 // LoginRequest represents login request
 type LoginRequest struct {
-	Email    string `json:"email" binding:"required,email"`
-	Password string `json:"password" binding:"required"`
+	Email    string `json:"email"`
+	Username string `json:"username"`
+	Password string `json:"password"`
 }
 
 // AuthResponse represents authentication response
@@ -96,8 +115,29 @@ func Login(c *gin.Context) {
 		return
 	}
 
-	// Find user
-	user, exists := users[req.Email]
+	if req.Password == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "密码不能为空"})
+		return
+	}
+
+	// Find user by email or username
+	var user *User
+	var exists bool
+	if req.Email != "" {
+		user, exists = users[req.Email]
+	} else if req.Username != "" {
+		for _, u := range users {
+			if u.Name == req.Username {
+				user = u
+				exists = true
+				break
+			}
+		}
+	} else {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "请输入邮箱或用户名"})
+		return
+	}
+
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
 		return

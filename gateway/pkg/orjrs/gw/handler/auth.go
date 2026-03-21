@@ -225,8 +225,13 @@ func CreateApiKey(c *gin.Context) {
 
 func DeleteApiKey(c *gin.Context) {
 	id := c.Param("id")
-	if err := database.DB.Delete(&model.ApiKey{}, "id = ?", id).Error; err != nil || database.DB.RowsAffected == 0 {
+	var apiKey model.ApiKey
+	if err := database.DB.Where("id = ?", id).First(&apiKey).Error; err == gorm.ErrRecordNotFound {
 		c.JSON(http.StatusNotFound, gin.H{"error": "API key not found"})
+		return
+	}
+	if err := database.DB.Delete(&apiKey).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete API key"})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "API key deleted"})

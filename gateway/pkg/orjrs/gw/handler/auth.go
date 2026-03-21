@@ -6,46 +6,18 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/orjrs/gateway/pkg/orjrs/gw/database"
 	"github.com/orjrs/gateway/pkg/orjrs/gw/middleware"
+	"github.com/orjrs/gateway/pkg/orjrs/gw/model"
+	"gorm.io/gorm"
 	"golang.org/x/crypto/bcrypt"
 )
 
-// User represents a user model
-type User struct {
-	ID        string    `json:"id"`
-	Email     string    `json:"email"`
-	Name      string    `json:"name"`
-	Password  string    `json:"-"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
-}
-
-// In-memory user store (replace with database in production)
-var users = make(map[string]*User)
-
-func init() {
-	// 创建默认管理员账号
-	adminPassword := "admin123"
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(adminPassword), bcrypt.DefaultCost)
-	if err != nil {
-		panic("Failed to hash admin password: " + err.Error())
-	}
-	admin := &User{
-		ID:        generateID(),
-		Email:     "admin@cogniforge.local",
-		Name:      "admin",
-		Password:  string(hashedPassword),
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
-	}
-	users[admin.Email] = admin
-}
-
 // RegisterRequest represents registration request
 type RegisterRequest struct {
-	Email    string `json:"email" binding:"required,email"`
-	Password string `json:"password" binding:"required,min=6"`
-	Name     string `json:"name" binding:"required"`
+	Email    string `json:"email"`
+	Password string `json:"password"`
+	Name     string `json:"name"`
 }
 
 // LoginRequest represents login request
@@ -57,8 +29,36 @@ type LoginRequest struct {
 
 // AuthResponse represents authentication response
 type AuthResponse struct {
-	Token string `json:"token"`
-	User  User   `json:"user"`
+	Token string      `json:"token"`
+	User  model.User  `json:"user"`
+}
+
+// ApiKeyRequest represents API key creation request
+type ApiKeyRequest struct {
+	Name string `json:"name" binding:"required"`
+}
+
+// InitDefaultAdmin creates the default admin user if not exists
+func InitDefaultAdmin() {
+	var admin model.User
+	err := database.DB.Where("email = ?", "admin@cogniforge.local").First(&admin).Error
+	if err == gorm.ErrRecordNotFound {
+		hashedPassword, err := bcrypt.GenerateFromPassword([]byte("admin123"), bcrypt.DefaultCost)
+		if err != nil {
+			panic("Failed to hash admin password: " + err.Error())
+		}
+		admin = model.User{
+			ID:        generateID(),
+			Email:     "admin@cogniforge.local",
+			Name:      "admin",
+			Password:  string(hashedPassword),
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		}
+		if err := database.DB.Create(&admin).Error; err != nil {
+			panic("Failed to create default admin: " + err.Error())
+		}
+	}
 }
 
 // Register handles user registration
@@ -70,7 +70,8 @@ func Register(c *gin.Context) {
 	}
 
 	// Check if user already exists
-	if _, exists := users[req.Email]; exists {
+	var existing model.User
+	if err := database.DB.Where("email = ?", req.Email).First(&existing).Error; err == nil {
 		c.JSON(http.StatusConflict, gin.H{"error": "User already exists"})
 		return
 	}
@@ -83,7 +84,7 @@ func Register(c *gin.Context) {
 	}
 
 	// Create user
-	user := &User{
+	user := model.User{
 		ID:        generateID(),
 		Email:     req.Email,
 		Name:      req.Name,
@@ -92,10 +93,13 @@ func Register(c *gin.Context) {
 		UpdatedAt: time.Now(),
 	}
 
-	users[req.Email] = user
+	if err := database.DB.Create(&user).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
+		return
+	}
 
 	// Generate token
-	token, err := generateToken(user)
+	token, err := generateToken(&user)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
 		return
@@ -103,7 +107,7 @@ func Register(c *gin.Context) {
 
 	c.JSON(http.StatusCreated, AuthResponse{
 		Token: token,
-		User:  *user,
+		User:  user,
 	})
 }
 
@@ -120,26 +124,24 @@ func Login(c *gin.Context) {
 		return
 	}
 
-	// Find user by email or username
-	var user *User
-	var exists bool
+	var user model.User
+	var err error
+
 	if req.Email != "" {
-		user, exists = users[req.Email]
+		err = database.DB.Where("email = ?", req.Email).First(&user).Error
 	} else if req.Username != "" {
-		for _, u := range users {
-			if u.Name == req.Username {
-				user = u
-				exists = true
-				break
-			}
-		}
+		err = database.DB.Where("name = ?", req.Username).First(&user).Error
 	} else {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "请输入邮箱或用户名"})
 		return
 	}
 
-	if !exists {
+	if err == gorm.ErrRecordNotFound {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
+		return
+	}
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
 		return
 	}
 
@@ -150,7 +152,7 @@ func Login(c *gin.Context) {
 	}
 
 	// Generate token
-	token, err := generateToken(user)
+	token, err := generateToken(&user)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
 		return
@@ -158,7 +160,7 @@ func Login(c *gin.Context) {
 
 	c.JSON(http.StatusOK, AuthResponse{
 		Token: token,
-		User:  *user,
+		User:  user,
 	})
 }
 
@@ -171,31 +173,65 @@ func Logout(c *gin.Context) {
 func GetCurrentUser(c *gin.Context) {
 	userID := c.GetString("user_id")
 
-	// Find user by ID
-	var currentUser *User
-	for _, user := range users {
-		if user.ID == userID {
-			currentUser = user
-			break
-		}
-	}
-
-	if currentUser == nil {
+	var user model.User
+	if err := database.DB.Where("id = ?", userID).First(&user).Error; err == gorm.ErrRecordNotFound {
 		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 		return
 	}
 
-	c.JSON(http.StatusOK, currentUser)
+	c.JSON(http.StatusOK, user)
 }
 
-// Placeholder handlers for other endpoints
-func ListUsers(c *gin.Context)       { c.JSON(http.StatusOK, users) }
+// ListUsers returns all users
+func ListUsers(c *gin.Context) {
+	var users []model.User
+	database.DB.Find(&users)
+	c.JSON(http.StatusOK, users)
+}
+
 func GetUser(c *gin.Context)         { c.JSON(http.StatusOK, gin.H{"message": "Get user"}) }
 func UpdateUser(c *gin.Context)      { c.JSON(http.StatusOK, gin.H{"message": "Update user"}) }
 func DeleteUser(c *gin.Context)      { c.JSON(http.StatusOK, gin.H{"message": "Delete user"}) }
-func ListApiKeys(c *gin.Context)     { c.JSON(http.StatusOK, gin.H{"keys": []interface{}{}}) }
-func CreateApiKey(c *gin.Context)    { c.JSON(http.StatusOK, gin.H{"key": "sk-" + generateID()}) }
-func DeleteApiKey(c *gin.Context)    { c.JSON(http.StatusOK, gin.H{"message": "API key deleted"}) }
+
+func ListApiKeys(c *gin.Context) {
+	userID := c.GetString("user_id")
+	var keys []model.ApiKey
+	database.DB.Where("user_id = ?", userID).Find(&keys)
+	c.JSON(http.StatusOK, gin.H{"keys": keys})
+}
+
+func CreateApiKey(c *gin.Context) {
+	userID := c.GetString("user_id")
+	var req ApiKeyRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	key := "sk-" + generateID()
+	apiKey := model.ApiKey{
+		ID:        generateID(),
+		UserID:    userID,
+		Name:      req.Name,
+		Key:       key,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+	if err := database.DB.Create(&apiKey).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create API key"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"key": key, "id": apiKey.ID, "name": apiKey.Name, "created_at": apiKey.CreatedAt})
+}
+
+func DeleteApiKey(c *gin.Context) {
+	id := c.Param("id")
+	if err := database.DB.Delete(&model.ApiKey{}, "id = ?", id).Error; err != nil || database.DB.RowsAffected == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "API key not found"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "API key deleted"})
+}
+
 func ListModels(c *gin.Context)      { c.JSON(http.StatusOK, gin.H{"models": []interface{}{}}) }
 func GetModel(c *gin.Context)        { c.JSON(http.StatusOK, gin.H{"message": "Get model"}) }
 func Chat(c *gin.Context)            { c.JSON(http.StatusOK, gin.H{"message": "Chat"}) }
@@ -218,7 +254,7 @@ func ListKnowledgeBases(c *gin.Context) {
 func CreateKnowledgeBase(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Create knowledge base"})
 }
-func GetKnowledgeBase(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"message": "Get knowledge base"}) }
+func GetKnowledgeBase(c *gin.Context)   { c.JSON(http.StatusOK, gin.H{"message": "Get knowledge base"}) }
 func UpdateKnowledgeBase(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Update knowledge base"})
 }
@@ -231,7 +267,7 @@ func DeleteDocument(c *gin.Context)  { c.JSON(http.StatusOK, gin.H{"message": "D
 func SearchKnowledge(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"message": "Search knowledge"}) }
 
 // Helper functions
-func generateToken(user *User) (string, error) {
+func generateToken(user *model.User) (string, error) {
 	claims := &middleware.Claims{
 		UserID: user.ID,
 		Email:  user.Email,

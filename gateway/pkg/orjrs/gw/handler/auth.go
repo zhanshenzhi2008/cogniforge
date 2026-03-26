@@ -9,8 +9,8 @@ import (
 	"github.com/orjrs/gateway/pkg/orjrs/gw/database"
 	"github.com/orjrs/gateway/pkg/orjrs/gw/middleware"
 	"github.com/orjrs/gateway/pkg/orjrs/gw/model"
-	"gorm.io/gorm"
 	"golang.org/x/crypto/bcrypt"
+	"gorm.io/gorm"
 )
 
 // RegisterRequest represents registration request
@@ -29,8 +29,8 @@ type LoginRequest struct {
 
 // AuthResponse represents authentication response
 type AuthResponse struct {
-	Token string      `json:"token"`
-	User  model.User  `json:"user"`
+	Token string     `json:"token"`
+	User  model.User `json:"user"`
 }
 
 // ApiKeyRequest represents API key creation request
@@ -189,9 +189,9 @@ func ListUsers(c *gin.Context) {
 	c.JSON(http.StatusOK, users)
 }
 
-func GetUser(c *gin.Context)         { c.JSON(http.StatusOK, gin.H{"message": "Get user"}) }
-func UpdateUser(c *gin.Context)      { c.JSON(http.StatusOK, gin.H{"message": "Update user"}) }
-func DeleteUser(c *gin.Context)      { c.JSON(http.StatusOK, gin.H{"message": "Delete user"}) }
+func GetUser(c *gin.Context)    { c.JSON(http.StatusOK, gin.H{"message": "Get user"}) }
+func UpdateUser(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"message": "Update user"}) }
+func DeleteUser(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"message": "Delete user"}) }
 
 func ListApiKeys(c *gin.Context) {
 	userID := c.GetString("user_id")
@@ -224,17 +224,30 @@ func CreateApiKey(c *gin.Context) {
 }
 
 func DeleteApiKey(c *gin.Context) {
+	userID := c.GetString("user_id")
 	id := c.Param("id")
+
 	var apiKey model.ApiKey
-	if err := database.DB.Where("id = ?", id).First(&apiKey).Error; err == gorm.ErrRecordNotFound {
-		c.JSON(http.StatusNotFound, gin.H{"error": "API key not found"})
+	if err := database.DB.Where("id = ?", id).First(&apiKey).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"error": "API key not found"})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+		}
 		return
 	}
+
+	// Verify ownership: only the owner can delete their API key
+	if apiKey.UserID != userID {
+		c.JSON(http.StatusForbidden, gin.H{"error": "You do not have permission to delete this API key"})
+		return
+	}
+
 	if err := database.DB.Delete(&apiKey).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete API key"})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"message": "API key deleted"})
+	c.JSON(http.StatusOK, gin.H{"message": "API key revoked successfully"})
 }
 
 func ListModels(c *gin.Context)      { c.JSON(http.StatusOK, gin.H{"models": []interface{}{}}) }
@@ -259,7 +272,7 @@ func ListKnowledgeBases(c *gin.Context) {
 func CreateKnowledgeBase(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Create knowledge base"})
 }
-func GetKnowledgeBase(c *gin.Context)   { c.JSON(http.StatusOK, gin.H{"message": "Get knowledge base"}) }
+func GetKnowledgeBase(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"message": "Get knowledge base"}) }
 func UpdateKnowledgeBase(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Update knowledge base"})
 }

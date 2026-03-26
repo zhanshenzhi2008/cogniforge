@@ -1,7 +1,10 @@
 package config
 
 import (
+	"bytes"
 	"fmt"
+	"os"
+	"regexp"
 	"time"
 
 	"github.com/spf13/viper"
@@ -52,10 +55,11 @@ func Load() *Config {
 	viper.AddConfigPath("configs")
 	viper.AddConfigPath(".")
 
-	// 自动展开环境变量 ${VAR} 或 ${VAR:-default}
 	viper.SetEnvKeyReplacer(nil)
 
-	if err := viper.ReadInConfig(); err != nil {
+	// Expand env vars before reading: supports both ${VAR} and ${VAR:-default}
+	configContent := expandEnvVarsInFile("configs/config.yaml")
+	if err := viper.ReadConfig(bytes.NewReader(configContent)); err != nil {
 		panic(fmt.Sprintf("failed to read config: %v", err))
 	}
 
@@ -65,6 +69,36 @@ func Load() *Config {
 	}
 
 	return &cfg
+}
+
+// expandEnvVarsInFile reads a config file and expands ${VAR} and ${VAR:-default} placeholders
+func expandEnvVarsInFile(path string) []byte {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return []byte{}
+	}
+	return expandEnvVars(data)
+}
+
+// expandEnvVars expands ${VAR} and ${VAR:-default} patterns in a byte slice
+func expandEnvVars(data []byte) []byte {
+	// Match ${VAR} or ${VAR:-default}
+	re := regexp.MustCompile(`\$\{([A-Za-z_][A-Za-z0-9_]*)(?::-([^}]*))?\}`)
+	return re.ReplaceAllFunc(data, func(match []byte) []byte {
+		matches := re.FindSubmatch(match)
+		if len(matches) < 2 {
+			return match
+		}
+		key := string(matches[1])
+		if val, ok := os.LookupEnv(key); ok {
+			return []byte(val)
+		}
+		// No env var set: use default if provided, otherwise empty
+		if len(matches) >= 3 {
+			return matches[2]
+		}
+		return []byte{}
+	})
 }
 
 func (c *Config) DSN() string {

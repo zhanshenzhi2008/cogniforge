@@ -8,10 +8,19 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	"github.com/orjrs/gateway/pkg/orjrs/gw/database"
 	"github.com/orjrs/gateway/pkg/orjrs/gw/handler"
 	"github.com/orjrs/gateway/pkg/orjrs/gw/middleware"
+	"github.com/orjrs/gateway/pkg/orjrs/gw/model"
 	"github.com/stretchr/testify/assert"
 )
+
+func TestMain(m *testing.M) {
+	db := database.InitTestDBForPkg()
+	database.DB = db
+	db.AutoMigrate(&model.User{}, &model.ApiKey{})
+	m.Run()
+}
 
 func init() {
 	gin.SetMode(gin.TestMode)
@@ -79,7 +88,6 @@ func TestAuthAPI_CompleteFlow(t *testing.T) {
 	})
 
 	t.Run("3. Get current user with valid token", func(t *testing.T) {
-		// First register to get token
 		reqBody := handler.RegisterRequest{
 			Email:    "current-user@example.com",
 			Password: "password123",
@@ -94,7 +102,6 @@ func TestAuthAPI_CompleteFlow(t *testing.T) {
 		var registerResponse handler.AuthResponse
 		json.Unmarshal(w.Body.Bytes(), &registerResponse)
 
-		// Access protected endpoint
 		req, _ = http.NewRequest("GET", "/api/v1/auth/me", nil)
 		req.Header.Set("Authorization", "Bearer "+registerResponse.Token)
 		w = httptest.NewRecorder()
@@ -102,7 +109,7 @@ func TestAuthAPI_CompleteFlow(t *testing.T) {
 
 		assert.Equal(t, http.StatusOK, w.Code)
 
-		var user handler.User
+		var user model.User
 		err := json.Unmarshal(w.Body.Bytes(), &user)
 		assert.NoError(t, err)
 		assert.Equal(t, "current-user@example.com", user.Email)
@@ -127,13 +134,10 @@ func TestAuthAPI_ErrorCases(t *testing.T) {
 			"name":     "Test",
 		}
 		body, _ := json.Marshal(reqBody)
-
 		req, _ := http.NewRequest("POST", "/api/v1/auth/register", bytes.NewBuffer(body))
 		req.Header.Set("Content-Type", "application/json")
-
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
-
 		assert.Equal(t, http.StatusBadRequest, w.Code)
 	})
 
@@ -144,13 +148,10 @@ func TestAuthAPI_ErrorCases(t *testing.T) {
 			"name":     "Test",
 		}
 		body, _ := json.Marshal(reqBody)
-
 		req, _ := http.NewRequest("POST", "/api/v1/auth/register", bytes.NewBuffer(body))
 		req.Header.Set("Content-Type", "application/json")
-
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
-
 		assert.Equal(t, http.StatusBadRequest, w.Code)
 	})
 
@@ -162,14 +163,12 @@ func TestAuthAPI_ErrorCases(t *testing.T) {
 		}
 		body, _ := json.Marshal(reqBody)
 
-		// First registration
 		req, _ := http.NewRequest("POST", "/api/v1/auth/register", bytes.NewBuffer(body))
 		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusCreated, w.Code)
 
-		// Duplicate registration
 		req, _ = http.NewRequest("POST", "/api/v1/auth/register", bytes.NewBuffer(body))
 		req.Header.Set("Content-Type", "application/json")
 		w = httptest.NewRecorder()
@@ -178,7 +177,6 @@ func TestAuthAPI_ErrorCases(t *testing.T) {
 	})
 
 	t.Run("Login with wrong password", func(t *testing.T) {
-		// Register first
 		reqBody := handler.RegisterRequest{
 			Email:    "wrongpass@example.com",
 			Password: "correctpassword",
@@ -190,7 +188,6 @@ func TestAuthAPI_ErrorCases(t *testing.T) {
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
 
-		// Login with wrong password
 		loginBody := handler.LoginRequest{
 			Email:    "wrongpass@example.com",
 			Password: "wrongpassword",
@@ -200,7 +197,6 @@ func TestAuthAPI_ErrorCases(t *testing.T) {
 		req.Header.Set("Content-Type", "application/json")
 		w = httptest.NewRecorder()
 		router.ServeHTTP(w, req)
-
 		assert.Equal(t, http.StatusUnauthorized, w.Code)
 	})
 
@@ -210,13 +206,10 @@ func TestAuthAPI_ErrorCases(t *testing.T) {
 			Password: "password123",
 		}
 		body, _ := json.Marshal(loginBody)
-
 		req, _ := http.NewRequest("POST", "/api/v1/auth/login", bytes.NewBuffer(body))
 		req.Header.Set("Content-Type", "application/json")
-
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
-
 		assert.Equal(t, http.StatusUnauthorized, w.Code)
 	})
 
@@ -224,7 +217,6 @@ func TestAuthAPI_ErrorCases(t *testing.T) {
 		req, _ := http.NewRequest("GET", "/api/v1/auth/me", nil)
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
-
 		assert.Equal(t, http.StatusUnauthorized, w.Code)
 	})
 
@@ -233,7 +225,6 @@ func TestAuthAPI_ErrorCases(t *testing.T) {
 		req.Header.Set("Authorization", "Bearer invalid-token")
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
-
 		assert.Equal(t, http.StatusUnauthorized, w.Code)
 	})
 
@@ -246,14 +237,12 @@ func TestAuthAPI_ErrorCases(t *testing.T) {
 			{"wrong prefix", "Basic some-token"},
 			{"empty bearer", "Bearer "},
 		}
-
 		for _, tc := range testCases {
 			t.Run(tc.name, func(t *testing.T) {
 				req, _ := http.NewRequest("GET", "/api/v1/auth/me", nil)
 				req.Header.Set("Authorization", tc.header)
 				w := httptest.NewRecorder()
 				router.ServeHTTP(w, req)
-
 				assert.Equal(t, http.StatusUnauthorized, w.Code)
 			})
 		}
@@ -271,7 +260,6 @@ func TestCorsMiddleware(t *testing.T) {
 		req, _ := http.NewRequest("GET", "/test", nil)
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
-
 		assert.Equal(t, http.StatusOK, w.Code)
 		assert.Equal(t, "*", w.Header().Get("Access-Control-Allow-Origin"))
 		assert.Contains(t, w.Header().Get("Access-Control-Allow-Methods"), "GET")
@@ -281,7 +269,6 @@ func TestCorsMiddleware(t *testing.T) {
 		req, _ := http.NewRequest("OPTIONS", "/test", nil)
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
-
 		assert.Equal(t, http.StatusNoContent, w.Code)
 		assert.Contains(t, w.Header().Get("Access-Control-Allow-Headers"), "Authorization")
 	})

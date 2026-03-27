@@ -69,6 +69,24 @@ func Register(c *gin.Context) {
 		return
 	}
 
+	// Validate email format
+	if req.Email == "" || !isValidEmail(req.Email) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "请输入有效的邮箱地址"})
+		return
+	}
+
+	// Validate password length
+	if len(req.Password) < 6 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "密码至少6位"})
+		return
+	}
+
+	// Validate name
+	if req.Name == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "请输入用户名"})
+		return
+	}
+
 	// Check if user already exists
 	var existing model.User
 	if err := database.DB.Where("email = ?", req.Email).First(&existing).Error; err == nil {
@@ -285,6 +303,23 @@ func DeleteDocument(c *gin.Context)  { c.JSON(http.StatusOK, gin.H{"message": "D
 func SearchKnowledge(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"message": "Search knowledge"}) }
 
 // Helper functions
+func isValidEmail(email string) bool {
+	// Basic email format validation
+	atIndex := -1
+	dotAfterAt := false
+	for i, ch := range email {
+		if ch == '@' {
+			if atIndex != -1 {
+				return false // multiple @
+			}
+			atIndex = i
+		} else if ch == '.' && atIndex != -1 {
+			dotAfterAt = true
+		}
+	}
+	return atIndex > 0 && dotAfterAt && atIndex < len(email)-1
+}
+
 func generateToken(user *model.User) (string, error) {
 	claims := &middleware.Claims{
 		UserID: user.ID,

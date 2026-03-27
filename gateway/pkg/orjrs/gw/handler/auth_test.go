@@ -8,13 +8,24 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	"github.com/orjrs/gateway/pkg/orjrs/gw/database"
 	"github.com/orjrs/gateway/pkg/orjrs/gw/handler"
 	"github.com/orjrs/gateway/pkg/orjrs/gw/middleware"
+	"github.com/orjrs/gateway/pkg/orjrs/gw/model"
 	"github.com/stretchr/testify/assert"
 )
 
 func init() {
 	gin.SetMode(gin.TestMode)
+}
+
+func TestMain(m *testing.M) {
+	// Set up in-memory SQLite database for all tests in this package.
+	// This runs once before all tests.
+	db := database.InitTestDBForPkg()
+	database.DB = db
+	db.AutoMigrate(&model.User{}, &model.ApiKey{})
+	m.Run()
 }
 
 func setupTestRouter() *gin.Engine {
@@ -297,7 +308,7 @@ func TestGetCurrentUser_WithValidToken(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var user handler.User
+	var user model.User
 	err := json.Unmarshal(w.Body.Bytes(), &user)
 	assert.NoError(t, err)
 	assert.Equal(t, "currentuser@example.com", user.Email)

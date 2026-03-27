@@ -14,6 +14,7 @@ type Config struct {
 	Server   ServerConfig
 	Database DatabaseConfig
 	Redis    RedisConfig
+	AI       AIConfig
 	JWT      JWTConfig
 	Log      LogConfig
 }
@@ -37,6 +38,13 @@ type RedisConfig struct {
 	Port     int
 	Password string
 	DB       int
+}
+
+type AIConfig struct {
+	Provider     string
+	BaseURL      string
+	APIKey       string
+	DefaultModel string
 }
 
 type JWTConfig struct {

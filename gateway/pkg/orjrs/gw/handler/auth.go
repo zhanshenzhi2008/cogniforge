@@ -270,8 +270,6 @@ func DeleteApiKey(c *gin.Context) {
 
 func ListModels(c *gin.Context)      { c.JSON(http.StatusOK, gin.H{"models": []interface{}{}}) }
 func GetModel(c *gin.Context)        { c.JSON(http.StatusOK, gin.H{"message": "Get model"}) }
-func Chat(c *gin.Context)            { c.JSON(http.StatusOK, gin.H{"message": "Chat"}) }
-func ChatStream(c *gin.Context)      { c.JSON(http.StatusOK, gin.H{"message": "Chat stream"}) }
 func ListAgents(c *gin.Context)      { c.JSON(http.StatusOK, gin.H{"agents": []interface{}{}}) }
 func CreateAgent(c *gin.Context)     { c.JSON(http.StatusOK, gin.H{"message": "Create agent"}) }
 func GetAgent(c *gin.Context)        { c.JSON(http.StatusOK, gin.H{"message": "Get agent"}) }

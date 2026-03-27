@@ -16,6 +16,12 @@ redis:
   password: ${REDIS_PASSWORD:-}
   db: ${REDIS_DB:-0}
 
+ai:
+  provider: ${AI_PROVIDER:-openai}
+  base_url: ${AI_BASE_URL:-https://api.openai.com}
+  api_key: ${AI_API_KEY:-}
+  default_model: ${AI_DEFAULT_MODEL:-gpt-4o}
+
 jwt:
   secret: ${JWT_SECRET}
   expire: ${JWT_EXPIRE:-24h}

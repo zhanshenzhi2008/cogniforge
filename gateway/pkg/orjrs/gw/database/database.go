@@ -2,7 +2,7 @@ package database
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 
 	"github.com/orjrs/gateway/pkg/orjrs/gw/config"
 	"gorm.io/driver/postgres"
@@ -38,7 +38,7 @@ func Connect(cfg *config.Config) *gorm.DB {
 	sqlDB.SetMaxIdleConns(10)
 	sqlDB.SetMaxOpenConns(100)
 
-	log.Println("Database connected successfully")
+	slog.Info("database connected successfully")
 	DB = db
 	return db
 }

@@ -1,28 +1,34 @@
 package main
 
 import (
-	"log"
+	"log/slog"
 	"os"
 
 	"github.com/gin-gonic/gin"
 	"github.com/orjrs/gateway/pkg/orjrs/gw/config"
 	"github.com/orjrs/gateway/pkg/orjrs/gw/database"
 	"github.com/orjrs/gateway/pkg/orjrs/gw/handler"
+	"github.com/orjrs/gateway/pkg/orjrs/gw/logger"
 	"github.com/orjrs/gateway/pkg/orjrs/gw/middleware"
 	"github.com/orjrs/gateway/pkg/orjrs/gw/model"
 )
 
 func main() {
+	// Initialize structured logger with source info
+	logger.Init()
+
 	// Set Gin mode
 	gin.SetMode(os.Getenv("GIN_MODE"))
 
 	// Load config
 	cfg := config.Load()
+	handler.SetChatConfig(cfg)
 
 	// Connect to database and auto-migrate
 	db := database.Connect(cfg)
 	if err := db.AutoMigrate(&model.User{}, &model.ApiKey{}); err != nil {
-		log.Fatalf("Failed to migrate database: %v", err)
+		slog.Error("failed to migrate database", "error", err)
+		return
 	}
 
 	// Create default admin
@@ -125,8 +131,9 @@ func main() {
 		port = "8080"
 	}
 
-	log.Printf("Server starting on port %s", port)
+	slog.Info("server starting", "port", port)
 	if err := r.Run(":" + port); err != nil {
-		log.Fatalf("Failed to start server: %v", err)
+		slog.Error("failed to start server", "error", err)
+		return
 	}
 }

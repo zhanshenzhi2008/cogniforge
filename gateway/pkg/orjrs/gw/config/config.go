@@ -41,10 +41,10 @@ type RedisConfig struct {
 }
 
 type AIConfig struct {
-	Provider     string
-	BaseURL      string
-	APIKey       string
-	DefaultModel string
+	Provider     string `mapstructure:"provider"`
+	BaseURL      string `mapstructure:"base_url"`
+	APIKey       string `mapstructure:"api_key"`
+	DefaultModel string `mapstructure:"default_model"`
 }
 
 type JWTConfig struct {

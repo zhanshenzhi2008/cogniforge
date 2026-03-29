@@ -268,7 +268,6 @@ func DeleteApiKey(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "API key revoked successfully"})
 }
 
-func ListModels(c *gin.Context)      { c.JSON(http.StatusOK, gin.H{"models": []interface{}{}}) }
 func GetModel(c *gin.Context)        { c.JSON(http.StatusOK, gin.H{"message": "Get model"}) }
 func ListAgents(c *gin.Context)      { c.JSON(http.StatusOK, gin.H{"agents": []interface{}{}}) }
 func CreateAgent(c *gin.Context)     { c.JSON(http.StatusOK, gin.H{"message": "Create agent"}) }

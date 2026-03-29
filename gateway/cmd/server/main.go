@@ -25,7 +25,11 @@ func main() {
 	handler.SetChatConfig(cfg)
 
 	// Connect to database and auto-migrate
-	db := database.Connect(cfg)
+	db, err := database.Connect(cfg)
+	if err != nil {
+		slog.Error("failed to connect database", "error", err)
+		return
+	}
 	if err := db.AutoMigrate(&model.User{}, &model.ApiKey{}); err != nil {
 		slog.Error("failed to migrate database", "error", err)
 		return

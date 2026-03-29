@@ -71,6 +71,20 @@ type SSEChoice struct {
 
 var chatCfg *config.Config
 
+func ListModels(c *gin.Context) {
+	var models []map[string]string
+	if chatCfg != nil && chatCfg.AI.APIKey != "" {
+		models = []map[string]string{
+			{"id": chatCfg.AI.DefaultModel, "name": chatCfg.AI.DefaultModel},
+		}
+	} else {
+		models = []map[string]string{
+			{"id": "mock-gpt-4o", "name": "Mock GPT-4o (no API key)"},
+		}
+	}
+	c.JSON(http.StatusOK, gin.H{"models": models})
+}
+
 func SetChatConfig(cfg *config.Config) {
 	chatCfg = cfg
 	slog.Info("AI config loaded",

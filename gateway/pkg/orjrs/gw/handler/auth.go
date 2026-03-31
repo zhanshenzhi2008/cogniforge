@@ -268,13 +268,220 @@ func DeleteApiKey(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "API key revoked successfully"})
 }
 
-func GetModel(c *gin.Context)        { c.JSON(http.StatusOK, gin.H{"message": "Get model"}) }
-func ListAgents(c *gin.Context)      { c.JSON(http.StatusOK, gin.H{"agents": []interface{}{}}) }
-func CreateAgent(c *gin.Context)     { c.JSON(http.StatusOK, gin.H{"message": "Create agent"}) }
-func GetAgent(c *gin.Context)        { c.JSON(http.StatusOK, gin.H{"message": "Get agent"}) }
-func UpdateAgent(c *gin.Context)     { c.JSON(http.StatusOK, gin.H{"message": "Update agent"}) }
-func DeleteAgent(c *gin.Context)     { c.JSON(http.StatusOK, gin.H{"message": "Delete agent"}) }
-func AgentChat(c *gin.Context)       { c.JSON(http.StatusOK, gin.H{"message": "Agent chat"}) }
+// Agent request/response types
+type CreateAgentRequest struct {
+	Name         string              `json:"name" binding:"required"`
+	Description  string              `json:"description"`
+	Model        string              `json:"model" binding:"required"`
+	SystemPrompt string              `json:"system_prompt"`
+	Tools        []string            `json:"tools"`
+	MemoryConfig *model.MemoryConfig `json:"memory_config"`
+	Guardrails   *model.Guardrails   `json:"guardrails"`
+}
+
+type UpdateAgentRequest struct {
+	Name         string              `json:"name"`
+	Description  string              `json:"description"`
+	Model        string              `json:"model"`
+	SystemPrompt string              `json:"system_prompt"`
+	Tools        []string            `json:"tools"`
+	MemoryConfig *model.MemoryConfig `json:"memory_config"`
+	Guardrails   *model.Guardrails   `json:"guardrails"`
+	Status       string              `json:"status"`
+}
+
+type AgentListResponse struct {
+	Data []model.Agent `json:"data"`
+}
+
+// GetModel returns a single model by ID (placeholder)
+func GetModel(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{"message": "Get model"})
+}
+
+// ListAgents returns all agents for the current user
+func ListAgents(c *gin.Context) {
+	userID := c.GetString("user_id")
+
+	var agents []model.Agent
+	if err := database.DB.Where("user_id = ?", userID).Order("created_at DESC").Find(&agents).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch agents"})
+		return
+	}
+
+	c.JSON(http.StatusOK, AgentListResponse{Data: agents})
+}
+
+// CreateAgent creates a new agent
+func CreateAgent(c *gin.Context) {
+	userID := c.GetString("user_id")
+
+	var req CreateAgentRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Validate required fields
+	if req.Name == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "名称不能为空"})
+		return
+	}
+	if req.Model == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "请选择模型"})
+		return
+	}
+
+	// Set default memory config if not provided
+	memoryConfig := model.MemoryConfig{
+		Type:     "short_term",
+		MaxTurns: 10,
+	}
+	if req.MemoryConfig != nil {
+		memoryConfig = *req.MemoryConfig
+	}
+
+	// Set default guardrails if not provided
+	guardrails := model.Guardrails{
+		InputFilter:  true,
+		OutputFilter: true,
+	}
+	if req.Guardrails != nil {
+		guardrails = *req.Guardrails
+	}
+
+	// Set default tools if not provided
+	tools := model.JSONBArray{}
+	if req.Tools != nil {
+		tools = req.Tools
+	}
+
+	agent := model.Agent{
+		ID:           generateID(),
+		UserID:       userID,
+		Name:         req.Name,
+		Description:  req.Description,
+		Model:        req.Model,
+		SystemPrompt: req.SystemPrompt,
+		Tools:        tools,
+		MemoryConfig: memoryConfig,
+		Guardrails:   guardrails,
+		Status:       "active",
+		CreatedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
+	}
+
+	if err := database.DB.Create(&agent).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create agent"})
+		return
+	}
+
+	c.JSON(http.StatusCreated, agent)
+}
+
+// GetAgent returns a single agent by ID
+func GetAgent(c *gin.Context) {
+	userID := c.GetString("user_id")
+	agentID := c.Param("id")
+
+	var agent model.Agent
+	if err := database.DB.Where("id = ? AND user_id = ?", agentID, userID).First(&agent).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Agent not found"})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch agent"})
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, agent)
+}
+
+// UpdateAgent updates an existing agent
+func UpdateAgent(c *gin.Context) {
+	userID := c.GetString("user_id")
+	agentID := c.Param("id")
+
+	var agent model.Agent
+	if err := database.DB.Where("id = ? AND user_id = ?", agentID, userID).First(&agent).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Agent not found"})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch agent"})
+		}
+		return
+	}
+
+	var req UpdateAgentRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Update fields if provided
+	if req.Name != "" {
+		agent.Name = req.Name
+	}
+	if req.Description != "" {
+		agent.Description = req.Description
+	}
+	if req.Model != "" {
+		agent.Model = req.Model
+	}
+	if req.SystemPrompt != "" {
+		agent.SystemPrompt = req.SystemPrompt
+	}
+	if req.Tools != nil {
+		agent.Tools = req.Tools
+	}
+	if req.MemoryConfig != nil {
+		agent.MemoryConfig = *req.MemoryConfig
+	}
+	if req.Guardrails != nil {
+		agent.Guardrails = *req.Guardrails
+	}
+	if req.Status != "" {
+		agent.Status = req.Status
+	}
+	agent.UpdatedAt = time.Now()
+
+	if err := database.DB.Save(&agent).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update agent"})
+		return
+	}
+
+	c.JSON(http.StatusOK, agent)
+}
+
+// DeleteAgent deletes an agent (soft delete)
+func DeleteAgent(c *gin.Context) {
+	userID := c.GetString("user_id")
+	agentID := c.Param("id")
+
+	var agent model.Agent
+	if err := database.DB.Where("id = ? AND user_id = ?", agentID, userID).First(&agent).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Agent not found"})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch agent"})
+		}
+		return
+	}
+
+	// Soft delete
+	if err := database.DB.Delete(&agent).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete agent"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Agent deleted successfully"})
+}
+
+// AgentChat handles chat with an agent (stub - will be implemented in 5.5)
+func AgentChat(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{"message": "Agent chat endpoint - to be implemented"})
+}
+
 func ListWorkflows(c *gin.Context)   { c.JSON(http.StatusOK, gin.H{"workflows": []interface{}{}}) }
 func CreateWorkflow(c *gin.Context)  { c.JSON(http.StatusOK, gin.H{"message": "Create workflow"}) }
 func GetWorkflow(c *gin.Context)     { c.JSON(http.StatusOK, gin.H{"message": "Get workflow"}) }

@@ -4,12 +4,14 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="6fe927f1-be2f-49ea-b8b9-b20303680be7" name="Changes" comment="feat 遗漏的代码-引入GORM">
-      <change afterPath="$PROJECT_DIR$/gateway/server" afterDir="false" />
+    <list default="true" id="7a08bbd2-dc8e-4adb-b5d9-c1d9926348fc" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/gateway/pkg/orjrs/gw/config/config.go" beforeDir="false" afterPath="$PROJECT_DIR$/gateway/pkg/orjrs/gw/config/config.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/gateway/pkg/orjrs/gw/handler/auth.go" beforeDir="false" afterPath="$PROJECT_DIR$/gateway/pkg/orjrs/gw/handler/auth.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/gateway/cmd/server/main.go" beforeDir="false" afterPath="$PROJECT_DIR$/gateway/cmd/server/main.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/gateway/configs/config.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/gateway/configs/config.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/gateway/pkg/orjrs/gw/handler/chat.go" beforeDir="false" afterPath="$PROJECT_DIR$/gateway/pkg/orjrs/gw/handler/chat.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/gateway/pkg/orjrs/gw/handler/chat_test.go" beforeDir="false" afterPath="$PROJECT_DIR$/gateway/pkg/orjrs/gw/handler/chat_test.go" afterDir="false" />
     </list>
+    <list id="c111af1d-6255-430c-a8e7-82bc09f53084" name="no commit Changes" comment="" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -29,35 +31,46 @@
     "node.js.selected.package.tslint": "(autodetect)",
     "nodejs.jest.jest_package": "",
     "project.structure.last.edited": "Modules",
-    "project.structure.proportion": "0.15",
-    "project.structure.side.proportion": "0.2",
-    "settings.editor.selected.configurable": "com.goide.configuration.GoLibrariesConfigurableProvider"
+    "project.structure.proportion": "0.0",
+    "project.structure.side.proportion": "0.0"
   }
 }]]></component>
   <component name="RunManager">
     <configuration default="true" type="GoApplicationRunConfiguration" factoryName="Go Application">
-      <working_directory value="$PROJECT_DIR$" />
+      <module name="gateway" />
+      <working_directory value="$PROJECT_DIR$/gateway" />
       <envs>
-        <env name="MONGODB_URI" value="" />
+        <env name="AI_API_KEY" value="sk-1cOyQju50F0XWSvHTY11b9dskHyxHMirg5kpnpICC2clsqnM" />
+        <env name="AI_BASE_URL" value="https://api.xty.app/v1" />
+        <env name="GIN_MODE" value="debug" />
+        <env name="JWT_SECRET" value="cogniforge-dev-secret-key-32chars" />
+        <env name="MONGODB_URI" value="mongodb://localhost:27017/online-survey" />
         <env name="POSTGRES_DB" value="cogniforge" />
         <env name="POSTGRES_HOST" value="localhost" />
         <env name="POSTGRES_PASSWORD" value="postgres-root" />
-        <env name="POSTGRES_PORT" value="5432" />
+        <env name="POSTGRES_PORT" value="5433" />
         <env name="POSTGRES_SSLMODE" value="disable" />
         <env name="POSTGRES_USER" value="postgres" />
+        <env name="REDIS_DB" value="0" />
         <env name="REDIS_HOST" value="localhost" />
-        <env name="REDIS_PASSWORD" value="mongodb://localhost:27017/online-survey" />
+        <env name="REDIS_PASSWORD" value="" />
         <env name="REDIS_PORT" value="6379" />
+        <env name="REDIS_URL" value="redis://localhost:6379" />
       </envs>
-      <kind value="FILE" />
-      <directory value="$PROJECT_DIR$" />
-      <filePath value="$PROJECT_DIR$" />
+      <kind value="PACKAGE" />
+      <package value="github.com/orjrs/gateway" />
+      <directory value="$PROJECT_DIR$/gateway" />
+      <filePath value="$PROJECT_DIR$/gateway" />
       <method v="2" />
     </configuration>
     <configuration name="go build github.com/orjrs/gateway/cmd/server" type="GoApplicationRunConfiguration" factoryName="Go Application" temporary="true" nameIsGenerated="true">
       <module name="gateway" />
       <working_directory value="$PROJECT_DIR$/gateway" />
       <envs>
+        <env name="AI_API_KEY" value="sk-1cOyQju50F0XWSvHTY11b9dskHyxHMirg5kpnpICC2clsqnM" />
+        <env name="AI_BASE_URL" value="https://api.xty.app/v1" />
+        <env name="GIN_MODE" value="debug" />
+        <env name="JWT_SECRET" value="cogniforge-dev-secret-key-32chars" />
         <env name="MONGODB_URI" value="mongodb://localhost:27017/online-survey" />
         <env name="POSTGRES_DB" value="cogniforge" />
         <env name="POSTGRES_HOST" value="localhost" />
@@ -65,19 +78,26 @@
         <env name="POSTGRES_PORT" value="5433" />
         <env name="POSTGRES_SSLMODE" value="disable" />
         <env name="POSTGRES_USER" value="postgres" />
+        <env name="REDIS_DB" value="0" />
         <env name="REDIS_HOST" value="localhost" />
         <env name="REDIS_PASSWORD" value="" />
         <env name="REDIS_PORT" value="6379" />
+        <env name="REDIS_URL" value="redis://localhost:6379" />
       </envs>
       <kind value="PACKAGE" />
       <package value="github.com/orjrs/gateway/cmd/server" />
-      <directory value="$PROJECT_DIR$" />
+      <directory value="$PROJECT_DIR$/gateway" />
       <filePath value="$PROJECT_DIR$/gateway/cmd/server/main.go" />
       <method v="2" />
     </configuration>
     <configuration default="true" type="GoTestRunConfiguration" factoryName="Go Test">
-      <working_directory value="$PROJECT_DIR$" />
+      <module name="gateway" />
+      <working_directory value="$PROJECT_DIR$/gateway" />
       <envs>
+        <env name="AI_API_KEY" value="sk-1cOyQju50F0XWSvHTY11b9dskHyxHMirg5kpnpICC2clsqnM" />
+        <env name="AI_BASE_URL" value="https://api.xty.app/v1" />
+        <env name="GIN_MODE" value="debug" />
+        <env name="JWT_SECRET" value="cogniforge-dev-secret-key-32chars" />
         <env name="MONGODB_URI" value="mongodb://localhost:27017/online-survey" />
         <env name="POSTGRES_DB" value="cogniforge" />
         <env name="POSTGRES_HOST" value="localhost" />
@@ -85,136 +105,36 @@
         <env name="POSTGRES_PORT" value="5433" />
         <env name="POSTGRES_SSLMODE" value="disable" />
         <env name="POSTGRES_USER" value="postgres" />
+        <env name="REDIS_DB" value="0" />
         <env name="REDIS_HOST" value="localhost" />
         <env name="REDIS_PASSWORD" value="" />
         <env name="REDIS_PORT" value="6379" />
+        <env name="REDIS_URL" value="redis://localhost:6379" />
       </envs>
       <kind value="DIRECTORY" />
-      <directory value="$PROJECT_DIR$" />
-      <filePath value="$PROJECT_DIR$" />
+      <package value="github.com/orjrs/gateway" />
+      <directory value="$PROJECT_DIR$/gateway" />
+      <filePath value="$PROJECT_DIR$/gateway" />
       <framework value="gotest" />
       <method v="2" />
+    </configuration>
+    <configuration default="true" type="GroovyScriptRunConfiguration" factoryName="Groovy">
+      <setting name="path" value="" />
+      <setting name="vmparams" value="" />
+      <setting name="params" value="" />
+      <setting name="workDir" value="file://$PROJECT_DIR$" />
+      <setting name="debug" value="false" />
+      <setting name="addClasspath" value="true" />
+      <setting name="shortenClasspath" value="NONE" />
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
     </configuration>
     <configuration default="true" type="JUnit" factoryName="JUnit">
       <module name="gateway" />
       <option name="MAIN_CLASS_NAME" value="" />
       <option name="METHOD_NAME" value="" />
       <option name="TEST_OBJECT" value="class" />
-      <envs>
-        <env name="MONGODB_URI" value="mongodb://localhost:27017/online-survey" />
-        <env name="POSTGRES_DB" value="cogniforge" />
-        <env name="POSTGRES_HOST" value="localhost" />
-        <env name="POSTGRES_PASSWORD" value="postgres-root" />
-        <env name="POSTGRES_PORT" value="5433" />
-        <env name="POSTGRES_SSLMODE" value="disable" />
-        <env name="POSTGRES_USER" value="postgres" />
-        <env name="REDIS_HOST" value="localhost" />
-        <env name="REDIS_PASSWORD" value="" />
-        <env name="REDIS_PORT" value="6379" />
-      </envs>
-      <method v="2">
-        <option name="Make" enabled="true" />
-      </method>
-    </configuration>
-    <configuration default="true" type="JavaScriptTestRunnerJest">
-      <node-interpreter value="project" />
-      <envs>
-        <env name="MONGODB_URI" value="mongodb://localhost:27017/online-survey" />
-        <env name="POSTGRES_DB" value="cogniforge" />
-        <env name="POSTGRES_HOST" value="localhost" />
-        <env name="POSTGRES_PASSWORD" value="postgres-root" />
-        <env name="POSTGRES_PORT" value="5433" />
-        <env name="POSTGRES_SSLMODE" value="disable" />
-        <env name="POSTGRES_USER" value="postgres" />
-        <env name="REDIS_HOST" value="localhost" />
-        <env name="REDIS_PASSWORD" value="" />
-        <env name="REDIS_PORT" value="6379" />
-      </envs>
-      <scope-kind value="ALL" />
-      <method v="2" />
-    </configuration>
-    <configuration default="true" type="MUnitRunConfiguration" factoryName="MUnit" show_console_on_std_err="false" show_console_on_std_out="false">
-      <option name="VMParameters" value="" />
-      <option name="allowRunningInParallel" value="false" />
-      <option name="alternativeJrePath" />
-      <option name="alternativeJrePathEnabled" value="false" />
-      <option name="classpathModifications">
-        <list />
-      </option>
-      <option name="envFilePaths">
-        <list />
-      </option>
-      <option name="envs">
-        <map />
-      </option>
-      <option name="passParentEnvs" value="true" />
-      <option name="programParameters" value="" />
-      <option name="projectPathOnTarget" />
-      <option name="selectedOptions">
-        <list />
-      </option>
-      <option name="testKind" value="Class" />
-      <option name="workingDirectory" value="$PROJECT_DIR$" />
-      <option name="shortenClasspath" value="NONE" />
-      <method v="2">
-        <option name="Make" enabled="true" />
-      </method>
-    </configuration>
-    <configuration default="true" type="NodeJSConfigurationType">
-      <envs>
-        <env name="MONGODB_URI" value="mongodb://localhost:27017/online-survey" />
-        <env name="POSTGRES_DB" value="cogniforge" />
-        <env name="POSTGRES_HOST" value="localhost" />
-        <env name="POSTGRES_PASSWORD" value="postgres-root" />
-        <env name="POSTGRES_PORT" value="5433" />
-        <env name="POSTGRES_SSLMODE" value="disable" />
-        <env name="POSTGRES_USER" value="postgres" />
-        <env name="REDIS_HOST" value="localhost" />
-        <env name="REDIS_PASSWORD" value="" />
-        <env name="REDIS_PORT" value="6379" />
-      </envs>
-      <method v="2" />
-    </configuration>
-    <configuration default="true" type="NodeJsTestRunner">
-      <node-interpreter value="project" />
-      <language value="JAVA_SCRIPT" />
-      <typescript-loader value="MANUAL_SETUP_IN_NODE_OPTION" />
-      <envs>
-        <env name="MONGODB_URI" value="mongodb://localhost:27017/online-survey" />
-        <env name="POSTGRES_DB" value="cogniforge" />
-        <env name="POSTGRES_HOST" value="localhost" />
-        <env name="POSTGRES_PASSWORD" value="postgres-root" />
-        <env name="POSTGRES_PORT" value="5432" />
-        <env name="POSTGRES_SSLMODE" value="disable" />
-        <env name="POSTGRES_USER" value="postgres" />
-        <env name="REDIS_HOST" value="localhost" />
-        <env name="REDIS_PASSWORD" value="" />
-        <env name="REDIS_PORT" value="6379" />
-      </envs>
-      <scope-kind value="ALL" />
-      <method v="2" />
-    </configuration>
-    <configuration default="true" type="QsApplicationConfigurationType" factoryName="QuarkusApplication">
-      <module name="gateway" />
-      <method v="2">
-        <option name="Make" enabled="true" />
-      </method>
-    </configuration>
-    <configuration default="true" type="ScalaScriptConsoleRunConfiguration" factoryName="Scala Console" show_console_on_std_err="false" show_console_on_std_out="false">
-      <option name="allowRunningInParallel" value="false" />
-      <option name="envFilePaths">
-        <list />
-      </option>
-      <option name="environmentVariables">
-        <map />
-      </option>
-      <option name="javaOptions" value="" />
-      <option name="myConsoleArgs" value="-usejavacp" />
-      <option name="projectPathOnTarget" />
-      <option name="selectedOptions">
-        <list />
-      </option>
-      <option name="workingDirectory" value="$PROJECT_DIR$/gateway" />
       <method v="2">
         <option name="Make" enabled="true" />
       </method>
@@ -227,6 +147,7 @@
       <option name="classpathModifications">
         <list />
       </option>
+      <option name="defaultTargetName" />
       <option name="envFilePaths">
         <list />
       </option>
@@ -248,6 +169,10 @@
     </configuration>
     <configuration default="true" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot">
       <envs>
+        <env name="AI_API_KEY" value="sk-1cOyQju50F0XWSvHTY11b9dskHyxHMirg5kpnpICC2clsqnM" />
+        <env name="AI_BASE_URL" value="https://api.xty.app/v1" />
+        <env name="GIN_MODE" value="debug" />
+        <env name="JWT_SECRET" value="cogniforge-dev-secret-key-32chars" />
         <env name="MONGODB_URI" value="mongodb://localhost:27017/online-survey" />
         <env name="POSTGRES_DB" value="cogniforge" />
         <env name="POSTGRES_HOST" value="localhost" />
@@ -255,9 +180,11 @@
         <env name="POSTGRES_PORT" value="5433" />
         <env name="POSTGRES_SSLMODE" value="disable" />
         <env name="POSTGRES_USER" value="postgres" />
+        <env name="REDIS_DB" value="0" />
         <env name="REDIS_HOST" value="localhost" />
         <env name="REDIS_PASSWORD" value="" />
         <env name="REDIS_PORT" value="6379" />
+        <env name="REDIS_URL" value="redis://localhost:6379" />
       </envs>
       <module name="gateway" />
       <option name="SPRING_BOOT_MAIN_CLASS" />
@@ -273,25 +200,6 @@
   </component>
   <component name="TaskManager">
     <servers />
-  </component>
-  <component name="XDebuggerManager">
-    <breakpoint-manager>
-      <breakpoints>
-        <line-breakpoint enabled="true" type="DlvLineBreakpoint">
-          <url>file://$PROJECT_DIR$/gateway/pkg/orjrs/gw/config/config.go</url>
-          <line>61</line>
-          <option name="timeStamp" value="1" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" type="DlvLineBreakpoint">
-          <url>file://$PROJECT_DIR$/gateway/cmd/server/main.go</url>
-          <line>19</line>
-          <option name="timeStamp" value="2" />
-        </line-breakpoint>
-      </breakpoints>
-      <default-breakpoints>
-        <breakpoint type="DlvErrorBreakpoint" />
-      </default-breakpoints>
-    </breakpoint-manager>
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />

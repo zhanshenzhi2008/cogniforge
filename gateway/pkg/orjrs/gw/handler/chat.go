@@ -71,17 +71,58 @@ type SSEChoice struct {
 
 var chatCfg *config.Config
 
-func ListModels(c *gin.Context) {
-	var models []map[string]string
-	if chatCfg != nil && chatCfg.AI.APIKey != "" {
-		models = []map[string]string{
-			{"id": chatCfg.AI.DefaultModel, "name": chatCfg.AI.DefaultModel},
-		}
-	} else {
-		models = []map[string]string{
-			{"id": "mock-gpt-4o", "name": "Mock GPT-4o (no API key)"},
-		}
+var builtInModels = []string{
+	"gpt-3.5-turbo",
+	"gpt-3.5-turbo-0125",
+	"gpt-3.5-turbo-0301",
+	"gpt-3.5-turbo-0302",
+	"gpt-3.5-turbo-0613",
+	"gpt-3.5-turbo-0615",
+	"gpt-3.5-turbo-1106",
+	"gpt-3.5-turbo-1107",
+	"gpt-3.5-turbo-16k",
+	"gpt-3.5-turbo-16k-0613",
+	"gpt-3.5-turbo-instruct",
+	"text-davinci-003",
+	"text-embedding-3-large",
+	"text-embedding-3-small",
+	"text-embedding-ada-002",
+	"tts-1",
+	"tts-1-1106",
+	"tts-1-hd",
+	"tts-1-hd-1106",
+	"whisper-1",
+}
+
+func defaultModel() string {
+	if chatCfg != nil && strings.TrimSpace(chatCfg.AI.DefaultModel) != "" {
+		return chatCfg.AI.DefaultModel
 	}
+	// 默认使用你当前网关稳定可用的模型，避免 gpt-4o 503。
+	return "gpt-3.5-turbo"
+}
+
+func ListModels(c *gin.Context) {
+	models := make([]map[string]string, 0, len(builtInModels)+1)
+	seen := make(map[string]struct{}, len(builtInModels)+1)
+
+	add := func(m string) {
+		m = strings.TrimSpace(m)
+		if m == "" {
+			return
+		}
+		if _, ok := seen[m]; ok {
+			return
+		}
+		seen[m] = struct{}{}
+		models = append(models, map[string]string{"id": m, "name": m})
+	}
+
+	add(defaultModel())
+	for _, m := range builtInModels {
+		add(m)
+	}
+
 	c.JSON(http.StatusOK, gin.H{"models": models})
 }
 
@@ -122,7 +163,7 @@ func Chat(c *gin.Context) {
 	}
 
 	if req.Model == "" {
-		req.Model = "gpt-4o"
+		req.Model = defaultModel()
 	}
 
 	resp, err := callAIProvider(req)
@@ -148,7 +189,7 @@ func ChatStream(c *gin.Context) {
 	}
 
 	if req.Model == "" {
-		req.Model = "gpt-4o"
+		req.Model = defaultModel()
 	}
 
 	c.Header("Content-Type", "text/event-stream")
@@ -157,6 +198,12 @@ func ChatStream(c *gin.Context) {
 	c.Header("X-Accel-Buffering", "no")
 
 	if err := streamAIProvider(c, req); err != nil {
+		// 记录详细错误和关键参数，便于排查
+		slog.Error("streamAIProvider failed",
+			"error", err,
+			"model", req.Model,
+			"messages_count", len(req.Messages),
+		)
 		fmt.Fprintf(c.Writer, "data: {\"error\": \"AI provider error: %s\"}\n\n", err.Error())
 		c.Writer.Flush()
 	}

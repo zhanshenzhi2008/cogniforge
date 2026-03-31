@@ -52,6 +52,8 @@ func main() {
 	// API routes
 	api := r.Group("/api/v1")
 	{
+		api.POST("/chat/stream", handler.ChatStream)
+
 		// Auth routes
 		auth := api.Group("/auth")
 		{
@@ -86,7 +88,6 @@ func main() {
 			model.GET("/", handler.ListModels)
 			model.GET("/:id", handler.GetModel)
 			model.POST("/chat", handler.Chat)
-			model.POST("/chat/stream", handler.ChatStream)
 		}
 
 		// Agent routes

@@ -17,7 +17,7 @@ import (
 func setupChatRouter() *gin.Engine {
 	r := gin.New()
 	r.POST("/api/v1/models/chat", handler.Chat)
-	r.POST("/api/v1/models/chat/stream", handler.ChatStream)
+	r.POST("/api/v1/chat/stream", handler.ChatStream)
 	return r
 }
 
@@ -57,7 +57,7 @@ func TestChat_Success(t *testing.T) {
 func TestChat_DefaultModel(t *testing.T) {
 	router := setupChatRouter()
 
-	// No model specified — should default to gpt-4o
+	// No model specified — should default to gpt-3.5-turbo
 	reqBody := map[string]any{
 		"messages": []map[string]string{{"role": "user", "content": "Hi"}},
 	}
@@ -70,7 +70,7 @@ func TestChat_DefaultModel(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 	var resp handler.ChatResponse
 	json.Unmarshal(w.Body.Bytes(), &resp)
-	assert.Equal(t, "gpt-4o", resp.Model)
+	assert.Equal(t, "gpt-3.5-turbo", resp.Model)
 }
 
 func TestChat_MissingMessages(t *testing.T) {
@@ -152,7 +152,7 @@ func TestChatStream_Success(t *testing.T) {
 		Stream: true,
 	}
 	body, _ := json.Marshal(reqBody)
-	req, _ := http.NewRequest("POST", "/api/v1/models/chat/stream", bytes.NewBuffer(body))
+	req, _ := http.NewRequest("POST", "/api/v1/chat/stream", bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
@@ -175,13 +175,13 @@ func TestChatStream_DefaultModel(t *testing.T) {
 		"messages": []map[string]string{{"role": "user", "content": "Hi"}},
 	}
 	body, _ := json.Marshal(reqBody)
-	req, _ := http.NewRequest("POST", "/api/v1/models/chat/stream", bytes.NewBuffer(body))
+	req, _ := http.NewRequest("POST", "/api/v1/chat/stream", bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
-	assert.True(t, strings.Contains(w.Body.String(), `"model":"gpt-4o"`))
+	assert.True(t, strings.Contains(w.Body.String(), `"model":"gpt-3.5-turbo"`))
 }
 
 func TestChatStream_MissingMessages(t *testing.T) {
@@ -189,7 +189,7 @@ func TestChatStream_MissingMessages(t *testing.T) {
 
 	reqBody := map[string]any{"model": "gpt-4o"}
 	body, _ := json.Marshal(reqBody)
-	req, _ := http.NewRequest("POST", "/api/v1/models/chat/stream", bytes.NewBuffer(body))
+	req, _ := http.NewRequest("POST", "/api/v1/chat/stream", bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
@@ -200,7 +200,7 @@ func TestChatStream_MissingMessages(t *testing.T) {
 func TestChatStream_InvalidJSON(t *testing.T) {
 	router := setupChatRouter()
 
-	req, _ := http.NewRequest("POST", "/api/v1/models/chat/stream", bytes.NewBuffer([]byte("invalid")))
+	req, _ := http.NewRequest("POST", "/api/v1/chat/stream", bytes.NewBuffer([]byte("invalid")))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
@@ -219,7 +219,7 @@ func TestChatStream_SSEFormat(t *testing.T) {
 		Stream: true,
 	}
 	body, _ := json.Marshal(reqBody)
-	req, _ := http.NewRequest("POST", "/api/v1/models/chat/stream", bytes.NewBuffer(body))
+	req, _ := http.NewRequest("POST", "/api/v1/chat/stream", bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
@@ -257,7 +257,7 @@ func TestChatStream_ChoiceDeltaFormat(t *testing.T) {
 		Stream: true,
 	}
 	body, _ := json.Marshal(reqBody)
-	req, _ := http.NewRequest("POST", "/api/v1/models/chat/stream", bytes.NewBuffer(body))
+	req, _ := http.NewRequest("POST", "/api/v1/chat/stream", bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)

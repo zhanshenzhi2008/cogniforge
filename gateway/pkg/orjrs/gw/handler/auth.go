@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"fmt"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -452,9 +454,75 @@ func DeleteAgent(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Agent deleted successfully"})
 }
 
-// AgentChat handles chat with an agent (stub - will be implemented in 5.5)
+// AgentChat handles chat with an agent
 func AgentChat(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{"message": "Agent chat endpoint - to be implemented"})
+	agentID := c.Param("id")
+	userID := c.GetString("user_id")
+
+	// Get the agent
+	var agent model.Agent
+	if err := database.DB.Where("id = ? AND user_id = ?", agentID, userID).First(&agent).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Agent not found"})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch agent"})
+		}
+		return
+	}
+
+	// Bind chat request
+	var req ChatRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request: " + err.Error()})
+		return
+	}
+
+	if len(req.Messages) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "messages is required and cannot be empty"})
+		return
+	}
+
+	// Use agent's model if not specified
+	if req.Model == "" {
+		req.Model = agent.Model
+	}
+	if req.Model == "" {
+		req.Model = defaultModel()
+	}
+
+	// Prepend system prompt from agent
+	systemPrompt := agent.SystemPrompt
+	if systemPrompt == "" {
+		systemPrompt = "You are a helpful AI assistant."
+	}
+
+	messages := append([]ChatMessage{{Role: "system", Content: systemPrompt}}, req.Messages...)
+	req.Messages = messages
+
+	// Use streaming or non-streaming based on request
+	if req.Stream {
+		c.Header("Content-Type", "text/event-stream")
+		c.Header("Cache-Control", "no-cache")
+		c.Header("Connection", "keep-alive")
+		c.Header("X-Accel-Buffering", "no")
+
+		if err := streamAIProvider(c, req); err != nil {
+			slog.Error("streamAIProvider failed for agent chat",
+				"error", err,
+				"agent_id", agentID,
+				"model", req.Model,
+			)
+			fmt.Fprintf(c.Writer, "data: {\"error\": \"AI provider error: %s\"}\n\n", err.Error())
+			c.Writer.Flush()
+		}
+	} else {
+		resp, err := callAIProvider(req)
+		if err != nil {
+			c.JSON(http.StatusBadGateway, gin.H{"error": "AI provider error: " + err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, resp)
+	}
 }
 
 func ListWorkflows(c *gin.Context)   { c.JSON(http.StatusOK, gin.H{"workflows": []interface{}{}}) }

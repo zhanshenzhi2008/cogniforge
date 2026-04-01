@@ -270,24 +270,20 @@ func DeleteApiKey(c *gin.Context) {
 
 // Agent request/response types
 type CreateAgentRequest struct {
-	Name         string              `json:"name" binding:"required"`
-	Description  string              `json:"description"`
-	Model        string              `json:"model" binding:"required"`
-	SystemPrompt string              `json:"system_prompt"`
-	Tools        []string            `json:"tools"`
-	MemoryConfig *model.MemoryConfig `json:"memory_config"`
-	Guardrails   *model.Guardrails   `json:"guardrails"`
+	Name         string   `json:"name" binding:"required"`
+	Description  string   `json:"description"`
+	Model        string   `json:"model" binding:"required"`
+	SystemPrompt string   `json:"system_prompt"`
+	Tools        []string `json:"tools"`
 }
 
 type UpdateAgentRequest struct {
-	Name         string              `json:"name"`
-	Description  string              `json:"description"`
-	Model        string              `json:"model"`
-	SystemPrompt string              `json:"system_prompt"`
-	Tools        []string            `json:"tools"`
-	MemoryConfig *model.MemoryConfig `json:"memory_config"`
-	Guardrails   *model.Guardrails   `json:"guardrails"`
-	Status       string              `json:"status"`
+	Name         string   `json:"name"`
+	Description  string   `json:"description"`
+	Model        string   `json:"model"`
+	SystemPrompt string   `json:"system_prompt"`
+	Tools        []string `json:"tools"`
+	Status       string   `json:"status"`
 }
 
 type AgentListResponse struct {
@@ -332,24 +328,6 @@ func CreateAgent(c *gin.Context) {
 		return
 	}
 
-	// Set default memory config if not provided
-	memoryConfig := model.MemoryConfig{
-		Type:     "short_term",
-		MaxTurns: 10,
-	}
-	if req.MemoryConfig != nil {
-		memoryConfig = *req.MemoryConfig
-	}
-
-	// Set default guardrails if not provided
-	guardrails := model.Guardrails{
-		InputFilter:  true,
-		OutputFilter: true,
-	}
-	if req.Guardrails != nil {
-		guardrails = *req.Guardrails
-	}
-
 	// Set default tools if not provided
 	tools := model.JSONBArray{}
 	if req.Tools != nil {
@@ -364,15 +342,18 @@ func CreateAgent(c *gin.Context) {
 		Model:        req.Model,
 		SystemPrompt: req.SystemPrompt,
 		Tools:        tools,
-		MemoryConfig: memoryConfig,
-		Guardrails:   guardrails,
+		MemoryType:   "short_term",
+		MemoryTurns:  10,
+		InputFilter:  true,
+		OutputFilter: true,
 		Status:       "active",
+		Metadata:     model.JSONBMap{},
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
 	}
 
 	if err := database.DB.Create(&agent).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create agent"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create agent", "details": err.Error()})
 		return
 	}
 
@@ -433,12 +414,6 @@ func UpdateAgent(c *gin.Context) {
 	}
 	if req.Tools != nil {
 		agent.Tools = req.Tools
-	}
-	if req.MemoryConfig != nil {
-		agent.MemoryConfig = *req.MemoryConfig
-	}
-	if req.Guardrails != nil {
-		agent.Guardrails = *req.Guardrails
 	}
 	if req.Status != "" {
 		agent.Status = req.Status

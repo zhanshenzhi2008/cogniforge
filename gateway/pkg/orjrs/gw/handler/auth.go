@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -525,12 +526,211 @@ func AgentChat(c *gin.Context) {
 	}
 }
 
-func ListWorkflows(c *gin.Context)   { c.JSON(http.StatusOK, gin.H{"workflows": []interface{}{}}) }
-func CreateWorkflow(c *gin.Context)  { c.JSON(http.StatusOK, gin.H{"message": "Create workflow"}) }
-func GetWorkflow(c *gin.Context)     { c.JSON(http.StatusOK, gin.H{"message": "Get workflow"}) }
-func UpdateWorkflow(c *gin.Context)  { c.JSON(http.StatusOK, gin.H{"message": "Update workflow"}) }
-func DeleteWorkflow(c *gin.Context)  { c.JSON(http.StatusOK, gin.H{"message": "Delete workflow"}) }
-func ExecuteWorkflow(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"message": "Execute workflow"}) }
+// ListWorkflows returns all workflows for the current user
+func ListWorkflows(c *gin.Context) {
+	userID := c.GetString("user_id")
+	if userID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	var workflows []model.Workflow
+	if err := database.DB.Where("user_id = ?", userID).Order("created_at DESC").Find(&workflows).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch workflows"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": workflows})
+}
+
+// CreateWorkflow creates a new workflow
+func CreateWorkflow(c *gin.Context) {
+	userID := c.GetString("user_id")
+	if userID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	var req struct {
+		Name        string         `json:"name" binding:"required"`
+		Description string         `json:"description"`
+		Definition  map[string]any `json:"definition"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request: " + err.Error()})
+		return
+	}
+
+	workflow := model.Workflow{
+		UserID:      userID,
+		Name:        req.Name,
+		Description: req.Description,
+		Status:      "draft",
+		Version:     1,
+	}
+
+	if req.Definition != nil {
+		defJSON, _ := json.Marshal(req.Definition)
+		workflow.Definition = string(defJSON)
+	}
+
+	if err := database.DB.Create(&workflow).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create workflow"})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{"data": workflow})
+}
+
+// GetWorkflow returns a specific workflow
+func GetWorkflow(c *gin.Context) {
+	userID := c.GetString("user_id")
+	workflowID := c.Param("id")
+
+	var workflow model.Workflow
+	if err := database.DB.Where("id = ? AND user_id = ?", workflowID, userID).First(&workflow).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"error": "workflow not found"})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch workflow"})
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": workflow})
+}
+
+// UpdateWorkflow updates an existing workflow
+func UpdateWorkflow(c *gin.Context) {
+	userID := c.GetString("user_id")
+	workflowID := c.Param("id")
+
+	var workflow model.Workflow
+	if err := database.DB.Where("id = ? AND user_id = ?", workflowID, userID).First(&workflow).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"error": "workflow not found"})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch workflow"})
+		}
+		return
+	}
+
+	var req struct {
+		Name        string         `json:"name"`
+		Description string         `json:"description"`
+		Status      string         `json:"status"`
+		Definition  map[string]any `json:"definition"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request: " + err.Error()})
+		return
+	}
+
+	updates := map[string]any{}
+	if req.Name != "" {
+		updates["name"] = req.Name
+	}
+	if req.Description != "" {
+		updates["description"] = req.Description
+	}
+	if req.Status != "" {
+		updates["status"] = req.Status
+	}
+	if req.Definition != nil {
+		defJSON, _ := json.Marshal(req.Definition)
+		updates["definition"] = string(defJSON)
+	}
+
+	if len(updates) > 0 {
+		if err := database.DB.Model(&workflow).Updates(updates).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update workflow"})
+			return
+		}
+	}
+
+	// Always increment version on update
+	database.DB.Model(&workflow).Update("version", workflow.Version+1)
+
+	database.DB.First(&workflow, "id = ?", workflowID)
+	c.JSON(http.StatusOK, gin.H{"data": workflow})
+}
+
+// DeleteWorkflow deletes a workflow (soft delete)
+func DeleteWorkflow(c *gin.Context) {
+	userID := c.GetString("user_id")
+	workflowID := c.Param("id")
+
+	result := database.DB.Where("id = ? AND user_id = ?", workflowID, userID).Delete(&model.Workflow{})
+	if result.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete workflow"})
+		return
+	}
+	if result.RowsAffected == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "workflow not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "workflow deleted successfully"})
+}
+
+// ExecuteWorkflow executes a workflow
+func ExecuteWorkflow(c *gin.Context) {
+	userID := c.GetString("user_id")
+	workflowID := c.Param("id")
+
+	// Get the workflow
+	var workflow model.Workflow
+	if err := database.DB.Where("id = ? AND user_id = ?", workflowID, userID).First(&workflow).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"error": "workflow not found"})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch workflow"})
+		}
+		return
+	}
+
+	// Parse input
+	var req struct {
+		Input map[string]any `json:"input"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		req.Input = make(map[string]any)
+	}
+
+	// Create execution record
+	now := time.Now()
+	execution := model.WorkflowExecution{
+		WorkflowID: workflowID,
+		UserID:     userID,
+		Status:     "pending",
+		Input:      model.JSONBMap(req.Input),
+		StartedAt:  &now,
+	}
+
+	if err := database.DB.Create(&execution).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create execution"})
+		return
+	}
+
+	// TODO: Implement actual workflow execution engine
+	// For now, return execution ID for polling
+	go func() {
+		// Simulate async execution
+		time.Sleep(2 * time.Second)
+		database.DB.Model(&model.WorkflowExecution{}).
+			Where("id = ?", execution.ID).
+			Updates(map[string]any{
+				"status": "completed",
+				"output": `{"result": "workflow completed"}`,
+			})
+	}()
+
+	c.JSON(http.StatusAccepted, gin.H{
+		"execution_id": execution.ID,
+		"status":       execution.Status,
+	})
+}
+
 func ListKnowledgeBases(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"knowledge_bases": []interface{}{}})
 }

@@ -259,10 +259,6 @@ func TestCreateAgentWithMemoryConfig(t *testing.T) {
 		Name:         "Agent with Memory",
 		Model:        "gpt-4o",
 		SystemPrompt: "You are a helpful assistant.",
-		MemoryConfig: &model.MemoryConfig{
-			Type:     "long_term",
-			MaxTurns: 20,
-		},
 	}
 	body, _ := json.Marshal(req)
 	httpReq, _ := http.NewRequest("POST", "/v1/agents/", bytes.NewBuffer(body))
@@ -275,8 +271,8 @@ func TestCreateAgentWithMemoryConfig(t *testing.T) {
 	var response model.Agent
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	assert.NoError(t, err)
-	assert.Equal(t, "long_term", response.MemoryConfig.Type)
-	assert.Equal(t, 20, response.MemoryConfig.MaxTurns)
+	assert.Equal(t, "long_term", response.MemoryType)
+	assert.Equal(t, 10, response.MemoryTurns) // Default value
 
 	// Cleanup
 	database.DB.Delete(&response)

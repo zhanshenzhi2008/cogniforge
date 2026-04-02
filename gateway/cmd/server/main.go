@@ -30,7 +30,15 @@ func main() {
 		slog.Error("failed to connect database", "error", err)
 		return
 	}
-	if err := db.AutoMigrate(&model.User{}, &model.ApiKey{}, &model.Agent{}); err != nil {
+	if err := db.AutoMigrate(
+		&model.User{},
+		&model.ApiKey{},
+		&model.Agent{},
+		&model.Workflow{},
+		&model.WorkflowNode{},
+		&model.WorkflowEdge{},
+		&model.WorkflowExecution{},
+	); err != nil {
 		slog.Error("failed to migrate database", "error", err)
 		return
 	}

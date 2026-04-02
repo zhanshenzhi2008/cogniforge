@@ -6,6 +6,11 @@ import (
 	"gorm.io/gorm"
 )
 
+// GetTestDB returns the test database instance
+func GetTestDB() *gorm.DB {
+	return DB
+}
+
 // InitTestDBForPkg creates an in-memory SQLite database for use in TestMain.
 // Does not take *testing.T so it can be called from TestMain in any test package.
 func InitTestDBForPkg() *gorm.DB {

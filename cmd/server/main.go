@@ -3,8 +3,6 @@ package main
 import (
 	"log/slog"
 	"os"
-	"os/signal"
-	"syscall"
 
 	"github.com/gin-gonic/gin"
 
@@ -129,9 +127,6 @@ func main() {
 	if port == "" {
 		port = "8080"
 	}
-
-	ctx, stop := signal.NotifyContext(ctx, os.Signal(syscall.SIGINT, syscall.SIGTERM))
-	defer stop()
 
 	slog.Info("server starting", "port", port)
 	if err := r.Run(":" + port); err != nil {

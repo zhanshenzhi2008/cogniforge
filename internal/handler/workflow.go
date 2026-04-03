@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 
 	"cogniforge/internal/database"
 	"cogniforge/internal/model"
@@ -175,12 +176,12 @@ func ExecuteWorkflow(c *gin.Context) {
 
 	now := time.Now()
 	execution := model.WorkflowExecution{
-		ID:          generateID(),
-		WorkflowID:  workflowID,
-		UserID:      userID,
-		Status:      "pending",
-		Input:       model.JSONBMap(req.Input),
-		StartedAt:   &now,
+		ID:         generateID(),
+		WorkflowID: workflowID,
+		UserID:     userID,
+		Status:     "pending",
+		Input:      model.JSONBMap(req.Input),
+		StartedAt:  &now,
 	}
 
 	if err := database.DB.Create(&execution).Error; err != nil {

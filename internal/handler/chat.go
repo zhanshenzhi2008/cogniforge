@@ -56,12 +56,12 @@ type ChatResponse struct {
 }
 
 type SSEEvent struct {
-	ID                 string      `json:"id"`
-	Object             string      `json:"object"`
-	Created            int64       `json:"created"`
-	Model              string      `json:"model"`
-	Choices            []SSEChoice `json:"choices"`
-	SystemFingerprint  string      `json:"system_fingerprint,omitempty"`
+	ID                string      `json:"id"`
+	Object            string      `json:"object"`
+	Created           int64       `json:"created"`
+	Model             string      `json:"model"`
+	Choices           []SSEChoice `json:"choices"`
+	SystemFingerprint string      `json:"system_fingerprint,omitempty"`
 }
 
 type SSEChoice struct {
@@ -121,6 +121,10 @@ func ListModels(c *gin.Context) {
 		add(m)
 	}
 	c.JSON(http.StatusOK, gin.H{"models": models})
+}
+
+func GetModel(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{"message": "Get model"})
 }
 
 func SetChatConfig(cfg *config.Config) {

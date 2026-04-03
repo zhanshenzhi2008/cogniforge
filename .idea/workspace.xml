@@ -4,12 +4,46 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="7a08bbd2-dc8e-4adb-b5d9-c1d9926348fc" name="Changes" comment="">
+    <list default="true" id="7a08bbd2-dc8e-4adb-b5d9-c1d9926348fc" name="Changes" comment="refactor 重新调整服务结构：按照Monorepo架构来，支持多语言微服务">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/gateway/cmd/server/main.go" beforeDir="false" afterPath="$PROJECT_DIR$/gateway/cmd/server/main.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/gateway/configs/config.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/gateway/configs/config.yaml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/gateway/pkg/orjrs/gw/handler/chat.go" beforeDir="false" afterPath="$PROJECT_DIR$/gateway/pkg/orjrs/gw/handler/chat.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/gateway/pkg/orjrs/gw/handler/chat_test.go" beforeDir="false" afterPath="$PROJECT_DIR$/gateway/pkg/orjrs/gw/handler/chat_test.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/cmd/server/main.go" beforeDir="false" afterPath="$PROJECT_DIR$/cmd/server/main.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/cogniforge.iml" beforeDir="false" afterPath="$PROJECT_DIR$/cogniforge.iml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/gateway/.ai/mcp/mcp.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/gateway/.dockerignore" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/gateway/Dockerfile" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/gateway/Makefile" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/gateway/README.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/gateway/cmd/server/main.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/gateway/configs/config.yaml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/gateway/gateway.iml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/gateway/go.mod" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/gateway/go.sum" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/gateway/pkg/orjrs/gw/config/config.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/gateway/pkg/orjrs/gw/database/database.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/gateway/pkg/orjrs/gw/database/database_test.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/gateway/pkg/orjrs/gw/database/helper.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/gateway/pkg/orjrs/gw/handler/agent_test.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/gateway/pkg/orjrs/gw/handler/apikey_test.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/gateway/pkg/orjrs/gw/handler/auth.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/gateway/pkg/orjrs/gw/handler/auth_test.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/gateway/pkg/orjrs/gw/handler/chat.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/gateway/pkg/orjrs/gw/handler/chat_test.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/gateway/pkg/orjrs/gw/handler/health.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/gateway/pkg/orjrs/gw/handler/health_test.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/gateway/pkg/orjrs/gw/handler/workflow_test.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/gateway/pkg/orjrs/gw/logger/logger.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/gateway/pkg/orjrs/gw/middleware/cors_test.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/gateway/pkg/orjrs/gw/middleware/middleware.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/gateway/pkg/orjrs/gw/middleware/middleware_test.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/gateway/pkg/orjrs/gw/model/agent.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/gateway/pkg/orjrs/gw/model/apikey.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/gateway/pkg/orjrs/gw/model/user.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/gateway/pkg/orjrs/gw/model/workflow.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/gateway/test/integration/auth_integration_test.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/internal/handler/agent.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/handler/agent.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/internal/handler/auth.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/handler/auth.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/internal/handler/chat.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/handler/chat.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/internal/handler/workflow.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/handler/workflow.go" afterDir="false" />
     </list>
     <list id="c111af1d-6255-430c-a8e7-82bc09f53084" name="no commit Changes" comment="" />
     <option name="SHOW_DIALOG" value="false" />
@@ -27,13 +61,16 @@
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
     "Go Build.go build github.com/orjrs/gateway/cmd/server.executor": "Debug",
+    "Go Build.go build main.go.executor": "Debug",
+    "SHELLCHECK.PATH": "/Users/liujun/Library/Application Support/JetBrains/IntelliJIdea2024.1/plugins/Shell Script/shellcheck",
     "git-widget-placeholder": "main",
     "last_opened_file_path": "/Users/liujun/Documents/mine-repository/cogniforge",
     "node.js.selected.package.tslint": "(autodetect)",
     "nodejs.jest.jest_package": "",
     "project.structure.last.edited": "Modules",
     "project.structure.proportion": "0.15",
-    "project.structure.side.proportion": "0.2"
+    "project.structure.side.proportion": "0.2",
+    "settings.editor.selected.configurable": "preferences.pluginManager"
   }
 }]]></component>
   <component name="RunManager">
@@ -64,8 +101,8 @@
       <filePath value="$PROJECT_DIR$/gateway" />
       <method v="2" />
     </configuration>
-    <configuration name="go build github.com/orjrs/gateway/cmd/server" type="GoApplicationRunConfiguration" factoryName="Go Application" temporary="true" nameIsGenerated="true">
-      <module name="gateway" />
+    <configuration name="go build main.go" type="GoApplicationRunConfiguration" factoryName="Go Application" temporary="true" nameIsGenerated="true">
+      <module name="cogniforge" />
       <working_directory value="$PROJECT_DIR$/gateway" />
       <envs>
         <env name="AI_API_KEY" value="sk-1cOyQju50F0XWSvHTY11b9dskHyxHMirg5kpnpICC2clsqnM" />
@@ -85,10 +122,10 @@
         <env name="REDIS_PORT" value="6379" />
         <env name="REDIS_URL" value="redis://localhost:6379" />
       </envs>
-      <kind value="PACKAGE" />
-      <package value="github.com/orjrs/gateway/cmd/server" />
+      <kind value="FILE" />
+      <package value="github.com/orjrs/gateway" />
       <directory value="$PROJECT_DIR$/gateway" />
-      <filePath value="$PROJECT_DIR$/gateway/cmd/server/main.go" />
+      <filePath value="$PROJECT_DIR$/cmd/server/main.go" />
       <method v="2" />
     </configuration>
     <configuration default="true" type="GoTestRunConfiguration" factoryName="Go Test">
@@ -195,12 +232,78 @@
     </configuration>
     <recent_temporary>
       <list>
-        <item itemvalue="Go Build.go build github.com/orjrs/gateway/cmd/server" />
+        <item itemvalue="Go Build.go build main.go" />
       </list>
     </recent_temporary>
   </component>
   <component name="TaskManager">
+    <task id="LOCAL-00001" summary="chore 1.添加chat的model下拉框数据 2.chat聊天数据流日志">
+      <option name="closed" value="true" />
+      <created>1774958738174</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1774958738174</updated>
+    </task>
+    <task id="LOCAL-00002" summary="chore 添加Agent功能">
+      <option name="closed" value="true" />
+      <created>1774963564589</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1774963564590</updated>
+    </task>
+    <task id="LOCAL-00003" summary="feat: add Agent model and CRUD API&#10;- Add Agent model with simplified structure (flat fields instead of nested JSONB)&#10;- Implement CRUD endpoints: ListAgents, CreateAgent, GetAgent, UpdateAgent, DeleteAgent&#10;- Add JSONBArray and JSONBMap types with proper Scan support for PostgreSQL&#10;- Add unit tests for Agent endpoints&#10;- Add structured logger with color output for terminal">
+      <option name="closed" value="true" />
+      <created>1775048411835</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1775048411835</updated>
+    </task>
+    <task id="LOCAL-00004" summary="feat 简化结构 (flat fields)">
+      <option name="closed" value="true" />
+      <created>1775049655843</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1775049655843</updated>
+    </task>
+    <task id="LOCAL-00005" summary="chore 添加工作流的功能">
+      <option name="closed" value="true" />
+      <created>1775135997255</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1775135997255</updated>
+    </task>
+    <task id="LOCAL-00006" summary="chore 添加工作流的功能">
+      <option name="closed" value="true" />
+      <created>1775136015776</created>
+      <option name="number" value="00006" />
+      <option name="presentableId" value="LOCAL-00006" />
+      <option name="project" value="LOCAL" />
+      <updated>1775136015776</updated>
+    </task>
+    <task id="LOCAL-00007" summary="refactor 重新调整服务结构：按照Monorepo架构来，支持多语言微服务">
+      <option name="closed" value="true" />
+      <created>1775224742298</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1775224742298</updated>
+    </task>
+    <option name="localTasksCounter" value="8" />
     <servers />
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="chore 1.添加chat的model下拉框数据 2.chat聊天数据流日志" />
+    <MESSAGE value="chore 添加Agent功能" />
+    <MESSAGE value="feat: add Agent model and CRUD API&#10;- Add Agent model with simplified structure (flat fields instead of nested JSONB)&#10;- Implement CRUD endpoints: ListAgents, CreateAgent, GetAgent, UpdateAgent, DeleteAgent&#10;- Add JSONBArray and JSONBMap types with proper Scan support for PostgreSQL&#10;- Add unit tests for Agent endpoints&#10;- Add structured logger with color output for terminal" />
+    <MESSAGE value="feat 简化结构 (flat fields)" />
+    <MESSAGE value="chore 添加工作流的功能" />
+    <MESSAGE value="refactor 重新调整服务结构：按照Monorepo架构来，支持多语言微服务" />
+    <option name="LAST_COMMIT_MESSAGE" value="refactor 重新调整服务结构：按照Monorepo架构来，支持多语言微服务" />
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />

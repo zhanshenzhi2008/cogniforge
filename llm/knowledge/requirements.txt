@@ -1,0 +1,14 @@
+# Cogniforge Knowledge Service Dependencies
+
+fastapi>=0.100.0
+uvicorn[standard]>=0.23.0
+pydantic>=2.0.0
+
+# Vector search / embeddings (uncomment when needed)
+# sentence-transformers>=2.2.0
+# faiss-cpu>=1.7.0
+# numpy>=1.24.0
+
+# Document processing (uncomment when needed)
+# python-multipart>=0.0.6
+# pypdf>=3.0.0

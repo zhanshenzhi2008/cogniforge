@@ -1,13 +1,13 @@
 package handler
 
 import (
-	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 
 	"cogniforge/internal/database"
 	"cogniforge/internal/model"

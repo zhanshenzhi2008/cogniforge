@@ -28,11 +28,12 @@
   "keyToString": {
     "Go Build.go build github.com/orjrs/gateway/cmd/server.executor": "Debug",
     "git-widget-placeholder": "main",
+    "last_opened_file_path": "/Users/liujun/Documents/mine-repository/cogniforge",
     "node.js.selected.package.tslint": "(autodetect)",
     "nodejs.jest.jest_package": "",
     "project.structure.last.edited": "Modules",
-    "project.structure.proportion": "0.0",
-    "project.structure.side.proportion": "0.0"
+    "project.structure.proportion": "0.15",
+    "project.structure.side.proportion": "0.2"
   }
 }]]></component>
   <component name="RunManager">

@@ -1,0 +1,31 @@
+server:
+  port: ${PORT:-8080}
+  mode: ${GIN_MODE:-debug}
+
+database:
+  host: ${POSTGRES_HOST:-localhost}
+  port: ${POSTGRES_PORT:-5433}
+  user: ${POSTGRES_USER:-postgres}
+  password: ${POSTGRES_PASSWORD:-postgres-root}
+  dbname: ${POSTGRES_DB:-cogniforge}
+  sslmode: ${POSTGRES_SSLMODE:-disable}
+
+redis:
+  host: ${REDIS_HOST:-localhost}
+  port: ${REDIS_PORT:-6379}
+  password: ${REDIS_PASSWORD:-}
+  db: ${REDIS_DB:-0}
+
+ai:
+  provider: ${AI_PROVIDER:-openai}
+  base_url: ${AI_BASE_URL:-https://api.openai.com}
+  api_key: ${AI_API_KEY:-}
+  default_model: ${AI_DEFAULT_MODEL:-gpt-3.5-turbo}
+
+jwt:
+  secret: ${JWT_SECRET:-cogniforge-secret-key}
+  expire: 24h
+
+log:
+  level: ${LOG_LEVEL:-info}
+  format: ${LOG_FORMAT:-json}

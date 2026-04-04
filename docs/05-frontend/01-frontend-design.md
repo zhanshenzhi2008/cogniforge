@@ -27,9 +27,9 @@
 - 主题：深色背景 (`#0f0f0f`)，面板 (`#1a1a1a`)
 - 配色：Indigo 渐变 (`#6366f1` → `#8b5cf6`)
 - 布局：顶部栏 + 左侧配置面板 + 右侧聊天区三段式
-- 组件：自定义 `param-item` 卡片 + 值标签，`el-slider` 统一替代
+- 组件：自定义 `param-item` 卡片 + 值标签，`n-slider` 统一替代
 - 空状态：自定义 SVG 动画图标
-- 头像：渐变 `el-avatar`
+- 头像：渐变 Logo（`HardwareChipOutline` 图标）
 - 响应式：<768px 隐藏侧边栏
 
 ### 关键差异
@@ -495,53 +495,77 @@ export const spacing = {
 └─────────────────────────────────────────────┘
 ```
 
-### 3.2 Playground/Chat 组件
+### 3.2 Playground/Chat 页面
 
 ```vue
-<!-- src/features/chat/ChatWindow.vue -->
+<!-- pages/playground.vue -->
 
 <template>
-  <div class="flex h-full">
-    <!-- 左侧：配置面板 -->
-    <div class="w-80 bg-white border-r border-gray-200 p-4">
-      <ModelSelector v-model="selectedModel" />
-      <ParamsPanel v-model="params" />
-    </div>
+  <div class="playground-page">
+    <div class="playground-container">
 
-    <!-- 右侧：对话区 -->
-    <div class="flex-1 flex flex-col">
-      <!-- 消息列表 -->
-      <div class="flex-1 overflow-auto p-4">
-        <MessageList :messages="chatStore.messages" />
-      </div>
+      <!-- 左侧配置面板 -->
+      <aside class="sidebar">
+        <!-- 顶部标题：Agent Logo + 名称 -->
+        <div class="sidebar-header">
+          <div class="header-logo">
+            <n-icon :component="HardwareChipOutline" />
+          </div>
+          <div class="sidebar-title">
+            <span class="app-name">CogniForge</span>
+            <span class="app-sub">AI Agent Platform</span>
+          </div>
+        </div>
 
-      <!-- 输入区 -->
-      <div class="border-t border-gray-200 p-4">
-        <MessageInput @send="handleSend" :loading="chatStore.streaming" />
-      </div>
+        <!-- Agent 选择 -->
+        <n-card size="small" class="config-card">
+          <template #header>
+            <div class="card-header">
+              <n-icon :component="HardwareChipOutline" />
+              <span>Agent</span>
+            </div>
+          </template>
+          <n-select v-model:value="selectedAgent" :options="agentOptions" />
+        </n-card>
+
+        <!-- 模型选择 -->
+        <n-card size="small" class="config-card">
+          <template #header>
+            <div class="card-header">
+              <n-icon :component="SettingsOutline" />
+              <span>模型</span>
+            </div>
+          </template>
+          <n-select v-model:value="selectedModel" :options="modelOptions" />
+        </n-card>
+
+        <!-- 参数配置 -->
+        <n-card size="small" class="config-card params-card">
+          <template #header>
+            <div class="card-header">
+              <n-icon :component="SettingsOutline" />
+              <span>参数</span>
+            </div>
+          </template>
+          <div class="param-row">
+            <div class="param-label">
+              <span>Temperature</span>
+              <n-tag size="small" type="warning">{{ params.temperature }}</n-tag>
+            </div>
+            <n-slider v-model:value="params.temperature" :min="0" :max="2" :step="0.1" />
+          </div>
+          <!-- ... -->
+        </n-card>
+      </aside>
+
+      <!-- 右侧聊天区域 -->
+      <main class="chat-area">
+        <!-- 消息列表 + 输入区 -->
+      </main>
+
     </div>
   </div>
 </template>
-
-<script setup lang="ts">
-import { ref } from 'vue'
-import { useChatStore } from '@/stores/chat'
-import type { Model, ChatParams } from '@/types'
-
-const chatStore = useChatStore()
-
-const selectedModel = ref<Model | null>(null)
-const params = ref<ChatParams>({
-  temperature: 0.7,
-  maxTokens: 1000,
-  topP: 1.0,
-})
-
-const handleSend = async (content: string) => {
-  if (!selectedModel.value) return
-  await chatStore.sendMessage(content, selectedModel.value.id)
-}
-</script>
 ```
 
 ### 3.3 工作流编辑器

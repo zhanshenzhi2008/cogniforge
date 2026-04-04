@@ -1,5 +1,157 @@
 # CogniForge 前端设计文档
 
+## [变更记录]
+
+| 日期 | 版本 | 变更摘要 | 负责人 |
+|------|------|----------|--------|
+| 2026-04-04 | v1.1 | Playground 页面 UI 改版（深色主题 + 现代化配色）；rules 文件精简，删除已过时的 go-standards 和 dev-environment | orjrs |
+| 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] Playground UI 改版 + rules 规则更新（2026-04-04）
+变更原因：提升 Playground 页面视觉体验；精简 rules 文件，删除已不适用的 go-standards.mdc 和 dev-environment.mdc
+包含代码：`pages/playground.vue`、`.cursor/rules/`
+影响范围：`playground.vue` 页面、rules 文件
+
+### 变更前
+
+- 主题：浅色背景 (`#f5f7fa`)
+- 配色：Element Plus 默认蓝色 (`#409eff`)
+- 布局：`el-card` 组件三栏布局
+- 组件：`el-form-item` + `el-slider`，`el-input-number` (Max Tokens)
+- 空状态：简单 `el-icon`
+- 头像：纯色圆形
+- 响应式：固定宽度
+
+### 变更后
+
+- 主题：深色背景 (`#0f0f0f`)，面板 (`#1a1a1a`)
+- 配色：Indigo 渐变 (`#6366f1` → `#8b5cf6`)
+- 布局：顶部栏 + 左侧配置面板 + 右侧聊天区三段式
+- 组件：自定义 `param-item` 卡片 + 值标签，`el-slider` 统一替代
+- 空状态：自定义 SVG 动画图标
+- 头像：渐变 `el-avatar`
+- 响应式：<768px 隐藏侧边栏
+
+### 关键差异
+
+- **新增**：顶部 `page-header` 栏，含 Agent 标签
+- **新增**：深色主题 CSS 变量体系
+- **修改**：配色 `#409eff` → 渐变 `#6366f1`
+- **修改**：布局由 `el-card` → 自定义卡片
+- **移除**：`el-input-number`，统一为 `el-slider`
+- **新增**：动画光标（`blink` keyframe）
+- **新增**：响应式断点（`@media max-width: 768px`）
+
+```vue
+<!-- pages/playground.vue 核心结构 -->
+<div class="playground-page">          <!-- 深色背景 #0f0f0f -->
+  <header class="page-header">         <!-- 顶部栏：标题 + Agent标签 + 清空 -->
+  <div class="playground-container">
+    <aside class="sidebar">            <!-- 左侧配置面板 -->
+      <div class="config-section">     <!-- Agent 选择 -->
+      <div class="config-section">     <!-- 模型选择 -->
+      <div class="config-section">     <!-- 参数配置 -->
+    <main class="chat-area">          <!-- 右侧聊天区 -->
+      <div class="messages-wrapper">  <!-- 消息列表 -->
+      <div class="input-wrapper">      <!-- 输入区域 -->
+```
+
+---
+
+## [变更] 项目结构调整（2026-04-04）
+变更原因：后端架构由 gateway 独立目录收敛为统一 monolith 服务，移除 `gateway/` 目录
+包含代码：`cmd/server/main.go`、`internal/` 各包
+影响范围：架构文档、部署文档
+
+### 变更前
+
+```
+cogniforge/                          # 后端原规划（分立服务）
+├── gateway/                          # 独立 API 网关服务
+│   ├── cmd/
+│   │   └── server/main.go
+│   └── pkg/
+│       └── orjrs/gw/               # gateway 特有代码
+├── internal/                        # 内部模块
+├── services/                        # Java 微服务
+└── llm/                            # Python ML
+```
+
+### 变更后
+
+```
+cogniforge/                          # 后端仓库根目录（monolith）
+├── cmd/server/main.go              # 单一入口
+├── configs/config.yaml             # 配置文件
+├── internal/                       # 私有业务包
+│   ├── config/                     # 配置加载（Viper + YAML）
+│   ├── database/                   # PostgreSQL 连接（GORM）
+│   ├── model/                      # 数据模型
+│   ├── handler/                    # HTTP 处理器（同进程）
+│   │   ├── auth.go | chat.go | agent.go | workflow.go | ...
+│   ├── middleware/                # Gin 中间件
+│   └── logger/                     # slog JSON 日志
+├── services/                       # Java 微服务存根
+├── llm/                           # Python ML 存根
+├── scripts/
+├── docs/
+└── server                          # 编译产物
+```
+
+### 关键差异
+
+- **移除**：`gateway/` 独立目录及其 `pkg/orjrs/gw/` 代码
+- **新增**：`cmd/server/` 作为唯一入口，`internal/logger/` 目录
+- **合并**：所有 gateway handler（chat/auth/agent/workflow）收敛到 `internal/handler/` 同进程
+- **端口**：原规划 gateway 8080 + model 8081 + agent 8082 + workflow 8083 → 统一 8080
+- **通信**：原规划 gRPC 服务间调用 → 纯 REST 同进程调用
+
+#### API 路由（当前实际）
+
+```
+/api/v1/
+├── GET  /health | /ready | /live        # 健康检查
+├── POST /auth/register | /login | /logout
+├── GET  /auth/me
+├── GET   /users/:id
+├── PUT   /users/:id
+├── DELETE /users/:id
+├── POST  /keys
+├── GET   /keys
+├── DELETE /keys/:id
+├── GET   /models
+├── GET   /models/:id
+├── POST  /chat/stream                    # SSE 流式聊天
+├── GET   /agents
+├── POST  /agents
+├── GET   /agents/:id
+├── PUT   /agents/:id
+├── DELETE /agents/:id
+├── POST  /agents/:id/chat
+├── GET   /workflows
+├── POST  /workflows
+├── GET   /workflows/:id
+├── PUT   /workflows/:id
+├── DELETE /workflows/:id
+├── POST  /workflows/:id/execute
+├── GET   /knowledge
+├── POST  /knowledge
+├── GET   /knowledge/:id
+├── PUT   /knowledge/:id
+├── DELETE /knowledge/:id
+└── GET   /knowledge/:id/documents
+```
+
+#### 启动方式
+
+```bash
+cd cogniforge
+POSTGRES_PORT=5433 ./server     # 开发环境
+./server                        # 生产环境（默认 5432）
+```
+
+---
+
 ## 1. 技术栈选择
 
 ### 1.1 选型理由
@@ -1200,6 +1352,7 @@ describe('useAuthStore', () => {
 
 ---
 
-**文档版本**: v1.0  
-**最后更新**: 2026-03-16  
+**文档版本**: v1.1
+**最后更新**: 2026-04-04
+**维护团队**: orjrs
 **维护团队**: orjrs

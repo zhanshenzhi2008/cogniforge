@@ -1,6 +1,9 @@
 package model
 
 import (
+	"database/sql/driver"
+	"encoding/json"
+	"errors"
 	"time"
 
 	"gorm.io/gorm"
@@ -75,16 +78,16 @@ func (Workflow) TableName() string {
 }
 
 type WorkflowNode struct {
-	ID          string         `gorm:"primaryKey;type:varchar(64)" json:"id"`
-	WorkflowID  string         `gorm:"type:varchar(64);not null;index" json:"workflow_id"`
-	Type        string         `gorm:"type:varchar(50)" json:"type"`
-	Name        string         `gorm:"type:varchar(255)" json:"name"`
-	Config      string         `gorm:"type:text" json:"config"`
-	PositionX   float64        `json:"position_x"`
-	PositionY   float64        `json:"position_y"`
-	CreatedAt   time.Time      `json:"created_at"`
-	UpdatedAt   time.Time      `json:"updated_at"`
-	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
+	ID         string         `gorm:"primaryKey;type:varchar(64)" json:"id"`
+	WorkflowID string         `gorm:"type:varchar(64);not null;index" json:"workflow_id"`
+	Type       string         `gorm:"type:varchar(50)" json:"type"`
+	Name       string         `gorm:"type:varchar(255)" json:"name"`
+	Config     string         `gorm:"type:text" json:"config"`
+	PositionX  float64        `json:"position_x"`
+	PositionY  float64        `json:"position_y"`
+	CreatedAt  time.Time      `json:"created_at"`
+	UpdatedAt  time.Time      `json:"updated_at"`
+	DeletedAt  gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
 func (WorkflowNode) TableName() string {
@@ -127,4 +130,42 @@ func (WorkflowExecution) TableName() string {
 
 type JSONBArray []string
 
+func (j *JSONBArray) Scan(value any) error {
+	if value == nil {
+		*j = JSONBArray{}
+		return nil
+	}
+	bytes, ok := value.([]byte)
+	if !ok {
+		return errors.New("failed to scan JSONBArray: not a byte slice")
+	}
+	return json.Unmarshal(bytes, j)
+}
+
+func (j JSONBArray) Value() (driver.Value, error) {
+	if j == nil {
+		return "[]", nil
+	}
+	return json.Marshal(j)
+}
+
 type JSONBMap map[string]any
+
+func (j *JSONBMap) Scan(value any) error {
+	if value == nil {
+		*j = JSONBMap{}
+		return nil
+	}
+	bytes, ok := value.([]byte)
+	if !ok {
+		return errors.New("failed to scan JSONBMap: not a byte slice")
+	}
+	return json.Unmarshal(bytes, j)
+}
+
+func (j JSONBMap) Value() (driver.Value, error) {
+	if j == nil {
+		return "{}", nil
+	}
+	return json.Marshal(j)
+}

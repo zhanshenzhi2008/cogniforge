@@ -2,7 +2,6 @@ package handler
 
 import (
 	"encoding/json"
-	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -15,23 +14,23 @@ import (
 func ListWorkflows(c *gin.Context) {
 	userID := c.GetString("user_id")
 	if userID == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		model.FailUnauthorized(c, "unauthorized")
 		return
 	}
 
 	var workflows []model.Workflow
 	if err := database.DB.Where("user_id = ?", userID).Order("created_at DESC").Find(&workflows).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch workflows"})
+		model.FailInternal(c, "查询工作流列表失败")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"data": workflows})
+	model.Success(c, workflows)
 }
 
 func CreateWorkflow(c *gin.Context) {
 	userID := c.GetString("user_id")
 	if userID == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		model.FailUnauthorized(c, "unauthorized")
 		return
 	}
 
@@ -41,7 +40,7 @@ func CreateWorkflow(c *gin.Context) {
 		Definition  map[string]any `json:"definition"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request: " + err.Error()})
+		model.FailBadRequest(c, "请求参数无效: "+err.Error())
 		return
 	}
 
@@ -60,11 +59,11 @@ func CreateWorkflow(c *gin.Context) {
 	}
 
 	if err := database.DB.Create(&workflow).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create workflow"})
+		model.FailInternal(c, "创建工作流失败")
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"data": workflow})
+	model.Created(c, workflow)
 }
 
 func GetWorkflow(c *gin.Context) {
@@ -74,14 +73,14 @@ func GetWorkflow(c *gin.Context) {
 	var workflow model.Workflow
 	if err := database.DB.Where("id = ? AND user_id = ?", workflowID, userID).First(&workflow).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": "workflow not found"})
+			model.FailNotFound(c, "工作流不存在")
 		} else {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch workflow"})
+			model.FailInternal(c, "查询工作流失败")
 		}
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"data": workflow})
+	model.Success(c, workflow)
 }
 
 func UpdateWorkflow(c *gin.Context) {
@@ -91,9 +90,9 @@ func UpdateWorkflow(c *gin.Context) {
 	var workflow model.Workflow
 	if err := database.DB.Where("id = ? AND user_id = ?", workflowID, userID).First(&workflow).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": "workflow not found"})
+			model.FailNotFound(c, "工作流不存在")
 		} else {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch workflow"})
+			model.FailInternal(c, "查询工作流失败")
 		}
 		return
 	}
@@ -105,7 +104,7 @@ func UpdateWorkflow(c *gin.Context) {
 		Definition  map[string]any `json:"definition"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request: " + err.Error()})
+		model.FailBadRequest(c, "请求参数无效: "+err.Error())
 		return
 	}
 
@@ -126,14 +125,14 @@ func UpdateWorkflow(c *gin.Context) {
 
 	if len(updates) > 0 {
 		if err := database.DB.Model(&workflow).Updates(updates).Error; err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update workflow"})
+			model.FailInternal(c, "更新工作流失败")
 			return
 		}
 	}
 
 	database.DB.Model(&workflow).Update("version", workflow.Version+1)
 	database.DB.First(&workflow, "id = ?", workflowID)
-	c.JSON(http.StatusOK, gin.H{"data": workflow})
+	model.Success(c, workflow)
 }
 
 func DeleteWorkflow(c *gin.Context) {
@@ -142,15 +141,15 @@ func DeleteWorkflow(c *gin.Context) {
 
 	result := database.DB.Where("id = ? AND user_id = ?", workflowID, userID).Delete(&model.Workflow{})
 	if result.Error != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete workflow"})
+		model.FailInternal(c, "删除工作流失败")
 		return
 	}
 	if result.RowsAffected == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"error": "workflow not found"})
+		model.FailNotFound(c, "工作流不存在")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "workflow deleted successfully"})
+	model.SuccessWithMessage(c, nil, "工作流已删除")
 }
 
 func ExecuteWorkflow(c *gin.Context) {
@@ -160,9 +159,9 @@ func ExecuteWorkflow(c *gin.Context) {
 	var workflow model.Workflow
 	if err := database.DB.Where("id = ? AND user_id = ?", workflowID, userID).First(&workflow).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": "workflow not found"})
+			model.FailNotFound(c, "工作流不存在")
 		} else {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch workflow"})
+			model.FailInternal(c, "查询工作流失败")
 		}
 		return
 	}
@@ -185,7 +184,7 @@ func ExecuteWorkflow(c *gin.Context) {
 	}
 
 	if err := database.DB.Create(&execution).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create execution"})
+		model.FailInternal(c, "创建执行记录失败")
 		return
 	}
 
@@ -199,7 +198,7 @@ func ExecuteWorkflow(c *gin.Context) {
 			})
 	}()
 
-	c.JSON(http.StatusAccepted, gin.H{
+	model.Accepted(c, gin.H{
 		"execution_id": execution.ID,
 		"status":       execution.Status,
 	})

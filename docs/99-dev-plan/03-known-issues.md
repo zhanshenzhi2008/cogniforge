@@ -77,7 +77,7 @@
 - `utils/apiClient.ts`
 - `types/` 目录
 
-**状态**：🟡 待优化
+**状态**：🟢 已统一（见「§4 统一 API 响应格式」）
 
 ---
 
@@ -148,6 +148,73 @@ watch(
 - `cogniforge-web/pages/workflows/[id].vue`
 
 **状态**：🟢 已按上述约定修复；本文档作后续排障与新人说明
+
+---
+
+### 4. 统一 API 响应格式（前后端）
+
+**背景**：各 handler 原本返回结构混乱——成功有时裸结构、有时 `gin.H{"data":...}`；失败有时 `gin.H{"error":...}`、有时 `gin.H{"message":...}`。前端 composable 也有 `res.data.data` 双层嵌套。
+
+**后端统一结构**（Go，`internal/model/model.go`）：
+
+```go
+type ApiResponse struct {
+    Code    int         `json:"code"`             // 0=成功，非0=失败
+    Message string      `json:"message,omitempty"` // 描述信息
+    Data    interface{} `json:"data,omitempty"`   // 业务数据
+    Error   string      `json:"error,omitempty"`  // 错误信息（code!=0 时）
+}
+```
+
+**封装方法**：
+
+| 方法 | HTTP 状态 | 用途 |
+|------|----------|------|
+| `Success(c, data)` | 200 | 标准成功 |
+| `SuccessWithMessage(c, data, msg)` | 200 | 带提示成功 |
+| `Created(c, data)` | 201 | 资源创建成功 |
+| `Accepted(c, data)` | 202 | 异步接受 |
+| `Fail(c, httpStatus, errMsg)` | 自定义 | 通用失败 |
+| `FailBadRequest / FailUnauthorized / FailForbidden / FailNotFound / FailInternal` | 4xx/5xx | 快捷失败 |
+
+**前端统一格式**（`utils/apiClient.ts`）：
+
+```ts
+export interface ApiResponse<T = unknown> {
+  code: number
+  data?: T
+  error?: string
+  message?: string
+}
+```
+
+**已改造文件**：
+
+| 文件 | 说明 |
+|------|------|
+| `internal/model/model.go` | 新增 ApiResponse 及封装方法 |
+| `internal/handler/auth.go` | 全部接口改用 `model.Success/Fail*` |
+| `internal/handler/workflow.go` | 全部接口改用 `model.Success/Fail*` |
+| `internal/handler/agent.go` | 全部接口改用 `model.Success/Fail*` |
+| `internal/handler/chat.go` | ListModels / Chat / ChatStream 改造 |
+| `internal/handler/knowledge.go` | 全部接口改用 `model.Success/Fail*` |
+| `utils/apiClient.ts` | ApiResponse 增加 `code` 字段；根据 `code` 自动解析 |
+| `composables/useWorkflows.ts` | 去掉双层 `.data.data`，改为 `if (res.error)` 判断 |
+| `composables/useAgents.ts` | 同上 |
+| `composables/useModels.ts` | 同上 |
+
+**前端调用示例**：
+
+```ts
+const res = await api.get<Workflow[]>('/api/v1/workflows/')
+if (res.error) {
+  message.error(res.error)
+  return
+}
+const workflows = res.data || []
+```
+
+**状态**：🟢 已完成
 
 ---
 
@@ -237,10 +304,12 @@ var users = map[string]*User{}  // 内存存储
 | 2026-03-21 | 重复导入警告 | 🟡 待优化 | - |
 | 2026-03-21 | 内存数据存储 | 🔴 待实现 | 需要数据库 |
 | 2026-04-06 | Nuxt 动态路由（工作流） | 🟢 已修复并文档化 | 见「§3」 |
+| 2026-04-06 | 统一 API 响应格式（前后端） | 🟢 已完成 | 见「§4」 |
 
 ---
 
 ## 📝 更新日志
 
+- **2026-04-06**: 新增「§4 统一 API 响应格式」：Go `model.ApiResponse` 结构（`code`/`data`/`error`）、全部 handler 改造、前端 `apiClient` 对齐、后端 composable 去掉双层 `.data`
 - **2026-04-06**: 新增「§3 Nuxt 3 动态路由」：目录结构 A/B/C、同组件复用需 watch、`immediate` 与函数声明顺序、`.nuxt` 缓存与 smoke 测试说明
 - **2026-03-21**: 初始创建本文档，记录 Element Plus SSR 问题、重复导入警告和内存存储债务

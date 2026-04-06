@@ -13,6 +13,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"cogniforge/internal/config"
+	"cogniforge/internal/model"
 )
 
 type ChatMessage struct {
@@ -120,11 +121,11 @@ func ListModels(c *gin.Context) {
 	for _, m := range builtInModels {
 		add(m)
 	}
-	c.JSON(http.StatusOK, gin.H{"models": models})
+	model.Success(c, gin.H{"models": models})
 }
 
 func GetModel(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{"message": "Get model"})
+	model.Success(c, gin.H{"message": "Get model"})
 }
 
 func SetChatConfig(cfg *config.Config) {
@@ -151,11 +152,11 @@ func aiChatCompletionsURL(base string) string {
 func Chat(c *gin.Context) {
 	var req ChatRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request: " + err.Error()})
+		model.FailBadRequest(c, "Invalid request: "+err.Error())
 		return
 	}
 	if len(req.Messages) == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "messages is required and cannot be empty"})
+		model.FailBadRequest(c, "messages 不能为空")
 		return
 	}
 	if req.Model == "" {
@@ -163,20 +164,20 @@ func Chat(c *gin.Context) {
 	}
 	resp, err := callAIProvider(req)
 	if err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": "AI provider error: " + err.Error()})
+		model.Fail(c, http.StatusBadGateway, "AI provider error: "+err.Error())
 		return
 	}
-	c.JSON(http.StatusOK, resp)
+	model.Success(c, resp)
 }
 
 func ChatStream(c *gin.Context) {
 	var req ChatRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request: " + err.Error()})
+		model.FailBadRequest(c, "Invalid request: "+err.Error())
 		return
 	}
 	if len(req.Messages) == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "messages is required and cannot be empty"})
+		model.FailBadRequest(c, "messages 不能为空")
 		return
 	}
 	if req.Model == "" {

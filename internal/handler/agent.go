@@ -30,20 +30,16 @@ type UpdateAgentRequest struct {
 	Status       string   `json:"status"`
 }
 
-type AgentListResponse struct {
-	Data []model.Agent `json:"data"`
-}
-
 func ListAgents(c *gin.Context) {
 	userID := c.GetString("user_id")
 
 	var agents []model.Agent
 	if err := database.DB.Where("user_id = ?", userID).Order("created_at DESC").Find(&agents).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch agents"})
+		model.FailInternal(c, "查询 Agent 列表失败")
 		return
 	}
 
-	c.JSON(http.StatusOK, AgentListResponse{Data: agents})
+	model.Success(c, agents)
 }
 
 func CreateAgent(c *gin.Context) {
@@ -51,16 +47,16 @@ func CreateAgent(c *gin.Context) {
 
 	var req CreateAgentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		model.FailBadRequest(c, err.Error())
 		return
 	}
 
 	if req.Name == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "名称不能为空"})
+		model.FailBadRequest(c, "名称不能为空")
 		return
 	}
 	if req.Model == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "请选择模型"})
+		model.FailBadRequest(c, "请选择模型")
 		return
 	}
 
@@ -88,11 +84,11 @@ func CreateAgent(c *gin.Context) {
 	}
 
 	if err := database.DB.Create(&agent).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create agent", "details": err.Error()})
+		model.FailInternal(c, "创建 Agent 失败")
 		return
 	}
 
-	c.JSON(http.StatusCreated, agent)
+	model.Created(c, agent)
 }
 
 func GetAgent(c *gin.Context) {
@@ -102,14 +98,14 @@ func GetAgent(c *gin.Context) {
 	var agent model.Agent
 	if err := database.DB.Where("id = ? AND user_id = ?", agentID, userID).First(&agent).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Agent not found"})
+			model.FailNotFound(c, "Agent 不存在")
 		} else {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch agent"})
+			model.FailInternal(c, "查询 Agent 失败")
 		}
 		return
 	}
 
-	c.JSON(http.StatusOK, agent)
+	model.Success(c, agent)
 }
 
 func UpdateAgent(c *gin.Context) {
@@ -119,16 +115,16 @@ func UpdateAgent(c *gin.Context) {
 	var agent model.Agent
 	if err := database.DB.Where("id = ? AND user_id = ?", agentID, userID).First(&agent).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Agent not found"})
+			model.FailNotFound(c, "Agent 不存在")
 		} else {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch agent"})
+			model.FailInternal(c, "查询 Agent 失败")
 		}
 		return
 	}
 
 	var req UpdateAgentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		model.FailBadRequest(c, err.Error())
 		return
 	}
 
@@ -153,11 +149,11 @@ func UpdateAgent(c *gin.Context) {
 	agent.UpdatedAt = time.Now()
 
 	if err := database.DB.Save(&agent).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update agent"})
+		model.FailInternal(c, "更新 Agent 失败")
 		return
 	}
 
-	c.JSON(http.StatusOK, agent)
+	model.Success(c, agent)
 }
 
 func DeleteAgent(c *gin.Context) {
@@ -167,19 +163,19 @@ func DeleteAgent(c *gin.Context) {
 	var agent model.Agent
 	if err := database.DB.Where("id = ? AND user_id = ?", agentID, userID).First(&agent).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Agent not found"})
+			model.FailNotFound(c, "Agent 不存在")
 		} else {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch agent"})
+			model.FailInternal(c, "查询 Agent 失败")
 		}
 		return
 	}
 
 	if err := database.DB.Delete(&agent).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete agent"})
+		model.FailInternal(c, "删除 Agent 失败")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Agent deleted successfully"})
+	model.SuccessWithMessage(c, nil, "Agent 已删除")
 }
 
 func AgentChat(c *gin.Context) {
@@ -189,21 +185,21 @@ func AgentChat(c *gin.Context) {
 	var agent model.Agent
 	if err := database.DB.Where("id = ? AND user_id = ?", agentID, userID).First(&agent).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Agent not found"})
+			model.FailNotFound(c, "Agent 不存在")
 		} else {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch agent"})
+			model.FailInternal(c, "查询 Agent 失败")
 		}
 		return
 	}
 
 	var req ChatRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request: " + err.Error()})
+		model.FailBadRequest(c, "Invalid request: "+err.Error())
 		return
 	}
 
 	if len(req.Messages) == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "messages is required and cannot be empty"})
+		model.FailBadRequest(c, "messages 不能为空")
 		return
 	}
 
@@ -240,9 +236,9 @@ func AgentChat(c *gin.Context) {
 	} else {
 		resp, err := callAIProvider(req)
 		if err != nil {
-			c.JSON(http.StatusBadGateway, gin.H{"error": "AI provider error: " + err.Error()})
+			model.Fail(c, http.StatusBadGateway, "AI provider error: "+err.Error())
 			return
 		}
-		c.JSON(http.StatusOK, resp)
+		model.Success(c, resp)
 	}
 }

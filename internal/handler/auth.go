@@ -26,13 +26,13 @@ type LoginRequest struct {
 	Password string `json:"password"`
 }
 
-type AuthResponse struct {
-	Token string     `json:"token"`
-	User  model.User `json:"user"`
+type ApiKeyRequest struct {
+	Name string `json:"name"`
 }
 
-type ApiKeyRequest struct {
-	Name string `json:"name" binding:"required"`
+type AuthData struct {
+	Token string     `json:"token"`
+	User  model.User `json:"user"`
 }
 
 func InitDefaultAdmin() {
@@ -60,32 +60,32 @@ func InitDefaultAdmin() {
 func Register(c *gin.Context) {
 	var req RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		model.FailBadRequest(c, err.Error())
 		return
 	}
 
 	if req.Email == "" || !isValidEmail(req.Email) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "请输入有效的邮箱地址"})
+		model.FailBadRequest(c, "请输入有效的邮箱地址")
 		return
 	}
 	if len(req.Password) < 6 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "密码至少6位"})
+		model.FailBadRequest(c, "密码至少6位")
 		return
 	}
 	if req.Name == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "请输入用户名"})
+		model.FailBadRequest(c, "请输入用户名")
 		return
 	}
 
 	var existing model.User
 	if err := database.DB.Where("email = ?", req.Email).First(&existing).Error; err == nil {
-		c.JSON(http.StatusConflict, gin.H{"error": "User already exists"})
+		model.Fail(c, http.StatusConflict, "该邮箱已被注册")
 		return
 	}
 
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to hash password"})
+		model.FailInternal(c, "密码加密失败")
 		return
 	}
 
@@ -99,28 +99,28 @@ func Register(c *gin.Context) {
 	}
 
 	if err := database.DB.Create(&user).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
+		model.FailInternal(c, "创建用户失败")
 		return
 	}
 
 	token, err := generateToken(&user)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
+		model.FailInternal(c, "生成 Token 失败")
 		return
 	}
 
-	c.JSON(http.StatusCreated, AuthResponse{Token: token, User: user})
+	model.Created(c, AuthData{Token: token, User: user})
 }
 
 func Login(c *gin.Context) {
 	var req LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		model.FailBadRequest(c, err.Error())
 		return
 	}
 
 	if req.Password == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "密码不能为空"})
+		model.FailBadRequest(c, "密码不能为空")
 		return
 	}
 
@@ -132,69 +132,69 @@ func Login(c *gin.Context) {
 	} else if req.Username != "" {
 		err = database.DB.Where("name = ?", req.Username).First(&user).Error
 	} else {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "请输入邮箱或用户名"})
+		model.FailBadRequest(c, "请输入邮箱或用户名")
 		return
 	}
 
 	if err == gorm.ErrRecordNotFound {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
+		model.FailUnauthorized(c, "用户名或密码错误")
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+		model.FailInternal(c, "数据库查询失败")
 		return
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
+		model.FailUnauthorized(c, "用户名或密码错误")
 		return
 	}
 
 	token, err := generateToken(&user)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
+		model.FailInternal(c, "生成 Token 失败")
 		return
 	}
 
-	c.JSON(http.StatusOK, AuthResponse{Token: token, User: user})
+	model.Success(c, AuthData{Token: token, User: user})
 }
 
 func Logout(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{"message": "Logged out successfully"})
+	model.SuccessWithMessage(c, nil, "已退出登录")
 }
 
 func GetCurrentUser(c *gin.Context) {
 	userID := c.GetString("user_id")
 	var user model.User
 	if err := database.DB.Where("id = ?", userID).First(&user).Error; err == gorm.ErrRecordNotFound {
-		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		model.FailNotFound(c, "用户不存在")
 		return
 	}
-	c.JSON(http.StatusOK, user)
+	model.Success(c, user)
 }
 
 func ListUsers(c *gin.Context) {
 	var users []model.User
 	database.DB.Find(&users)
-	c.JSON(http.StatusOK, users)
+	model.Success(c, users)
 }
 
-func GetUser(c *gin.Context)    { c.JSON(http.StatusOK, gin.H{"message": "Get user"}) }
-func UpdateUser(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"message": "Update user"}) }
-func DeleteUser(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"message": "Delete user"}) }
+func GetUser(c *gin.Context)    { model.Success(c, gin.H{"message": "Get user"}) }
+func UpdateUser(c *gin.Context) { model.Success(c, gin.H{"message": "Update user"}) }
+func DeleteUser(c *gin.Context) { model.Success(c, gin.H{"message": "Delete user"}) }
 
 func ListApiKeys(c *gin.Context) {
 	userID := c.GetString("user_id")
 	var keys []model.ApiKey
 	database.DB.Where("user_id = ?", userID).Find(&keys)
-	c.JSON(http.StatusOK, gin.H{"keys": keys})
+	model.Success(c, gin.H{"keys": keys})
 }
 
 func CreateApiKey(c *gin.Context) {
 	userID := c.GetString("user_id")
 	var req ApiKeyRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		model.FailBadRequest(c, err.Error())
 		return
 	}
 	key := "sk-" + generateID()
@@ -207,10 +207,10 @@ func CreateApiKey(c *gin.Context) {
 		UpdatedAt: time.Now(),
 	}
 	if err := database.DB.Create(&apiKey).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create API key"})
+		model.FailInternal(c, "创建 API Key 失败")
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"key": key, "id": apiKey.ID, "name": apiKey.Name, "created_at": apiKey.CreatedAt})
+	model.Created(c, gin.H{"id": apiKey.ID, "name": apiKey.Name, "key": apiKey.Key, "created_at": apiKey.CreatedAt})
 }
 
 func DeleteApiKey(c *gin.Context) {
@@ -220,23 +220,23 @@ func DeleteApiKey(c *gin.Context) {
 	var apiKey model.ApiKey
 	if err := database.DB.Where("id = ?", id).First(&apiKey).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": "API key not found"})
+			model.FailNotFound(c, "API Key 不存在")
 		} else {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+			model.FailInternal(c, "数据库查询失败")
 		}
 		return
 	}
 
 	if apiKey.UserID != userID {
-		c.JSON(http.StatusForbidden, gin.H{"error": "You do not have permission to delete this API key"})
+		model.FailForbidden(c, "无权删除此 API Key")
 		return
 	}
 
 	if err := database.DB.Delete(&apiKey).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete API key"})
+		model.FailInternal(c, "删除 API Key 失败")
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"message": "API key revoked successfully"})
+	model.SuccessWithMessage(c, nil, "API Key 已撤销")
 }
 
 func isValidEmail(email string) bool {

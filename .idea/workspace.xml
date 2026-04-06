@@ -4,46 +4,17 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="7a08bbd2-dc8e-4adb-b5d9-c1d9926348fc" name="Changes" comment="refactor 重新调整服务结构：按照Monorepo架构来，支持多语言微服务">
+    <list default="true" id="7a08bbd2-dc8e-4adb-b5d9-c1d9926348fc" name="Changes" comment="fix 整理文档">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/cmd/server/main.go" beforeDir="false" afterPath="$PROJECT_DIR$/cmd/server/main.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/cogniforge.iml" beforeDir="false" afterPath="$PROJECT_DIR$/cogniforge.iml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/gateway/.ai/mcp/mcp.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/gateway/.dockerignore" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/gateway/Dockerfile" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/gateway/Makefile" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/gateway/README.md" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/gateway/cmd/server/main.go" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/gateway/configs/config.yaml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/gateway/gateway.iml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/gateway/go.mod" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/gateway/go.sum" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/gateway/pkg/orjrs/gw/config/config.go" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/gateway/pkg/orjrs/gw/database/database.go" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/gateway/pkg/orjrs/gw/database/database_test.go" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/gateway/pkg/orjrs/gw/database/helper.go" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/gateway/pkg/orjrs/gw/handler/agent_test.go" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/gateway/pkg/orjrs/gw/handler/apikey_test.go" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/gateway/pkg/orjrs/gw/handler/auth.go" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/gateway/pkg/orjrs/gw/handler/auth_test.go" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/gateway/pkg/orjrs/gw/handler/chat.go" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/gateway/pkg/orjrs/gw/handler/chat_test.go" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/gateway/pkg/orjrs/gw/handler/health.go" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/gateway/pkg/orjrs/gw/handler/health_test.go" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/gateway/pkg/orjrs/gw/handler/workflow_test.go" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/gateway/pkg/orjrs/gw/logger/logger.go" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/gateway/pkg/orjrs/gw/middleware/cors_test.go" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/gateway/pkg/orjrs/gw/middleware/middleware.go" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/gateway/pkg/orjrs/gw/middleware/middleware_test.go" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/gateway/pkg/orjrs/gw/model/agent.go" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/gateway/pkg/orjrs/gw/model/apikey.go" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/gateway/pkg/orjrs/gw/model/user.go" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/gateway/pkg/orjrs/gw/model/workflow.go" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/gateway/test/integration/auth_integration_test.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/99-dev-plan/03-known-issues.md" beforeDir="false" afterPath="$PROJECT_DIR$/docs/99-dev-plan/03-known-issues.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/go.mod" beforeDir="false" afterPath="$PROJECT_DIR$/go.mod" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/go.sum" beforeDir="false" afterPath="$PROJECT_DIR$/go.sum" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/internal/handler/agent.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/handler/agent.go" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/internal/handler/auth.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/handler/auth.go" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/internal/handler/chat.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/handler/chat.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/internal/handler/knowledge.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/handler/knowledge.go" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/internal/handler/workflow.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/handler/workflow.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/internal/model/model.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/model/model.go" afterDir="false" />
     </list>
     <list id="c111af1d-6255-430c-a8e7-82bc09f53084" name="no commit Changes" comment="" />
     <option name="SHOW_DIALOG" value="false" />
@@ -60,6 +31,7 @@
   </component>
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
+    "Go Build.go build cogniforge/cmd/server.executor": "Debug",
     "Go Build.go build github.com/orjrs/gateway/cmd/server.executor": "Debug",
     "Go Build.go build main.go.executor": "Debug",
     "SHELLCHECK.PATH": "/Users/liujun/Library/Application Support/JetBrains/IntelliJIdea2024.1/plugins/Shell Script/shellcheck",
@@ -101,9 +73,9 @@
       <filePath value="$PROJECT_DIR$/gateway" />
       <method v="2" />
     </configuration>
-    <configuration name="go build main.go" type="GoApplicationRunConfiguration" factoryName="Go Application" temporary="true" nameIsGenerated="true">
+    <configuration name="go build cogniforge/cmd/server" type="GoApplicationRunConfiguration" factoryName="Go Application" temporary="true" nameIsGenerated="true">
       <module name="cogniforge" />
-      <working_directory value="$PROJECT_DIR$/gateway" />
+      <working_directory value="$PROJECT_DIR$" />
       <envs>
         <env name="AI_API_KEY" value="sk-1cOyQju50F0XWSvHTY11b9dskHyxHMirg5kpnpICC2clsqnM" />
         <env name="AI_BASE_URL" value="https://api.xty.app/v1" />
@@ -122,8 +94,8 @@
         <env name="REDIS_PORT" value="6379" />
         <env name="REDIS_URL" value="redis://localhost:6379" />
       </envs>
-      <kind value="FILE" />
-      <package value="github.com/orjrs/gateway" />
+      <kind value="PACKAGE" />
+      <package value="cogniforge/cmd/server" />
       <directory value="$PROJECT_DIR$/gateway" />
       <filePath value="$PROJECT_DIR$/cmd/server/main.go" />
       <method v="2" />
@@ -232,7 +204,7 @@
     </configuration>
     <recent_temporary>
       <list>
-        <item itemvalue="Go Build.go build main.go" />
+        <item itemvalue="Go Build.go build cogniforge/cmd/server" />
       </list>
     </recent_temporary>
   </component>
@@ -293,7 +265,47 @@
       <option name="project" value="LOCAL" />
       <updated>1775224742298</updated>
     </task>
-    <option name="localTasksCounter" value="8" />
+    <task id="LOCAL-00008" summary="refactor 重新调整服务结构：按照Monorepo架构来，支持多语言微服务">
+      <option name="closed" value="true" />
+      <created>1775227040194</created>
+      <option name="number" value="00008" />
+      <option name="presentableId" value="LOCAL-00008" />
+      <option name="project" value="LOCAL" />
+      <updated>1775227040194</updated>
+    </task>
+    <task id="LOCAL-00009" summary="refactor 重新调整服务结构：按照Monorepo架构来，支持多语言微服务">
+      <option name="closed" value="true" />
+      <created>1775258775995</created>
+      <option name="number" value="00009" />
+      <option name="presentableId" value="LOCAL-00009" />
+      <option name="project" value="LOCAL" />
+      <updated>1775258775995</updated>
+    </task>
+    <task id="LOCAL-00010" summary="fix 整理文档和聊天bug">
+      <option name="closed" value="true" />
+      <created>1775266555395</created>
+      <option name="number" value="00010" />
+      <option name="presentableId" value="LOCAL-00010" />
+      <option name="project" value="LOCAL" />
+      <updated>1775266555395</updated>
+    </task>
+    <task id="LOCAL-00011" summary="fix 整理文档">
+      <option name="closed" value="true" />
+      <created>1775307985483</created>
+      <option name="number" value="00011" />
+      <option name="presentableId" value="LOCAL-00011" />
+      <option name="project" value="LOCAL" />
+      <updated>1775307985483</updated>
+    </task>
+    <task id="LOCAL-00012" summary="fix 整理文档">
+      <option name="closed" value="true" />
+      <created>1775439194341</created>
+      <option name="number" value="00012" />
+      <option name="presentableId" value="LOCAL-00012" />
+      <option name="project" value="LOCAL" />
+      <updated>1775439194341</updated>
+    </task>
+    <option name="localTasksCounter" value="13" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
@@ -303,7 +315,9 @@
     <MESSAGE value="feat 简化结构 (flat fields)" />
     <MESSAGE value="chore 添加工作流的功能" />
     <MESSAGE value="refactor 重新调整服务结构：按照Monorepo架构来，支持多语言微服务" />
-    <option name="LAST_COMMIT_MESSAGE" value="refactor 重新调整服务结构：按照Monorepo架构来，支持多语言微服务" />
+    <MESSAGE value="fix 整理文档和聊天bug" />
+    <MESSAGE value="fix 整理文档" />
+    <option name="LAST_COMMIT_MESSAGE" value="fix 整理文档" />
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />

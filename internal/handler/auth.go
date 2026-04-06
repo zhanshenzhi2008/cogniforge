@@ -60,20 +60,20 @@ func InitDefaultAdmin() {
 func Register(c *gin.Context) {
 	var req RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		model.FailBadRequest(c, err.Error())
+		model.BadRequest(c, err.Error())
 		return
 	}
 
 	if req.Email == "" || !isValidEmail(req.Email) {
-		model.FailBadRequest(c, "请输入有效的邮箱地址")
+		model.BadRequest(c, "请输入有效的邮箱地址")
 		return
 	}
 	if len(req.Password) < 6 {
-		model.FailBadRequest(c, "密码至少6位")
+		model.BadRequest(c, "密码至少6位")
 		return
 	}
 	if req.Name == "" {
-		model.FailBadRequest(c, "请输入用户名")
+		model.BadRequest(c, "请输入用户名")
 		return
 	}
 
@@ -85,7 +85,7 @@ func Register(c *gin.Context) {
 
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
-		model.FailInternal(c, "密码加密失败")
+		model.InternalError(c, "密码加密失败")
 		return
 	}
 
@@ -99,13 +99,13 @@ func Register(c *gin.Context) {
 	}
 
 	if err := database.DB.Create(&user).Error; err != nil {
-		model.FailInternal(c, "创建用户失败")
+		model.InternalError(c, "创建用户失败")
 		return
 	}
 
 	token, err := generateToken(&user)
 	if err != nil {
-		model.FailInternal(c, "生成 Token 失败")
+		model.InternalError(c, "生成 Token 失败")
 		return
 	}
 
@@ -115,12 +115,12 @@ func Register(c *gin.Context) {
 func Login(c *gin.Context) {
 	var req LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		model.FailBadRequest(c, err.Error())
+		model.BadRequest(c, err.Error())
 		return
 	}
 
 	if req.Password == "" {
-		model.FailBadRequest(c, "密码不能为空")
+		model.BadRequest(c, "密码不能为空")
 		return
 	}
 
@@ -132,27 +132,27 @@ func Login(c *gin.Context) {
 	} else if req.Username != "" {
 		err = database.DB.Where("name = ?", req.Username).First(&user).Error
 	} else {
-		model.FailBadRequest(c, "请输入邮箱或用户名")
+		model.BadRequest(c, "请输入邮箱或用户名")
 		return
 	}
 
 	if err == gorm.ErrRecordNotFound {
-		model.FailUnauthorized(c, "用户名或密码错误")
+		model.Unauthorized(c, "用户名或密码错误")
 		return
 	}
 	if err != nil {
-		model.FailInternal(c, "数据库查询失败")
+		model.InternalError(c, "数据库查询失败")
 		return
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
-		model.FailUnauthorized(c, "用户名或密码错误")
+		model.Unauthorized(c, "用户名或密码错误")
 		return
 	}
 
 	token, err := generateToken(&user)
 	if err != nil {
-		model.FailInternal(c, "生成 Token 失败")
+		model.InternalError(c, "生成 Token 失败")
 		return
 	}
 
@@ -167,7 +167,7 @@ func GetCurrentUser(c *gin.Context) {
 	userID := c.GetString("user_id")
 	var user model.User
 	if err := database.DB.Where("id = ?", userID).First(&user).Error; err == gorm.ErrRecordNotFound {
-		model.FailNotFound(c, "用户不存在")
+		model.NotFound(c, "用户不存在")
 		return
 	}
 	model.Success(c, user)
@@ -194,7 +194,7 @@ func CreateApiKey(c *gin.Context) {
 	userID := c.GetString("user_id")
 	var req ApiKeyRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		model.FailBadRequest(c, err.Error())
+		model.BadRequest(c, err.Error())
 		return
 	}
 	key := "sk-" + generateID()
@@ -207,7 +207,7 @@ func CreateApiKey(c *gin.Context) {
 		UpdatedAt: time.Now(),
 	}
 	if err := database.DB.Create(&apiKey).Error; err != nil {
-		model.FailInternal(c, "创建 API Key 失败")
+		model.InternalError(c, "创建 API Key 失败")
 		return
 	}
 	model.Created(c, gin.H{"id": apiKey.ID, "name": apiKey.Name, "key": apiKey.Key, "created_at": apiKey.CreatedAt})
@@ -220,20 +220,20 @@ func DeleteApiKey(c *gin.Context) {
 	var apiKey model.ApiKey
 	if err := database.DB.Where("id = ?", id).First(&apiKey).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			model.FailNotFound(c, "API Key 不存在")
+			model.NotFound(c, "API Key 不存在")
 		} else {
-			model.FailInternal(c, "数据库查询失败")
+			model.InternalError(c, "数据库查询失败")
 		}
 		return
 	}
 
 	if apiKey.UserID != userID {
-		model.FailForbidden(c, "无权删除此 API Key")
+		model.Forbidden(c, "无权删除此 API Key")
 		return
 	}
 
 	if err := database.DB.Delete(&apiKey).Error; err != nil {
-		model.FailInternal(c, "删除 API Key 失败")
+		model.InternalError(c, "删除 API Key 失败")
 		return
 	}
 	model.SuccessWithMessage(c, nil, "API Key 已撤销")

@@ -14,13 +14,13 @@ import (
 func ListWorkflows(c *gin.Context) {
 	userID := c.GetString("user_id")
 	if userID == "" {
-		model.FailUnauthorized(c, "unauthorized")
+		model.Unauthorized(c, "unauthorized")
 		return
 	}
 
 	var workflows []model.Workflow
 	if err := database.DB.Where("user_id = ?", userID).Order("created_at DESC").Find(&workflows).Error; err != nil {
-		model.FailInternal(c, "查询工作流列表失败")
+		model.InternalError(c, "查询工作流列表失败")
 		return
 	}
 
@@ -30,7 +30,7 @@ func ListWorkflows(c *gin.Context) {
 func CreateWorkflow(c *gin.Context) {
 	userID := c.GetString("user_id")
 	if userID == "" {
-		model.FailUnauthorized(c, "unauthorized")
+		model.Unauthorized(c, "unauthorized")
 		return
 	}
 
@@ -40,7 +40,7 @@ func CreateWorkflow(c *gin.Context) {
 		Definition  map[string]any `json:"definition"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		model.FailBadRequest(c, "请求参数无效: "+err.Error())
+		model.BadRequest(c, "请求参数无效: "+err.Error())
 		return
 	}
 
@@ -59,7 +59,7 @@ func CreateWorkflow(c *gin.Context) {
 	}
 
 	if err := database.DB.Create(&workflow).Error; err != nil {
-		model.FailInternal(c, "创建工作流失败")
+		model.InternalError(c, "创建工作流失败")
 		return
 	}
 
@@ -73,9 +73,9 @@ func GetWorkflow(c *gin.Context) {
 	var workflow model.Workflow
 	if err := database.DB.Where("id = ? AND user_id = ?", workflowID, userID).First(&workflow).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			model.FailNotFound(c, "工作流不存在")
+			model.NotFound(c, "工作流不存在")
 		} else {
-			model.FailInternal(c, "查询工作流失败")
+			model.InternalError(c, "查询工作流失败")
 		}
 		return
 	}
@@ -90,9 +90,9 @@ func UpdateWorkflow(c *gin.Context) {
 	var workflow model.Workflow
 	if err := database.DB.Where("id = ? AND user_id = ?", workflowID, userID).First(&workflow).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			model.FailNotFound(c, "工作流不存在")
+			model.NotFound(c, "工作流不存在")
 		} else {
-			model.FailInternal(c, "查询工作流失败")
+			model.InternalError(c, "查询工作流失败")
 		}
 		return
 	}
@@ -104,7 +104,7 @@ func UpdateWorkflow(c *gin.Context) {
 		Definition  map[string]any `json:"definition"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		model.FailBadRequest(c, "请求参数无效: "+err.Error())
+		model.BadRequest(c, "请求参数无效: "+err.Error())
 		return
 	}
 
@@ -125,7 +125,7 @@ func UpdateWorkflow(c *gin.Context) {
 
 	if len(updates) > 0 {
 		if err := database.DB.Model(&workflow).Updates(updates).Error; err != nil {
-			model.FailInternal(c, "更新工作流失败")
+			model.InternalError(c, "更新工作流失败")
 			return
 		}
 	}
@@ -141,11 +141,11 @@ func DeleteWorkflow(c *gin.Context) {
 
 	result := database.DB.Where("id = ? AND user_id = ?", workflowID, userID).Delete(&model.Workflow{})
 	if result.Error != nil {
-		model.FailInternal(c, "删除工作流失败")
+		model.InternalError(c, "删除工作流失败")
 		return
 	}
 	if result.RowsAffected == 0 {
-		model.FailNotFound(c, "工作流不存在")
+		model.NotFound(c, "工作流不存在")
 		return
 	}
 
@@ -159,9 +159,9 @@ func ExecuteWorkflow(c *gin.Context) {
 	var workflow model.Workflow
 	if err := database.DB.Where("id = ? AND user_id = ?", workflowID, userID).First(&workflow).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			model.FailNotFound(c, "工作流不存在")
+			model.NotFound(c, "工作流不存在")
 		} else {
-			model.FailInternal(c, "查询工作流失败")
+			model.InternalError(c, "查询工作流失败")
 		}
 		return
 	}
@@ -184,7 +184,7 @@ func ExecuteWorkflow(c *gin.Context) {
 	}
 
 	if err := database.DB.Create(&execution).Error; err != nil {
-		model.FailInternal(c, "创建执行记录失败")
+		model.InternalError(c, "创建执行记录失败")
 		return
 	}
 

@@ -35,7 +35,7 @@ func ListAgents(c *gin.Context) {
 
 	var agents []model.Agent
 	if err := database.DB.Where("user_id = ?", userID).Order("created_at DESC").Find(&agents).Error; err != nil {
-		model.FailInternal(c, "查询 Agent 列表失败")
+		model.InternalError(c, "查询 Agent 列表失败")
 		return
 	}
 
@@ -47,16 +47,16 @@ func CreateAgent(c *gin.Context) {
 
 	var req CreateAgentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		model.FailBadRequest(c, err.Error())
+		model.BadRequest(c, err.Error())
 		return
 	}
 
 	if req.Name == "" {
-		model.FailBadRequest(c, "名称不能为空")
+		model.BadRequest(c, "名称不能为空")
 		return
 	}
 	if req.Model == "" {
-		model.FailBadRequest(c, "请选择模型")
+		model.BadRequest(c, "请选择模型")
 		return
 	}
 
@@ -84,7 +84,7 @@ func CreateAgent(c *gin.Context) {
 	}
 
 	if err := database.DB.Create(&agent).Error; err != nil {
-		model.FailInternal(c, "创建 Agent 失败")
+		model.InternalError(c, "创建 Agent 失败")
 		return
 	}
 
@@ -98,9 +98,9 @@ func GetAgent(c *gin.Context) {
 	var agent model.Agent
 	if err := database.DB.Where("id = ? AND user_id = ?", agentID, userID).First(&agent).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			model.FailNotFound(c, "Agent 不存在")
+			model.NotFound(c, "Agent 不存在")
 		} else {
-			model.FailInternal(c, "查询 Agent 失败")
+			model.InternalError(c, "查询 Agent 失败")
 		}
 		return
 	}
@@ -115,16 +115,16 @@ func UpdateAgent(c *gin.Context) {
 	var agent model.Agent
 	if err := database.DB.Where("id = ? AND user_id = ?", agentID, userID).First(&agent).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			model.FailNotFound(c, "Agent 不存在")
+			model.NotFound(c, "Agent 不存在")
 		} else {
-			model.FailInternal(c, "查询 Agent 失败")
+			model.InternalError(c, "查询 Agent 失败")
 		}
 		return
 	}
 
 	var req UpdateAgentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		model.FailBadRequest(c, err.Error())
+		model.BadRequest(c, err.Error())
 		return
 	}
 
@@ -149,7 +149,7 @@ func UpdateAgent(c *gin.Context) {
 	agent.UpdatedAt = time.Now()
 
 	if err := database.DB.Save(&agent).Error; err != nil {
-		model.FailInternal(c, "更新 Agent 失败")
+		model.InternalError(c, "更新 Agent 失败")
 		return
 	}
 
@@ -163,15 +163,15 @@ func DeleteAgent(c *gin.Context) {
 	var agent model.Agent
 	if err := database.DB.Where("id = ? AND user_id = ?", agentID, userID).First(&agent).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			model.FailNotFound(c, "Agent 不存在")
+			model.NotFound(c, "Agent 不存在")
 		} else {
-			model.FailInternal(c, "查询 Agent 失败")
+			model.InternalError(c, "查询 Agent 失败")
 		}
 		return
 	}
 
 	if err := database.DB.Delete(&agent).Error; err != nil {
-		model.FailInternal(c, "删除 Agent 失败")
+		model.InternalError(c, "删除 Agent 失败")
 		return
 	}
 
@@ -185,21 +185,21 @@ func AgentChat(c *gin.Context) {
 	var agent model.Agent
 	if err := database.DB.Where("id = ? AND user_id = ?", agentID, userID).First(&agent).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			model.FailNotFound(c, "Agent 不存在")
+			model.NotFound(c, "Agent 不存在")
 		} else {
-			model.FailInternal(c, "查询 Agent 失败")
+			model.InternalError(c, "查询 Agent 失败")
 		}
 		return
 	}
 
 	var req ChatRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		model.FailBadRequest(c, "Invalid request: "+err.Error())
+		model.BadRequest(c, "Invalid request: "+err.Error())
 		return
 	}
 
 	if len(req.Messages) == 0 {
-		model.FailBadRequest(c, "messages 不能为空")
+		model.BadRequest(c, "messages 不能为空")
 		return
 	}
 

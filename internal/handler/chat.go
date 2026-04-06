@@ -152,11 +152,11 @@ func aiChatCompletionsURL(base string) string {
 func Chat(c *gin.Context) {
 	var req ChatRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		model.FailBadRequest(c, "Invalid request: "+err.Error())
+		model.BadRequest(c, "Invalid request: "+err.Error())
 		return
 	}
 	if len(req.Messages) == 0 {
-		model.FailBadRequest(c, "messages 不能为空")
+		model.BadRequest(c, "messages 不能为空")
 		return
 	}
 	if req.Model == "" {
@@ -173,11 +173,11 @@ func Chat(c *gin.Context) {
 func ChatStream(c *gin.Context) {
 	var req ChatRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		model.FailBadRequest(c, "Invalid request: "+err.Error())
+		model.BadRequest(c, "Invalid request: "+err.Error())
 		return
 	}
 	if len(req.Messages) == 0 {
-		model.FailBadRequest(c, "messages 不能为空")
+		model.BadRequest(c, "messages 不能为空")
 		return
 	}
 	if req.Model == "" {

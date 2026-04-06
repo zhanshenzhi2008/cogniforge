@@ -81,6 +81,76 @@
 
 ---
 
+### 3. Nuxt 3 动态路由：目录结构、不刷新与常见坑（cogniforge-web / 工作流）
+
+**背景**：工作流列表进入画布页时曾出现「地址变了但仍是列表」、`[id].vue` 404、HMR 拉取已删除文件、以及 `Cannot access 'loadWorkflow' before initialization` 等问题。以下汇总为可复用的约定与排障要点。
+
+#### 3.1 目录结构（最佳实践）
+
+| 场景 | 推荐结构 | 路由 |
+|------|----------|------|
+| **A. 仅详情** | `pages/user/[id].vue` | `/user/123` |
+| **B. 列表 + 详情（推荐）** | `pages/user/index.vue` + `pages/user/[id].vue` | `/user`、`/user/:id` |
+| **C. 详情内多子页** | `pages/project/[id]/index.vue`、`overview.vue`、`files.vue` 等 | `/project/1`、`/project/1/overview` … |
+
+**工作流当前约定**（与 B 一致）：
+
+```text
+cogniforge-web/pages/workflows/
+  index.vue    → /workflows（列表）
+  [id].vue     → /workflows/:id（画布/详情）
+```
+
+**避免**：同时存在 `pages/workflows.vue` 与目录 `pages/workflows/`，会与 `/workflows` 解析冲突，并易与 Vite HMR 缓存纠缠；列表应放在 `workflows/index.vue`。
+
+#### 3.2 动态路由跳转后「不刷新」
+
+**原因**：`/workflows/1` → `/workflows/2` 时仍是同一个页面组件实例，Vue 为性能会复用组件，不会自动重新执行仅依赖 `onMounted` 的一次性加载逻辑。
+
+**做法**：监听路由参数变化后再拉数，例如：
+
+```ts
+const route = useRoute()
+
+watch(
+  () => route.params.id,
+  async (newId) => {
+    if (newId) await loadData(String(newId))
+  },
+  { immediate: true },
+)
+```
+
+或使用 `watchEffect(() => { loadData(route.params.id) })`（在 effect 内读取 `params.id` 即可建立依赖）。
+
+#### 3.3 `<script setup>` 与 `immediate: true` 的顺序陷阱
+
+**现象**：`ReferenceError: Cannot access 'loadWorkflow' before initialization`。
+
+**原因**：`watch(..., { immediate: true })` 在 setup 阶段会**立刻**执行回调；若回调里调用的函数（如 `loadWorkflow`）写在 `watch` **之后** 的 `const loadWorkflow = async () => {}`，会触发 TDZ（暂时性死区），与「函数声明提升」无关。
+
+**做法**：把 `loadWorkflow`（或被 watch 调用的异步函数）定义在 `watch` **之前**，或去掉 `immediate` 改在 `onMounted` 里首次加载（仍建议保留对 `params.id` 的 watch 以处理同页换 id）。
+
+#### 3.4 开发期 404 / 仍请求已删页面
+
+删除或重命名 `pages/**` 后，若控制台仍请求旧的 `pages/workflows/[id].vue` 等资源：
+
+- 停止 dev server，删除 `cogniforge-web/.nuxt` 后重新 `pnpm dev`；
+- 浏览器硬刷新，避免旧 HMR 状态。
+
+#### 3.5 本地验证画布（不调后端）
+
+列表页可提供固定测试 id（如 `__canvas_smoke__`）进入 `/workflows/__canvas_smoke__`，在 `[id].vue` 内短路为本地节点数据，用于单独验证动态路由与 Vue Flow 渲染，与网关 401 解耦。
+
+**相关文件**：
+
+- `cogniforge-web/pages/workflows/index.vue`
+- `cogniforge-web/pages/workflows/[id].vue`
+
+**状态**：🟢 已按上述约定修复；本文档作后续排障与新人说明
+
+---
+
 ## 🔧 技术债务
 
 ### 1. 内存数据存储
@@ -166,9 +236,11 @@ var users = map[string]*User{}  // 内存存储
 | 2026-03-21 | Element Plus SSR 水合问题 | 🟡 临时方案 | 禁用 SSR |
 | 2026-03-21 | 重复导入警告 | 🟡 待优化 | - |
 | 2026-03-21 | 内存数据存储 | 🔴 待实现 | 需要数据库 |
+| 2026-04-06 | Nuxt 动态路由（工作流） | 🟢 已修复并文档化 | 见「§3」 |
 
 ---
 
 ## 📝 更新日志
 
+- **2026-04-06**: 新增「§3 Nuxt 3 动态路由」：目录结构 A/B/C、同组件复用需 watch、`immediate` 与函数声明顺序、`.nuxt` 缓存与 smoke 测试说明
 - **2026-03-21**: 初始创建本文档，记录 Element Plus SSR 问题、重复导入警告和内存存储债务

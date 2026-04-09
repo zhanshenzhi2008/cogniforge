@@ -35,6 +35,8 @@ func main() {
 		&model.WorkflowNode{},
 		&model.WorkflowEdge{},
 		&model.WorkflowExecution{},
+		&model.KnowledgeBase{},
+		&model.Document{},
 	); err != nil {
 		slog.Error("failed to migrate database", "error", err)
 		return
@@ -42,9 +44,17 @@ func main() {
 
 	handler.InitDefaultAdmin()
 
-	r := gin.Default()
+	// 创建 gin engine
+	r := gin.New()
+	r.Use(gin.Recovery())
 	r.Use(middleware.Cors())
 	r.Use(middleware.Logger())
+
+	// 移除 URL 中多余的斜杠（如 /api//v1 -> /api/v1）
+	r.RemoveExtraSlash = true
+
+	// 设置文件上传大小限制为 50MB
+	r.MaxMultipartMemory = 50 << 20
 
 	r.GET("/health", handler.Health)
 	r.GET("/ready", handler.Ready)
@@ -65,7 +75,7 @@ func main() {
 		user := api.Group("/users")
 		user.Use(middleware.AuthRequired())
 		{
-			user.GET("/", handler.ListUsers)
+			user.GET("", handler.ListUsers)
 			user.GET("/:id", handler.GetUser)
 			user.PUT("/:id", handler.UpdateUser)
 			user.DELETE("/:id", handler.DeleteUser)
@@ -74,14 +84,14 @@ func main() {
 		apikey := api.Group("/keys")
 		apikey.Use(middleware.AuthRequired())
 		{
-			apikey.POST("/", handler.CreateApiKey)
-			apikey.GET("/", handler.ListApiKeys)
+			apikey.POST("", handler.CreateApiKey)
+			apikey.GET("", handler.ListApiKeys)
 			apikey.DELETE("/:id", handler.DeleteApiKey)
 		}
 
 		model := api.Group("/models")
 		{
-			model.GET("/", handler.ListModels)
+			model.GET("", handler.ListModels)
 			model.GET("/:id", handler.GetModel)
 			model.POST("/chat", handler.Chat)
 		}
@@ -89,8 +99,8 @@ func main() {
 		agent := api.Group("/agents")
 		agent.Use(middleware.AuthRequired())
 		{
-			agent.GET("/", handler.ListAgents)
-			agent.POST("/", handler.CreateAgent)
+			agent.GET("", handler.ListAgents)
+			agent.POST("", handler.CreateAgent)
 			agent.GET("/:id", handler.GetAgent)
 			agent.PUT("/:id", handler.UpdateAgent)
 			agent.DELETE("/:id", handler.DeleteAgent)
@@ -100,8 +110,8 @@ func main() {
 		workflow := api.Group("/workflows")
 		workflow.Use(middleware.AuthRequired())
 		{
-			workflow.GET("/", handler.ListWorkflows)
-			workflow.POST("/", handler.CreateWorkflow)
+			workflow.GET("", handler.ListWorkflows)
+			workflow.POST("", handler.CreateWorkflow)
 			workflow.GET("/:id", handler.GetWorkflow)
 			workflow.PUT("/:id", handler.UpdateWorkflow)
 			workflow.DELETE("/:id", handler.DeleteWorkflow)
@@ -111,7 +121,10 @@ func main() {
 		knowledge := api.Group("/knowledge")
 		knowledge.Use(middleware.AuthRequired())
 		{
+			// 同时支持 /api/v1/knowledge 和 /api/v1/knowledge/
+			knowledge.GET("", handler.ListKnowledgeBases)
 			knowledge.GET("/", handler.ListKnowledgeBases)
+			knowledge.POST("", handler.CreateKnowledgeBase)
 			knowledge.POST("/", handler.CreateKnowledgeBase)
 			knowledge.GET("/:id", handler.GetKnowledgeBase)
 			knowledge.PUT("/:id", handler.UpdateKnowledgeBase)

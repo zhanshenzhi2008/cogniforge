@@ -487,16 +487,17 @@ volumes:
 ## 7. 目录结构总览
 
 ```
-cogniforge/
-├── Makefile                      # 统一入口
-├── docker-compose.yml            # 本地开发
-├── .env.example                  # 环境变量示例
-│
-├── web/                        # 前端 (Nuxt)
+
+cogniforge-web/  # 前端 (Nuxt)
 │   ├── src/
 │   ├── Makefile
 │   ├── Dockerfile
 │   └── package.json
+
+cogniforge/  # 后端
+├── Makefile                      # 统一入口
+├── docker-compose.yml            # 本地开发
+├── .env.example                  # 环境变量示例
 │
 ├── gateway/                    # API 网关 (Go)
 │   ├── cmd/

@@ -1,5 +1,33 @@
 # CogniForge API 接口设计文档
 
+## [变更记录]
+
+| 日期 | 版本 | 变更摘要 | 负责人 |
+|------|------|----------|--------|
+| 2026-04-09 | v1.1 | 新增文档上传接口、语义检索接口实现说明 | orjrs |
+| 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] 文档上传与检索接口实现（2026-04-09）
+
+变更原因：补充文档上传和语义检索接口的实现细节
+包含代码：`internal/handler/knowledge.go`
+影响范围：API 设计文档
+
+### 变更前
+
+- 文档上传接口仅有占位说明
+- 检索接口未实现
+
+### 变更后
+
+- 文档上传：支持 multipart/form-data，支持 PDF/TXT/MD/DOCX/HTML
+- 检索接口：基于关键词的文本检索，支持相似度评分
+
+### 关键差异
+
+- **文档上传**：`POST /api/v1/knowledge/:id/documents`
+- **检索**：`POST /api/v1/knowledge/:id/search`
+
 ## 1. API 设计规范
 
 ### 1.1 设计原则
@@ -543,100 +571,156 @@ GET /v1/executions/{execution_id}
 ### 6.1 知识库管理
 
 ```yaml
-接口组: /v1/knowledge-bases
+接口组: /api/v1/knowledge
 
-GET /v1/knowledge-bases
+GET /api/v1/knowledge
 描述: 获取知识库列表
 认证: JWT
+响应:
+  {
+    "code": 2000,
+    "data": [
+      {
+        "id": "kb_xxx",
+        "name": "产品文档",
+        "description": "产品帮助文档",
+        "vector_db": "chroma",
+        "embedding_model": "text-embedding-ada-002",
+        "doc_count": 5,
+        "status": "active",
+        "created_at": "2026-03-16T10:00:00Z"
+      }
+    ]
+  }
 
 ---
 
-POST /v1/knowledge-bases
+POST /api/v1/knowledge
 描述: 创建知识库
 认证: JWT
 请求体:
   {
     "name": "产品文档",
-    "description": "产品帮助文档"
+    "description": "产品帮助文档",
+    "vector_db": "chroma",
+    "embedding_model": "text-embedding-ada-002"
   }
 响应:
   {
-    "id": "kb_xxx",
-    "name": "产品文档",
-    "description": "产品帮助文档",
-    "document_count": 0,
-    "created_at": "2026-03-16T10:00:00Z"
+    "code": 2001,
+    "data": {
+      "id": "kb_xxx",
+      "name": "产品文档",
+      "description": "产品帮助文档",
+      "doc_count": 0,
+      "status": "active",
+      "created_at": "2026-03-16T10:00:00Z"
+    }
   }
 
 ---
 
-GET /v1/knowledge-bases/{kb_id}
+GET /api/v1/knowledge/{kb_id}
 描述: 获取知识库详情
+认证: JWT
 
 ---
 
-DELETE /v1/knowledge-bases/{kb_id}
-描述: 删除知识库
+PUT /api/v1/knowledge/{kb_id}
+描述: 更新知识库
+认证: JWT
+
+---
+
+DELETE /api/v1/knowledge/{kb_id}
+描述: 删除知识库（软删除）
+认证: JWT
 ```
 
 ### 6.2 文档管理
 
 ```yaml
-接口组: /v1/knowledge-bases/{kb_id}
+接口组: /api/v1/knowledge/{kb_id}
 
-POST /v1/knowledge-bases/{kb_id}/documents
+POST /api/v1/knowledge/{kb_id}/documents
 描述: 上传文档
 认证: JWT
 请求: multipart/form-data
-  - file: PDF/DOCX/MD文件
-  - chunk_size: 512 (可选)
-  - chunk_overlap: 50 (可选)
+  - file: PDF/TXT/MD/DOCX/HTML 文件（必填）
 响应:
   {
-    "id": "doc_xxx",
-    "filename": "产品手册.pdf",
-    "status": "processing",
-    "chunk_count": 100,
-    "created_at": "2026-03-16T10:00:00Z"
+    "code": 2001,
+    "data": {
+      "id": "doc_xxx",
+      "knowledge_base_id": "kb_xxx",
+      "name": "产品手册.pdf",
+      "file_name": "产品手册.pdf",
+      "file_size": 1024000,
+      "file_type": "pdf",
+      "file_path": "uploads/documents/xxx/kb_xxx/doc_xxx.pdf",
+      "status": "pending",
+      "chunk_count": 0,
+      "vector_count": 0,
+      "created_at": "2026-04-09T10:00:00Z"
+    }
   }
 
 ---
 
-GET /v1/knowledge-bases/{kb_id}/documents
+GET /api/v1/knowledge/{kb_id}/documents
 描述: 获取文档列表
+认证: JWT
+响应:
+  {
+    "code": 2000,
+    "data": [
+      {
+        "id": "doc_xxx",
+        "name": "产品手册.pdf",
+        "status": "completed",
+        "chunk_count": 10,
+        "file_size": 1024000,
+        "created_at": "2026-04-09T10:00:00Z"
+      }
+    ]
+  }
 
 ---
 
-DELETE /v1/knowledge-bases/{kb_id}/documents/{doc_id}
+DELETE /api/v1/knowledge/{kb_id}/documents/{doc_id}
 描述: 删除文档
+认证: JWT
 ```
 
 ### 6.3 检索
 
 ```yaml
-POST /v1/knowledge-bases/{kb_id}/search
-描述: 语义检索
-认证: API密钥
+POST /api/v1/knowledge/{kb_id}/search
+描述: 语义检索（基于关键词）
+认证: JWT
 请求体:
   {
     "query": "如何重置密码",
     "top_k": 5,
-    "min_score": 0.7
+    "min_score": 0.3
   }
 响应:
   {
-    "results": [
-      {
-        "chunk_id": "chunk_xxx",
-        "content": "重置密码步骤：...",
-        "score": 0.95,
-        "source": {
+    "code": 2000,
+    "data": {
+      "results": [
+        {
           "document_id": "doc_xxx",
-          "filename": "产品手册.pdf",
-          "page": 10
+          "document_name": "产品手册.pdf",
+          "chunk_id": "doc_xxx_chunk_0",
+          "content": "重置密码步骤：...",
+          "score": 0.85
         }
-      }
-    ]
+      ],
+      "total": 1,
+      "query": "如何重置密码",
+      "duration_ms": 125
+    }
   }
 ```
 

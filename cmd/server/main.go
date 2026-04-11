@@ -37,6 +37,7 @@ func main() {
 		&model.WorkflowExecution{},
 		&model.KnowledgeBase{},
 		&model.Document{},
+		&model.RequestLog{},
 	); err != nil {
 		slog.Error("failed to migrate database", "error", err)
 		return
@@ -48,6 +49,7 @@ func main() {
 	r := gin.New()
 	r.Use(gin.Recovery())
 	r.Use(middleware.Cors())
+	r.Use(middleware.RequestLogger())
 	r.Use(middleware.Logger())
 
 	// 移除 URL 中多余的斜杠（如 /api//v1 -> /api/v1）
@@ -133,6 +135,16 @@ func main() {
 			knowledge.GET("/:id/documents", handler.ListDocuments)
 			knowledge.DELETE("/:id/documents/:docId", handler.DeleteDocument)
 			knowledge.POST("/:id/search", handler.SearchKnowledge)
+		}
+
+		// 监控中心 API
+		monitor := api.Group("/monitor")
+		monitor.Use(middleware.AuthRequired())
+		{
+			monitor.GET("/logs", handler.ListRequestLogs)
+			monitor.GET("/logs/:id", handler.GetRequestLog)
+			monitor.GET("/stats", handler.GetUsageStats)
+			monitor.GET("/stats/realtime", handler.GetRealtimeStats)
 		}
 	}
 

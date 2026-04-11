@@ -4,17 +4,8 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="7a08bbd2-dc8e-4adb-b5d9-c1d9926348fc" name="Changes" comment="fix 整理文档">
+    <list default="true" id="7a08bbd2-dc8e-4adb-b5d9-c1d9926348fc" name="Changes" comment="feat 添加知识库功能">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/99-dev-plan/03-known-issues.md" beforeDir="false" afterPath="$PROJECT_DIR$/docs/99-dev-plan/03-known-issues.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/go.mod" beforeDir="false" afterPath="$PROJECT_DIR$/go.mod" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/go.sum" beforeDir="false" afterPath="$PROJECT_DIR$/go.sum" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/internal/handler/agent.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/handler/agent.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/internal/handler/auth.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/handler/auth.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/internal/handler/chat.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/handler/chat.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/internal/handler/knowledge.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/handler/knowledge.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/internal/handler/workflow.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/handler/workflow.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/internal/model/model.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/model/model.go" afterDir="false" />
     </list>
     <list id="c111af1d-6255-430c-a8e7-82bc09f53084" name="no commit Changes" comment="" />
     <option name="SHOW_DIALOG" value="false" />
@@ -22,27 +13,69 @@
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
+  <component name="EmbeddingIndexingInfo">
+    <option name="cachedIndexableFilesCount" value="64" />
+  </component>
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
+  <component name="GitHubPullRequestSearchHistory"><![CDATA[{
+  "lastFilter": {
+    "state": "OPEN",
+    "assignee": "zhanshenzhi2008"
+  }
+}]]></component>
+  <component name="GithubPullRequestsUISettings"><![CDATA[{
+  "selectedUrlAndAccountId": {
+    "url": "git@github.com:zhanshenzhi2008/cogniforge.git",
+    "accountId": "85d0e823-e3e9-4b32-a79f-27de10aea5b1"
+  }
+}]]></component>
   <component name="McpProjectServerCommands">
     <commands />
     <urls />
+  </component>
+  <component name="ProjectCodeStyleSettingsMigration">
+    <option name="version" value="2" />
+  </component>
+  <component name="ProjectColorInfo"><![CDATA[{
+  "customColor": "",
+  "associatedIndex": 6
+}]]></component>
+  <component name="ProjectId" id="3C7tyt6jKpmRhIbh3HVveZN4g5W" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
   </component>
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
     "Go Build.go build cogniforge/cmd/server.executor": "Debug",
     "Go Build.go build github.com/orjrs/gateway/cmd/server.executor": "Debug",
     "Go Build.go build main.go.executor": "Debug",
+    "RunOnceActivity.MCP Project settings loaded": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.go.formatter.settings.were.checked": "true",
+    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
     "SHELLCHECK.PATH": "/Users/liujun/Library/Application Support/JetBrains/IntelliJIdea2024.1/plugins/Shell Script/shellcheck",
+    "codeWithMe.voiceChat.enabledByDefault": "false",
+    "com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1": "true",
     "git-widget-placeholder": "main",
+    "junie.onboarding.icon.badge.shown": "true",
+    "kotlin-language-version-configured": "true",
     "last_opened_file_path": "/Users/liujun/Documents/mine-repository/cogniforge",
+    "node.js.detected.package.eslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
     "node.js.selected.package.tslint": "(autodetect)",
     "nodejs.jest.jest_package": "",
+    "nodejs_package_manager_path": "npm",
     "project.structure.last.edited": "Modules",
     "project.structure.proportion": "0.15",
     "project.structure.side.proportion": "0.2",
-    "settings.editor.selected.configurable": "preferences.pluginManager"
+    "settings.editor.selected.configurable": "preferences.pluginManager",
+    "to.speed.mode.migration.done": "true",
+    "vue.rearranger.settings.migration": "true"
   }
 }]]></component>
   <component name="RunManager">
@@ -173,6 +206,7 @@
       <option name="testKind" value="Class" />
       <option name="workingDirectory" value="$PROJECT_DIR$" />
       <option name="shortenClasspath" value="NONE" />
+      <option name="workingDirectory" value="$PROJECT_DIR$" />
       <method v="2">
         <option name="Make" enabled="true" />
       </method>
@@ -305,8 +339,19 @@
       <option name="project" value="LOCAL" />
       <updated>1775439194341</updated>
     </task>
-    <option name="localTasksCounter" value="13" />
+    <task id="LOCAL-00013" summary="feat 添加知识库功能">
+      <option name="closed" value="true" />
+      <created>1775749012900</created>
+      <option name="number" value="00013" />
+      <option name="presentableId" value="LOCAL-00013" />
+      <option name="project" value="LOCAL" />
+      <updated>1775749012900</updated>
+    </task>
+    <option name="localTasksCounter" value="14" />
     <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="chore 1.添加chat的model下拉框数据 2.chat聊天数据流日志" />
@@ -317,7 +362,8 @@
     <MESSAGE value="refactor 重新调整服务结构：按照Monorepo架构来，支持多语言微服务" />
     <MESSAGE value="fix 整理文档和聊天bug" />
     <MESSAGE value="fix 整理文档" />
-    <option name="LAST_COMMIT_MESSAGE" value="fix 整理文档" />
+    <MESSAGE value="feat 添加知识库功能" />
+    <option name="LAST_COMMIT_MESSAGE" value="feat 添加知识库功能" />
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />

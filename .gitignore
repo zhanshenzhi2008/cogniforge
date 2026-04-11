@@ -24,9 +24,37 @@ hs_err_pid*
 replay_pid*
 
 # Go / gateway compiled binaries
-gateway/server
+server
+*.exe
 
-# JetBrains IDE (local machine state, should not be shared)
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# IDE - JetBrains
 .idea/workspace.xml
 .idea/tasks.xml
 .idea/usage.statistics.xml
+.idea/shelf/
+
+# IDE - VSCode
+.vscode/
+*.swp
+*.swo
+
+# IDE - Local
+.DS_Store
+Thumbs.db
+
+# Dependencies
+vendor
+vendor/
+
+# Build output
+bin/
+tmp/
+
+# Go workspace file
+go.work
+go.work.sum

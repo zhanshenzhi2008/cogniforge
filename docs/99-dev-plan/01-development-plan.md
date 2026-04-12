@@ -4,82 +4,11 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
-| 2026-04-11 | v1.2 | 阶段八：监控中心 - 请求日志中间件、日志列表 API、用量统计 API、监控仪表板页面完成 | orjrs |
-| 2026-04-09 | v1.1 | 阶段七：知识库 CRUD、文档上传、语义检索 API、检索测试页面全部完成 | orjrs |
+| 2026-04-11 | v1.2 | 阶段八监控中心完成（请求日志中间件、日志列表 API、用量统计 API、监控仪表板页面） | orjrs |
+| 2026-04-09 | v1.1 | 阶段七知识库服务完成（文档上传、语义检索 API、检索测试页面） | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
 
-## [变更] 阶段七知识库服务完成（2026-04-09）
-
-变更原因：阶段七知识库服务全部功能开发完成，包括文档上传和语义检索
-包含代码：`internal/handler/knowledge.go`、`pages/knowledge.vue`、`composables/useKnowledgeBases.ts`、`utils/apiClient.ts`
-影响范围：知识库模块后端和前端
-
-### 变更前
-
-| 序号 | 功能点 | 状态 |
-|-----|-------|------|
-| 7.2 | 文档上传 | 🔴 未开始 |
-| 7.4 | 语义检索 API | 🔴 未开始 |
-| 7.5 | 检索测试页面 | 🔴 未开始 |
-
-### 变更后
-
-| 序号 | 功能点 | 状态 |
-|-----|-------|------|
-| 7.2 | 文档上传 | 🟢 完成 |
-| 7.4 | 语义检索 API | 🟢 完成 |
-| 7.5 | 检索测试页面 | 🟢 完成 |
-
-### 关键差异
-
-- **新增**：`UploadDocument` 函数支持 multipart/form-data 文件上传
-- **新增**：文档异步处理（分块、状态更新）
-- **新增**：`SearchKnowledge` 函数实现基于关键词的文本检索
-- **新增**：前端上传模态框和检索测试标签页
-- **新增**：`api.upload` 方法支持 FormData 上传
-- **移除**：`apiClient.ts` 中 ApiResponse 接口必填字段改为可选
-
----
-
-## [变更] 阶段八监控中心完成（2026-04-11）
-
-变更原因：阶段八监控中心核心功能开发完成，包括请求日志记录和用量统计
-包含代码：
-- `internal/model/model.go` - RequestLog 模型
-- `internal/middleware/request_logger.go` - 请求日志中间件
-- `internal/handler/monitor.go` - 监控 API 处理器
-- `composables/useMonitor.ts` - 前端 API composable
-- `pages/monitor.vue` - 监控仪表板页面
-- `layouts/default.vue` - 导航菜单更新
-
-影响范围：监控中心模块后端和前端
-
-### 变更前
-
-| 序号 | 功能点 | 状态 |
-|-----|-------|------|
-| 8.1 | 请求日志列表 | 🔴 未开始 |
-| 8.2 | 日志详情查看 | 🔴 未开始 |
-| 8.3 | 用量统计图表 | 🔴 未开始 |
-| 8.4 | 监控仪表板 | 🔴 未开始 |
-
-### 变更后
-
-| 序号 | 功能点 | 状态 |
-|-----|-------|------|
-| 8.1 | 请求日志列表 | 🟢 完成 |
-| 8.2 | 日志详情查看 | 🟢 完成 |
-| 8.3 | 用量统计图表 | 🟢 完成 |
-| 8.4 | 监控仪表板 | 🟢 完成 |
-
-### 关键差异
-
-- **新增**：`RequestLog` 模型记录所有 API 请求（方法、路径、状态码、耗时、用户代理等）
-- **新增**：`RequestLogger` 中间件自动记录所有请求
-- **新增**：`ListRequestLogs` API 支持分页和筛选
-- **新增**：`GetUsageStats` API 返回用量统计（总请求数、平均耗时、错误率等）
-- **新增**：`GetRealtimeStats` API 返回实时统计（最近 5 分钟）
-- **新增**：前端监控仪表板页面（统计卡片 + 日志列表 + 详情弹窗）
+> 注：任务状态变更直接在下方任务表格中更新即可，无需额外记录。
 
 ## 总体策略
 
@@ -395,6 +324,14 @@ pnpm test:e2e          # E2E 测试
 - 向量数据库交互
 - RAG 检索流程
 
+**变更记录** (2026-04-09):
+- **新增** `UploadDocument` 函数：`internal/handler/knowledge.go` - 支持 multipart/form-data 文件上传
+- **新增** 文档异步处理：分块、状态更新
+- **新增** `SearchKnowledge` 函数：基于关键词的文本检索
+- **新增** 前端上传模态框和检索测试页面
+- **新增** `api.upload` 方法：`utils/apiClient.ts` - 支持 FormData 上传
+- **修改** `ApiResponse` 接口：必填字段改为可选
+
 ---
 
 ### 阶段八：监控中心（2周）
@@ -424,6 +361,15 @@ pnpm test:e2e          # E2E 测试
 - 请求日志中间件开发
 - 数据聚合统计 (GORM)
 - 图表可视化 (ECharts)
+
+**变更记录** (2026-04-11):
+- **新增** `RequestLog` 模型：`internal/model/model.go` - 记录方法、路径、状态码、耗时、用户代理等
+- **新增** `RequestLogger` 中间件：`internal/middleware/request_logger.go` - 自动记录所有请求
+- **新增** `ListRequestLogs` API：`internal/handler/monitor.go` - 支持分页和筛选
+- **新增** `GetUsageStats` API：返回总请求数、平均耗时、错误率等
+- **新增** `GetRealtimeStats` API：返回最近 5 分钟实时统计
+- **新增** 前端监控仪表板：`pages/monitor.vue` + `composables/useMonitor.ts`
+- **更新** `layouts/default.vue`：添加监控中心导航菜单
 
 ---
 

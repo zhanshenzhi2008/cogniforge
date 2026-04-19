@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -186,6 +187,23 @@ func Login(c *gin.Context) {
 		return
 	}
 
+	// 创建会话记录
+	session := model.UserSession{
+		ID:        generateID(),
+		UserID:    user.ID,
+		TokenID:   user.ID, // 简化处理，实际应该用 JWT 的 jti
+		UserAgent: c.GetHeader("User-Agent"),
+		IPAddress: c.ClientIP(),
+		Device:    parseDeviceFromUA(c.GetHeader("User-Agent")),
+		Location:  "", // 需要 IP 地理信息库
+		ExpiresAt: time.Now().Add(24 * time.Hour),
+		LastUsed:  time.Now(),
+		IsActive:  true,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+	database.DB.Create(&session)
+
 	model.Success(c, AuthData{Token: token, User: user})
 }
 
@@ -292,4 +310,19 @@ func generateToken(user *model.User) (string, error) {
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString(middleware.JWTSecret)
+}
+
+// parseDeviceFromUA 从 User-Agent 解析设备类型
+func parseDeviceFromUA(ua string) string {
+	if ua == "" {
+		return "Unknown"
+	}
+	ua = strings.ToLower(ua)
+	if strings.Contains(ua, "mobile") || strings.Contains(ua, "android") || strings.Contains(ua, "iphone") {
+		return "Mobile"
+	}
+	if strings.Contains(ua, "tablet") || strings.Contains(ua, "ipad") {
+		return "Tablet"
+	}
+	return "Desktop"
 }

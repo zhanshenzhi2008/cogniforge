@@ -29,6 +29,8 @@ func main() {
 	}
 	if err := db.AutoMigrate(
 		&model.User{},
+		&model.UserSettings{},
+		&model.UserSession{},
 		&model.ApiKey{},
 		&model.Agent{},
 		&model.Workflow{},
@@ -38,12 +40,16 @@ func main() {
 		&model.KnowledgeBase{},
 		&model.Document{},
 		&model.RequestLog{},
+		&model.Permission{},
+		&model.Role{},
+		&model.RolePermission{},
 	); err != nil {
 		slog.Error("failed to migrate database", "error", err)
 		return
 	}
 
 	handler.InitDefaultAdmin()
+	handler.InitDefaultRoles()
 
 	// 创建 gin engine
 	r := gin.New()
@@ -72,6 +78,7 @@ func main() {
 			auth.POST("/login", handler.Login)
 			auth.POST("/logout", middleware.AuthRequired(), handler.Logout)
 			auth.GET("/me", middleware.AuthRequired(), handler.GetCurrentUser)
+			auth.PUT("/me", middleware.AuthRequired(), handler.UpdateCurrentUser) // 新增
 		}
 
 		user := api.Group("/users")
@@ -145,6 +152,47 @@ func main() {
 			monitor.GET("/logs/:id", handler.GetRequestLog)
 			monitor.GET("/stats", handler.GetUsageStats)
 			monitor.GET("/stats/realtime", handler.GetRealtimeStats)
+		}
+
+		// 个人设置 API
+		settings := api.Group("/settings")
+		settings.Use(middleware.AuthRequired())
+		{
+			settings.GET("", handler.GetSettings)
+			settings.PUT("", handler.UpdateSettings)
+			settings.POST("/password", handler.ChangePassword)
+			settings.POST("/avatar", handler.UploadAvatar)
+			settings.GET("/sessions", handler.GetSessions)
+			settings.DELETE("/sessions/:id", handler.RevokeSession)
+		}
+
+		// 用户管理 API（管理员）
+		admin := api.Group("/admin")
+		admin.Use(middleware.AuthRequired())
+		admin.Use(middleware.RequireAdmin())
+		{
+			admin.GET("/users", handler.GetUsers)
+			admin.POST("/users", handler.CreateUser)
+			admin.GET("/users/:id", handler.GetUser)
+			admin.PUT("/users/:id", handler.UpdateUser)
+			admin.DELETE("/users/:id", handler.DeleteUser)
+			admin.PATCH("/users/:id/status", handler.UpdateUserStatus)
+
+			// 角色管理
+			admin.GET("/roles", handler.ListRoles)
+			admin.POST("/roles", handler.CreateRole)
+			admin.GET("/roles/:id", handler.GetRole)
+			admin.PUT("/roles/:id", handler.UpdateRole)
+			admin.DELETE("/roles/:id", handler.DeleteRole)
+
+			// 权限管理
+			admin.GET("/permissions", handler.ListPermissions)
+			admin.POST("/permissions", handler.CreatePermission)
+			admin.DELETE("/permissions/:id", handler.DeletePermission)
+
+			// 用户角色分配
+			admin.POST("/users/:id/roles", handler.AssignRole)
+			admin.GET("/users/:id/role", handler.GetUserRole)
 		}
 	}
 

@@ -48,12 +48,27 @@ func InitDefaultAdmin() {
 			Email:     "admin@cogniforge.local",
 			Name:      "admin",
 			Password:  string(hashedPassword),
+			Role:      "admin",
+			Status:    "active",
 			CreatedAt: time.Now(),
 			UpdatedAt: time.Now(),
 		}
 		if err := database.DB.Create(&admin).Error; err != nil {
 			panic("Failed to create default admin: " + err.Error())
 		}
+
+		// 同时创建用户设置
+		settings := model.UserSettings{
+			ID:        generateID(),
+			UserID:    admin.ID,
+			AvatarURL: "",
+			Theme:     "light",
+			Language:  "zh-CN",
+			Timezone:  "Asia/Shanghai",
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		}
+		database.DB.Create(&settings)
 	}
 }
 
@@ -94,6 +109,8 @@ func Register(c *gin.Context) {
 		Email:     req.Email,
 		Name:      req.Name,
 		Password:  string(hashedPassword),
+		Role:      "user", // 默认角色
+		Status:    "active",
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}
@@ -102,6 +119,19 @@ func Register(c *gin.Context) {
 		model.InternalError(c, "创建用户失败")
 		return
 	}
+
+	// 创建默认用户设置
+	settings := model.UserSettings{
+		ID:        generateID(),
+		UserID:    user.ID,
+		AvatarURL: "",
+		Theme:     "light",
+		Language:  "zh-CN",
+		Timezone:  "Asia/Shanghai",
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+	database.DB.Create(&settings)
 
 	token, err := generateToken(&user)
 	if err != nil {
@@ -178,10 +208,6 @@ func ListUsers(c *gin.Context) {
 	database.DB.Find(&users)
 	model.Success(c, users)
 }
-
-func GetUser(c *gin.Context)    { model.Success(c, gin.H{"message": "Get user"}) }
-func UpdateUser(c *gin.Context) { model.Success(c, gin.H{"message": "Update user"}) }
-func DeleteUser(c *gin.Context) { model.Success(c, gin.H{"message": "Delete user"}) }
 
 func ListApiKeys(c *gin.Context) {
 	userID := c.GetString("user_id")
@@ -266,18 +292,4 @@ func generateToken(user *model.User) (string, error) {
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString(middleware.JWTSecret)
-}
-
-func generateID() string {
-	return time.Now().Format("20060102150405") + "-" + randomString(8)
-}
-
-func randomString(n int) string {
-	const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	b := make([]byte, n)
-	for i := range b {
-		b[i] = letters[time.Now().UnixNano()%int64(len(letters))]
-		time.Sleep(time.Nanosecond)
-	}
-	return string(b)
 }

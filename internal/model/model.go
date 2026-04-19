@@ -126,6 +126,9 @@ type User struct {
 	Email     string         `gorm:"uniqueIndex;type:varchar(255);not null" json:"email"`
 	Name      string         `gorm:"type:varchar(100);not null" json:"name"`
 	Password  string         `gorm:"type:varchar(255);not null" json:"-"`
+	AvatarURL string         `gorm:"type:varchar(500)" json:"avatar_url"`             // 头像地址
+	Status    string         `gorm:"type:varchar(50);default:'active'" json:"status"` // active, disabled, locked
+	Role      string         `gorm:"type:varchar(100);default:'user'" json:"role"`    // 用户角色（简单方案）
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
@@ -133,6 +136,95 @@ type User struct {
 
 func (User) TableName() string {
 	return "users"
+}
+
+// =============================================================================
+// RBAC Models - 用户管理与权限系统
+// =============================================================================
+
+// UserSettings 用户设置表
+type UserSettings struct {
+	ID        string    `gorm:"primaryKey;type:varchar(64)" json:"id"`
+	UserID    string    `gorm:"type:varchar(64);not null;uniqueIndex" json:"user_id"`
+	AvatarURL string    `gorm:"type:varchar(500)" json:"avatar_url"`           // 头像地址
+	Theme     string    `gorm:"type:varchar(50);default:'light'" json:"theme"` // 主题：light/dark
+	Language  string    `gorm:"type:varchar(20);default:'zh-CN'" json:"language"`
+	Timezone  string    `gorm:"type:varchar(50);default:'Asia/Shanghai'" json:"timezone"`
+	Metadata  JSONBMap  `gorm:"type:jsonb" json:"metadata"` // 其他设置（通知偏好等）
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+func (UserSettings) TableName() string {
+	return "user_settings"
+}
+
+// UserSession 用户会话表（记录登录设备）
+type UserSession struct {
+	ID        string         `gorm:"primaryKey;type:varchar(64)" json:"id"`
+	UserID    string         `gorm:"type:varchar(64);not null;index" json:"user_id"`
+	TokenID   string         `gorm:"type:varchar(255);not null;uniqueIndex" json:"token_id"` // JWT ID (jti)
+	UserAgent string         `gorm:"type:varchar(500)" json:"user_agent"`                    // 用户代理
+	IPAddress string         `gorm:"type:varchar(50)" json:"ip_address"`                     // IP 地址
+	Device    string         `gorm:"type:varchar(100)" json:"device"`                        // 设备信息
+	Location  string         `gorm:"type:varchar(255)" json:"location"`                      // 登录地点
+	ExpiresAt time.Time      `json:"expires_at"`                                             // 过期时间
+	LastUsed  time.Time      `json:"last_used"`                                              // 最后使用时间
+	IsActive  bool           `gorm:"default:true" json:"is_active"`                          // 是否活跃
+	CreatedAt time.Time      `json:"created_at"`
+	UpdatedAt time.Time      `json:"updated_at"`
+	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
+}
+
+func (UserSession) TableName() string {
+	return "user_sessions"
+}
+
+// Permission 权限点表
+type Permission struct {
+	ID        string         `gorm:"primaryKey;type:varchar(64)" json:"id"`
+	Code      string         `gorm:"type:varchar(100);not null;uniqueIndex" json:"code"` // 权限代码（如：user:create, role:edit）
+	Name      string         `gorm:"type:varchar(255);not null" json:"name"`             // 权限名称
+	Group     string         `gorm:"type:varchar(100)" json:"group"`                     // 分组（如：用户管理、角色管理）
+	Desc      string         `gorm:"type:text" json:"description"`                       // 描述
+	CreatedAt time.Time      `json:"created_at"`
+	UpdatedAt time.Time      `json:"updated_at"`
+	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
+}
+
+func (Permission) TableName() string {
+	return "permissions"
+}
+
+// Role 角色表
+type Role struct {
+	ID          string         `gorm:"primaryKey;type:varchar(64)" json:"id"`
+	Name        string         `gorm:"type:varchar(100);not null" json:"name"`             // 角色名称
+	Code        string         `gorm:"type:varchar(100);not null;uniqueIndex" json:"code"` // 角色代码（如：admin, user）
+	Description string         `gorm:"type:text" json:"description"`                       // 描述
+	IsSystem    bool           `gorm:"default:false" json:"is_system"`                     // 是否系统预置角色（不可删除）
+	IsDefault   bool           `gorm:"default:false" json:"is_default"`                    // 是否默认角色
+	Permissions string         `gorm:"type:text" json:"-"`                                 // 权限列表（缓存用，不直接查询）
+	CreatedAt   time.Time      `json:"created_at"`
+	UpdatedAt   time.Time      `json:"updated_at"`
+	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
+}
+
+func (Role) TableName() string {
+	return "roles"
+}
+
+// RolePermission 角色权限关联表（多对多）
+type RolePermission struct {
+	ID           string         `gorm:"primaryKey;type:varchar(64)" json:"id"`
+	RoleID       string         `gorm:"type:varchar(64);not null;index" json:"role_id"`
+	PermissionID string         `gorm:"type:varchar(64);not null;index" json:"permission_id"`
+	CreatedAt    time.Time      `json:"created_at"`
+	DeletedAt    gorm.DeletedAt `gorm:"index" json:"-"`
+}
+
+func (RolePermission) TableName() string {
+	return "role_permissions"
 }
 
 type ApiKey struct {
@@ -245,18 +337,18 @@ func (WorkflowExecution) TableName() string {
 // =============================================================================
 
 type KnowledgeBase struct {
-	ID          string         `gorm:"primaryKey;type:varchar(64)" json:"id"`
-	UserID      string         `gorm:"type:varchar(64);not null;index" json:"user_id"`
-	Name        string         `gorm:"type:varchar(255);not null" json:"name"`
-	Description string         `gorm:"type:text" json:"description"`
-	VectorDB    string         `gorm:"type:varchar(50);default:'chroma'" json:"vector_db"` // chroma, qdrant, weaviate
-	EmbeddingModel string     `gorm:"type:varchar(100);default:'text-embedding-ada-002'" json:"embedding_model"`
-	Status      string         `gorm:"type:varchar(50);default:'active'" json:"status"`
-	Metadata    JSONBMap       `gorm:"type:jsonb" json:"metadata"`
-	DocCount    int            `gorm:"default:0" json:"doc_count"`     // 文档数量
-	CreatedAt   time.Time      `json:"created_at"`
-	UpdatedAt   time.Time      `json:"updated_at"`
-	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
+	ID             string         `gorm:"primaryKey;type:varchar(64)" json:"id"`
+	UserID         string         `gorm:"type:varchar(64);not null;index" json:"user_id"`
+	Name           string         `gorm:"type:varchar(255);not null" json:"name"`
+	Description    string         `gorm:"type:text" json:"description"`
+	VectorDB       string         `gorm:"type:varchar(50);default:'chroma'" json:"vector_db"` // chroma, qdrant, weaviate
+	EmbeddingModel string         `gorm:"type:varchar(100);default:'text-embedding-ada-002'" json:"embedding_model"`
+	Status         string         `gorm:"type:varchar(50);default:'active'" json:"status"`
+	Metadata       JSONBMap       `gorm:"type:jsonb" json:"metadata"`
+	DocCount       int            `gorm:"default:0" json:"doc_count"` // 文档数量
+	CreatedAt      time.Time      `json:"created_at"`
+	UpdatedAt      time.Time      `json:"updated_at"`
+	DeletedAt      gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
 func (KnowledgeBase) TableName() string {
@@ -264,22 +356,22 @@ func (KnowledgeBase) TableName() string {
 }
 
 type Document struct {
-	ID             string         `gorm:"primaryKey;type:varchar(64)" json:"id"`
-	KnowledgeBaseID string        `gorm:"type:varchar(64);not null;index" json:"knowledge_base_id"`
-	UserID         string         `gorm:"type:varchar(64);not null;index" json:"user_id"`
-	Name           string         `gorm:"type:varchar(255);not null" json:"name"`
-	FileName       string         `gorm:"type:varchar(255)" json:"file_name"` // 原始文件名
-	FileSize       int64         `gorm:"type:bigint" json:"file_size"`      // 文件大小(bytes)
-	FileType       string        `gorm:"type:varchar(50)" json:"file_type"` // pdf, txt, md, docx
-	FilePath       string         `gorm:"type:text" json:"file_path"`       // 存储路径
-	Status         string         `gorm:"type:varchar(50);default:'pending'" json:"status"` // pending, processing, completed, failed
-	Error          string         `gorm:"type:text" json:"error"`            // 错误信息
-	ChunkCount     int            `gorm:"default:0" json:"chunk_count"`     // 分块数量
-	VectorCount    int            `gorm:"default:0" json:"vector_count"`    // 向量数量
-	Metadata       JSONBMap       `gorm:"type:jsonb" json:"metadata"`
-	CreatedAt      time.Time      `json:"created_at"`
-	UpdatedAt      time.Time      `json:"updated_at"`
-	DeletedAt      gorm.DeletedAt `gorm:"index" json:"-"`
+	ID              string         `gorm:"primaryKey;type:varchar(64)" json:"id"`
+	KnowledgeBaseID string         `gorm:"type:varchar(64);not null;index" json:"knowledge_base_id"`
+	UserID          string         `gorm:"type:varchar(64);not null;index" json:"user_id"`
+	Name            string         `gorm:"type:varchar(255);not null" json:"name"`
+	FileName        string         `gorm:"type:varchar(255)" json:"file_name"`               // 原始文件名
+	FileSize        int64          `gorm:"type:bigint" json:"file_size"`                     // 文件大小(bytes)
+	FileType        string         `gorm:"type:varchar(50)" json:"file_type"`                // pdf, txt, md, docx
+	FilePath        string         `gorm:"type:text" json:"file_path"`                       // 存储路径
+	Status          string         `gorm:"type:varchar(50);default:'pending'" json:"status"` // pending, processing, completed, failed
+	Error           string         `gorm:"type:text" json:"error"`                           // 错误信息
+	ChunkCount      int            `gorm:"default:0" json:"chunk_count"`                     // 分块数量
+	VectorCount     int            `gorm:"default:0" json:"vector_count"`                    // 向量数量
+	Metadata        JSONBMap       `gorm:"type:jsonb" json:"metadata"`
+	CreatedAt       time.Time      `json:"created_at"`
+	UpdatedAt       time.Time      `json:"updated_at"`
+	DeletedAt       gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
 func (Document) TableName() string {
@@ -291,20 +383,20 @@ func (Document) TableName() string {
 // =============================================================================
 
 type RequestLog struct {
-	ID           string         `gorm:"primaryKey;type:varchar(64)" json:"id"`
-	TraceID      string         `gorm:"type:varchar(64);index" json:"trace_id"`
-	UserID       string         `gorm:"type:varchar(64);index" json:"user_id"`
-	Method       string         `gorm:"type:varchar(10);not null" json:"method"`       // GET, POST, PUT, DELETE
-	Path         string         `gorm:"type:varchar(500);not null" json:"path"`        // 请求路径
-	Query        string         `gorm:"type:text" json:"query"`                      // 查询参数
-	RequestBody  string         `gorm:"type:text" json:"request_body"`                // 请求体
-	StatusCode  int            `gorm:"type:smallint;default:0" json:"status_code"`    // 响应状态码
-	ResponseBody string        `gorm:"type:text" json:"response_body"`               // 响应体
-	Duration    int64          `gorm:"type:bigint;default:0" json:"duration"`       // 耗时(毫秒)
-	UserAgent   string         `gorm:"type:varchar(500)" json:"user_agent"`           // 用户代理
-	IP          string         `gorm:"type:varchar(50)" json:"ip"`                  // IP 地址
-	Error       string         `gorm:"type:text" json:"error"`                        // 错误信息
-	CreatedAt   time.Time      `json:"created_at"`
+	ID           string    `gorm:"primaryKey;type:varchar(64)" json:"id"`
+	TraceID      string    `gorm:"type:varchar(64);index" json:"trace_id"`
+	UserID       string    `gorm:"type:varchar(64);index" json:"user_id"`
+	Method       string    `gorm:"type:varchar(10);not null" json:"method"`    // GET, POST, PUT, DELETE
+	Path         string    `gorm:"type:varchar(500);not null" json:"path"`     // 请求路径
+	Query        string    `gorm:"type:text" json:"query"`                     // 查询参数
+	RequestBody  string    `gorm:"type:text" json:"request_body"`              // 请求体
+	StatusCode   int       `gorm:"type:smallint;default:0" json:"status_code"` // 响应状态码
+	ResponseBody string    `gorm:"type:text" json:"response_body"`             // 响应体
+	Duration     int64     `gorm:"type:bigint;default:0" json:"duration"`      // 耗时(毫秒)
+	UserAgent    string    `gorm:"type:varchar(500)" json:"user_agent"`        // 用户代理
+	IP           string    `gorm:"type:varchar(50)" json:"ip"`                 // IP 地址
+	Error        string    `gorm:"type:text" json:"error"`                     // 错误信息
+	CreatedAt    time.Time `json:"created_at"`
 }
 
 func (RequestLog) TableName() string {

@@ -688,11 +688,34 @@ GET /api/v1/knowledge/{kb_id}/documents
 ---
 
 DELETE /api/v1/knowledge/{kb_id}/documents/{doc_id}
-描述: 删除文档
+描述: 删除文档（软删除，同时删除向量）
 认证: JWT
+
+---
+
+### 6.3 文档处理状态
+
+```yaml
+GET /api/v1/knowledge/{kb_id}/documents/{doc_id}/status
+描述: 查询文档处理状态（pending/processing/completed/failed）
+认证: JWT
+响应:
+  {
+    "code": 2000,
+    "data": {
+      "id": "doc_xxx",
+      "status": "completed",  // pending, processing, completed, failed
+      "chunk_count": 15,
+      "vector_count": 15,
+      "error_message": null,  // 失败时包含错误信息
+      "updated_at": "2026-04-11T10:30:00Z"
+    }
+  }
 ```
 
-### 6.3 检索
+---
+
+### 6.4 检索
 
 ```yaml
 POST /api/v1/knowledge/{kb_id}/search
@@ -1008,7 +1031,156 @@ POST /v1/roles
 
 ---
 
-## 10. 错误码定义
+## 10. 个人设置接口
+
+### 10.1 个人资料
+
+```yaml
+接口组: /api/v1/settings
+
+GET /api/v1/settings/profile
+描述: 获取当前用户个人资料
+认证: JWT
+响应:
+  {
+    "code": 2000,
+    "data": {
+      "id": "user-uuid",
+      "email": "user@example.com",
+      "name": "张三",
+      "avatar_url": "https://cdn.example.com/avatars/user.png",
+      "phone": "+86 13800138000",
+      "timezone": "Asia/Shanghai",
+      "locale": "zh-CN",
+      "theme": "light",
+      "email_verified": true,
+      "created_at": "2026-03-16T10:00:00Z"
+    }
+  }
+
+---
+
+PUT /api/v1/settings/profile
+描述: 更新个人资料
+认证: JWT
+请求体:
+  {
+    "name": "李四",
+    "phone": "+86 13800138001",
+    "timezone": "Asia/Shanghai",
+    "locale": "zh-CN",
+    "theme": "dark"
+  }
+响应:
+  {
+    "code": 2000,
+    "data": {
+      "updated": true
+    }
+  }
+```
+
+### 10.2 头像上传
+
+```yaml
+POST /api/v1/settings/avatar
+描述: 上传头像
+认证: JWT
+请求: multipart/form-data
+  - file: 图片文件（JPG/PNG/GIF，最大 2MB）
+响应:
+  {
+    "code": 2000,
+    "data": {
+      "avatar_url": "https://cdn.example.com/avatars/user-abc123.png"
+    }
+  }
+```
+
+**处理逻辑**：
+1. 验证文件大小（≤ 2MB）
+2. 验证文件类型（仅图片）
+3. 图片解码并裁剪为 200×200 正方形
+4. 保存到对象存储（MinIO/S3）
+5. 更新用户 `avatar_url` 字段
+
+### 10.3 密码修改
+
+```yaml
+POST /api/v1/settings/password
+描述: 修改密码
+认证: JWT
+请求体:
+  {
+    "current_password": "旧密码（必填）",
+    "new_password": "新密码（至少8位，含大小写字母和数字）",
+    "confirm_password": "确认密码（必须与new_password一致）"
+  }
+响应:
+  {
+    "code": 2000,
+    "message": "密码修改成功，请重新登录"
+  }
+```
+
+**验证规则**：
+- 旧密码正确（bcrypt 比对）
+- 新密码长度 ≥ 8
+- 新密码包含大写字母、小写字母、数字
+- 确认密码一致
+- 修改成功后，使当前 Token 失效（强制重新登录）
+
+### 10.4 会话管理
+
+```yaml
+GET /api/v1/settings/sessions
+描述: 获取当前用户的登录会话列表
+认证: JWT
+响应:
+  {
+    "code": 2000,
+    "data": {
+      "sessions": [
+        {
+          "id": "session-uuid",
+          "ip_address": "192.168.1.100",
+          "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)...",
+          "device_info": {
+            "os": "macOS",
+            "browser": "Chrome 120",
+            "device_type": "desktop"
+          },
+          "location": "上海, 中国",
+          "last_active_at": "2026-04-11T10:30:00Z",
+          "is_current": true,
+          "created_at": "2026-04-10T08:00:00Z"
+        }
+      ]
+    }
+  }
+
+---
+
+DELETE /api/v1/settings/sessions/{session_id}
+描述: 远程登出指定会话（设备）
+认证: JWT
+路径参数:
+  - session_id: 会话 ID（从列表页获取）
+响应:
+  {
+    "code": 2000,
+    "message": "会话已登出"
+  }
+```
+
+**会话创建时机**：
+- 用户登录成功后，生成 JWT Token 的同时在 `cf_user_sessions` 表插入一条记录
+- `session_id` 使用 JWT 的 `jti` 声明（JWT ID）
+- 每次请求更新 `last_active_at`
+
+---
+
+## 11. 错误码定义
 
 | 错误码 | 类型 | 描述 |
 |-------|------|------|

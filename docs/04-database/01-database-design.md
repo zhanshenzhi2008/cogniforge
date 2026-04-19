@@ -124,6 +124,37 @@ CREATE INDEX idx_user_role_user ON cf_user_roles(user_id);
 CREATE INDEX idx_user_role_role ON cf_user_roles(role_id);
 ```
 
+#### 2.1.5 用户会话表 (cf_user_sessions)
+
+```sql
+-- 用户登录会话管理
+-- 每次用户登录时创建记录，用于展示"登录设备列表"和远程登出
+CREATE TABLE cf_user_sessions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES cf_users(id) ON DELETE CASCADE,
+    session_id VARCHAR(100) NOT NULL UNIQUE,  -- JWT ID 或 Redis Session ID
+    ip_address INET,                          -- 登录 IP
+    user_agent TEXT,                          -- User-Agent 原始字符串
+    device_info JSONB DEFAULT '{}',          -- 设备信息 {os, browser, device_type}
+    location VARCHAR(100),                   -- 地理位置（可选，IP 解析）
+    last_active_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 索引：快速查询用户会话、清理过期会话
+CREATE INDEX idx_session_user ON cf_user_sessions(user_id);
+CREATE INDEX idx_session_expires ON cf_user_sessions(expires_at);
+CREATE INDEX idx_session_active ON cf_user_sessions(last_active_at DESC);
+```
+
+**说明**：
+- `session_id`：从 JWT Token 的 `jti` 声明或 Session ID 生成
+- `device_info`：解析 User-Agent 得到 `{os: "macOS", browser: "Chrome 120", device_type: "desktop"}`
+- `last_active_at`：每次请求更新，用于判断活跃状态
+- `expires_at`：Session 过期时间（Token 有效期）
+- 定期清理任务：`DELETE FROM cf_user_sessions WHERE expires_at < NOW()`
+
 ---
 
 ### 2.2 API密钥与认证
@@ -319,19 +350,28 @@ CREATE TABLE cf_knowledge_documents (
 CREATE INDEX idx_doc_kb ON cf_knowledge_documents(knowledge_base_id);
 CREATE INDEX idx_doc_status ON cf_knowledge_documents(status);
 
--- 注意: 向量数据存储在Milvus/Qdrant中
--- 文档Chunk表仅存储元数据引用
+-- 注意: 向量数据使用 PostgreSQL pgvector 扩展存储
+-- 文档Chunk表存储分块文本及其向量（vector列）
 CREATE TABLE cf_knowledge_chunks (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     document_id UUID NOT NULL REFERENCES cf_knowledge_documents(id) ON DELETE CASCADE,
+    knowledge_base_id UUID NOT NULL,
     chunk_index INTEGER NOT NULL,
     content TEXT NOT NULL,
-    vector_id VARCHAR(100),  -- 向量数据库中的ID
+    vector vector(1536),  -- pgvector列，OpenAI embedding维度
     metadata JSONB DEFAULT '{}',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- HNSW 索引：加速向量相似度检索
+-- 适用于高维向量近似最近邻搜索（ANN）
+CREATE INDEX idx_chunk_vector ON cf_knowledge_chunks
+USING hnsw (vector vector_cosine_ops)
+WITH (m = 16, ef_construction = 64);
+
+-- 辅助索引
 CREATE INDEX idx_chunk_doc ON cf_knowledge_chunks(document_id);
+CREATE INDEX idx_chunk_kb ON cf_knowledge_chunks(knowledge_base_id);
 ```
 
 ---
@@ -651,6 +691,222 @@ token_count:{org_id}:{date} -> counter
 
 ---
 
+## 8. pgvector 向量扩展使用说明
+
+### 8.1 安装与配置
+
+**PostgreSQL 版本要求**：PostgreSQL 15+（推荐 15 或 16）
+
+```bash
+# 检查 PostgreSQL 版本
+psql --version
+
+# 进入 PostgreSQL 容器或本地实例
+docker exec -it cogniforge-postgres psql -U cogniforge -d cogniforge
+
+# 安装 pgvector 扩展
+CREATE EXTENSION IF NOT EXISTS vector;
+```
+
+**验证安装**：
+```sql
+SELECT * FROM pg_extension WHERE extname = 'vector';
+-- 应返回 vector 扩展信息
+```
+
+### 8.2 向量表创建
+
+已在 `§2.5 知识库服务` 中定义 `cf_knowledge_chunks` 表，包含 `vector` 列类型为 `vector(1536)`。
+
+**维度说明**：
+- OpenAI `text-embedding-3-small`：1536 维
+- OpenAI `text-embedding-ada-002`：1536 维
+- 本地模型（如 BGE-M3）：1024 维（需调整表定义）
+
+如需修改维度：
+```sql
+-- 修改列类型（需要重建索引）
+ALTER TABLE cf_knowledge_chunks
+    ALTER COLUMN vector TYPE vector(1024);
+```
+
+### 8.3 索引优化
+
+**HNSW 索引参数调优**：
+
+| 场景 | m | ef_construction | 说明 |
+|------|---|----------------|------|
+| 快速原型 | 8 | 32 | 建索引快，精度略低 |
+| 生产推荐 | 16 | 64 | 平衡精度与速度（默认）|
+| 高精度 | 32 | 200 | 精度高，建索引慢，内存占用大 |
+
+**创建索引示例**：
+```sql
+-- 查看当前索引
+\d cf_knowledge_chunks
+
+-- 删除旧索引
+DROP INDEX IF EXISTS idx_chunk_vector;
+
+-- 创建新索引（推荐参数）
+CREATE INDEX idx_chunk_vector ON cf_knowledge_chunks
+USING hnsw (vector vector_cosine_ops)
+WITH (m = 16, ef_construction = 64);
+```
+
+**索引大小估算**：
+```sql
+-- 查看索引大小
+SELECT pg_size_pretty(pg_relation_size('idx_chunk_vector'));
+
+-- 规则：索引大小 ≈ 向量数量 × 维度 × 4字节 × 1.2（HNSW 开销）
+-- 例如：100万向量 × 1536维 × 4字节 ≈ 5.8 GB
+```
+
+### 8.4 Go 端操作示例
+
+**依赖**：
+```go
+import (
+    "github.com/jackc/pgx/v5"
+    "github.com/jackc/pgx/v5/pgtype"
+)
+```
+
+**插入向量**：
+```go
+vec := pgtype.Vector{
+    Dimensions: 1536,
+    Elements:   myVector[:],  // [1536]float64
+}
+
+_, err := db.Exec(ctx, `
+    INSERT INTO cf_knowledge_chunks (id, document_id, knowledge_base_id, chunk_index, content, vector)
+    VALUES ($1, $2, $3, $4, $5, $6)
+`, id, docID, kbID, chunkIndex, content, vec)
+```
+
+**检索向量**：
+```go
+rows, err := db.Query(ctx, `
+    SELECT id, content, 1 - (vector <=> $1) AS similarity
+    FROM cf_knowledge_chunks
+    WHERE knowledge_base_id = $2
+      AND 1 - (vector <=> $1) >= 0.7
+    ORDER BY vector <=> $1
+    LIMIT 5
+`, queryVec, kbID)
+```
+
+### 8.5 性能监控
+
+```sql
+-- 查看 pgvector 索引统计
+SELECT
+    schemaname,
+    tablename,
+    indexname,
+    idx_scan AS index_scans,
+    idx_tup_read AS tuples_read,
+    idx_tup_fetch AS tuples_fetched
+FROM pg_stat_user_indexes
+WHERE tablename = 'cf_knowledge_chunks';
+
+-- 查看表大小
+SELECT
+    pg_size_pretty(pg_total_relation_size('cf_knowledge_chunks')) AS total,
+    pg_size_pretty(pg_relation_size('cf_knowledge_chunks')) AS table_size,
+    pg_size_pretty(pg_total_relation_size('idx_chunk_vector')) AS index_size;
+
+-- 查询 QPS
+SELECT
+    date_trunc('minute', created_at) AS minute,
+    COUNT(*) AS queries_per_min
+FROM pg_stat_statements
+WHERE query LIKE '%cf_knowledge_chunks%'
+GROUP BY 1
+ORDER BY 1 DESC
+LIMIT 10;
+```
+
+### 8.6 备份与恢复
+
+```bash
+# 导出向量���（pg_dump 支持 vector 列类型）
+pg_dump -U cogniforge -d cogniforge -t cf_knowledge_chunks > chunks.sql
+
+# 恢复
+psql -U cogniforge -d cogniforge < chunks.sql
+```
+
+**注意**：pgvector 数据以二进制格式存储，pg_dump 能正确处理。
+
+### 8.7 常见问题
+
+**Q1：向量检索很慢怎么办？**
+- 检查 HNSW 索引是否存在：`\d cf_knowledge_chunks`
+- 增加 `ef_search` 参数：`SET hnsw.ef_search = 100;`
+- 确保 `vector` 列有索引，且查询使用了索引（EXPLAIN ANALYZE）
+
+**Q2：插入向量时提示 "column vector is of type vector but expression is of type double precision[]"？**
+- 需要使用 `pgtype.Vector` 类型，不能直接传 `[]float64`
+
+**Q3：pgvector 支持的最大向量维度？**
+- 最大 16000 维（PostgreSQL 限制），足够 OpenAI 的 1536 维
+
+**Q4：可以同时存储多个 embedding 模型吗？**
+- 可以，添加 `model_version` 字段区分，或创建不同表
+
+---
+
+## 9. 未来扩展：专用向量数据库
+
+### 9.1 Milvus 集成（可选扩展点）
+
+**适用场景**：向量数量 > 1000 万，或需要更高性能（< 10ms P99）
+
+**迁移策略**：
+1. 抽象向量存储接口：
+```go
+type VectorStore interface {
+    Insert(ctx context.Context, chunks []Chunk, vectors [][]float64) error
+    Search(ctx context.Context, kbID string, query []float64, topK int, threshold float64) ([]Result, error)
+    Delete(ctx context.Context, documentID string) error
+}
+```
+
+2. 实现两个版本：
+   - `PgVectorStore`：当前默认（pgvector）
+   - `MilvusStore`：未来扩展（Milvus）
+
+3. 配置切换：
+```yaml
+vector:
+  provider: pgvector  # 或 milvus、qdrant
+  pgvector:
+    dsn: postgres://...
+  milvus:
+    host: localhost
+    port: 19530
+```
+
+**数据迁移脚本**（pgvector → Milvus）：
+```python
+# 读取 pgvector 数据
+cur.execute("SELECT id, document_id, vector FROM cf_knowledge_chunks")
+rows = cur.fetchall()
+
+# 插入 Milvus
+milvus.insert(
+    collection_name="cf_knowledge_vectors",
+    vectors=[row[2] for row in rows],
+    ids=[row[0] for row in rows],
+    metadata=[{"document_id": row[1]} for row in rows]
+)
+```
+
+---
+
 **文档版本**: v1.0  
-**最后更新**: 2026-03-16  
+**最后更新**: 2026-03-16（pgvector 更新：2026-04-11）  
 **维护团队**: CogniForge 数据库团队

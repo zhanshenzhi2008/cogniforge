@@ -216,21 +216,81 @@ cogniforge/
 
 ### 3.4 知识库服务
 
-**当前状态**：`internal/handler/knowledge.go` 提供 CRUD，Python 处理层存根。
+**当前状态**：`internal/handler/knowledge.go` 提供 CRUD，Python 处理层待开发。
 
 ```yaml
 实际位置: internal/handler/knowledge.go + llm/knowledge/
-端口: 8080 (Go) + 待定 (Python)
+端口: 8080 (Go) + 8081 (Python)
 
-已实现: 知识库 CRUD (Go)
-存根: llm/knowledge/ (Python FastAPI 目录)
+已实现:
+  - 知识库 CRUD (Go)
+  - 文档列表/删除 (Go)
+  - 文档上传接口 (Go，接收 multipart/form-data)
 
-未实现:
-  - 文档上传
-  - 多种格式支持 (PDF, DOCX, MD, TXT, HTML)
-  - 智能分块 / 向量化
-  - 语义检索 / 向量数据库
+待实现 (Python 处理层):
+  - 文件解析：PDF/DOCX/MD/TXT/HTML
+  - 文本智能分块（RecursiveCharacterTextSplitter）
+  - Embedding 生成（OpenAI API 或本地模型）
+  - 向量存储（PostgreSQL pgvector 扩展）
+  - 语义检索（向量相似度查询）
+
+技术栈:
+  - Python 3.11+
+  - FastAPI（Web 框架）
+  - unstructured / pypdf（PDF 解析）
+  - python-docx（DOCX 解析）
+  - openai（Embedding API）
+  - pgvector（向量存储，基于 PostgreSQL）
 ```
+
+**架构流程**：
+
+```
+用户上传文档
+    │
+    ▼
+Go Handler (internal/handler/knowledge.go)
+    │ - 接收 multipart/form-data
+    │ - 保存文件到临时目录
+    │ - 创建 Document 记录（status=pending）
+    │ - 异步触发 Python 处理（goroutine 或 Kafka）
+    ▼
+Python FastAPI 服务 (llm/knowledge/)
+    │ - 读取文件
+    │ - 解析文本内容
+    │ - 智能分块（chunk_size=512, overlap=50）
+    │ - 调用 OpenAI embedding API 生成向量
+    ▼
+PostgreSQL (pgvector)
+    │ - 存储 chunk 元数据（cf_knowledge_chunks）
+    │ - 存储向量（cf_knowledge_vectors 表，vector 列）
+    │ - 创建 HNSW 索引（加速检索）
+    ▼
+完成（status=completed）
+```
+
+**数据表设计**（见数据库文档）：
+- `cf_knowledge_bases`：知识库元数据
+- `cf_knowledge_documents`：文档元数据（状态、chunk 数）
+- `cf_knowledge_chunks`：文本分块（content、vector_id）
+- `cf_knowledge_vectors`（pgvector）：向量存储（vector 列类型）
+
+**向量检索**：
+
+```sql
+-- 使用 pgvector 进行相似度检索
+SELECT
+    id,
+    document_id,
+    content,
+    1 - (vector <=> $1) as similarity  -- $1 是 query embedding
+FROM cf_knowledge_vectors
+WHERE knowledge_base_id = $2
+ORDER BY vector <=> $1  -- 余弦距离
+LIMIT $3;
+```
+
+**后续扩展**：当向量数据超过 1000 万条时，可考虑迁移到 Milvus 或 Qdrant（见附录 9.5）。
 
 ### 3.5 用户中心服务 (Java) - 存根
 

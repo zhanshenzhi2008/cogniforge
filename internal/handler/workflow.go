@@ -8,8 +8,11 @@ import (
 	"gorm.io/gorm"
 
 	"cogniforge/internal/database"
+	"cogniforge/internal/engine"
 	"cogniforge/internal/model"
 )
+
+var workflowEngine = engine.NewEngine()
 
 func ListWorkflows(c *gin.Context) {
 	userID := c.GetString("user_id")
@@ -154,6 +157,11 @@ func DeleteWorkflow(c *gin.Context) {
 
 func ExecuteWorkflow(c *gin.Context) {
 	userID := c.GetString("user_id")
+	if userID == "" {
+		model.Unauthorized(c, "unauthorized")
+		return
+	}
+
 	workflowID := c.Param("id")
 
 	var workflow model.Workflow
@@ -173,33 +181,169 @@ func ExecuteWorkflow(c *gin.Context) {
 		req.Input = make(map[string]any)
 	}
 
+	executionID, err := workflowEngine.ExecuteAsync(workflowID, userID, req.Input)
+	if err != nil {
+		model.InternalError(c, "执行工作流失败: "+err.Error())
+		return
+	}
+
+	model.Accepted(c, gin.H{
+		"execution_id": executionID,
+		"status":       "pending",
+	})
+}
+
+func ListWorkflowExecutions(c *gin.Context) {
+	userID := c.GetString("user_id")
+	if userID == "" {
+		model.Unauthorized(c, "unauthorized")
+		return
+	}
+
+	workflowID := c.Param("id")
+
+	var executions []model.WorkflowExecution
+	if err := database.DB.Where("workflow_id = ? AND user_id = ?", workflowID, userID).
+		Order("created_at DESC").
+		Limit(50).
+		Find(&executions).Error; err != nil {
+		model.InternalError(c, "查询执行记录失败")
+		return
+	}
+
+	model.Success(c, executions)
+}
+
+func GetWorkflowExecution(c *gin.Context) {
+	userID := c.GetString("user_id")
+	if userID == "" {
+		model.Unauthorized(c, "unauthorized")
+		return
+	}
+
+	executionID := c.Param("executionId")
+
+	var execution model.WorkflowExecution
+	if err := database.DB.Where("id = ? AND user_id = ?", executionID, userID).First(&execution).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			model.NotFound(c, "执行记录不存在")
+		} else {
+			model.InternalError(c, "查询执行记录失败")
+		}
+		return
+	}
+
+	model.Success(c, execution)
+}
+
+func CancelWorkflowExecution(c *gin.Context) {
+	userID := c.GetString("user_id")
+	if userID == "" {
+		model.Unauthorized(c, "unauthorized")
+		return
+	}
+
+	executionID := c.Param("executionId")
+
+	var execution model.WorkflowExecution
+	if err := database.DB.Where("id = ? AND user_id = ?", executionID, userID).First(&execution).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			model.NotFound(c, "执行记录不存在")
+		} else {
+			model.InternalError(c, "查询执行记录失败")
+		}
+		return
+	}
+
+	if execution.Status != "pending" && execution.Status != "running" {
+		model.BadRequest(c, "当前状态无法取消")
+		return
+	}
+
+	now := time.Now()
+	database.DB.Model(&execution).Updates(map[string]any{
+		"status":       "cancelled",
+		"completed_at": &now,
+		"error":        "Cancelled by user",
+	})
+
+	model.SuccessWithMessage(c, nil, "执行已取消")
+}
+
+func DebugWorkflow(c *gin.Context) {
+	userID := c.GetString("user_id")
+	if userID == "" {
+		model.Unauthorized(c, "unauthorized")
+		return
+	}
+
+	workflowID := c.Param("id")
+
+	var workflow model.Workflow
+	if err := database.DB.Where("id = ? AND user_id = ?", workflowID, userID).First(&workflow).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			model.NotFound(c, "工作流不存在")
+		} else {
+			model.InternalError(c, "查询工作流失败")
+		}
+		return
+	}
+
+	var req struct {
+		Input           map[string]any `json:"input"`
+		NodeBreakpoints []string       `json:"node_breakpoints"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		req.Input = make(map[string]any)
+	}
+
+	executionID := generateID()
 	now := time.Now()
 	execution := model.WorkflowExecution{
-		ID:         generateID(),
+		ID:         executionID,
 		WorkflowID: workflowID,
 		UserID:     userID,
-		Status:     "pending",
+		Status:     "debugging",
 		Input:      model.JSONBMap(req.Input),
 		StartedAt:  &now,
 	}
 
 	if err := database.DB.Create(&execution).Error; err != nil {
-		model.InternalError(c, "创建执行记录失败")
+		model.InternalError(c, "创建调试会话失败")
 		return
 	}
 
 	go func() {
-		time.Sleep(2 * time.Second)
-		database.DB.Model(&model.WorkflowExecution{}).
-			Where("id = ?", execution.ID).
-			Updates(map[string]any{
-				"status": "completed",
-				"output": `{"result": "workflow completed"}`,
-			})
+		ctx := engine.NewExecutionContext(workflowID, executionID, req.Input)
+		ctx.OnNodeStart = func(nodeID string) {
+			updates := map[string]any{
+				"current_node": nodeID,
+				"status":       "running",
+			}
+			database.DB.Model(&model.WorkflowExecution{}).Where("id = ?", executionID).Updates(updates)
+		}
+		ctx.OnNodeEnd = func(nodeID string, status string) {
+			updates := map[string]any{
+				"current_node": nodeID,
+				"status":       status,
+			}
+			database.DB.Model(&model.WorkflowExecution{}).Where("id = ?", executionID).Updates(updates)
+		}
+
+		def, err := workflowEngine.ParseDefinition(workflow.Definition)
+		if err != nil {
+			database.DB.Model(&model.WorkflowExecution{}).
+				Where("id = ?", executionID).
+				Updates(map[string]any{"status": "failed", "error": err.Error()})
+			return
+		}
+
+		result := workflowEngine.Execute(ctx, def)
+		_ = result
 	}()
 
 	model.Accepted(c, gin.H{
-		"execution_id": execution.ID,
-		"status":       execution.Status,
+		"execution_id": executionID,
+		"status":       "debugging",
 	})
 }

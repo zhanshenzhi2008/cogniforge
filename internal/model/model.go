@@ -321,6 +321,7 @@ type WorkflowExecution struct {
 	Input       JSONBMap       `gorm:"type:jsonb" json:"input"`
 	Output      string         `gorm:"type:text" json:"output"`
 	Error       string         `gorm:"type:text" json:"error"`
+	CurrentNode string         `gorm:"type:varchar(64)" json:"current_node"` // 当前正在执行的节点（用于调试）
 	StartedAt   *time.Time     `json:"started_at"`
 	CompletedAt *time.Time     `json:"completed_at"`
 	CreatedAt   time.Time      `json:"created_at"`
@@ -330,6 +331,27 @@ type WorkflowExecution struct {
 
 func (WorkflowExecution) TableName() string {
 	return "workflow_executions"
+}
+
+type WorkflowSchedule struct {
+	ID             string         `gorm:"primaryKey;type:varchar(64)" json:"id"`
+	WorkflowID     string         `gorm:"type:varchar(64);not null;index" json:"workflow_id"`
+	UserID         string         `gorm:"type:varchar(64);not null;index" json:"user_id"`
+	Name           string         `gorm:"type:varchar(255)" json:"name"`
+	CronExpression string         `gorm:"type:varchar(100)" json:"cron_expression"`
+	IsActive       bool           `gorm:"default:true" json:"is_active"`
+	DefaultInput   JSONBMap       `gorm:"type:jsonb" json:"default_input"`
+	LastRun        *time.Time     `json:"last_run"`
+	LastError      string         `gorm:"type:text" json:"last_error"`
+	NextRun        *time.Time     `json:"next_run"`
+	RunCount       int            `gorm:"default:0" json:"run_count"`
+	CreatedAt      time.Time      `json:"created_at"`
+	UpdatedAt      time.Time      `json:"updated_at"`
+	DeletedAt      gorm.DeletedAt `gorm:"index" json:"-"`
+}
+
+func (WorkflowSchedule) TableName() string {
+	return "workflow_schedules"
 }
 
 // =============================================================================

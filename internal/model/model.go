@@ -162,15 +162,15 @@ func (UserSettings) TableName() string {
 // UserSession 用户会话表（记录登录设备）
 type UserSession struct {
 	ID        string         `gorm:"primaryKey;type:varchar(64)" json:"id"`
-	UserID    string         `gorm:"type:varchar(64);not null;index" json:"user_id"`
-	TokenID   string         `gorm:"type:varchar(255);not null;uniqueIndex" json:"token_id"` // JWT ID (jti)
-	UserAgent string         `gorm:"type:varchar(500)" json:"user_agent"`                    // 用户代理
-	IPAddress string         `gorm:"type:varchar(50)" json:"ip_address"`                     // IP 地址
-	Device    string         `gorm:"type:varchar(100)" json:"device"`                        // 设备信息
-	Location  string         `gorm:"type:varchar(255)" json:"location"`                      // 登录地点
-	ExpiresAt time.Time      `json:"expires_at"`                                             // 过期时间
-	LastUsed  time.Time      `json:"last_used"`                                              // 最后使用时间
-	IsActive  bool           `gorm:"default:true" json:"is_active"`                          // 是否活跃
+	UserID    string         `gorm:"type:varchar(64);not null;index:idx_user_active,priority:1" json:"user_id"`
+	TokenID   string         `gorm:"type:varchar(255);not null;uniqueIndex" json:"token_id"`         // JWT ID (jti)
+	UserAgent string         `gorm:"type:varchar(500)" json:"user_agent"`                            // 用户代理
+	IPAddress string         `gorm:"type:varchar(50)" json:"ip_address"`                             // IP 地址
+	Device    string         `gorm:"type:varchar(100)" json:"device"`                                // 设备信息
+	Location  string         `gorm:"type:varchar(255)" json:"location"`                              // 登录地点
+	ExpiresAt time.Time      `json:"expires_at"`                                                     // 过期时间
+	LastUsed  time.Time      `json:"last_used"`                                                      // 最后使用时间
+	IsActive  bool           `gorm:"default:true;index:idx_user_active,priority:2" json:"is_active"` // 是否活跃
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`

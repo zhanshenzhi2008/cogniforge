@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -312,17 +313,39 @@ func generateToken(user *model.User) (string, error) {
 	return token.SignedString(middleware.JWTSecret)
 }
 
-// parseDeviceFromUA 从 User-Agent 解析设备类型
+// parseDeviceFromUA 从 User-Agent 解析设备类型和浏览器
 func parseDeviceFromUA(ua string) string {
 	if ua == "" {
-		return "Unknown"
+		return "Unknown Device"
 	}
-	ua = strings.ToLower(ua)
-	if strings.Contains(ua, "mobile") || strings.Contains(ua, "android") || strings.Contains(ua, "iphone") {
-		return "Mobile"
+	uaLower := strings.ToLower(ua)
+
+	// 优先识别浏览器
+	browser := ""
+	if strings.Contains(uaLower, "edg/") || strings.Contains(uaLower, "edge/") {
+		browser = "Edge"
+	} else if strings.Contains(uaLower, "chrome/") && !strings.Contains(uaLower, "chromium/") {
+		browser = "Chrome"
+	} else if strings.Contains(uaLower, "firefox/") {
+		browser = "Firefox"
+	} else if strings.Contains(uaLower, "safari/") && !strings.Contains(uaLower, "chrome/") {
+		browser = "Safari"
+	} else if strings.Contains(uaLower, "opera/") || strings.Contains(uaLower, "opr/") {
+		browser = "Opera"
 	}
-	if strings.Contains(ua, "tablet") || strings.Contains(ua, "ipad") {
-		return "Tablet"
+
+	// 识别设备类型
+	deviceType := "Desktop"
+	if strings.Contains(uaLower, "mobile") || strings.Contains(uaLower, "iphone") || strings.Contains(uaLower, "ipod") {
+		deviceType = "Mobile"
+	} else if strings.Contains(uaLower, "android") && !strings.Contains(uaLower, "mobile") {
+		deviceType = "Android Tablet"
+	} else if strings.Contains(uaLower, "tablet") || strings.Contains(uaLower, "ipad") {
+		deviceType = "iPad"
 	}
-	return "Desktop"
+
+	if browser != "" {
+		return fmt.Sprintf("%s on %s", browser, deviceType)
+	}
+	return deviceType
 }

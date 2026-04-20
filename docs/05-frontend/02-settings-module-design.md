@@ -576,7 +576,215 @@ r.POST("/api/v1/agents", middleware.RequirePermission("agents:write"), handler.C
 
 ## 4. 前端设计
 
-### 4.1 路由结构
+### 4.1 视觉规范
+
+#### 4.1.1 通用设置模块样式规范
+
+所有设置页面（个人资料、偏好设置、登录会话、安全设置）采用统一的视觉规范，确保体验一致性：
+
+```css
+/* 页面容器 */
+.section-container {
+  animation: fadeIn 0.3s ease;
+}
+
+/* 标题区域 */
+.section-header {
+  margin-bottom: 16px;
+}
+
+.section-title {
+  font-size: 18px;        /* 标题字号 */
+  font-weight: 600;       /* 标题字重 */
+  color: #0f172a;         /* 标题颜色 */
+  margin: 0 0 4px 0;     /* 标题下边距 */
+}
+
+.section-desc {
+  font-size: 13px;        /* 描述字号 */
+  color: #64748b;         /* 描述颜色 */
+  margin: 0;
+}
+
+/* 内容卡片 */
+.content-card {
+  background: #ffffff;
+  border-radius: 10px;    /* 圆角 10px */
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
+  margin-bottom: 12px;    /* 卡片间距 12px */
+}
+
+/* 卡片头部 */
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.card-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.card-icon :deep(.n-icon) {
+  font-size: 18px;
+  color: #ffffff;
+}
+
+.card-title-area {
+  flex: 1;
+}
+
+.card-title-area h3 {
+  font-size: 14px;
+  font-weight: 600;
+  color: #0f172a;
+  margin: 0;
+}
+
+.card-title-area p {
+  font-size: 12px;
+  color: #64748b;
+  margin: 2px 0 0 0;
+}
+
+/* 表单样式 */
+.form-section {
+  padding: 16px;
+}
+
+.form-row {
+  margin-bottom: 12px;
+}
+
+.form-row:last-child {
+  margin-bottom: 0;
+}
+
+.form-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: #374151;
+  margin-bottom: 6px;
+}
+
+/* 输入控件 - 使用 small 尺寸 */
+.form-section :deep(.n-input),
+.form-section :deep(.n-select) {
+  --n-height: 32px;  /* 统一高度 */
+}
+
+/* 按钮样式 */
+.form-actions {
+  display: flex;
+  justify-content: flex-end;  /* 按钮右对齐 */
+  gap: 8px;
+  padding: 12px 16px;
+  background: #f8fafc;
+  border-top: 1px solid #f1f5f9;
+}
+
+.form-actions :deep(.n-button) {
+  font-size: 13px;  /* 按钮字体 */
+}
+```
+
+#### 4.1.2 间距系统
+
+| 元素 | 间距值 |
+|------|--------|
+| 标题与内容间距 | 16px |
+| 卡片之间间距 | 12px |
+| 表单项间距 | 12px |
+| 标签与输入框间距 | 6px |
+| 按钮间距 | 8px |
+| 卡片内边距 | 16px |
+| 卡片头部内边距 | 14px 16px |
+| 卡片底部内边距 | 12px 16px |
+
+#### 4.1.3 字体规范
+
+| 元素 | 字号 | 字重 | 颜色 |
+|------|------|------|------|
+| 页面标题 | 18px | 600 | #0f172a |
+| 页面描述 | 13px | 400 | #64748b |
+| 卡片标题 | 14px | 600 | #0f172a |
+| 卡片描述 | 12px | 400 | #64748b |
+| 表单标签 | 13px | 500 | #374151 |
+| 提示文字 | 11-12px | 400 | #94a3b8 |
+| 按钮文字 | 13px | 500 | - |
+
+#### 4.1.4 卡片图标渐变色规范
+
+```css
+/* 密码相关 - 靛蓝色 */
+.password-icon {
+  background: linear-gradient(135deg, #6366f1, #4f46e5);
+}
+
+/* 2FA相关 - 琥珀色 */
+.tfa-icon {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+}
+
+/* 会话相关 - 绿色 */
+.sessions-icon {
+  background: linear-gradient(135deg, #10b981, #059669);
+}
+
+/* 当前设备 - 绿色 */
+.current-icon {
+  background: linear-gradient(135deg, #10b981, #059669);
+}
+
+/* 个人资料 - 蓝色 */
+.profile-icon {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+}
+
+/* 偏好设置 - 紫色 */
+.preferences-icon {
+  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+}
+```
+
+#### 4.1.5 危险操作区域样式
+
+```css
+.danger-zone {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.danger-header {
+  padding: 14px 16px;
+  border-bottom: 1px solid #fecaca;
+}
+
+.danger-header h4 {
+  font-size: 13px;
+  font-weight: 600;
+  color: #991b1b;
+  margin: 0 0 2px 0;
+}
+
+.danger-header p {
+  font-size: 12px;
+  color: #b91c1c;
+  margin: 0;
+}
+```
+
+### 4.2 路由结构
 
 ```typescript
 // pages/settings/
@@ -592,7 +800,7 @@ r.POST("/api/v1/agents", middleware.RequirePermission("agents:write"), handler.C
 └── roles/[id].vue       # 角色编辑
 ```
 
-### 4.2 状态管理（Pinia）
+### 4.3 状态管理（Pinia）
 
 ```typescript
 // stores/settings.ts
@@ -690,7 +898,7 @@ export const useSettingsStore = defineStore('settings', () => {
 })
 ```
 
-### 4.3 个人资料页面（`pages/settings/profile.vue`）
+### 4.4 个人资料页面（`pages/settings/profile.vue`）
 
 ```vue
 <template>
@@ -923,7 +1131,7 @@ onMounted(() => {
 </style>
 ```
 
-### 4.4 安全设置页面（`pages/settings/security.vue`）
+### 4.5 安全设置页面（`pages/settings/security.vue`）
 
 ```vue
 <template>
@@ -1164,7 +1372,7 @@ onMounted(async () => {
 </style>
 ```
 
-### 4.5 密码强度组件（`components/common/PasswordStrength.vue`）
+### 4.6 密码强度组件（`components/common/PasswordStrength.vue`）
 
 ```vue
 <template>
@@ -1293,7 +1501,7 @@ const strengthLabel = computed(() => {
 </style>
 ```
 
-### 4.6 用户管理页面（`pages/admin/users.vue`）
+### 4.7 用户管理页面（`pages/admin/users.vue`）
 
 ```vue
 <template>

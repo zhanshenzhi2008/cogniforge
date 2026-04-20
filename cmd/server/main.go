@@ -12,6 +12,7 @@ import (
 	"cogniforge/internal/logger"
 	"cogniforge/internal/middleware"
 	"cogniforge/internal/model"
+	"cogniforge/internal/util"
 )
 
 func main() {
@@ -50,6 +51,13 @@ func main() {
 
 	handler.InitDefaultAdmin()
 	handler.InitDefaultRoles()
+
+	// 初始化 GeoIP 数据库
+	if err := util.InitGeoIP(util.DefaultGeoIPPath()); err != nil {
+		slog.Warn("failed to initialize GeoIP database", "error", err, "path", util.DefaultGeoIPPath())
+	} else {
+		slog.Info("GeoIP database initialized", "path", util.DefaultGeoIPPath())
+	}
 
 	// 创建 gin engine
 	r := gin.New()

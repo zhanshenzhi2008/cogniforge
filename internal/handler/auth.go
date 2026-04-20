@@ -14,6 +14,7 @@ import (
 	"cogniforge/internal/database"
 	"cogniforge/internal/middleware"
 	"cogniforge/internal/model"
+	"cogniforge/internal/util"
 )
 
 type RegisterRequest struct {
@@ -196,7 +197,7 @@ func Login(c *gin.Context) {
 		UserAgent: c.GetHeader("User-Agent"),
 		IPAddress: c.ClientIP(),
 		Device:    parseDeviceFromUA(c.GetHeader("User-Agent")),
-		Location:  "", // 需要 IP 地理信息库
+		Location:  util.GetLocation(c.ClientIP()),
 		ExpiresAt: time.Now().Add(24 * time.Hour),
 		LastUsed:  time.Now(),
 		IsActive:  true,

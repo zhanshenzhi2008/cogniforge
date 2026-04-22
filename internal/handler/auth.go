@@ -2,6 +2,7 @@ package handler
 
 import (
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -34,6 +35,13 @@ type ApiKeyRequest struct {
 }
 
 type AuthData struct {
+	Token string     `json:"token"`
+	User  model.User `json:"user"`
+}
+
+// AuthResponse 是登录/注册成功的响应
+type AuthResponse struct {
+	Code  int        `json:"code"`
 	Token string     `json:"token"`
 	User  model.User `json:"user"`
 }
@@ -204,6 +212,16 @@ func Login(c *gin.Context) {
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}
+
+	// 调试日志
+	slog.Debug("CreateSession",
+		"userID", user.ID,
+		"device", session.Device,
+		"location", session.Location,
+		"ip", session.IPAddress,
+		"ua", session.UserAgent,
+	)
+
 	database.DB.Create(&session)
 
 	model.Success(c, AuthData{Token: token, User: user})

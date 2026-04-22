@@ -315,7 +315,7 @@ func UpdateUserStatus(c *gin.Context) {
 // UpdateCurrentUser 更新当前用户信息（个人设置）
 // PUT /api/me
 func UpdateCurrentUser(c *gin.Context) {
-	userID, exists := c.Get("userID")
+	userID, exists := c.Get("user_id")
 	if !exists {
 		model.Unauthorized(c, "未登录")
 		return

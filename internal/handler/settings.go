@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -19,7 +20,7 @@ import (
 // GetSettings 获取当前用户的设置
 // GET /api/settings
 func GetSettings(c *gin.Context) {
-	userID, exists := c.Get("userID")
+	userID, exists := c.Get("user_id")
 	if !exists {
 		model.Unauthorized(c, "未登录")
 		return
@@ -53,7 +54,7 @@ func GetSettings(c *gin.Context) {
 // UpdateSettings 更新用户设置（基本信息）
 // PUT /api/settings
 func UpdateSettings(c *gin.Context) {
-	userID, exists := c.Get("userID")
+	userID, exists := c.Get("user_id")
 	if !exists {
 		model.Unauthorized(c, "未登录")
 		return
@@ -136,7 +137,7 @@ func UpdateSettings(c *gin.Context) {
 // ChangePassword 修改密码
 // POST /api/settings/password
 func ChangePassword(c *gin.Context) {
-	userID, exists := c.Get("userID")
+	userID, exists := c.Get("user_id")
 	if !exists {
 		model.Unauthorized(c, "未登录")
 		return
@@ -197,7 +198,7 @@ func ChangePassword(c *gin.Context) {
 // UploadAvatar 上传头像
 // POST /api/settings/avatar
 func UploadAvatar(c *gin.Context) {
-	userID, exists := c.Get("userID")
+	userID, exists := c.Get("user_id")
 	if !exists {
 		model.Unauthorized(c, "未登录")
 		return
@@ -253,7 +254,7 @@ func UploadAvatar(c *gin.Context) {
 // GetSessions 获取当前用户的会话列表
 // GET /api/sessions
 func GetSessions(c *gin.Context) {
-	userID, exists := c.Get("userID")
+	userID, exists := c.Get("user_id")
 	if !exists {
 		model.Unauthorized(c, "未登录")
 		return
@@ -266,13 +267,16 @@ func GetSessions(c *gin.Context) {
 		return
 	}
 
+	// 调试日志
+	slog.Debug("GetSessions", "userID", userID, "sessionsCount", len(sessions), "sessions", sessions)
+
 	model.Success(c, sessions)
 }
 
 // RevokeSession 撤销会话（远程登出）
 // DELETE /api/sessions/:id
 func RevokeSession(c *gin.Context) {
-	userID, exists := c.Get("userID")
+	userID, exists := c.Get("user_id")
 	if !exists {
 		model.Unauthorized(c, "未登录")
 		return

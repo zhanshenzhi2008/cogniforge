@@ -18,7 +18,7 @@ import (
 // 用法：router.GET("/api/admin/users", middleware.RequirePermission("user:list"), handler.GetUsers)
 func RequirePermission(permissionCode string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		userID, exists := c.Get("userID")
+		userID, exists := c.Get("user_id")
 		if !exists {
 			model.Unauthorized(c, "未登录")
 			c.Abort()
@@ -61,7 +61,7 @@ func RequirePermission(permissionCode string) gin.HandlerFunc {
 // 用法：router.GET("/api/admin/*", middleware.RequireRole("admin"))
 func RequireRole(roleCode string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		userID, exists := c.Get("userID")
+		userID, exists := c.Get("user_id")
 		if !exists {
 			model.Unauthorized(c, "未登录")
 			c.Abort()
@@ -95,7 +95,7 @@ func RequireAdmin() gin.HandlerFunc {
 // RequireAnyPermission 要求任一权限即可通过
 func RequireAnyPermission(permissionCodes []string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		userID, exists := c.Get("userID")
+		userID, exists := c.Get("user_id")
 		if !exists {
 			model.Unauthorized(c, "未登录")
 			c.Abort()

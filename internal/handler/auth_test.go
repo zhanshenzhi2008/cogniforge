@@ -9,7 +9,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"cogniforge/internal/database"
 	"cogniforge/internal/handler"
 	"cogniforge/internal/middleware"
 	"cogniforge/internal/model"
@@ -18,13 +17,6 @@ import (
 
 func init() {
 	gin.SetMode(gin.TestMode)
-}
-
-func TestMain(m *testing.M) {
-	db := database.InitTestDBForPkg()
-	database.DB = db
-	db.AutoMigrate(&model.User{}, &model.ApiKey{})
-	m.Run()
 }
 
 func setupTestRouter() *gin.Engine {

@@ -9,6 +9,7 @@ import (
 
 	"cogniforge/internal/database"
 	"cogniforge/internal/model"
+	"cogniforge/internal/response"
 )
 
 // =============================================================================
@@ -69,11 +70,11 @@ type CreatePermissionRequest struct {
 func ListPermissions(c *gin.Context) {
 	var permissions []model.Permission
 	if err := database.DB.Order("group, code").Find(&permissions).Error; err != nil {
-		model.InternalError(c, "查询失败")
+		response.InternalError(c, "查询失败")
 		return
 	}
 
-	model.Success(c, permissions)
+	response.Success(c, permissions)
 }
 
 // CreatePermission 创建权限（管理员）
@@ -81,14 +82,14 @@ func ListPermissions(c *gin.Context) {
 func CreatePermission(c *gin.Context) {
 	var req CreatePermissionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		model.BadRequest(c, err.Error())
+		response.BadRequest(c, err.Error())
 		return
 	}
 
 	// 检查权限代码是否已存在
 	var existing model.Permission
 	if err := database.DB.Where("code = ?", req.Code).First(&existing).Error; err == nil {
-		model.Fail(c, http.StatusConflict, "权限代码已存在")
+		response.Fail(c, http.StatusConflict, "权限代码已存在")
 		return
 	}
 
@@ -103,11 +104,11 @@ func CreatePermission(c *gin.Context) {
 	}
 
 	if err := database.DB.Create(&permission).Error; err != nil {
-		model.InternalError(c, "创建失败")
+		response.InternalError(c, "创建失败")
 		return
 	}
 
-	model.Created(c, permission)
+	response.Created(c, permission)
 }
 
 // DeletePermission 删除权限（管理员）
@@ -115,27 +116,27 @@ func CreatePermission(c *gin.Context) {
 func DeletePermission(c *gin.Context) {
 	id := c.Param("id")
 	if id == "" {
-		model.BadRequest(c, "权限ID不能为空")
+		response.BadRequest(c, "权限ID不能为空")
 		return
 	}
 
 	var permission model.Permission
 	if err := database.DB.Where("id = ?", id).First(&permission).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			model.NotFound(c, "权限不存在")
+			response.NotFound(c, "权限不存在")
 			return
 		}
-		model.InternalError(c, "查询失败")
+		response.InternalError(c, "查询失败")
 		return
 	}
 
 	// 删除权限
 	if err := database.DB.Delete(&permission).Error; err != nil {
-		model.InternalError(c, "删除失败")
+		response.InternalError(c, "删除失败")
 		return
 	}
 
-	model.SuccessWithMessage(c, nil, "权限已删除")
+	response.SuccessWithMessage(c, nil, "权限已删除")
 }
 
 // =============================================================================
@@ -147,7 +148,7 @@ func DeletePermission(c *gin.Context) {
 func ListRoles(c *gin.Context) {
 	var roles []model.Role
 	if err := database.DB.Order("is_system DESC, name").Find(&roles).Error; err != nil {
-		model.InternalError(c, "查询失败")
+		response.InternalError(c, "查询失败")
 		return
 	}
 
@@ -183,7 +184,7 @@ func ListRoles(c *gin.Context) {
 		})
 	}
 
-	model.Success(c, roleResponses)
+	response.Success(c, roleResponses)
 }
 
 // GetRole 获取单个角色详情
@@ -191,17 +192,17 @@ func ListRoles(c *gin.Context) {
 func GetRole(c *gin.Context) {
 	id := c.Param("id")
 	if id == "" {
-		model.BadRequest(c, "角色ID不能为空")
+		response.BadRequest(c, "角色ID不能为空")
 		return
 	}
 
 	var role model.Role
 	if err := database.DB.Where("id = ?", id).First(&role).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			model.NotFound(c, "角色不存在")
+			response.NotFound(c, "角色不存在")
 			return
 		}
-		model.InternalError(c, "查询失败")
+		response.InternalError(c, "查询失败")
 		return
 	}
 
@@ -222,7 +223,7 @@ func GetRole(c *gin.Context) {
 		})
 	}
 
-	response := RoleResponse{
+	roleResponse := RoleResponse{
 		ID:          role.ID,
 		Name:        role.Name,
 		Code:        role.Code,
@@ -234,7 +235,7 @@ func GetRole(c *gin.Context) {
 		UpdatedAt:   role.UpdatedAt,
 	}
 
-	model.Success(c, response)
+	response.Success(c, roleResponse)
 }
 
 // CreateRole 创建角色
@@ -242,14 +243,14 @@ func GetRole(c *gin.Context) {
 func CreateRole(c *gin.Context) {
 	var req CreateRoleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		model.BadRequest(c, err.Error())
+		response.BadRequest(c, err.Error())
 		return
 	}
 
 	// 检查角色代码是否已存在
 	var existing model.Role
 	if err := database.DB.Where("code = ?", req.Code).First(&existing).Error; err == nil {
-		model.Fail(c, http.StatusConflict, "角色代码已存在")
+		response.Fail(c, http.StatusConflict, "角色代码已存在")
 		return
 	}
 
@@ -287,11 +288,11 @@ func CreateRole(c *gin.Context) {
 	})
 
 	if err != nil {
-		model.InternalError(c, "创建失败")
+		response.InternalError(c, "创建失败")
 		return
 	}
 
-	model.Created(c, gin.H{"message": "角色创建成功"})
+	response.Created(c, gin.H{"message": "角色创建成功"})
 }
 
 // UpdateRole 更新角色
@@ -299,13 +300,13 @@ func CreateRole(c *gin.Context) {
 func UpdateRole(c *gin.Context) {
 	id := c.Param("id")
 	if id == "" {
-		model.BadRequest(c, "角色ID不能为空")
+		response.BadRequest(c, "角色ID不能为空")
 		return
 	}
 
 	var req UpdateRoleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		model.BadRequest(c, err.Error())
+		response.BadRequest(c, err.Error())
 		return
 	}
 
@@ -313,16 +314,16 @@ func UpdateRole(c *gin.Context) {
 	var role model.Role
 	if err := database.DB.Where("id = ?", id).First(&role).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			model.NotFound(c, "角色不存在")
+			response.NotFound(c, "角色不存在")
 			return
 		}
-		model.InternalError(c, "查询失败")
+		response.InternalError(c, "查询失败")
 		return
 	}
 
 	// 系统预置角色不可修改（除了权限）
 	if role.IsSystem {
-		model.Fail(c, http.StatusForbidden, "系统预置角色不可修改")
+		response.Fail(c, http.StatusForbidden, "系统预置角色不可修改")
 		return
 	}
 
@@ -337,7 +338,7 @@ func UpdateRole(c *gin.Context) {
 	if len(updates) > 0 {
 		updates["updated_at"] = time.Now()
 		if err := database.DB.Model(&role).Updates(updates).Error; err != nil {
-			model.InternalError(c, "更新失败")
+			response.InternalError(c, "更新失败")
 			return
 		}
 	}
@@ -356,13 +357,13 @@ func UpdateRole(c *gin.Context) {
 				CreatedAt:    time.Now(),
 			}
 			if err := database.DB.Create(&rp).Error; err != nil {
-				model.InternalError(c, "权限更新失败")
+				response.InternalError(c, "权限更新失败")
 				return
 			}
 		}
 	}
 
-	model.SuccessWithMessage(c, nil, "角色更新成功")
+	response.SuccessWithMessage(c, nil, "角色更新成功")
 }
 
 // DeleteRole 删除角色
@@ -370,33 +371,33 @@ func UpdateRole(c *gin.Context) {
 func DeleteRole(c *gin.Context) {
 	id := c.Param("id")
 	if id == "" {
-		model.BadRequest(c, "角色ID不能为空")
+		response.BadRequest(c, "角色ID不能为空")
 		return
 	}
 
 	var role model.Role
 	if err := database.DB.Where("id = ?", id).First(&role).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			model.NotFound(c, "角色不存在")
+			response.NotFound(c, "角色不存在")
 			return
 		}
-		model.InternalError(c, "查询失败")
+		response.InternalError(c, "查询失败")
 		return
 	}
 
 	// 系统预置角色不可删除
 	if role.IsSystem {
-		model.Fail(c, http.StatusForbidden, "系统预置角色不可删除")
+		response.Fail(c, http.StatusForbidden, "系统预置角色不可删除")
 		return
 	}
 
 	// 删除角色（软删除）
 	if err := database.DB.Delete(&role).Error; err != nil {
-		model.InternalError(c, "删除失败")
+		response.InternalError(c, "删除失败")
 		return
 	}
 
-	model.SuccessWithMessage(c, nil, "角色已删除")
+	response.SuccessWithMessage(c, nil, "角色已删除")
 }
 
 // =============================================================================
@@ -408,7 +409,7 @@ func DeleteRole(c *gin.Context) {
 func AssignRole(c *gin.Context) {
 	userID := c.Param("id")
 	if userID == "" {
-		model.BadRequest(c, "用户ID不能为空")
+		response.BadRequest(c, "用户ID不能为空")
 		return
 	}
 
@@ -416,7 +417,7 @@ func AssignRole(c *gin.Context) {
 		RoleCode string `json:"role_code" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		model.BadRequest(c, err.Error())
+		response.BadRequest(c, err.Error())
 		return
 	}
 
@@ -424,24 +425,24 @@ func AssignRole(c *gin.Context) {
 	var role model.Role
 	if err := database.DB.Where("code = ?", req.RoleCode).First(&role).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			model.NotFound(c, "角色不存在")
+			response.NotFound(c, "角色不存在")
 			return
 		}
-		model.InternalError(c, "查询失败")
+		response.InternalError(c, "查询失败")
 		return
 	}
 
 	// 更新用户角色
 	if err := database.DB.Model(&model.User{}).Where("id = ?", userID).Update("role", role.Code).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			model.NotFound(c, "用户不存在")
+			response.NotFound(c, "用户不存在")
 			return
 		}
-		model.InternalError(c, "分配失败")
+		response.InternalError(c, "分配失败")
 		return
 	}
 
-	model.SuccessWithMessage(c, nil, "角色分配成功")
+	response.SuccessWithMessage(c, nil, "角色分配成功")
 }
 
 // GetUserRole 获取用户角色
@@ -449,21 +450,21 @@ func AssignRole(c *gin.Context) {
 func GetUserRole(c *gin.Context) {
 	userID := c.Param("id")
 	if userID == "" {
-		model.BadRequest(c, "用户ID不能为空")
+		response.BadRequest(c, "用户ID不能为空")
 		return
 	}
 
 	var user model.User
 	if err := database.DB.Where("id = ?", userID).First(&user).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			model.NotFound(c, "用户不存在")
+			response.NotFound(c, "用户不存在")
 			return
 		}
-		model.InternalError(c, "查询失败")
+		response.InternalError(c, "查询失败")
 		return
 	}
 
-	model.Success(c, gin.H{
+	response.Success(c, gin.H{
 		"role": user.Role,
 	})
 }

@@ -10,6 +10,7 @@ import (
 
 	"cogniforge/internal/database"
 	"cogniforge/internal/model"
+	"cogniforge/internal/response"
 )
 
 // =============================================================================
@@ -60,7 +61,7 @@ type ChangePasswordRequest struct {
 func GetUsers(c *gin.Context) {
 	var req ListUsersRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
-		model.BadRequest(c, err.Error())
+		response.BadRequest(c, err.Error())
 		return
 	}
 
@@ -93,11 +94,11 @@ func GetUsers(c *gin.Context) {
 	var users []model.User
 	offset := (req.Page - 1) * req.PageSize
 	if err := query.Order("created_at DESC").Offset(offset).Limit(req.PageSize).Find(&users).Error; err != nil {
-		model.InternalError(c, "查询失败")
+		response.InternalError(c, "查询失败")
 		return
 	}
 
-	model.Success(c, ListUsersResponse{
+	response.Success(c, ListUsersResponse{
 		Total:    total,
 		Page:     req.Page,
 		PageSize: req.PageSize,
@@ -110,21 +111,21 @@ func GetUsers(c *gin.Context) {
 func CreateUser(c *gin.Context) {
 	var req CreateUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		model.BadRequest(c, err.Error())
+		response.BadRequest(c, err.Error())
 		return
 	}
 
 	// 检查邮箱是否已存在
 	var existing model.User
 	if err := database.DB.Where("email = ?", req.Email).First(&existing).Error; err == nil {
-		model.Fail(c, http.StatusConflict, "该邮箱已被注册")
+		response.Fail(c, http.StatusConflict, "该邮箱已被注册")
 		return
 	}
 
 	// 密码加密
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
-		model.InternalError(c, "密码加密失败")
+		response.InternalError(c, "密码加密失败")
 		return
 	}
 
@@ -141,7 +142,7 @@ func CreateUser(c *gin.Context) {
 	}
 
 	if err := database.DB.Create(&user).Error; err != nil {
-		model.InternalError(c, "创建用户失败")
+		response.InternalError(c, "创建用户失败")
 		return
 	}
 
@@ -158,7 +159,7 @@ func CreateUser(c *gin.Context) {
 	}
 	database.DB.Create(&settings)
 
-	model.Created(c, user)
+	response.Created(c, user)
 }
 
 // GetUser 获取单个用户信息（管理员）
@@ -166,21 +167,21 @@ func CreateUser(c *gin.Context) {
 func GetUser(c *gin.Context) {
 	id := c.Param("id")
 	if id == "" {
-		model.BadRequest(c, "用户ID不能为空")
+		response.BadRequest(c, "用户ID不能为空")
 		return
 	}
 
 	var user model.User
 	if err := database.DB.Where("id = ?", id).First(&user).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			model.NotFound(c, "用户不存在")
+			response.NotFound(c, "用户不存在")
 			return
 		}
-		model.InternalError(c, "查询失败")
+		response.InternalError(c, "查询失败")
 		return
 	}
 
-	model.Success(c, user)
+	response.Success(c, user)
 }
 
 // UpdateUser 更新用户信息（管理员）
@@ -188,13 +189,13 @@ func GetUser(c *gin.Context) {
 func UpdateUser(c *gin.Context) {
 	id := c.Param("id")
 	if id == "" {
-		model.BadRequest(c, "用户ID不能为空")
+		response.BadRequest(c, "用户ID不能为空")
 		return
 	}
 
 	var req UpdateUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		model.BadRequest(c, err.Error())
+		response.BadRequest(c, err.Error())
 		return
 	}
 
@@ -202,10 +203,10 @@ func UpdateUser(c *gin.Context) {
 	var user model.User
 	if err := database.DB.Where("id = ?", id).First(&user).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			model.NotFound(c, "用户不存在")
+			response.NotFound(c, "用户不存在")
 			return
 		}
-		model.InternalError(c, "查询失败")
+		response.InternalError(c, "查询失败")
 		return
 	}
 
@@ -227,18 +228,18 @@ func UpdateUser(c *gin.Context) {
 	if len(updates) > 0 {
 		updates["updated_at"] = time.Now()
 		if err := database.DB.Model(&user).Updates(updates).Error; err != nil {
-			model.InternalError(c, "更新失败")
+			response.InternalError(c, "更新失败")
 			return
 		}
 	}
 
 	// 返回更新后的用户信息
 	if err := database.DB.Where("id = ?", id).First(&user).Error; err != nil {
-		model.InternalError(c, "查询失败")
+		response.InternalError(c, "查询失败")
 		return
 	}
 
-	model.Success(c, user)
+	response.Success(c, user)
 }
 
 // DeleteUser 删除用户（管理员）- 软删除
@@ -246,13 +247,13 @@ func UpdateUser(c *gin.Context) {
 func DeleteUser(c *gin.Context) {
 	id := c.Param("id")
 	if id == "" {
-		model.BadRequest(c, "用户ID不能为空")
+		response.BadRequest(c, "用户ID不能为空")
 		return
 	}
 
 	// 不允许删除默认管理员
 	if id == "admin" {
-		model.Fail(c, http.StatusForbidden, "不能删除默认管理员")
+		response.Fail(c, http.StatusForbidden, "不能删除默认管理员")
 		return
 	}
 
@@ -260,20 +261,20 @@ func DeleteUser(c *gin.Context) {
 	var user model.User
 	if err := database.DB.Where("id = ?", id).First(&user).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			model.NotFound(c, "用户不存在")
+			response.NotFound(c, "用户不存在")
 			return
 		}
-		model.InternalError(c, "查询失败")
+		response.InternalError(c, "查询失败")
 		return
 	}
 
 	// 软删除
 	if err := database.DB.Delete(&user).Error; err != nil {
-		model.InternalError(c, "删除失败")
+		response.InternalError(c, "删除失败")
 		return
 	}
 
-	model.SuccessWithMessage(c, nil, "用户已删除")
+	response.SuccessWithMessage(c, nil, "用户已删除")
 }
 
 // UpdateUserStatus 更新用户状态（管理员）
@@ -281,7 +282,7 @@ func DeleteUser(c *gin.Context) {
 func UpdateUserStatus(c *gin.Context) {
 	id := c.Param("id")
 	if id == "" {
-		model.BadRequest(c, "用户ID不能为空")
+		response.BadRequest(c, "用户ID不能为空")
 		return
 	}
 
@@ -289,27 +290,27 @@ func UpdateUserStatus(c *gin.Context) {
 		Status string `json:"status" binding:"required,oneof=active disabled locked"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		model.BadRequest(c, err.Error())
+		response.BadRequest(c, err.Error())
 		return
 	}
 
 	// 不允许修改默认管理员状态
 	if id == "admin" {
-		model.Fail(c, http.StatusForbidden, "不能修改默认管理员状态")
+		response.Fail(c, http.StatusForbidden, "不能修改默认管理员状态")
 		return
 	}
 
 	// 更新状态
 	if err := database.DB.Model(&model.User{}).Where("id = ?", id).Update("status", req.Status).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			model.NotFound(c, "用户不存在")
+			response.NotFound(c, "用户不存在")
 			return
 		}
-		model.InternalError(c, "更新失败")
+		response.InternalError(c, "更新失败")
 		return
 	}
 
-	model.SuccessWithMessage(c, nil, "状态已更新")
+	response.SuccessWithMessage(c, nil, "状态已更新")
 }
 
 // UpdateCurrentUser 更新当前用户信息（个人设置）
@@ -317,13 +318,13 @@ func UpdateUserStatus(c *gin.Context) {
 func UpdateCurrentUser(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {
-		model.Unauthorized(c, "未登录")
+		response.Unauthorized(c, "未登录")
 		return
 	}
 
 	var req UpdateUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		model.BadRequest(c, err.Error())
+		response.BadRequest(c, err.Error())
 		return
 	}
 
@@ -331,10 +332,10 @@ func UpdateCurrentUser(c *gin.Context) {
 	var user model.User
 	if err := database.DB.Where("id = ?", userID).First(&user).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			model.NotFound(c, "用户不存在")
+			response.NotFound(c, "用户不存在")
 			return
 		}
-		model.InternalError(c, "查询失败")
+		response.InternalError(c, "查询失败")
 		return
 	}
 
@@ -350,18 +351,18 @@ func UpdateCurrentUser(c *gin.Context) {
 	if len(updates) > 0 {
 		updates["updated_at"] = time.Now()
 		if err := database.DB.Model(&user).Updates(updates).Error; err != nil {
-			model.InternalError(c, "更新失败")
+			response.InternalError(c, "更新失败")
 			return
 		}
 	}
 
 	// 返回更新后的用户信息
 	if err := database.DB.Where("id = ?", userID).First(&user).Error; err != nil {
-		model.InternalError(c, "查询失败")
+		response.InternalError(c, "查询失败")
 		return
 	}
 
-	model.Success(c, user)
+	response.Success(c, user)
 }
 
 // =============================================================================

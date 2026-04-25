@@ -11,6 +11,7 @@ import (
 
 	"cogniforge/internal/database"
 	"cogniforge/internal/model"
+	"cogniforge/internal/response"
 )
 
 // =============================================================================
@@ -22,7 +23,7 @@ import (
 func GetSettings(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {
-		model.Unauthorized(c, "未登录")
+		response.Unauthorized(c, "未登录")
 		return
 	}
 
@@ -43,12 +44,12 @@ func GetSettings(c *gin.Context) {
 			}
 			database.DB.Create(&settings)
 		} else {
-			model.InternalError(c, "查询失败")
+			response.InternalError(c, "查询失败")
 			return
 		}
 	}
 
-	model.Success(c, settings)
+	response.Success(c, settings)
 }
 
 // UpdateSettings 更新用户设置（基本信息）
@@ -56,7 +57,7 @@ func GetSettings(c *gin.Context) {
 func UpdateSettings(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {
-		model.Unauthorized(c, "未登录")
+		response.Unauthorized(c, "未登录")
 		return
 	}
 
@@ -68,7 +69,7 @@ func UpdateSettings(c *gin.Context) {
 		Metadata  map[string]interface{} `json:"metadata"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		model.BadRequest(c, err.Error())
+		response.BadRequest(c, err.Error())
 		return
 	}
 
@@ -89,13 +90,13 @@ func UpdateSettings(c *gin.Context) {
 				UpdatedAt: time.Now(),
 			}
 			if err := database.DB.Create(&settings).Error; err != nil {
-				model.InternalError(c, "创建设置失败")
+				response.InternalError(c, "创建设置失败")
 				return
 			}
-			model.Success(c, settings)
+			response.Success(c, settings)
 			return
 		}
-		model.InternalError(c, "查询失败")
+		response.InternalError(c, "查询失败")
 		return
 	}
 
@@ -120,18 +121,18 @@ func UpdateSettings(c *gin.Context) {
 	if len(updates) > 0 {
 		updates["updated_at"] = time.Now()
 		if err := database.DB.Model(&settings).Updates(updates).Error; err != nil {
-			model.InternalError(c, "更新失败")
+			response.InternalError(c, "更新失败")
 			return
 		}
 	}
 
 	// 返回更新后的设置
 	if err := database.DB.Where("id = ?", settings.ID).First(&settings).Error; err != nil {
-		model.InternalError(c, "查询失败")
+		response.InternalError(c, "查询失败")
 		return
 	}
 
-	model.Success(c, settings)
+	response.Success(c, settings)
 }
 
 // ChangePassword 修改密码
@@ -139,13 +140,13 @@ func UpdateSettings(c *gin.Context) {
 func ChangePassword(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {
-		model.Unauthorized(c, "未登录")
+		response.Unauthorized(c, "未登录")
 		return
 	}
 
 	var req ChangePasswordRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		model.BadRequest(c, err.Error())
+		response.BadRequest(c, err.Error())
 		return
 	}
 
@@ -153,46 +154,46 @@ func ChangePassword(c *gin.Context) {
 	var user model.User
 	if err := database.DB.Where("id = ?", userID).First(&user).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			model.NotFound(c, "用户不存在")
+			response.NotFound(c, "用户不存在")
 			return
 		}
-		model.InternalError(c, "查询失败")
+		response.InternalError(c, "查询失败")
 		return
 	}
 
 	// 验证旧密码
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.OldPassword)); err != nil {
-		model.Fail(c, http.StatusUnauthorized, "旧密码错误")
+		response.Fail(c, http.StatusUnauthorized, "旧密码错误")
 		return
 	}
 
 	// 检查新旧密码是否相同
 	if req.OldPassword == req.NewPassword {
-		model.Fail(c, http.StatusBadRequest, "新旧密码不能相同")
+		response.Fail(c, http.StatusBadRequest, "新旧密码不能相同")
 		return
 	}
 
 	// 验证新密码强度
 	isValid, msg := checkPasswordStrength(req.NewPassword)
 	if !isValid {
-		model.BadRequest(c, msg)
+		response.BadRequest(c, msg)
 		return
 	}
 
 	// 加密新密码
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
 	if err != nil {
-		model.InternalError(c, "密码加密失败")
+		response.InternalError(c, "密码加密失败")
 		return
 	}
 
 	// 更新密码
 	if err := database.DB.Model(&user).Update("password", string(hashedPassword)).Error; err != nil {
-		model.InternalError(c, "密码更新失败")
+		response.InternalError(c, "密码更新失败")
 		return
 	}
 
-	model.SuccessWithMessage(c, nil, "密码修改成功")
+	response.SuccessWithMessage(c, nil, "密码修改成功")
 }
 
 // UploadAvatar 上传头像
@@ -200,20 +201,20 @@ func ChangePassword(c *gin.Context) {
 func UploadAvatar(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {
-		model.Unauthorized(c, "未登录")
+		response.Unauthorized(c, "未登录")
 		return
 	}
 
 	// 获取上传的文件
 	file, err := c.FormFile("avatar")
 	if err != nil {
-		model.BadRequest(c, "请选择头像文件")
+		response.BadRequest(c, "请选择头像文件")
 		return
 	}
 
 	// 验证文件大小（最大2MB）
 	if file.Size > 2*1024*1024 {
-		model.BadRequest(c, "文件大小不能超过2MB")
+		response.BadRequest(c, "文件大小不能超过2MB")
 		return
 	}
 
@@ -231,17 +232,17 @@ func UploadAvatar(c *gin.Context) {
 	// 保存文件到本地（示例）
 	// dst := "/path/to/uploads/avatars/" + fileName
 	// if err := c.SaveUploadedFile(file, dst); err != nil {
-	//     model.InternalError(c, "文件保存失败")
+	//     response.InternalError(c, "文件保存失败")
 	//     return
 	// }
 
 	// 更新用户头像
 	if err := database.DB.Model(&model.User{}).Where("id = ?", userID).Update("avatar_url", avatarURL).Error; err != nil {
-		model.InternalError(c, "头像更新失败")
+		response.InternalError(c, "头像更新失败")
 		return
 	}
 
-	model.Success(c, gin.H{
+	response.Success(c, gin.H{
 		"avatar_url": avatarURL,
 		"message":    "头像上传成功",
 	})
@@ -256,21 +257,21 @@ func UploadAvatar(c *gin.Context) {
 func GetSessions(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {
-		model.Unauthorized(c, "未登录")
+		response.Unauthorized(c, "未登录")
 		return
 	}
 
 	var sessions []model.UserSession
 	if err := database.DB.Where("user_id = ? AND is_active = ?", userID, true).
 		Order("last_used DESC").Find(&sessions).Error; err != nil {
-		model.InternalError(c, "查询失败")
+		response.InternalError(c, "查询失败")
 		return
 	}
 
 	// 调试日志
 	slog.Debug("GetSessions", "userID", userID, "sessionsCount", len(sessions), "sessions", sessions)
 
-	model.Success(c, sessions)
+	response.Success(c, sessions)
 }
 
 // RevokeSession 撤销会话（远程登出）
@@ -278,13 +279,13 @@ func GetSessions(c *gin.Context) {
 func RevokeSession(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {
-		model.Unauthorized(c, "未登录")
+		response.Unauthorized(c, "未登录")
 		return
 	}
 
 	sessionID := c.Param("id")
 	if sessionID == "" {
-		model.BadRequest(c, "会话ID不能为空")
+		response.BadRequest(c, "会话ID不能为空")
 		return
 	}
 
@@ -292,18 +293,18 @@ func RevokeSession(c *gin.Context) {
 	var session model.UserSession
 	if err := database.DB.Where("id = ? AND user_id = ?", sessionID, userID).First(&session).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			model.NotFound(c, "会话不存在")
+			response.NotFound(c, "会话不存在")
 			return
 		}
-		model.InternalError(c, "查询失败")
+		response.InternalError(c, "查询失败")
 		return
 	}
 
 	// 软删除会话（标记为不活跃）
 	if err := database.DB.Model(&session).Update("is_active", false).Error; err != nil {
-		model.InternalError(c, "操作失败")
+		response.InternalError(c, "操作失败")
 		return
 	}
 
-	model.SuccessWithMessage(c, nil, "会话已撤销")
+	response.SuccessWithMessage(c, nil, "会话已撤销")
 }

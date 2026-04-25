@@ -75,11 +75,13 @@ func (e *LoopNodeExecutor) executeWhileLoop(ctx *ExecutionContext, condition str
 	i := 0
 
 	for i < maxIter {
+		// Set loop.index BEFORE evaluating condition
+		ctx.SetVariable("loop.index", i)
+
 		if !e.evaluateCondition(ctx, condition) {
 			break
 		}
 
-		ctx.SetVariable("loop.index", i)
 		iterations = append(iterations, map[string]any{
 			"index":     i,
 			"condition": condition,

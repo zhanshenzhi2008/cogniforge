@@ -9,6 +9,7 @@ import (
 
 	"cogniforge/internal/database"
 	"cogniforge/internal/model"
+	"cogniforge/internal/response"
 )
 
 // RequestLogQuery 请求日志查询参数
@@ -27,7 +28,7 @@ type RequestLogQuery struct {
 func ListRequestLogs(c *gin.Context) {
 	var query RequestLogQuery
 	if err := c.ShouldBindQuery(&query); err != nil {
-		model.BadRequest(c, "参数解析失败")
+		response.BadRequest(c, "参数解析失败")
 		return
 	}
 
@@ -83,11 +84,11 @@ func ListRequestLogs(c *gin.Context) {
 	offset := (query.Page - 1) * query.PageSize
 	var logs []model.RequestLog
 	if err := db.Offset(offset).Limit(query.PageSize).Find(&logs).Error; err != nil {
-		model.InternalError(c, "查询失败")
+		response.InternalError(c, "查询失败")
 		return
 	}
 
-	model.Success(c, gin.H{
+	response.Success(c, gin.H{
 		"logs":        logs,
 		"total":       total,
 		"page":        query.Page,
@@ -100,7 +101,7 @@ func ListRequestLogs(c *gin.Context) {
 func GetRequestLog(c *gin.Context) {
 	id := c.Param("id")
 	if id == "" {
-		model.BadRequest(c, "日志 ID 不能为空")
+		response.BadRequest(c, "日志 ID 不能为空")
 		return
 	}
 
@@ -110,11 +111,11 @@ func GetRequestLog(c *gin.Context) {
 
 	var log model.RequestLog
 	if err := database.DB.Where("id = ? AND user_id = ?", id, userIDStr).First(&log).Error; err != nil {
-		model.NotFound(c, "日志不存在")
+		response.NotFound(c, "日志不存在")
 		return
 	}
 
-	model.Success(c, log)
+	response.Success(c, log)
 }
 
 // GetUsageStats 获取用量统计
@@ -220,7 +221,7 @@ func GetUsageStats(c *gin.Context) {
 		Limit(10).
 		Scan(&pathStats)
 
-	model.Success(c, gin.H{
+	response.Success(c, gin.H{
 		"period":         days,
 		"total_requests": totalRequests,
 		"total_duration": totalDuration,
@@ -293,7 +294,7 @@ func GetRealtimeStats(c *gin.Context) {
 		Order("minute ASC").
 		Scan(&minuteStats)
 
-	model.Success(c, gin.H{
+	response.Success(c, gin.H{
 		"req_count":    reqCount,
 		"avg_duration": avgDuration,
 		"error_count":  errorCount,

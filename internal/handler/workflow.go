@@ -10,6 +10,7 @@ import (
 	"cogniforge/internal/database"
 	"cogniforge/internal/engine"
 	"cogniforge/internal/model"
+	"cogniforge/internal/response"
 )
 
 var workflowEngine = engine.NewEngine()
@@ -17,23 +18,23 @@ var workflowEngine = engine.NewEngine()
 func ListWorkflows(c *gin.Context) {
 	userID := c.GetString("user_id")
 	if userID == "" {
-		model.Unauthorized(c, "unauthorized")
+		response.Unauthorized(c, "unauthorized")
 		return
 	}
 
 	var workflows []model.Workflow
 	if err := database.DB.Where("user_id = ?", userID).Order("created_at DESC").Find(&workflows).Error; err != nil {
-		model.InternalError(c, "查询工作流列表失败")
+		response.InternalError(c, "查询工作流列表失败")
 		return
 	}
 
-	model.Success(c, workflows)
+	response.Success(c, workflows)
 }
 
 func CreateWorkflow(c *gin.Context) {
 	userID := c.GetString("user_id")
 	if userID == "" {
-		model.Unauthorized(c, "unauthorized")
+		response.Unauthorized(c, "unauthorized")
 		return
 	}
 
@@ -43,7 +44,7 @@ func CreateWorkflow(c *gin.Context) {
 		Definition  map[string]any `json:"definition"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		model.BadRequest(c, "请求参数无效: "+err.Error())
+		response.BadRequest(c, "请求参数无效: "+err.Error())
 		return
 	}
 
@@ -62,11 +63,11 @@ func CreateWorkflow(c *gin.Context) {
 	}
 
 	if err := database.DB.Create(&workflow).Error; err != nil {
-		model.InternalError(c, "创建工作流失败")
+		response.InternalError(c, "创建工作流失败")
 		return
 	}
 
-	model.Created(c, workflow)
+	response.Created(c, workflow)
 }
 
 func GetWorkflow(c *gin.Context) {
@@ -76,14 +77,14 @@ func GetWorkflow(c *gin.Context) {
 	var workflow model.Workflow
 	if err := database.DB.Where("id = ? AND user_id = ?", workflowID, userID).First(&workflow).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			model.NotFound(c, "工作流不存在")
+			response.NotFound(c, "工作流不存在")
 		} else {
-			model.InternalError(c, "查询工作流失败")
+			response.InternalError(c, "查询工作流失败")
 		}
 		return
 	}
 
-	model.Success(c, workflow)
+	response.Success(c, workflow)
 }
 
 func UpdateWorkflow(c *gin.Context) {
@@ -93,9 +94,9 @@ func UpdateWorkflow(c *gin.Context) {
 	var workflow model.Workflow
 	if err := database.DB.Where("id = ? AND user_id = ?", workflowID, userID).First(&workflow).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			model.NotFound(c, "工作流不存在")
+			response.NotFound(c, "工作流不存在")
 		} else {
-			model.InternalError(c, "查询工作流失败")
+			response.InternalError(c, "查询工作流失败")
 		}
 		return
 	}
@@ -107,7 +108,7 @@ func UpdateWorkflow(c *gin.Context) {
 		Definition  map[string]any `json:"definition"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		model.BadRequest(c, "请求参数无效: "+err.Error())
+		response.BadRequest(c, "请求参数无效: "+err.Error())
 		return
 	}
 
@@ -128,14 +129,14 @@ func UpdateWorkflow(c *gin.Context) {
 
 	if len(updates) > 0 {
 		if err := database.DB.Model(&workflow).Updates(updates).Error; err != nil {
-			model.InternalError(c, "更新工作流失败")
+			response.InternalError(c, "更新工作流失败")
 			return
 		}
 	}
 
 	database.DB.Model(&workflow).Update("version", workflow.Version+1)
 	database.DB.First(&workflow, "id = ?", workflowID)
-	model.Success(c, workflow)
+	response.Success(c, workflow)
 }
 
 func DeleteWorkflow(c *gin.Context) {
@@ -144,21 +145,21 @@ func DeleteWorkflow(c *gin.Context) {
 
 	result := database.DB.Where("id = ? AND user_id = ?", workflowID, userID).Delete(&model.Workflow{})
 	if result.Error != nil {
-		model.InternalError(c, "删除工作流失败")
+		response.InternalError(c, "删除工作流失败")
 		return
 	}
 	if result.RowsAffected == 0 {
-		model.NotFound(c, "工作流不存在")
+		response.NotFound(c, "工作流不存在")
 		return
 	}
 
-	model.SuccessWithMessage(c, nil, "工作流已删除")
+	response.SuccessWithMessage(c, nil, "工作流已删除")
 }
 
 func ExecuteWorkflow(c *gin.Context) {
 	userID := c.GetString("user_id")
 	if userID == "" {
-		model.Unauthorized(c, "unauthorized")
+		response.Unauthorized(c, "unauthorized")
 		return
 	}
 
@@ -167,9 +168,9 @@ func ExecuteWorkflow(c *gin.Context) {
 	var workflow model.Workflow
 	if err := database.DB.Where("id = ? AND user_id = ?", workflowID, userID).First(&workflow).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			model.NotFound(c, "工作流不存在")
+			response.NotFound(c, "工作流不存在")
 		} else {
-			model.InternalError(c, "查询工作流失败")
+			response.InternalError(c, "查询工作流失败")
 		}
 		return
 	}
@@ -183,11 +184,11 @@ func ExecuteWorkflow(c *gin.Context) {
 
 	executionID, err := workflowEngine.ExecuteAsync(workflowID, userID, req.Input)
 	if err != nil {
-		model.InternalError(c, "执行工作流失败: "+err.Error())
+		response.InternalError(c, "执行工作流失败: "+err.Error())
 		return
 	}
 
-	model.Accepted(c, gin.H{
+	response.Accepted(c, gin.H{
 		"execution_id": executionID,
 		"status":       "pending",
 	})
@@ -196,7 +197,7 @@ func ExecuteWorkflow(c *gin.Context) {
 func ListWorkflowExecutions(c *gin.Context) {
 	userID := c.GetString("user_id")
 	if userID == "" {
-		model.Unauthorized(c, "unauthorized")
+		response.Unauthorized(c, "unauthorized")
 		return
 	}
 
@@ -207,17 +208,17 @@ func ListWorkflowExecutions(c *gin.Context) {
 		Order("created_at DESC").
 		Limit(50).
 		Find(&executions).Error; err != nil {
-		model.InternalError(c, "查询执行记录失败")
+		response.InternalError(c, "查询执行记录失败")
 		return
 	}
 
-	model.Success(c, executions)
+	response.Success(c, executions)
 }
 
 func GetWorkflowExecution(c *gin.Context) {
 	userID := c.GetString("user_id")
 	if userID == "" {
-		model.Unauthorized(c, "unauthorized")
+		response.Unauthorized(c, "unauthorized")
 		return
 	}
 
@@ -226,20 +227,20 @@ func GetWorkflowExecution(c *gin.Context) {
 	var execution model.WorkflowExecution
 	if err := database.DB.Where("id = ? AND user_id = ?", executionID, userID).First(&execution).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			model.NotFound(c, "执行记录不存在")
+			response.NotFound(c, "执行记录不存在")
 		} else {
-			model.InternalError(c, "查询执行记录失败")
+			response.InternalError(c, "查询执行记录失败")
 		}
 		return
 	}
 
-	model.Success(c, execution)
+	response.Success(c, execution)
 }
 
 func CancelWorkflowExecution(c *gin.Context) {
 	userID := c.GetString("user_id")
 	if userID == "" {
-		model.Unauthorized(c, "unauthorized")
+		response.Unauthorized(c, "unauthorized")
 		return
 	}
 
@@ -248,15 +249,15 @@ func CancelWorkflowExecution(c *gin.Context) {
 	var execution model.WorkflowExecution
 	if err := database.DB.Where("id = ? AND user_id = ?", executionID, userID).First(&execution).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			model.NotFound(c, "执行记录不存在")
+			response.NotFound(c, "执行记录不存在")
 		} else {
-			model.InternalError(c, "查询执行记录失败")
+			response.InternalError(c, "查询执行记录失败")
 		}
 		return
 	}
 
 	if execution.Status != "pending" && execution.Status != "running" {
-		model.BadRequest(c, "当前状态无法取消")
+		response.BadRequest(c, "当前状态无法取消")
 		return
 	}
 
@@ -267,13 +268,13 @@ func CancelWorkflowExecution(c *gin.Context) {
 		"error":        "Cancelled by user",
 	})
 
-	model.SuccessWithMessage(c, nil, "执行已取消")
+	response.SuccessWithMessage(c, nil, "执行已取消")
 }
 
 func DebugWorkflow(c *gin.Context) {
 	userID := c.GetString("user_id")
 	if userID == "" {
-		model.Unauthorized(c, "unauthorized")
+		response.Unauthorized(c, "unauthorized")
 		return
 	}
 
@@ -282,9 +283,9 @@ func DebugWorkflow(c *gin.Context) {
 	var workflow model.Workflow
 	if err := database.DB.Where("id = ? AND user_id = ?", workflowID, userID).First(&workflow).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			model.NotFound(c, "工作流不存在")
+			response.NotFound(c, "工作流不存在")
 		} else {
-			model.InternalError(c, "查询工作流失败")
+			response.InternalError(c, "查询工作流失败")
 		}
 		return
 	}
@@ -309,7 +310,7 @@ func DebugWorkflow(c *gin.Context) {
 	}
 
 	if err := database.DB.Create(&execution).Error; err != nil {
-		model.InternalError(c, "创建调试会话失败")
+		response.InternalError(c, "创建调试会话失败")
 		return
 	}
 
@@ -342,7 +343,7 @@ func DebugWorkflow(c *gin.Context) {
 		_ = result
 	}()
 
-	model.Accepted(c, gin.H{
+	response.Accepted(c, gin.H{
 		"execution_id": executionID,
 		"status":       "debugging",
 	})

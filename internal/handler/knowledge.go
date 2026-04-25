@@ -14,6 +14,7 @@ import (
 
 	"cogniforge/internal/database"
 	"cogniforge/internal/model"
+	"cogniforge/internal/response"
 )
 
 // =============================================================================
@@ -32,7 +33,7 @@ const (
 	MaxFileSize = 50 * 1024 * 1024
 
 	// 存储目录
-	UploadsDir = "uploads"
+	UploadsDir   = "uploads"
 	DocumentsDir = "documents"
 )
 
@@ -100,18 +101,18 @@ func saveUploadedFile(file *multipart.FileHeader, destPath string) error {
 // Request/Response types
 
 type CreateKBRequest struct {
-	Name        string `json:"name" binding:"required"`
-	Description string `json:"description"`
-	VectorDB    string `json:"vector_db"`
+	Name           string `json:"name" binding:"required"`
+	Description    string `json:"description"`
+	VectorDB       string `json:"vector_db"`
 	EmbeddingModel string `json:"embedding_model"`
 }
 
 type UpdateKBRequest struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	VectorDB    string `json:"vector_db"`
+	Name           string `json:"name"`
+	Description    string `json:"description"`
+	VectorDB       string `json:"vector_db"`
 	EmbeddingModel string `json:"embedding_model"`
-	Status      string `json:"status"`
+	Status         string `json:"status"`
 }
 
 // ListKnowledgeBases 获取知识库列表
@@ -120,11 +121,11 @@ func ListKnowledgeBases(c *gin.Context) {
 
 	var kbs []model.KnowledgeBase
 	if err := database.DB.Where("user_id = ?", userID).Order("created_at DESC").Find(&kbs).Error; err != nil {
-		model.InternalError(c, "查询知识库列表失败")
+		response.InternalError(c, "查询知识库列表失败")
 		return
 	}
 
-	model.Success(c, kbs)
+	response.Success(c, kbs)
 }
 
 // CreateKnowledgeBase 创建知识库
@@ -133,12 +134,12 @@ func CreateKnowledgeBase(c *gin.Context) {
 
 	var req CreateKBRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		model.BadRequest(c, "请求参数无效: "+err.Error())
+		response.BadRequest(c, "请求参数无效: "+err.Error())
 		return
 	}
 
 	if req.Name == "" {
-		model.BadRequest(c, "知识库名称不能为空")
+		response.BadRequest(c, "知识库名称不能为空")
 		return
 	}
 
@@ -164,11 +165,11 @@ func CreateKnowledgeBase(c *gin.Context) {
 	}
 
 	if err := database.DB.Create(&kb).Error; err != nil {
-		model.InternalError(c, "创建知识库失败")
+		response.InternalError(c, "创建知识库失败")
 		return
 	}
 
-	model.Created(c, kb)
+	response.Created(c, kb)
 }
 
 // GetKnowledgeBase 获取知识库详情
@@ -179,14 +180,14 @@ func GetKnowledgeBase(c *gin.Context) {
 	var kb model.KnowledgeBase
 	if err := database.DB.Where("id = ? AND user_id = ?", kbID, userID).First(&kb).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			model.NotFound(c, "知识库不存在")
+			response.NotFound(c, "知识库不存在")
 		} else {
-			model.InternalError(c, "查询知识库失败")
+			response.InternalError(c, "查询知识库失败")
 		}
 		return
 	}
 
-	model.Success(c, kb)
+	response.Success(c, kb)
 }
 
 // UpdateKnowledgeBase 更新知识库
@@ -197,16 +198,16 @@ func UpdateKnowledgeBase(c *gin.Context) {
 	var kb model.KnowledgeBase
 	if err := database.DB.Where("id = ? AND user_id = ?", kbID, userID).First(&kb).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			model.NotFound(c, "知识库不存在")
+			response.NotFound(c, "知识库不存在")
 		} else {
-			model.InternalError(c, "查询知识库失败")
+			response.InternalError(c, "查询知识库失败")
 		}
 		return
 	}
 
 	var req UpdateKBRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		model.BadRequest(c, "请求参数无效: "+err.Error())
+		response.BadRequest(c, "请求参数无效: "+err.Error())
 		return
 	}
 
@@ -229,11 +230,11 @@ func UpdateKnowledgeBase(c *gin.Context) {
 	kb.UpdatedAt = time.Now()
 
 	if err := database.DB.Save(&kb).Error; err != nil {
-		model.InternalError(c, "更新知识库失败")
+		response.InternalError(c, "更新知识库失败")
 		return
 	}
 
-	model.Success(c, kb)
+	response.Success(c, kb)
 }
 
 // DeleteKnowledgeBase 删除知识库（软删除）
@@ -244,19 +245,19 @@ func DeleteKnowledgeBase(c *gin.Context) {
 	var kb model.KnowledgeBase
 	if err := database.DB.Where("id = ? AND user_id = ?", kbID, userID).First(&kb).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			model.NotFound(c, "知识库不存在")
+			response.NotFound(c, "知识库不存在")
 		} else {
-			model.InternalError(c, "查询知识库失败")
+			response.InternalError(c, "查询知识库失败")
 		}
 		return
 	}
 
 	if err := database.DB.Delete(&kb).Error; err != nil {
-		model.InternalError(c, "删除知识库失败")
+		response.InternalError(c, "删除知识库失败")
 		return
 	}
 
-	model.SuccessWithMessage(c, nil, "知识库已删除")
+	response.SuccessWithMessage(c, nil, "知识库已删除")
 }
 
 // =============================================================================
@@ -272,20 +273,20 @@ func ListDocuments(c *gin.Context) {
 	var kb model.KnowledgeBase
 	if err := database.DB.Where("id = ? AND user_id = ?", kbID, userID).First(&kb).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			model.NotFound(c, "知识库不存在")
+			response.NotFound(c, "知识库不存在")
 		} else {
-			model.InternalError(c, "查询知识库失败")
+			response.InternalError(c, "查询知识库失败")
 		}
 		return
 	}
 
 	var docs []model.Document
 	if err := database.DB.Where("knowledge_base_id = ?", kbID).Order("created_at DESC").Find(&docs).Error; err != nil {
-		model.InternalError(c, "查询文档列表失败")
+		response.InternalError(c, "查询文档列表失败")
 		return
 	}
 
-	model.Success(c, docs)
+	response.Success(c, docs)
 }
 
 // DeleteDocument 删除文档
@@ -298,9 +299,9 @@ func DeleteDocument(c *gin.Context) {
 	var kb model.KnowledgeBase
 	if err := database.DB.Where("id = ? AND user_id = ?", kbID, userID).First(&kb).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			model.NotFound(c, "知识库不存在")
+			response.NotFound(c, "知识库不存在")
 		} else {
-			model.InternalError(c, "查询知识库失败")
+			response.InternalError(c, "查询知识库失败")
 		}
 		return
 	}
@@ -309,22 +310,22 @@ func DeleteDocument(c *gin.Context) {
 	var doc model.Document
 	if err := database.DB.Where("id = ? AND knowledge_base_id = ?", docID, kbID).First(&doc).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			model.NotFound(c, "文档不存在")
+			response.NotFound(c, "文档不存在")
 		} else {
-			model.InternalError(c, "查询文档失败")
+			response.InternalError(c, "查询文档失败")
 		}
 		return
 	}
 
 	if err := database.DB.Delete(&doc).Error; err != nil {
-		model.InternalError(c, "删除文档失败")
+		response.InternalError(c, "删除文档失败")
 		return
 	}
 
 	// 更新知识库的文档计数
 	database.DB.Model(&kb).Update("doc_count", gorm.Expr("doc_count - 1"))
 
-	model.SuccessWithMessage(c, nil, "文档已删除")
+	response.SuccessWithMessage(c, nil, "文档已删除")
 }
 
 // UploadDocument 上传文档
@@ -336,9 +337,9 @@ func UploadDocument(c *gin.Context) {
 	var kb model.KnowledgeBase
 	if err := database.DB.Where("id = ? AND user_id = ?", kbID, userID).First(&kb).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			model.NotFound(c, "知识库不存在")
+			response.NotFound(c, "知识库不存在")
 		} else {
-			model.InternalError(c, "查询知识库失败")
+			response.InternalError(c, "查询知识库失败")
 		}
 		return
 	}
@@ -346,27 +347,27 @@ func UploadDocument(c *gin.Context) {
 	// 获取上传的文件
 	file, err := c.FormFile("file")
 	if err != nil {
-		model.BadRequest(c, "请选择要上传的文件")
+		response.BadRequest(c, "请选择要上传的文件")
 		return
 	}
 
 	// 验证文件大小
 	if file.Size > MaxFileSize {
-		model.BadRequest(c, fmt.Sprintf("文件大小不能超过 %dMB", MaxFileSize/(1024*1024)))
+		response.BadRequest(c, fmt.Sprintf("文件大小不能超过 %dMB", MaxFileSize/(1024*1024)))
 		return
 	}
 
 	// 验证文件类型
 	fileType, ok := getFileType(file.Filename)
 	if !ok {
-		model.BadRequest(c, "不支持的文件类型，支持：PDF、TXT、MD、DOCX、HTML")
+		response.BadRequest(c, "不支持的文件类型，支持：PDF、TXT、MD、DOCX、HTML")
 		return
 	}
 
 	// 确保上传目录存在
 	dir, err := ensureUploadDir(userID, kbID)
 	if err != nil {
-		model.InternalError(c, "创建上传目录失败")
+		response.InternalError(c, "创建上传目录失败")
 		return
 	}
 
@@ -378,7 +379,7 @@ func UploadDocument(c *gin.Context) {
 
 	// 保存文件
 	if err := saveUploadedFile(file, destPath); err != nil {
-		model.InternalError(c, "保存文件失败: "+err.Error())
+		response.InternalError(c, "保存文件失败: "+err.Error())
 		return
 	}
 
@@ -403,7 +404,7 @@ func UploadDocument(c *gin.Context) {
 	if err := database.DB.Create(&doc).Error; err != nil {
 		// 删除已保存的文件
 		os.Remove(destPath)
-		model.InternalError(c, "创建文档记录失败")
+		response.InternalError(c, "创建文档记录失败")
 		return
 	}
 
@@ -416,7 +417,7 @@ func UploadDocument(c *gin.Context) {
 		processDocumentAsync(docID)
 	}()
 
-	model.Created(c, doc)
+	response.Created(c, doc)
 }
 
 // processDocumentAsync 异步处理文档（分块、向量化）
@@ -566,9 +567,9 @@ func SearchKnowledge(c *gin.Context) {
 	var kb model.KnowledgeBase
 	if err := database.DB.Where("id = ? AND user_id = ?", kbID, userID).First(&kb).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			model.NotFound(c, "知识库不存在")
+			response.NotFound(c, "知识库不存在")
 		} else {
-			model.InternalError(c, "查询知识库失败")
+			response.InternalError(c, "查询知识库失败")
 		}
 		return
 	}
@@ -576,7 +577,7 @@ func SearchKnowledge(c *gin.Context) {
 	// 解析请求
 	var req SearchRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		model.BadRequest(c, "请提供检索关键词")
+		response.BadRequest(c, "请提供检索关键词")
 		return
 	}
 
@@ -594,12 +595,12 @@ func SearchKnowledge(c *gin.Context) {
 	// 获取该知识库下的所有文档
 	var docs []model.Document
 	if err := database.DB.Where("knowledge_base_id = ? AND status = ?", kbID, "completed").Find(&docs).Error; err != nil {
-		model.InternalError(c, "查询文档失败")
+		response.InternalError(c, "查询文档失败")
 		return
 	}
 
 	if len(docs) == 0 {
-		model.Success(c, SearchResponse{
+		response.Success(c, SearchResponse{
 			Results:  []SearchResult{},
 			Total:    0,
 			Query:    req.Query,
@@ -613,7 +614,7 @@ func SearchKnowledge(c *gin.Context) {
 	results := performTextSearch(req.Query, docs, req.TopK, req.MinScore)
 
 	duration := time.Since(startTime).Milliseconds()
-	model.Success(c, SearchResponse{
+	response.Success(c, SearchResponse{
 		Results:  results,
 		Total:    len(results),
 		Query:    req.Query,

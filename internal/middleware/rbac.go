@@ -8,7 +8,10 @@ import (
 
 	"cogniforge/internal/database"
 	"cogniforge/internal/model"
+	"cogniforge/internal/response"
 )
+
+// 注意：model 用于数据库模型，response 用于 HTTP 响应
 
 // =============================================================================
 // RBAC 权限中间件
@@ -20,7 +23,7 @@ func RequirePermission(permissionCode string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, exists := c.Get("user_id")
 		if !exists {
-			model.Unauthorized(c, "未登录")
+			response.Unauthorized(c, "未登录")
 			c.Abort()
 			return
 		}
@@ -28,7 +31,7 @@ func RequirePermission(permissionCode string) gin.HandlerFunc {
 		// 获取用户角色
 		var user model.User
 		if err := database.DB.Where("id = ?", userID).First(&user).Error; err != nil {
-			model.NotFound(c, "用户不存在")
+			response.NotFound(c, "用户不存在")
 			c.Abort()
 			return
 		}
@@ -42,13 +45,13 @@ func RequirePermission(permissionCode string) gin.HandlerFunc {
 		// 检查权限
 		hasPermission, err := checkUserPermission(userID.(string), permissionCode)
 		if err != nil {
-			model.InternalError(c, "权限检查失败")
+			response.InternalError(c, "权限检查失败")
 			c.Abort()
 			return
 		}
 
 		if !hasPermission {
-			model.Forbidden(c, "权限不足")
+			response.Forbidden(c, "权限不足")
 			c.Abort()
 			return
 		}
@@ -63,21 +66,21 @@ func RequireRole(roleCode string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, exists := c.Get("user_id")
 		if !exists {
-			model.Unauthorized(c, "未登录")
+			response.Unauthorized(c, "未登录")
 			c.Abort()
 			return
 		}
 
 		var user model.User
 		if err := database.DB.Where("id = ?", userID).First(&user).Error; err != nil {
-			model.NotFound(c, "用户不存在")
+			response.NotFound(c, "用户不存在")
 			c.Abort()
 			return
 		}
 
 		// 检查角色
 		if user.Role != roleCode {
-			model.Forbidden(c, fmt.Sprintf("需要 %s 角色", roleCode))
+			response.Forbidden(c, fmt.Sprintf("需要 %s 角色", roleCode))
 			c.Abort()
 			return
 		}
@@ -97,7 +100,7 @@ func RequireAnyPermission(permissionCodes []string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, exists := c.Get("user_id")
 		if !exists {
-			model.Unauthorized(c, "未登录")
+			response.Unauthorized(c, "未登录")
 			c.Abort()
 			return
 		}
@@ -105,7 +108,7 @@ func RequireAnyPermission(permissionCodes []string) gin.HandlerFunc {
 		// 获取用户角色
 		var user model.User
 		if err := database.DB.Where("id = ?", userID).First(&user).Error; err != nil {
-			model.NotFound(c, "用户不存在")
+			response.NotFound(c, "用户不存在")
 			c.Abort()
 			return
 		}
@@ -120,7 +123,7 @@ func RequireAnyPermission(permissionCodes []string) gin.HandlerFunc {
 		for _, code := range permissionCodes {
 			hasPermission, err := checkUserPermission(userID.(string), code)
 			if err != nil {
-				model.InternalError(c, "权限检查���败")
+				response.InternalError(c, "权限检查���败")
 				c.Abort()
 				return
 			}
@@ -130,7 +133,7 @@ func RequireAnyPermission(permissionCodes []string) gin.HandlerFunc {
 			}
 		}
 
-		model.Forbidden(c, "权限不足")
+		response.Forbidden(c, "权限不足")
 		c.Abort()
 	}
 }

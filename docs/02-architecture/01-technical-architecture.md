@@ -4,8 +4,90 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-04-27 | v3.0 | 后端从 handler 目录重构为业务模块化架构；新增 auth/user/chat/workflow/knowledge/agent 等独立模块，遵循 DTO → Service → Handler 分层模式 | orjrs |
 | 2026-04-04 | v2.0 | 后端架构由 gateway 独立目录收敛为 monolith；删除 go-standards/dev-environment rules；rules 文档变更记录规范 | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] 业务模块化架构重构（2026-04-27）
+
+变更原因：将 `internal/handler/` 中的平铺结构重构为按业务模块划分的独立包，实现更好的封装性和可维护性。
+
+### 变更前
+
+```
+internal/
+└── handler/                    # 所有 handler 堆在一起
+    ├── auth.go
+    ├── user.go
+    ├── chat.go
+    ├── agent.go
+    ├── workflow.go
+    ├── knowledge.go
+    ├── monitor.go
+    ├── settings.go
+    ├── roles.go
+    └── health.go
+```
+
+### 变更后
+
+```
+internal/
+├── auth/                       # 认证模块
+│   ├── dto.go                 # 请求/响应 DTO
+│   ├── service.go             # 业务逻辑
+│   └── handler.go             # HTTP 处理
+│
+├── user/                      # 用户模块
+│   ├── dto.go
+│   ├── service.go
+│   ├── handler.go
+│   └── id.go
+│
+├── chat/                      # 聊天模块
+│   ├── dto.go
+│   ├── service.go
+│   └── handler.go
+│
+├── workflow/                  # 工作流模块
+│   ├── dto.go
+│   ├── service.go
+│   ├── handler.go
+│   └── id.go
+│
+├── knowledge/                 # 知识库模块
+│   ├── dto.go
+│   ├── service.go
+│   ├── handler.go
+│   └── id.go
+│
+├── agent/                     # Agent 模块
+│   ├── dto.go
+│   ├── service.go
+│   ├── handler.go
+│   └── id.go
+│
+├── router/                    # 路由聚合
+│   └── router.go
+│
+├── interfaces/                # 模块间接口定义（预留）
+│
+├── monitor/                   # 监控模块（目录已创建）
+│
+├── model/                    # 数据实体（保持不变）
+├── middleware/               # 中间件（保持不变）
+├── database/                 # 数据库（保持不变）
+├── engine/                   # 工作流引擎（保持不变）
+└── response/                 # 统一响应（保持不变）
+```
+
+### 关键差异
+
+- **分层清晰**：每个模块遵循 `dto.go` → `service.go` → `handler.go` 的分层模式
+- **职责分离**：`handler` 只处理 HTTP 请求和响应，`service` 专注业务逻辑
+- **自包含**：每个模块封装了自己的 DTO、Service、Handler
+- **路由聚合**：`router/router.go` 统一管理所有路由注册
+- **向后兼容**：旧的 `internal/handler/` 目录暂时保留（monitor、roles、settings 未完全迁移）
 
 ## [变更] 项目结构变更 + rules 规则整理（2026-04-04）
 
@@ -106,10 +188,14 @@ cogniforge/
 │           └──────────────────────────┼──────────────────────────┘       │
 │                                      ▼                                 │
 │   ┌────────────────────────────────────────────────────────────────┐    │
-│   │                    核心服务 (Go - 同一进程)                         │    │
+│   │                    核心服务 (Go - 模块化架构)                       │    │
 │   │                                                                  │    │
-│   │  handler/chat.go  │ handler/agent.go │ handler/workflow.go │      │    │
-│   │  handler/auth.go  │ handler/knowledge.go │ middleware/ │         │    │
+│   │  auth/  │ user/  │ chat/  │ workflow/  │ knowledge/  │ agent/ │    │
+│   │  service│ service│ service│ service    │ service     │ service│    │
+│   │  handler│ handler│ handler│ handler    │ handler     │ handler│    │
+│   │                                                                  │    │
+│   │  router/router.go  │  middleware/  │  engine/               │    │
+│   │  (路由聚合)        │  (CORS/JWT)   │  (工作流执行)          │    │
 │   │                                                                  │    │
 │   └────────────────────────────────────────────────────────────────┘    │
 │                                      ▼                                 │
@@ -129,23 +215,50 @@ cogniforge/
 
 ## 3. 核心服务设计
 
-### 3.0 API 服务 (Go - 单体 monolith)
+### 3.0 API 服务 (Go - 模块化单体)
 
-**当前状态**：已收敛为单一进程，不再有独立 `gateway/` 目录。
+**当前状态**：已重构为模块化架构，每个业务模块独立封装。
 
 ```yaml
 入口: cmd/server/main.go
 语言: Go 1.22+
 框架: Gin
 端口: 8080
+路由: internal/router/router.go
 
-已实现的 handler (internal/handler/):
-  - auth.go:       注册/登录/登出/当前用户
-  - chat.go:       聊天流式输出 (OpenAI 兼容 SSE)
-  - agent.go:      Agent CRUD + 对话
-  - workflow.go:   工作流 CRUD + 执行
-  - knowledge.go:  知识库 CRUD (存根)
-  - health.go:     健康/就绪/存活探针
+已实现的模块 (internal/):
+  auth/           注册/登录/登出/当前用户/API Key
+    - dto.go       请求/响应结构
+    - service.go   业务逻辑
+    - handler.go  HTTP 处理
+
+  user/           用户管理
+    - dto.go       请求/响应结构
+    - service.go   业务逻辑
+    - handler.go  HTTP 处理
+
+  chat/           聊天/模型
+    - dto.go       请求/响应结构
+    - service.go   AI 调用逻辑
+    - handler.go  HTTP 处理
+
+  agent/          Agent CRUD + 对话
+    - dto.go       请求/响应结构
+    - service.go   业务逻辑
+    - handler.go  HTTP 处理
+
+  workflow/       工作流 CRUD + 执行
+    - dto.go       请求/响应结构
+    - service.go   业务逻辑 + 执行引擎集成
+    - handler.go  HTTP 处理
+
+  knowledge/      知识库管理
+    - dto.go       请求/响应结构
+    - service.go   业务逻辑
+    - handler.go  HTTP 处理
+
+  router/         路由聚合
+    - router.go   统一注册所有模块路由
 
 中间件:
   - CorsMiddleware: 允许跨域
@@ -160,10 +273,10 @@ cogniforge/
 
 ### 3.1 模型网关服务
 
-**当前状态**：功能内嵌在 `internal/handler/chat.go`。
+**当前状态**：功能位于 `internal/chat/` 模块。
 
 ```yaml
-实际位置: internal/handler/chat.go
+实际位置: internal/chat/
 端口: 8080 (与 monolith 共享)
 
 核心功能:
@@ -176,10 +289,10 @@ cogniforge/
 
 ### 3.2 Agent 引擎服务
 
-**当前状态**：`internal/handler/agent.go` 提供 CRUD + 对话。
+**当前状态**：`internal/agent/` 模块提供 CRUD + 对话。
 
 ```yaml
-实际位置: internal/handler/agent.go
+实际位置: internal/agent/
 端口: 8080 (与 monolith 共享)
 
 已实现:
@@ -196,10 +309,10 @@ cogniforge/
 
 ### 3.3 工作流编排服务
 
-**当前状态**：`internal/handler/workflow.go` 提供 CRUD + 执行。
+**当前状态**：`internal/workflow/` 模块提供 CRUD + 执行。
 
 ```yaml
-实际位置: internal/handler/workflow.go
+实际位置: internal/workflow/
 端口: 8080 (与 monolith 共享)
 
 已实现:
@@ -216,10 +329,10 @@ cogniforge/
 
 ### 3.4 知识库服务
 
-**当前状态**：`internal/handler/knowledge.go` 提供 CRUD，Python 处理层待开发。
+**当前状态**：`internal/knowledge/` 模块提供 CRUD，Python 处理层待开发。
 
 ```yaml
-实际位置: internal/handler/knowledge.go + llm/knowledge/
+实际位置: internal/knowledge/ + llm/knowledge/
 端口: 8080 (Go) + 8081 (Python)
 
 已实现:
@@ -249,7 +362,7 @@ cogniforge/
 用户上传文档
     │
     ▼
-Go Handler (internal/handler/knowledge.go)
+Go Handler (internal/knowledge/)
     │ - 接收 multipart/form-data
     │ - 保存文件到临时目录
     │ - 创建 Document 记录（status=pending）
@@ -504,16 +617,71 @@ workflow_nodes, workflow_edges, workflow_executions
 ### 8.3 实际项目结构
 
 ```
-cogniforge/                          # 后端 Go monolith
+cogniforge/                          # 后端 Go monolith (模块化架构)
 ├── cmd/server/main.go               # 单一入口
 ├── configs/config.yaml              # 配置文件
 ├── internal/
 │   ├── config/                      # Viper 配置加载
 │   ├── database/                    # GORM PostgreSQL
-│   ├── model/                       # 数据模型
-│   ├── handler/                     # HTTP 处理器 (auth/chat/agent/workflow/knowledge/health)
-│   ├── middleware/                  # CORS/日志/JWT 中间件
-│   └── logger/                      # slog JSON 日志
+│   ├── model/                      # 数据模型
+│   │
+│   │   # === 业务模块 (DTO → Service → Handler 分层) ===
+│   │
+│   ├── auth/                       # 认证模块
+│   │   ├── dto.go                 # 请求/响应结构
+│   │   ├── service.go             # 业务逻辑
+│   │   └── handler.go             # HTTP 处理
+│   │
+│   ├── user/                       # 用户模块
+│   │   ├── dto.go
+│   │   ├── service.go
+│   │   ├── handler.go
+│   │   └── id.go
+│   │
+│   ├── chat/                       # 聊天/模型模块
+│   │   ├── dto.go
+│   │   ├── service.go
+│   │   └── handler.go
+│   │
+│   ├── workflow/                   # 工作流模块
+│   │   ├── dto.go
+│   │   ├── service.go
+│   │   ├── handler.go
+│   │   └── id.go
+│   │
+│   ├── knowledge/                  # 知识库模块
+│   │   ├── dto.go
+│   │   ├── service.go
+│   │   ├── handler.go
+│   │   └── id.go
+│   │
+│   ├── agent/                     # Agent 模块
+│   │   ├── dto.go
+│   │   ├── service.go
+│   │   ├── handler.go
+│   │   └── id.go
+│   │
+│   ├── router/                    # 路由聚合
+│   │   └── router.go             # 统一注册所有模块路由
+│   │
+│   ├── interfaces/                # 模块间接口定义 (预留)
+│   ├── monitor/                    # 监控模块 (目录已创建)
+│   │
+│   │   # === 基础设施 (保持原有结构) ===
+│   │
+│   ├── middleware/                 # CORS/JWT/Logger 中间件
+│   ├── engine/                    # 工作流执行引擎
+│   ├── response/                   # 统一响应封装
+│   ├── logger/                    # slog JSON 日志
+│   └── handler/                   # 旧 handler (暂时保留，向后兼容)
+│       ├── monitor.go             # 监控 API
+│       ├── roles.go              # 角色权限 API
+│       ├── settings.go           # 用户设置 API
+│       └── health.go             # 健康检查
+│
+├── services/                      # Java 微服务存根
+├── llm/                           # Python ML 存根
+└── docs/                          # 文档
 ├── services/                        # Java 微服务存根
 ├── llm/                             # Python ML 存根
 └── docs/                            # 文档
@@ -556,6 +724,6 @@ Spring Boot: 3.2+
 
 ---
 
-**文档版本**: v2.0
-**最后更新**: 2026-04-04
+**文档版本**: v3.0
+**最后更新**: 2026-04-27
 **维护团队**: orjrs

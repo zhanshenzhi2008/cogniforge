@@ -1,0 +1,90 @@
+package router
+
+import (
+	"github.com/gin-gonic/gin"
+
+	"cogniforge/internal/agent"
+	"cogniforge/internal/auth"
+	"cogniforge/internal/chat"
+	"cogniforge/internal/config"
+	"cogniforge/internal/knowledge"
+	"cogniforge/internal/middleware"
+	"cogniforge/internal/monitor"
+	"cogniforge/internal/rbac"
+	"cogniforge/internal/user"
+	"cogniforge/internal/workflow"
+)
+
+// SetupRoutes 配置所有路由
+func SetupRoutes(r *gin.Engine, cfg *config.Config) {
+	// 健康检查
+	r.GET("/health", healthHandler)
+	r.GET("/ready", readyHandler)
+	r.GET("/live", liveHandler)
+
+	// 初始化各模块 Handler
+	authHandler := auth.NewAuthHandler()
+	userHandler := user.NewUserHandler()
+	chatHandler := chat.NewChatHandler(cfg)
+	workflowHandler := workflow.NewWorkflowHandler()
+	knowledgeHandler := knowledge.NewKnowledgeHandler()
+	agentHandler := agent.NewAgentHandler(cfg.AI.DefaultModel)
+	monitorHandler := monitor.NewMonitorHandler()
+	rbacHandler := rbac.NewRBACHandler()
+
+	api := r.Group("/api/v1")
+	{
+		// 认证相关（公开接口）
+		authHandler.RegisterRoutes(api)
+
+		// 聊天/模型相关（公开接口）
+		chatHandler.RegisterRoutes(api)
+
+		// 需要认证的路由
+		authenticated := api.Group("")
+		authenticated.Use(middleware.AuthRequired())
+		{
+			// 用户管理
+			userHandler.RegisterRoutes(authenticated)
+
+			// 工作流
+			workflowHandler.RegisterRoutes(authenticated)
+
+			// 知识库
+			knowledgeHandler.RegisterRoutes(authenticated)
+
+			// Agent
+			agentHandler.RegisterRoutes(authenticated)
+
+			// 监控
+			monitorHandler.RegisterRoutes(authenticated)
+		}
+
+		// 管理员路由
+		admin := api.Group("")
+		admin.Use(middleware.AuthRequired())
+		admin.Use(middleware.RequireAdmin())
+		{
+			// RBAC
+			rbacHandler.RegisterRoutes(admin)
+		}
+	}
+}
+
+// ============ 健康检查 ============
+
+func healthHandler(c *gin.Context) {
+	c.JSON(200, gin.H{
+		"status":    "ok",
+		"timestamp": "2024-01-01T00:00:00Z",
+		"version":   "1.0.0",
+	})
+}
+
+func readyHandler(c *gin.Context) {
+	c.JSON(200, gin.H{"status": "ready"})
+}
+
+func liveHandler(c *gin.Context) {
+	c.JSON(200, gin.H{"status": "alive"})
+}

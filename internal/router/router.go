@@ -37,6 +37,15 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config) {
 		// 认证相关（公开接口）
 		authHandler.RegisterRoutes(api)
 
+		// API Key 路由（简化路径）
+		authKeys := api.Group("/keys")
+		authKeys.Use(middleware.AuthRequired())
+		{
+			authKeys.GET("", authHandler.ListApiKeys)
+			authKeys.POST("", authHandler.CreateApiKey)
+			authKeys.DELETE("/:id", authHandler.DeleteApiKey)
+		}
+
 		// 聊天/模型相关（公开接口）
 		chatHandler.RegisterRoutes(api)
 
@@ -52,6 +61,20 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config) {
 
 			// 知识库
 			knowledgeHandler.RegisterRoutes(authenticated)
+
+			// 知识库路由（简化路径）
+			kb := authenticated.Group("/knowledge")
+			{
+				kb.GET("", knowledgeHandler.ListKnowledgeBases)
+				kb.POST("", knowledgeHandler.CreateKnowledgeBase)
+				kb.GET("/:id", knowledgeHandler.GetKnowledgeBase)
+				kb.PUT("/:id", knowledgeHandler.UpdateKnowledgeBase)
+				kb.DELETE("/:id", knowledgeHandler.DeleteKnowledgeBase)
+				kb.GET("/:id/documents", knowledgeHandler.ListDocuments)
+				kb.DELETE("/:id/documents/:docId", knowledgeHandler.DeleteDocument)
+				kb.POST("/:id/documents/upload", knowledgeHandler.UploadDocument)
+				kb.POST("/:id/search", knowledgeHandler.SearchKnowledge)
+			}
 
 			// Agent
 			agentHandler.RegisterRoutes(authenticated)

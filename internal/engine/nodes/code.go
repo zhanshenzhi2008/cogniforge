@@ -1,4 +1,4 @@
-package engine
+package nodes
 
 import (
 	"encoding/json"
@@ -8,16 +8,18 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"cogniforge/internal/engine/core"
 )
 
 type CodeNodeConfig struct {
-	Language string `json:"language"` // expression, javascript
+	Language string `json:"language"`
 	Code     string `json:"code"`
 }
 
 type CodeNodeExecutor struct{}
 
-func (e *CodeNodeExecutor) Execute(ctx *ExecutionContext, config json.RawMessage) (any, error) {
+func (e *CodeNodeExecutor) Execute(ctx *core.ExecutionContext, config json.RawMessage) (any, error) {
 	var cfg CodeNodeConfig
 	if err := json.Unmarshal(config, &cfg); err != nil {
 		return nil, fmt.Errorf("invalid code config: %w", err)
@@ -35,7 +37,7 @@ func (e *CodeNodeExecutor) Execute(ctx *ExecutionContext, config json.RawMessage
 	}
 }
 
-func (e *CodeNodeExecutor) executeExpression(ctx *ExecutionContext, code string) (any, error) {
+func (e *CodeNodeExecutor) executeExpression(ctx *core.ExecutionContext, code string) (any, error) {
 	code = strings.TrimSpace(code)
 
 	for _, op := range []string{"+", "-", "*", "/", "%"} {
@@ -74,7 +76,7 @@ func (e *CodeNodeExecutor) executeExpression(ctx *ExecutionContext, code string)
 	return e.resolveValue(strings.TrimSpace(code), ctx), nil
 }
 
-func (e *CodeNodeExecutor) executeJavaScript(ctx *ExecutionContext, code string) (any, error) {
+func (e *CodeNodeExecutor) executeJavaScript(ctx *core.ExecutionContext, code string) (any, error) {
 	code = strings.TrimSpace(code)
 
 	if strings.HasPrefix(code, "return ") {
@@ -125,7 +127,7 @@ func (e *CodeNodeExecutor) executeJavaScript(ctx *ExecutionContext, code string)
 	return result, nil
 }
 
-func (e *CodeNodeExecutor) resolveValue(name string, ctx *ExecutionContext) any {
+func (e *CodeNodeExecutor) resolveValue(name string, ctx *core.ExecutionContext) any {
 	if val, ok := ctx.GetVariable(name); ok {
 		return val
 	}

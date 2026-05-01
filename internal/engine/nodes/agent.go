@@ -1,9 +1,11 @@
-package engine
+package nodes
 
 import (
 	"encoding/json"
 	"fmt"
 	"time"
+
+	"cogniforge/internal/engine/core"
 )
 
 type AgentNodeConfig struct {
@@ -16,7 +18,7 @@ type AgentNodeConfig struct {
 
 type AgentNodeExecutor struct{}
 
-func (e *AgentNodeExecutor) Execute(ctx *ExecutionContext, config json.RawMessage) (any, error) {
+func (e *AgentNodeExecutor) Execute(ctx *core.ExecutionContext, config json.RawMessage) (any, error) {
 	var cfg AgentNodeConfig
 	if err := json.Unmarshal(config, &cfg); err != nil {
 		return nil, fmt.Errorf("invalid agent config: %w", err)
@@ -40,7 +42,7 @@ func (e *AgentNodeExecutor) Execute(ctx *ExecutionContext, config json.RawMessag
 	return result, nil
 }
 
-func (e *AgentNodeExecutor) resolveVariables(template string, ctx *ExecutionContext) string {
+func (e *AgentNodeExecutor) resolveVariables(template string, ctx *core.ExecutionContext) string {
 	for key, val := range ctx.Variables {
 		placeholder := fmt.Sprintf("{{%s}}", key)
 		template = replaceAll(template, placeholder, fmt.Sprintf("%v", val))

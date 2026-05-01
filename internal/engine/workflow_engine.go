@@ -4,183 +4,55 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"sync"
 	"time"
 
 	"cogniforge/internal/database"
+	"cogniforge/internal/engine/core"
+	"cogniforge/internal/engine/nodes"
 	"cogniforge/internal/model"
 	"gorm.io/gorm"
 )
 
 type WorkflowEngine struct {
 	db            *gorm.DB
-	nodeExecutors map[string]NodeExecutor
+	nodeExecutors map[string]core.NodeExecutor
 }
 
 func NewEngine() *WorkflowEngine {
 	engine := &WorkflowEngine{
 		db:            database.DB,
-		nodeExecutors: make(map[string]NodeExecutor),
+		nodeExecutors: make(map[string]core.NodeExecutor),
 	}
 	engine.registerDefaultExecutors()
 	return engine
 }
 
 func (e *WorkflowEngine) registerDefaultExecutors() {
-	e.nodeExecutors["start"] = &StartNodeExecutor{}
-	e.nodeExecutors["end"] = &EndNodeExecutor{}
-	e.nodeExecutors["llm"] = &LLMNodeExecutor{}
-	e.nodeExecutors["agent"] = &AgentNodeExecutor{}
-	e.nodeExecutors["condition"] = &ConditionNodeExecutor{}
-	e.nodeExecutors["loop"] = &LoopNodeExecutor{}
-	e.nodeExecutors["http"] = &HTTPNodeExecutor{}
-	e.nodeExecutors["code"] = &CodeNodeExecutor{}
-	e.nodeExecutors["delay"] = &DelayNodeExecutor{}
+	e.nodeExecutors["start"] = &nodes.StartNodeExecutor{}
+	e.nodeExecutors["end"] = &nodes.EndNodeExecutor{}
+	e.nodeExecutors["llm"] = &nodes.LLMNodeExecutor{}
+	e.nodeExecutors["agent"] = &nodes.AgentNodeExecutor{}
+	e.nodeExecutors["condition"] = &nodes.ConditionNodeExecutor{}
+	e.nodeExecutors["loop"] = &nodes.LoopNodeExecutor{}
+	e.nodeExecutors["http"] = nodes.NewHTTPNodeExecutor()
+	e.nodeExecutors["code"] = &nodes.CodeNodeExecutor{}
+	e.nodeExecutors["delay"] = &nodes.DelayNodeExecutor{}
 }
 
-func (e *WorkflowEngine) RegisterExecutor(nodeType string, executor NodeExecutor) {
+func (e *WorkflowEngine) RegisterExecutor(nodeType string, executor core.NodeExecutor) {
 	e.nodeExecutors[nodeType] = executor
 }
 
-type NodeExecutor interface {
-	Execute(ctx *ExecutionContext, config json.RawMessage) (any, error)
-}
-
-type ExecutionContext struct {
-	WorkflowID  string
-	ExecutionID string
-	NodeID      string
-	Variables   map[string]any
-	Input       map[string]any
-	Output      map[string]any
-	State       map[string]string
-	StartTime   time.Time
-	mu          sync.RWMutex
-	Logger      *ExecutionLogger
-	OnNodeStart func(nodeID string)
-	OnNodeEnd   func(nodeID string, status string)
-	OnProgress  func(nodeID string, message string)
-}
-
-func NewExecutionContext(workflowID, executionID string, input map[string]any) *ExecutionContext {
-	return &ExecutionContext{
-		WorkflowID:  workflowID,
-		ExecutionID: executionID,
-		Variables:   make(map[string]any),
-		Input:       input,
-		Output:      make(map[string]any),
-		State:       make(map[string]string),
-		StartTime:   time.Now(),
-		Logger:      NewExecutionLogger(executionID),
-	}
-}
-
-func (ctx *ExecutionContext) SetVariable(key string, value any) {
-	ctx.mu.Lock()
-	defer ctx.mu.Unlock()
-	ctx.Variables[key] = value
-}
-
-func (ctx *ExecutionContext) GetVariable(key string) (any, bool) {
-	ctx.mu.RLock()
-	defer ctx.mu.RUnlock()
-	v, ok := ctx.Variables[key]
-	return v, ok
-}
-
-func (ctx *ExecutionContext) SetNodeState(nodeID, status string) {
-	ctx.mu.Lock()
-	defer ctx.mu.Unlock()
-	ctx.State[nodeID] = status
-}
-
-func (ctx *ExecutionContext) GetNodeState(nodeID string) string {
-	ctx.mu.RLock()
-	defer ctx.mu.RUnlock()
-	return ctx.State[nodeID]
-}
-
-type ExecutionLogger struct {
-	ExecutionID string
-	Logs        []LogEntry
-	mu          sync.Mutex
-}
-
-type LogEntry struct {
-	Time     time.Time `json:"time"`
-	NodeID   string    `json:"node_id"`
-	Level    string    `json:"level"`
-	Message  string    `json:"message"`
-	Duration int64     `json:"duration_ms"`
-}
-
-func NewExecutionLogger(executionID string) *ExecutionLogger {
-	return &ExecutionLogger{
-		ExecutionID: executionID,
-		Logs:        make([]LogEntry, 0),
-	}
-}
-
-func (l *ExecutionLogger) Log(nodeID, level, message string) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	l.Logs = append(l.Logs, LogEntry{
-		Time:    time.Now(),
-		NodeID:  nodeID,
-		Level:   level,
-		Message: message,
-	})
-}
-
-func (l *ExecutionLogger) Logf(nodeID, level, format string, args ...any) {
-	l.Log(nodeID, level, fmt.Sprintf(format, args...))
-}
-
-type WorkflowDefinition struct {
-	Nodes []NodeDefinition `json:"nodes"`
-	Edges []EdgeDefinition `json:"edges"`
-}
-
-type NodeDefinition struct {
-	ID       string          `json:"id"`
-	Type     string          `json:"type"`
-	Name     string          `json:"name"`
-	Config   json.RawMessage `json:"config"`
-	Position Position        `json:"position"`
-}
-
-type EdgeDefinition struct {
-	ID           string `json:"id"`
-	Source       string `json:"source"`
-	Target       string `json:"target"`
-	SourceHandle string `json:"source_handle,omitempty"`
-	TargetHandle string `json:"target_handle,omitempty"`
-}
-
-type Position struct {
-	X float64 `json:"x"`
-	Y float64 `json:"y"`
-}
-
-type ExecutionResult struct {
-	ExecutionID string
-	Status      string
-	Output      map[string]any
-	Error       string
-	Logs        []LogEntry
-	Duration    int64
-}
-
-func (e *WorkflowEngine) ParseDefinition(definition string) (*WorkflowDefinition, error) {
-	var def WorkflowDefinition
+func (e *WorkflowEngine) ParseDefinition(definition string) (*core.WorkflowDefinition, error) {
+	var def core.WorkflowDefinition
 	if err := json.Unmarshal([]byte(definition), &def); err != nil {
 		return nil, fmt.Errorf("failed to parse workflow definition: %w", err)
 	}
 	return &def, nil
 }
 
-func (e *WorkflowEngine) TopologicalSort(def *WorkflowDefinition) ([]NodeDefinition, error) {
-	nodeMap := make(map[string]*NodeDefinition)
+func (e *WorkflowEngine) TopologicalSort(def *core.WorkflowDefinition) ([]core.NodeDefinition, error) {
+	nodeMap := make(map[string]*core.NodeDefinition)
 	for i := range def.Nodes {
 		nodeMap[def.Nodes[i].ID] = &def.Nodes[i]
 	}
@@ -200,7 +72,7 @@ func (e *WorkflowEngine) TopologicalSort(def *WorkflowDefinition) ([]NodeDefinit
 		}
 	}
 
-	var result []NodeDefinition
+	var result []core.NodeDefinition
 	for len(queue) > 0 {
 		nodeID := queue[0]
 		queue = queue[1:]
@@ -224,8 +96,8 @@ func (e *WorkflowEngine) TopologicalSort(def *WorkflowDefinition) ([]NodeDefinit
 	return result, nil
 }
 
-func (e *WorkflowEngine) Execute(ctx *ExecutionContext, def *WorkflowDefinition) *ExecutionResult {
-	result := &ExecutionResult{
+func (e *WorkflowEngine) Execute(ctx *core.ExecutionContext, def *core.WorkflowDefinition) *core.ExecutionResult {
+	result := &core.ExecutionResult{
 		ExecutionID: ctx.ExecutionID,
 		Status:      "running",
 		Output:      make(map[string]any),
@@ -234,7 +106,7 @@ func (e *WorkflowEngine) Execute(ctx *ExecutionContext, def *WorkflowDefinition)
 
 	e.updateExecutionStatus(ctx.ExecutionID, "running", "", "")
 
-	nodes, err := e.TopologicalSort(def)
+	sortedNodes, err := e.TopologicalSort(def)
 	if err != nil {
 		result.Status = "failed"
 		result.Error = err.Error()
@@ -242,7 +114,7 @@ func (e *WorkflowEngine) Execute(ctx *ExecutionContext, def *WorkflowDefinition)
 		return result
 	}
 
-	for _, node := range nodes {
+	for _, node := range sortedNodes {
 		if ctx.GetNodeState(node.ID) == "skipped" {
 			continue
 		}
@@ -346,7 +218,7 @@ func (e *WorkflowEngine) ExecuteAsync(workflowID, userID string, input map[strin
 			}
 		}()
 
-		ctx := NewExecutionContext(workflowID, executionID, input)
+		ctx := core.NewExecutionContext(workflowID, executionID, input)
 		def, err := e.ParseDefinition(workflow.Definition)
 		if err != nil {
 			database.DB.Model(&model.WorkflowExecution{}).
@@ -366,14 +238,16 @@ func (e *WorkflowEngine) ExecuteAsync(workflowID, userID string, input map[strin
 }
 
 func generateID() string {
-	return fmt.Sprintf("exec_%s", fmt.Sprintf("%d%s", time.Now().UnixMilli(), randomString(8)))
+	return fmt.Sprintf("exec_%s%s", time.Now().Format("20060102150405"), randomString(8))
 }
 
 func randomString(n int) string {
 	const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	b := make([]byte, n)
+	r := time.Now().UnixNano()
 	for i := range b {
-		b[i] = letters[time.Now().UnixNano()%int64(len(letters))]
+		r = r*31 + int64(letters[r%int64(len(letters))])
+		b[i] = letters[r%int64(len(letters))]
 	}
 	return string(b)
 }

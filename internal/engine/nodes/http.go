@@ -1,4 +1,4 @@
-package engine
+package nodes
 
 import (
 	"bytes"
@@ -7,6 +7,8 @@ import (
 	"io"
 	"net/http"
 	"time"
+
+	"cogniforge/internal/engine/core"
 )
 
 type HTTPNodeConfig struct {
@@ -27,7 +29,7 @@ func NewHTTPNodeExecutor() *HTTPNodeExecutor {
 	}
 }
 
-func (e *HTTPNodeExecutor) Execute(ctx *ExecutionContext, config json.RawMessage) (any, error) {
+func (e *HTTPNodeExecutor) Execute(ctx *core.ExecutionContext, config json.RawMessage) (any, error) {
 	var cfg HTTPNodeConfig
 	if err := json.Unmarshal(config, &cfg); err != nil {
 		return nil, fmt.Errorf("invalid HTTP config: %w", err)

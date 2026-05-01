@@ -1,25 +1,27 @@
-package engine
+package nodes
 
 import (
 	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
+
+	"cogniforge/internal/engine/core"
 )
 
 type LoopNodeConfig struct {
-	Type      string `json:"type"`      // count, times, while, for_each
-	Count     int    `json:"count"`     // 固定循环次数
-	ArrayVar  string `json:"array_var"` // 要遍历的数组变量名
-	ItemVar   string `json:"item_var"`  // 每个元素的变量名
-	KeyVar    string `json:"key_var"`   // 每个元素的key变量名
-	MaxIter   int    `json:"max_iter"`  // 最大迭代次数，防止死循环
-	Condition string `json:"condition"` // while 循环的条件
+	Type      string `json:"type"`
+	Count     int    `json:"count"`
+	ArrayVar  string `json:"array_var"`
+	ItemVar   string `json:"item_var"`
+	KeyVar    string `json:"key_var"`
+	MaxIter   int    `json:"max_iter"`
+	Condition string `json:"condition"`
 }
 
 type LoopNodeExecutor struct{}
 
-func (e *LoopNodeExecutor) Execute(ctx *ExecutionContext, config json.RawMessage) (any, error) {
+func (e *LoopNodeExecutor) Execute(ctx *core.ExecutionContext, config json.RawMessage) (any, error) {
 	var cfg LoopNodeConfig
 	if err := json.Unmarshal(config, &cfg); err != nil {
 		return nil, fmt.Errorf("invalid loop config: %w", err)
@@ -49,7 +51,7 @@ func (e *LoopNodeExecutor) Execute(ctx *ExecutionContext, config json.RawMessage
 	}, nil
 }
 
-func (e *LoopNodeExecutor) executeTimesLoop(ctx *ExecutionContext, count, maxIter int) []map[string]any {
+func (e *LoopNodeExecutor) executeTimesLoop(ctx *core.ExecutionContext, count, maxIter int) []map[string]any {
 	iterations := make([]map[string]any, 0)
 	actualCount := count
 	if actualCount > maxIter {
@@ -70,12 +72,11 @@ func (e *LoopNodeExecutor) executeTimesLoop(ctx *ExecutionContext, count, maxIte
 	return iterations
 }
 
-func (e *LoopNodeExecutor) executeWhileLoop(ctx *ExecutionContext, condition string, maxIter int) []map[string]any {
+func (e *LoopNodeExecutor) executeWhileLoop(ctx *core.ExecutionContext, condition string, maxIter int) []map[string]any {
 	iterations := make([]map[string]any, 0)
 	i := 0
 
 	for i < maxIter {
-		// Set loop.index BEFORE evaluating condition
 		ctx.SetVariable("loop.index", i)
 
 		if !e.evaluateCondition(ctx, condition) {
@@ -98,7 +99,7 @@ func (e *LoopNodeExecutor) executeWhileLoop(ctx *ExecutionContext, condition str
 	return iterations
 }
 
-func (e *LoopNodeExecutor) executeForEachLoop(ctx *ExecutionContext, arrayVar, itemVar, keyVar string, maxIter int) []map[string]any {
+func (e *LoopNodeExecutor) executeForEachLoop(ctx *core.ExecutionContext, arrayVar, itemVar, keyVar string, maxIter int) []map[string]any {
 	iterations := make([]map[string]any, 0)
 
 	arrayVal, ok := ctx.GetVariable(arrayVar)
@@ -144,7 +145,7 @@ func (e *LoopNodeExecutor) executeForEachLoop(ctx *ExecutionContext, arrayVar, i
 	return iterations
 }
 
-func (e *LoopNodeExecutor) evaluateCondition(ctx *ExecutionContext, condition string) bool {
+func (e *LoopNodeExecutor) evaluateCondition(ctx *core.ExecutionContext, condition string) bool {
 	condExpr := strings.ReplaceAll(condition, "&&", " AND ")
 	condExpr = strings.ReplaceAll(condExpr, "||", " OR ")
 
@@ -185,7 +186,7 @@ func splitByOperators(s string, operators []string) []string {
 	return result
 }
 
-func (e *LoopNodeExecutor) evaluateSingleCondition(ctx *ExecutionContext, condition string) bool {
+func (e *LoopNodeExecutor) evaluateSingleCondition(ctx *core.ExecutionContext, condition string) bool {
 	condition = strings.TrimSpace(condition)
 
 	for _, op := range []string{"!=", "==", ">=", "<=", ">", "<"} {
@@ -203,7 +204,7 @@ func (e *LoopNodeExecutor) evaluateSingleCondition(ctx *ExecutionContext, condit
 			case "!=":
 				return fmt.Sprintf("%v", fieldValue) != value
 			case ">", "<", ">=", "<=":
-				return e.compareNumeric(fieldValue, op, value)
+				return e.compareNumeric(fieldValue, op, value, ctx)
 			}
 		}
 	}
@@ -211,7 +212,7 @@ func (e *LoopNodeExecutor) evaluateSingleCondition(ctx *ExecutionContext, condit
 	return false
 }
 
-func (e *LoopNodeExecutor) getFieldValue(field string, ctx *ExecutionContext) any {
+func (e *LoopNodeExecutor) getFieldValue(field string, ctx *core.ExecutionContext) any {
 	if val, ok := ctx.GetVariable(field); ok {
 		return val
 	}
@@ -224,7 +225,7 @@ func (e *LoopNodeExecutor) getFieldValue(field string, ctx *ExecutionContext) an
 	return nil
 }
 
-func (e *LoopNodeExecutor) compareNumeric(fieldValue any, operator string, expectedValue string) bool {
+func (e *LoopNodeExecutor) compareNumeric(fieldValue any, operator string, expectedValue string, ctx *core.ExecutionContext) bool {
 	fieldStr := fmt.Sprintf("%v", fieldValue)
 	fieldNum, err1 := strconv.ParseFloat(fieldStr, 64)
 	expectedNum, err2 := strconv.ParseFloat(expectedValue, 64)

@@ -1,9 +1,11 @@
-package engine
+package nodes
 
 import (
 	"encoding/json"
 	"fmt"
 	"time"
+
+	"cogniforge/internal/engine/core"
 )
 
 type LLMNodeConfig struct {
@@ -17,7 +19,7 @@ type LLMNodeConfig struct {
 
 type LLMNodeExecutor struct{}
 
-func (e *LLMNodeExecutor) Execute(ctx *ExecutionContext, config json.RawMessage) (any, error) {
+func (e *LLMNodeExecutor) Execute(ctx *core.ExecutionContext, config json.RawMessage) (any, error) {
 	var cfg LLMNodeConfig
 	if err := json.Unmarshal(config, &cfg); err != nil {
 		return nil, fmt.Errorf("invalid LLM config: %w", err)
@@ -40,7 +42,7 @@ func (e *LLMNodeExecutor) Execute(ctx *ExecutionContext, config json.RawMessage)
 	return result, nil
 }
 
-func (e *LLMNodeExecutor) resolveVariables(template string, ctx *ExecutionContext) string {
+func (e *LLMNodeExecutor) resolveVariables(template string, ctx *core.ExecutionContext) string {
 	for key, val := range ctx.Variables {
 		placeholder := fmt.Sprintf("{{%s}}", key)
 		template = replaceAll(template, placeholder, fmt.Sprintf("%v", val))

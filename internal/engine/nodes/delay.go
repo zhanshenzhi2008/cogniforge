@@ -1,4 +1,4 @@
-package engine
+package nodes
 
 import (
 	"encoding/json"
@@ -6,16 +6,18 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"cogniforge/internal/engine/core"
 )
 
 type DelayNodeConfig struct {
-	Duration int    `json:"duration"` // 延迟时间（秒）
-	Unit     string `json:"unit"`     // seconds, minutes, hours
+	Duration int    `json:"duration"`
+	Unit     string `json:"unit"`
 }
 
 type DelayNodeExecutor struct{}
 
-func (e *DelayNodeExecutor) Execute(ctx *ExecutionContext, config json.RawMessage) (any, error) {
+func (e *DelayNodeExecutor) Execute(ctx *core.ExecutionContext, config json.RawMessage) (any, error) {
 	var cfg DelayNodeConfig
 	if err := json.Unmarshal(config, &cfg); err != nil {
 		return nil, fmt.Errorf("invalid delay config: %w", err)

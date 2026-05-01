@@ -1,4 +1,4 @@
-package engine
+package nodes
 
 import (
 	"encoding/json"
@@ -6,6 +6,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"cogniforge/internal/engine/core"
 )
 
 type ConditionNodeConfig struct {
@@ -14,14 +16,14 @@ type ConditionNodeConfig struct {
 
 type Condition struct {
 	Field    string `json:"field"`
-	Operator string `json:"operator"` // ==, !=, >, <, >=, <=, contains, starts_with, ends_with, is_empty, is_not_empty, matches
+	Operator string `json:"operator"`
 	Value    any    `json:"value"`
-	Branch   string `json:"branch"` // true_branch or false_branch
+	Branch   string `json:"branch"`
 }
 
 type ConditionNodeExecutor struct{}
 
-func (e *ConditionNodeExecutor) Execute(ctx *ExecutionContext, config json.RawMessage) (any, error) {
+func (e *ConditionNodeExecutor) Execute(ctx *core.ExecutionContext, config json.RawMessage) (any, error) {
 	var cfg ConditionNodeConfig
 	if err := json.Unmarshal(config, &cfg); err != nil {
 		return nil, fmt.Errorf("invalid condition config: %w", err)
@@ -36,7 +38,7 @@ func (e *ConditionNodeExecutor) Execute(ctx *ExecutionContext, config json.RawMe
 
 	for _, condition := range cfg.Conditions {
 		fieldValue := e.getFieldValue(condition.Field, ctx)
-		result := e.evaluateCondition(fieldValue, condition.Operator, condition.Value)
+		result := e.evaluateCondition(fieldValue, condition.Operator, condition.Value, ctx)
 
 		ctx.Logger.Logf(ctx.NodeID, "info",
 			"Condition: %s %s %v = %v (actual: %v)",
@@ -60,7 +62,7 @@ func (e *ConditionNodeExecutor) Execute(ctx *ExecutionContext, config json.RawMe
 	}, nil
 }
 
-func (e *ConditionNodeExecutor) getFieldValue(field string, ctx *ExecutionContext) any {
+func (e *ConditionNodeExecutor) getFieldValue(field string, ctx *core.ExecutionContext) any {
 	if val, ok := ctx.GetVariable(field); ok {
 		return val
 	}
@@ -73,14 +75,14 @@ func (e *ConditionNodeExecutor) getFieldValue(field string, ctx *ExecutionContex
 	return nil
 }
 
-func (e *ConditionNodeExecutor) evaluateCondition(fieldValue any, operator string, expectedValue any) bool {
+func (e *ConditionNodeExecutor) evaluateCondition(fieldValue any, operator string, expectedValue any, ctx *core.ExecutionContext) bool {
 	switch operator {
 	case "==":
 		return fmt.Sprintf("%v", fieldValue) == fmt.Sprintf("%v", expectedValue)
 	case "!=":
 		return fmt.Sprintf("%v", fieldValue) != fmt.Sprintf("%v", expectedValue)
 	case ">", "<", ">=", "<=":
-		return e.compareNumeric(fieldValue, operator, expectedValue)
+		return e.compareNumeric(fieldValue, operator, expectedValue, ctx)
 	case "contains":
 		return strings.Contains(fmt.Sprintf("%v", fieldValue), fmt.Sprintf("%v", expectedValue))
 	case "starts_with":
@@ -101,7 +103,7 @@ func (e *ConditionNodeExecutor) evaluateCondition(fieldValue any, operator strin
 	}
 }
 
-func (e *ConditionNodeExecutor) compareNumeric(fieldValue any, operator string, expectedValue any) bool {
+func (e *ConditionNodeExecutor) compareNumeric(fieldValue any, operator string, expectedValue any, ctx *core.ExecutionContext) bool {
 	fieldStr := fmt.Sprintf("%v", fieldValue)
 	expectedStr := fmt.Sprintf("%v", expectedValue)
 

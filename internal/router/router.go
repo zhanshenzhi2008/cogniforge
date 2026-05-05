@@ -90,6 +90,16 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config) {
 		{
 			// RBAC
 			rbacHandler.RegisterRoutes(admin)
+
+			// 管理员路由（简化路径）
+			admin.GET("/admin/users", userHandler.GetUsers)
+			admin.POST("/admin/users", userHandler.CreateUser)
+			admin.GET("/admin/users/:id", userHandler.GetUser)
+			admin.PUT("/admin/users/:id", userHandler.UpdateUser)
+			admin.DELETE("/admin/users/:id", userHandler.DeleteUser)
+			admin.PATCH("/admin/users/:id/status", userHandler.UpdateUserStatus)
+			admin.POST("/admin/users/:id/roles", rbacHandler.AssignRole)
+			admin.GET("/admin/users/:id/role", rbacHandler.GetUserRole)
 		}
 	}
 }

@@ -10,9 +10,9 @@ type KnowledgeHandler struct {
 	service *KnowledgeService
 }
 
-func NewKnowledgeHandler() *KnowledgeHandler {
+func NewKnowledgeHandler(pythonClient *PythonServiceClient) *KnowledgeHandler {
 	return &KnowledgeHandler{
-		service: NewKnowledgeService(),
+		service: NewKnowledgeService(pythonClient),
 	}
 }
 

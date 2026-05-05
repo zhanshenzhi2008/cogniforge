@@ -22,6 +22,9 @@ ai:
   api_key: ${AI_API_KEY:-}
   default_model: ${AI_DEFAULT_MODEL:-gpt-3.5-turbo}
 
+knowledge:
+  python_service_url: ${KNOWLEDGE_PYTHON_URL:-http://localhost:8085}
+
 jwt:
   secret: ${JWT_SECRET:-cogniforge-secret-key}
   expire: 24h

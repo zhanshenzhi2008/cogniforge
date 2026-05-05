@@ -35,11 +35,15 @@ var allowedExtensions = map[string]string{
 }
 
 type KnowledgeService struct {
-	db *gorm.DB
+	db           *gorm.DB
+	pythonClient *PythonServiceClient
 }
 
-func NewKnowledgeService() *KnowledgeService {
-	return &KnowledgeService{db: database.DB}
+func NewKnowledgeService(pythonClient *PythonServiceClient) *KnowledgeService {
+	return &KnowledgeService{
+		db:           database.DB,
+		pythonClient: pythonClient,
+	}
 }
 
 // ListKnowledgeBases 获取知识库列表
@@ -271,21 +275,28 @@ func (s *KnowledgeService) SearchKnowledge(userID, kbID string, req *SearchReque
 		req.MinScore = 0.3
 	}
 
-	var docs []model.Document
-	if err := s.db.Where("knowledge_base_id = ? AND status = ?", kbID, "completed").Find(&docs).Error; err != nil {
-		return nil, fmt.Errorf("查询文档失败")
+	// 调用 Python 服务进行向量检索
+	pythonResp, err := s.pythonClient.Search(&PythonSearchRequest{
+		Query:          req.Query,
+		CollectionName: kbID,
+		TopK:           req.TopK,
+		MinScore:       req.MinScore,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("检索失败: %w", err)
 	}
 
-	if len(docs) == 0 {
-		return &SearchResponse{
-			Results:  []SearchResult{},
-			Total:    0,
-			Query:    req.Query,
-			Duration: time.Since(startTime).Milliseconds(),
-		}, nil
+	// 转换为标准响应格式
+	var results []SearchResult
+	for _, r := range pythonResp.Results {
+		results = append(results, SearchResult{
+			DocumentID:   r.ChunkID,
+			DocumentName: "",
+			ChunkID:      r.ChunkID,
+			Content:      r.Content,
+			Score:        r.Score,
+		})
 	}
-
-	results := performTextSearch(req.Query, docs, req.TopK, req.MinScore)
 
 	return &SearchResponse{
 		Results:  results,
@@ -308,20 +319,34 @@ func (s *KnowledgeService) processDocumentAsync(docID string) {
 		return
 	}
 
-	content, err := readDocumentContent(doc.FilePath, doc.FileType)
-	if err != nil {
+	// 调用 Python 服务进行文档处理和向量化
+	result, err := s.pythonClient.ProcessDocument(&ProcessRequest{
+		FilePath:       doc.FilePath,
+		DocumentID:     docID,
+		CollectionName: doc.KnowledgeBaseID,
+		Metadata: map[string]interface{}{
+			"file_type": doc.FileType,
+			"file_name": doc.Name,
+		},
+	})
+
+	if err != nil || !result.Success {
+		errMsg := ""
+		if err != nil {
+			errMsg = err.Error()
+		} else if result.Error != "" {
+			errMsg = result.Error
+		}
 		s.db.Model(&doc).Updates(map[string]any{
 			"status": "failed",
-			"error":  err.Error(),
+			"error":  errMsg,
 		})
 		return
 	}
 
-	chunks := chunkText(content, 512, 50)
-
 	s.db.Model(&doc).Updates(map[string]any{
-		"chunk_count":  len(chunks),
-		"vector_count": len(chunks),
+		"chunk_count":  result.ChunksCreated,
+		"vector_count": result.ChunksCreated,
 		"status":       "completed",
 		"updated_at":   time.Now(),
 	})

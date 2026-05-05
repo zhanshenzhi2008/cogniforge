@@ -1,4 +1,4 @@
-package engine_test
+package nodes_test
 
 import (
 	"encoding/json"
@@ -7,10 +7,11 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"cogniforge/internal/engine"
+	"cogniforge/internal/engine/nodes"
 )
 
 func TestConditionNode_EqualOperator(t *testing.T) {
-	executor := &engine.ConditionNodeExecutor{}
+	executor := &nodes.ConditionNodeExecutor{}
 
 	config := `{
 		"conditions": [
@@ -33,7 +34,7 @@ func TestConditionNode_EqualOperator(t *testing.T) {
 }
 
 func TestConditionNode_NotEqual(t *testing.T) {
-	executor := &engine.ConditionNodeExecutor{}
+	executor := &nodes.ConditionNodeExecutor{}
 
 	config := `{
 		"conditions": [
@@ -55,7 +56,7 @@ func TestConditionNode_NotEqual(t *testing.T) {
 }
 
 func TestConditionNode_GreaterThan(t *testing.T) {
-	executor := &engine.ConditionNodeExecutor{}
+	executor := &nodes.ConditionNodeExecutor{}
 
 	tests := []struct {
 		name     string
@@ -77,7 +78,7 @@ func TestConditionNode_GreaterThan(t *testing.T) {
 }
 
 func TestConditionNode_LessThan(t *testing.T) {
-	executor := &engine.ConditionNodeExecutor{}
+	executor := &nodes.ConditionNodeExecutor{}
 
 	tests := []struct {
 		name     string
@@ -99,7 +100,7 @@ func TestConditionNode_LessThan(t *testing.T) {
 }
 
 func TestConditionNode_Contains(t *testing.T) {
-	executor := &engine.ConditionNodeExecutor{}
+	executor := &nodes.ConditionNodeExecutor{}
 
 	config := `{
 		"conditions": [
@@ -122,7 +123,7 @@ func TestConditionNode_Contains(t *testing.T) {
 }
 
 func TestConditionNode_StartsWith(t *testing.T) {
-	executor := &engine.ConditionNodeExecutor{}
+	executor := &nodes.ConditionNodeExecutor{}
 
 	tests := []struct {
 		name     string
@@ -145,7 +146,7 @@ func TestConditionNode_StartsWith(t *testing.T) {
 }
 
 func TestConditionNode_IsEmpty(t *testing.T) {
-	executor := &engine.ConditionNodeExecutor{}
+	executor := &nodes.ConditionNodeExecutor{}
 	config := `{"conditions":[{"field":"name","operator":"is_empty","value":"","branch":"empty"}]}`
 
 	tests := []struct {
@@ -169,7 +170,7 @@ func TestConditionNode_IsEmpty(t *testing.T) {
 }
 
 func TestConditionNode_IsNotEmpty(t *testing.T) {
-	executor := &engine.ConditionNodeExecutor{}
+	executor := &nodes.ConditionNodeExecutor{}
 	config := `{"conditions":[{"field":"email","operator":"is_not_empty","value":"","branch":"has_email"}]}`
 
 	tests := []struct {
@@ -193,7 +194,7 @@ func TestConditionNode_IsNotEmpty(t *testing.T) {
 }
 
 func TestConditionNode_MatchesRegex(t *testing.T) {
-	executor := &engine.ConditionNodeExecutor{}
+	executor := &nodes.ConditionNodeExecutor{}
 	config := `{"conditions":[{"field":"email","operator":"matches","value":"^[a-z]+@[a-z]+\\.com$","branch":"valid_email"}]}`
 
 	tests := []struct {
@@ -217,7 +218,7 @@ func TestConditionNode_MatchesRegex(t *testing.T) {
 }
 
 func TestConditionNode_NoConditions(t *testing.T) {
-	executor := &engine.ConditionNodeExecutor{}
+	executor := &nodes.ConditionNodeExecutor{}
 
 	config := `{"conditions": []}`
 
@@ -231,7 +232,7 @@ func TestConditionNode_NoConditions(t *testing.T) {
 }
 
 func TestConditionNode_FirstMatchingWins(t *testing.T) {
-	executor := &engine.ConditionNodeExecutor{}
+	executor := &nodes.ConditionNodeExecutor{}
 
 	config := `{
 		"conditions": [
@@ -250,7 +251,7 @@ func TestConditionNode_FirstMatchingWins(t *testing.T) {
 }
 
 func TestConditionNode_InvalidConfig(t *testing.T) {
-	executor := &engine.ConditionNodeExecutor{}
+	executor := &nodes.ConditionNodeExecutor{}
 
 	config := `invalid json`
 
@@ -262,10 +263,9 @@ func TestConditionNode_InvalidConfig(t *testing.T) {
 }
 
 func TestConditionNode_VariablePriority(t *testing.T) {
-	executor := &engine.ConditionNodeExecutor{}
+	executor := &nodes.ConditionNodeExecutor{}
 	config := `{"conditions":[{"field":"status","operator":"==","value":"active","branch":"active"}]}`
 
-	// Test that variables set via SetVariable are used
 	ctx := engine.NewExecutionContext("wf1", "exec1", nil)
 	ctx.SetVariable("status", "active")
 	output, err := executor.Execute(ctx, json.RawMessage(config))

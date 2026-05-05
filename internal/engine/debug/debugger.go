@@ -1,4 +1,4 @@
-package engine
+package debug
 
 import (
 	"fmt"
@@ -209,17 +209,14 @@ func (d *Debugger) ShouldPause(nodeID string) bool {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
-	// Check if paused
 	if d.state == DebugStatePaused {
 		return true
 	}
 
-	// Check for breakpoint at this node
 	if bp, ok := d.breakpoints[nodeID]; ok && bp.Enabled {
 		return true
 	}
 
-	// Check if in step mode
 	if d.mode == DebugModeStep {
 		return true
 	}

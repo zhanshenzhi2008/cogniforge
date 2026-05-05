@@ -1,4 +1,4 @@
-package engine_test
+package core_test
 
 import (
 	"encoding/json"
@@ -6,19 +6,19 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"cogniforge/internal/engine"
+	"cogniforge/internal/engine/core"
 )
 
 func TestTopologicalSort_Basic(t *testing.T) {
-	eng := engine.NewEngine()
+	eng := core.NewEngine()
 
-	def := &engine.WorkflowDefinition{
-		Nodes: []engine.NodeDefinition{
+	def := &core.WorkflowDefinition{
+		Nodes: []core.NodeDefinition{
 			{ID: "1", Type: "start", Name: "Start"},
 			{ID: "2", Type: "llm", Name: "LLM"},
 			{ID: "3", Type: "end", Name: "End"},
 		},
-		Edges: []engine.EdgeDefinition{
+		Edges: []core.EdgeDefinition{
 			{ID: "e1", Source: "1", Target: "2"},
 			{ID: "e2", Source: "2", Target: "3"},
 		},
@@ -28,22 +28,21 @@ func TestTopologicalSort_Basic(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, nodes, 3)
 
-	// Verify order: 1 -> 2 -> 3
 	assert.Equal(t, "1", nodes[0].ID)
 	assert.Equal(t, "2", nodes[1].ID)
 	assert.Equal(t, "3", nodes[2].ID)
 }
 
 func TestTopologicalSort_MultipleRoots(t *testing.T) {
-	eng := engine.NewEngine()
+	eng := core.NewEngine()
 
-	def := &engine.WorkflowDefinition{
-		Nodes: []engine.NodeDefinition{
+	def := &core.WorkflowDefinition{
+		Nodes: []core.NodeDefinition{
 			{ID: "1", Type: "start", Name: "Start1"},
 			{ID: "2", Type: "start", Name: "Start2"},
 			{ID: "3", Type: "end", Name: "End"},
 		},
-		Edges: []engine.EdgeDefinition{
+		Edges: []core.EdgeDefinition{
 			{ID: "e1", Source: "1", Target: "3"},
 			{ID: "e2", Source: "2", Target: "3"},
 		},
@@ -53,7 +52,6 @@ func TestTopologicalSort_MultipleRoots(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, nodes, 3)
 
-	// Both 1 and 2 should come before 3
 	lastIdx := -1
 	for i, node := range nodes {
 		if node.ID == "3" {
@@ -65,17 +63,17 @@ func TestTopologicalSort_MultipleRoots(t *testing.T) {
 }
 
 func TestTopologicalSort_ComplexGraph(t *testing.T) {
-	eng := engine.NewEngine()
+	eng := core.NewEngine()
 
-	def := &engine.WorkflowDefinition{
-		Nodes: []engine.NodeDefinition{
+	def := &core.WorkflowDefinition{
+		Nodes: []core.NodeDefinition{
 			{ID: "start", Type: "start", Name: "Start"},
 			{ID: "cond", Type: "condition", Name: "Condition"},
 			{ID: "task1", Type: "llm", Name: "Task 1"},
 			{ID: "task2", Type: "llm", Name: "Task 2"},
 			{ID: "end", Type: "end", Name: "End"},
 		},
-		Edges: []engine.EdgeDefinition{
+		Edges: []core.EdgeDefinition{
 			{ID: "e1", Source: "start", Target: "cond"},
 			{ID: "e2", Source: "cond", Target: "task1"},
 			{ID: "e3", Source: "cond", Target: "task2"},
@@ -88,9 +86,7 @@ func TestTopologicalSort_ComplexGraph(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, nodes, 5)
 
-	// Start must be first
 	assert.Equal(t, "start", nodes[0].ID)
-	// Cond must come after start
 	for i, node := range nodes {
 		if node.ID == "cond" {
 			assert.Greater(t, i, 0)
@@ -100,17 +96,17 @@ func TestTopologicalSort_ComplexGraph(t *testing.T) {
 }
 
 func TestTopologicalSort_CycleDetection(t *testing.T) {
-	eng := engine.NewEngine()
+	eng := core.NewEngine()
 
-	def := &engine.WorkflowDefinition{
-		Nodes: []engine.NodeDefinition{
+	def := &core.WorkflowDefinition{
+		Nodes: []core.NodeDefinition{
 			{ID: "1", Type: "start", Name: "Start"},
 			{ID: "2", Type: "llm", Name: "LLM"},
 			{ID: "3", Type: "end", Name: "End"},
 		},
-		Edges: []engine.EdgeDefinition{
+		Edges: []core.EdgeDefinition{
 			{ID: "e1", Source: "1", Target: "2"},
-			{ID: "e2", Source: "2", Target: "1"}, // Creates cycle
+			{ID: "e2", Source: "2", Target: "1"},
 		},
 	}
 
@@ -121,7 +117,7 @@ func TestTopologicalSort_CycleDetection(t *testing.T) {
 }
 
 func TestParseDefinition(t *testing.T) {
-	eng := engine.NewEngine()
+	eng := core.NewEngine()
 
 	definition := `{
 		"nodes": [
@@ -140,7 +136,6 @@ func TestParseDefinition(t *testing.T) {
 	assert.Len(t, def.Nodes, 3)
 	assert.Len(t, def.Edges, 2)
 
-	// Verify node types
 	nodeMap := make(map[string]string)
 	for _, n := range def.Nodes {
 		nodeMap[n.ID] = n.Type
@@ -151,50 +146,44 @@ func TestParseDefinition(t *testing.T) {
 }
 
 func TestParseDefinition_InvalidJSON(t *testing.T) {
-	eng := engine.NewEngine()
+	eng := core.NewEngine()
 
 	_, err := eng.ParseDefinition("invalid json")
 	assert.Error(t, err)
 }
 
 func TestExecutionContext_Variables(t *testing.T) {
-	ctx := engine.NewExecutionContext("wf1", "exec1", map[string]any{"input": "value"})
+	ctx := core.NewExecutionContext("wf1", "exec1", map[string]any{"input": "value"})
 
-	// Test SetVariable and GetVariable
 	ctx.SetVariable("key1", "value1")
 	val, ok := ctx.GetVariable("key1")
 	assert.True(t, ok)
 	assert.Equal(t, "value1", val)
 
-	// Test non-existent variable
 	_, ok = ctx.GetVariable("nonexistent")
 	assert.False(t, ok)
 }
 
 func TestExecutionContext_NodeState(t *testing.T) {
-	ctx := engine.NewExecutionContext("wf1", "exec1", nil)
+	ctx := core.NewExecutionContext("wf1", "exec1", nil)
 
-	// Test SetNodeState and GetNodeState
 	ctx.SetNodeState("node1", "completed")
 	state := ctx.GetNodeState("node1")
 	assert.Equal(t, "completed", state)
 
-	// Test non-existent node state
 	state = ctx.GetNodeState("nonexistent")
 	assert.Equal(t, "", state)
 }
 
 func TestExecutionLogger(t *testing.T) {
-	logger := engine.NewExecutionLogger("exec1")
+	logger := core.NewExecutionLogger("exec1")
 
-	// Test Log
 	logger.Log("node1", "info", "Test message")
 	assert.Len(t, logger.Logs, 1)
 	assert.Equal(t, "node1", logger.Logs[0].NodeID)
 	assert.Equal(t, "info", logger.Logs[0].Level)
 	assert.Equal(t, "Test message", logger.Logs[0].Message)
 
-	// Test Logf
 	logger.Logf("node2", "error", "Error: %s", "something went wrong")
 	assert.Len(t, logger.Logs, 2)
 	assert.Equal(t, "node2", logger.Logs[1].NodeID)
@@ -202,8 +191,8 @@ func TestExecutionLogger(t *testing.T) {
 }
 
 func TestWorkflowDefinition_NodeTypes(t *testing.T) {
-	def := &engine.WorkflowDefinition{
-		Nodes: []engine.NodeDefinition{
+	def := &core.WorkflowDefinition{
+		Nodes: []core.NodeDefinition{
 			{ID: "start", Type: "start", Name: "Start", Config: json.RawMessage(`{}`)},
 			{ID: "llm", Type: "llm", Name: "LLM", Config: json.RawMessage(`{"model":"gpt-4"}`)},
 			{ID: "condition", Type: "condition", Name: "Condition", Config: json.RawMessage(`{"conditions":[]}`)},
@@ -211,7 +200,7 @@ func TestWorkflowDefinition_NodeTypes(t *testing.T) {
 			{ID: "http", Type: "http", Name: "HTTP", Config: json.RawMessage(`{"url":"https://api.example.com"}`)},
 			{ID: "end", Type: "end", Name: "End", Config: json.RawMessage(`{}`)},
 		},
-		Edges: []engine.EdgeDefinition{
+		Edges: []core.EdgeDefinition{
 			{ID: "e1", Source: "start", Target: "llm"},
 			{ID: "e2", Source: "llm", Target: "condition"},
 			{ID: "e3", Source: "condition", Target: "loop"},

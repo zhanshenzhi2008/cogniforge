@@ -1,47 +1,47 @@
-package engine_test
+package debug_test
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
-	"cogniforge/internal/engine"
+	"cogniforge/internal/engine/debug"
 )
 
 func TestNewDebugger(t *testing.T) {
-	d := engine.NewDebugger("exec-1", "wf-1")
+	d := debug.NewDebugger("exec-1", "wf-1")
 	assert.NotNil(t, d)
 	assert.Equal(t, "exec-1", d.GetStatus().ExecutionID)
 	assert.Equal(t, "wf-1", d.GetStatus().WorkflowID)
-	assert.Equal(t, engine.DebugModeAuto, d.GetMode())
-	assert.Equal(t, engine.DebugStateRunning, d.GetState())
+	assert.Equal(t, debug.DebugModeAuto, d.GetMode())
+	assert.Equal(t, debug.DebugStateRunning, d.GetState())
 }
 
 func TestDebugger_SetMode(t *testing.T) {
-	d := engine.NewDebugger("exec-1", "wf-1")
+	d := debug.NewDebugger("exec-1", "wf-1")
 
-	d.SetMode(engine.DebugModeStep)
-	assert.Equal(t, engine.DebugModeStep, d.GetMode())
+	d.SetMode(debug.DebugModeStep)
+	assert.Equal(t, debug.DebugModeStep, d.GetMode())
 
-	d.SetMode(engine.DebugModePause)
-	assert.Equal(t, engine.DebugModePause, d.GetMode())
+	d.SetMode(debug.DebugModePause)
+	assert.Equal(t, debug.DebugModePause, d.GetMode())
 }
 
 func TestDebugger_SetState(t *testing.T) {
-	d := engine.NewDebugger("exec-1", "wf-1")
+	d := debug.NewDebugger("exec-1", "wf-1")
 
-	d.SetState(engine.DebugStatePaused)
-	assert.Equal(t, engine.DebugStatePaused, d.GetState())
+	d.SetState(debug.DebugStatePaused)
+	assert.Equal(t, debug.DebugStatePaused, d.GetState())
 
-	d.SetState(engine.DebugStateStopped)
-	assert.Equal(t, engine.DebugStateStopped, d.GetState())
+	d.SetState(debug.DebugStateStopped)
+	assert.Equal(t, debug.DebugStateStopped, d.GetState())
 
-	d.SetState(engine.DebugStateDone)
-	assert.Equal(t, engine.DebugStateDone, d.GetState())
+	d.SetState(debug.DebugStateDone)
+	assert.Equal(t, debug.DebugStateDone, d.GetState())
 }
 
 func TestDebugger_CurrentNode(t *testing.T) {
-	d := engine.NewDebugger("exec-1", "wf-1")
+	d := debug.NewDebugger("exec-1", "wf-1")
 
 	d.SetCurrentNode("node-1")
 	assert.Equal(t, "node-1", d.GetCurrentNode())
@@ -51,31 +51,26 @@ func TestDebugger_CurrentNode(t *testing.T) {
 }
 
 func TestDebugger_Breakpoints(t *testing.T) {
-	d := engine.NewDebugger("exec-1", "wf-1")
+	d := debug.NewDebugger("exec-1", "wf-1")
 
-	// Add breakpoint
 	d.AddBreakpoint("node-1", "")
 	assert.True(t, d.HasBreakpoint("node-1"))
 
-	// Remove breakpoint
 	d.RemoveBreakpoint("node-1")
 	assert.False(t, d.HasBreakpoint("node-1"))
 
-	// Add conditional breakpoint
 	d.AddBreakpoint("node-2", "count > 5")
 	assert.True(t, d.HasBreakpoint("node-2"))
 
-	// Disable breakpoint
 	d.DisableBreakpoint("node-2")
 	assert.False(t, d.HasBreakpoint("node-2"))
 
-	// Enable breakpoint
 	d.EnableBreakpoint("node-2")
 	assert.True(t, d.HasBreakpoint("node-2"))
 }
 
 func TestDebugger_GetBreakpoints(t *testing.T) {
-	d := engine.NewDebugger("exec-1", "wf-1")
+	d := debug.NewDebugger("exec-1", "wf-1")
 
 	d.AddBreakpoint("node-1", "")
 	d.AddBreakpoint("node-2", "count > 5")
@@ -87,9 +82,8 @@ func TestDebugger_GetBreakpoints(t *testing.T) {
 }
 
 func TestDebugger_WatchVars(t *testing.T) {
-	d := engine.NewDebugger("exec-1", "wf-1")
+	d := debug.NewDebugger("exec-1", "wf-1")
 
-	// Add watch vars
 	d.AddWatchVar("count")
 	d.AddWatchVar("name")
 	d.AddWatchVar("status")
@@ -100,7 +94,6 @@ func TestDebugger_WatchVars(t *testing.T) {
 	assert.Contains(t, watchVars, "name")
 	assert.Contains(t, watchVars, "status")
 
-	// Remove watch var
 	d.RemoveWatchVar("name")
 	watchVars = d.GetWatchVars()
 	assert.Len(t, watchVars, 2)
@@ -108,7 +101,7 @@ func TestDebugger_WatchVars(t *testing.T) {
 }
 
 func TestDebugger_StepCount(t *testing.T) {
-	d := engine.NewDebugger("exec-1", "wf-1")
+	d := debug.NewDebugger("exec-1", "wf-1")
 
 	assert.Equal(t, 0, d.GetStepCount())
 
@@ -120,85 +113,80 @@ func TestDebugger_StepCount(t *testing.T) {
 }
 
 func TestDebugger_ShouldPause(t *testing.T) {
-	d := engine.NewDebugger("exec-1", "wf-1")
+	d := debug.NewDebugger("exec-1", "wf-1")
 
-	// Not paused, no breakpoints - should not pause
 	assert.False(t, d.ShouldPause("node-1"))
 
-	// Add breakpoint
 	d.AddBreakpoint("node-1", "")
 	assert.True(t, d.ShouldPause("node-1"))
 
-	// Remove breakpoint, set to step mode
 	d.RemoveBreakpoint("node-1")
-	d.SetMode(engine.DebugModeStep)
+	d.SetMode(debug.DebugModeStep)
 	assert.True(t, d.ShouldPause("node-2"))
 
-	// Resume mode, no breakpoints
-	d.SetMode(engine.DebugModeResume)
+	d.SetMode(debug.DebugModeResume)
 	assert.False(t, d.ShouldPause("node-3"))
 
-	// Set to paused state
-	d.SetState(engine.DebugStatePaused)
+	d.SetState(debug.DebugStatePaused)
 	assert.True(t, d.ShouldPause("node-4"))
 }
 
 func TestDebugger_ProcessCommand(t *testing.T) {
-	d := engine.NewDebugger("exec-1", "wf-1")
+	d := debug.NewDebugger("exec-1", "wf-1")
 
 	tests := []struct {
 		name        string
-		cmd         engine.DebugCommand
+		cmd         debug.DebugCommand
 		expectError bool
-		checkFunc   func(*engine.Debugger)
+		checkFunc   func(*debug.Debugger)
 	}{
 		{
 			name: "step command",
-			cmd:  engine.DebugCommand{Type: "step"},
-			checkFunc: func(d *engine.Debugger) {
-				assert.Equal(t, engine.DebugModeStep, d.GetMode())
+			cmd:  debug.DebugCommand{Type: "step"},
+			checkFunc: func(d *debug.Debugger) {
+				assert.Equal(t, debug.DebugModeStep, d.GetMode())
 				assert.Equal(t, 1, d.GetStepCount())
 			},
 		},
 		{
 			name: "resume command",
-			cmd:  engine.DebugCommand{Type: "resume"},
-			checkFunc: func(d *engine.Debugger) {
-				assert.Equal(t, engine.DebugModeResume, d.GetMode())
-				assert.Equal(t, engine.DebugStateRunning, d.GetState())
+			cmd:  debug.DebugCommand{Type: "resume"},
+			checkFunc: func(d *debug.Debugger) {
+				assert.Equal(t, debug.DebugModeResume, d.GetMode())
+				assert.Equal(t, debug.DebugStateRunning, d.GetState())
 			},
 		},
 		{
 			name: "pause command",
-			cmd:  engine.DebugCommand{Type: "pause"},
-			checkFunc: func(d *engine.Debugger) {
-				assert.Equal(t, engine.DebugStatePaused, d.GetState())
+			cmd:  debug.DebugCommand{Type: "pause"},
+			checkFunc: func(d *debug.Debugger) {
+				assert.Equal(t, debug.DebugStatePaused, d.GetState())
 			},
 		},
 		{
 			name: "stop command",
-			cmd:  engine.DebugCommand{Type: "stop"},
-			checkFunc: func(d *engine.Debugger) {
-				assert.Equal(t, engine.DebugStateStopped, d.GetState())
+			cmd:  debug.DebugCommand{Type: "stop"},
+			checkFunc: func(d *debug.Debugger) {
+				assert.Equal(t, debug.DebugStateStopped, d.GetState())
 			},
 		},
 		{
 			name: "add breakpoint",
-			cmd:  engine.DebugCommand{Type: "add_breakpoint", NodeID: "node-1"},
-			checkFunc: func(d *engine.Debugger) {
+			cmd:  debug.DebugCommand{Type: "add_breakpoint", NodeID: "node-1"},
+			checkFunc: func(d *debug.Debugger) {
 				assert.True(t, d.HasBreakpoint("node-1"))
 			},
 		},
 		{
 			name: "remove breakpoint",
-			cmd:  engine.DebugCommand{Type: "remove_breakpoint", NodeID: "node-1"},
-			checkFunc: func(d *engine.Debugger) {
+			cmd:  debug.DebugCommand{Type: "remove_breakpoint", NodeID: "node-1"},
+			checkFunc: func(d *debug.Debugger) {
 				assert.False(t, d.HasBreakpoint("node-1"))
 			},
 		},
 		{
 			name:        "unknown command",
-			cmd:         engine.DebugCommand{Type: "unknown"},
+			cmd:         debug.DebugCommand{Type: "unknown"},
 			expectError: true,
 		},
 	}
@@ -219,11 +207,10 @@ func TestDebugger_ProcessCommand(t *testing.T) {
 }
 
 func TestDebugger_GetStatus(t *testing.T) {
-	d := engine.NewDebugger("exec-1", "wf-1")
+	d := debug.NewDebugger("exec-1", "wf-1")
 
-	// Set some state
-	d.SetMode(engine.DebugModeStep)
-	d.SetState(engine.DebugStatePaused)
+	d.SetMode(debug.DebugModeStep)
+	d.SetState(debug.DebugStatePaused)
 	d.SetCurrentNode("node-3")
 	d.AddBreakpoint("node-1", "")
 	d.AddWatchVar("count")
@@ -234,8 +221,8 @@ func TestDebugger_GetStatus(t *testing.T) {
 
 	assert.Equal(t, "exec-1", status.ExecutionID)
 	assert.Equal(t, "wf-1", status.WorkflowID)
-	assert.Equal(t, engine.DebugModeStep, status.Mode)
-	assert.Equal(t, engine.DebugStatePaused, status.State)
+	assert.Equal(t, debug.DebugModeStep, status.Mode)
+	assert.Equal(t, debug.DebugStatePaused, status.State)
 	assert.Equal(t, "node-3", status.CurrentNode)
 	assert.Equal(t, 2, status.StepCount)
 	assert.Len(t, status.Breakpoints, 1)
@@ -243,7 +230,7 @@ func TestDebugger_GetStatus(t *testing.T) {
 }
 
 func TestBreakpoint_Struct(t *testing.T) {
-	bp := engine.Breakpoint{
+	bp := debug.Breakpoint{
 		NodeID:    "node-1",
 		Condition: "count > 5",
 		Enabled:   true,
@@ -255,16 +242,16 @@ func TestBreakpoint_Struct(t *testing.T) {
 }
 
 func TestDebugMode_Constants(t *testing.T) {
-	assert.Equal(t, engine.DebugMode("step"), engine.DebugModeStep)
-	assert.Equal(t, engine.DebugMode("resume"), engine.DebugModeResume)
-	assert.Equal(t, engine.DebugMode("pause"), engine.DebugModePause)
-	assert.Equal(t, engine.DebugMode("stop"), engine.DebugModeStop)
-	assert.Equal(t, engine.DebugMode("auto"), engine.DebugModeAuto)
+	assert.Equal(t, debug.DebugMode("step"), debug.DebugModeStep)
+	assert.Equal(t, debug.DebugMode("resume"), debug.DebugModeResume)
+	assert.Equal(t, debug.DebugMode("pause"), debug.DebugModePause)
+	assert.Equal(t, debug.DebugMode("stop"), debug.DebugModeStop)
+	assert.Equal(t, debug.DebugMode("auto"), debug.DebugModeAuto)
 }
 
 func TestDebugState_Constants(t *testing.T) {
-	assert.Equal(t, engine.DebugState("running"), engine.DebugStateRunning)
-	assert.Equal(t, engine.DebugState("paused"), engine.DebugStatePaused)
-	assert.Equal(t, engine.DebugState("stopped"), engine.DebugStateStopped)
-	assert.Equal(t, engine.DebugState("done"), engine.DebugStateDone)
+	assert.Equal(t, debug.DebugState("running"), debug.DebugStateRunning)
+	assert.Equal(t, debug.DebugState("paused"), debug.DebugStatePaused)
+	assert.Equal(t, debug.DebugState("stopped"), debug.DebugStateStopped)
+	assert.Equal(t, debug.DebugState("done"), debug.DebugStateDone)
 }

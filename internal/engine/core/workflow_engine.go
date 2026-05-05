@@ -1,4 +1,4 @@
-package engine
+package core
 
 import (
 	"encoding/json"
@@ -7,52 +7,37 @@ import (
 	"time"
 
 	"cogniforge/internal/database"
-	"cogniforge/internal/engine/core"
-	"cogniforge/internal/engine/nodes"
 	"cogniforge/internal/model"
 	"gorm.io/gorm"
 )
 
 type WorkflowEngine struct {
 	db            *gorm.DB
-	nodeExecutors map[string]core.NodeExecutor
+	nodeExecutors map[string]NodeExecutor
 }
 
 func NewEngine() *WorkflowEngine {
 	engine := &WorkflowEngine{
 		db:            database.DB,
-		nodeExecutors: make(map[string]core.NodeExecutor),
+		nodeExecutors: make(map[string]NodeExecutor),
 	}
-	engine.registerDefaultExecutors()
 	return engine
 }
 
-func (e *WorkflowEngine) registerDefaultExecutors() {
-	e.nodeExecutors["start"] = &nodes.StartNodeExecutor{}
-	e.nodeExecutors["end"] = &nodes.EndNodeExecutor{}
-	e.nodeExecutors["llm"] = &nodes.LLMNodeExecutor{}
-	e.nodeExecutors["agent"] = &nodes.AgentNodeExecutor{}
-	e.nodeExecutors["condition"] = &nodes.ConditionNodeExecutor{}
-	e.nodeExecutors["loop"] = &nodes.LoopNodeExecutor{}
-	e.nodeExecutors["http"] = nodes.NewHTTPNodeExecutor()
-	e.nodeExecutors["code"] = &nodes.CodeNodeExecutor{}
-	e.nodeExecutors["delay"] = &nodes.DelayNodeExecutor{}
-}
-
-func (e *WorkflowEngine) RegisterExecutor(nodeType string, executor core.NodeExecutor) {
+func (e *WorkflowEngine) RegisterExecutor(nodeType string, executor NodeExecutor) {
 	e.nodeExecutors[nodeType] = executor
 }
 
-func (e *WorkflowEngine) ParseDefinition(definition string) (*core.WorkflowDefinition, error) {
-	var def core.WorkflowDefinition
+func (e *WorkflowEngine) ParseDefinition(definition string) (*WorkflowDefinition, error) {
+	var def WorkflowDefinition
 	if err := json.Unmarshal([]byte(definition), &def); err != nil {
 		return nil, fmt.Errorf("failed to parse workflow definition: %w", err)
 	}
 	return &def, nil
 }
 
-func (e *WorkflowEngine) TopologicalSort(def *core.WorkflowDefinition) ([]core.NodeDefinition, error) {
-	nodeMap := make(map[string]*core.NodeDefinition)
+func (e *WorkflowEngine) TopologicalSort(def *WorkflowDefinition) ([]NodeDefinition, error) {
+	nodeMap := make(map[string]*NodeDefinition)
 	for i := range def.Nodes {
 		nodeMap[def.Nodes[i].ID] = &def.Nodes[i]
 	}
@@ -72,7 +57,7 @@ func (e *WorkflowEngine) TopologicalSort(def *core.WorkflowDefinition) ([]core.N
 		}
 	}
 
-	var result []core.NodeDefinition
+	var result []NodeDefinition
 	for len(queue) > 0 {
 		nodeID := queue[0]
 		queue = queue[1:]
@@ -96,8 +81,8 @@ func (e *WorkflowEngine) TopologicalSort(def *core.WorkflowDefinition) ([]core.N
 	return result, nil
 }
 
-func (e *WorkflowEngine) Execute(ctx *core.ExecutionContext, def *core.WorkflowDefinition) *core.ExecutionResult {
-	result := &core.ExecutionResult{
+func (e *WorkflowEngine) Execute(ctx *ExecutionContext, def *WorkflowDefinition) *ExecutionResult {
+	result := &ExecutionResult{
 		ExecutionID: ctx.ExecutionID,
 		Status:      "running",
 		Output:      make(map[string]any),
@@ -218,7 +203,7 @@ func (e *WorkflowEngine) ExecuteAsync(workflowID, userID string, input map[strin
 			}
 		}()
 
-		ctx := core.NewExecutionContext(workflowID, executionID, input)
+		ctx := NewExecutionContext(workflowID, executionID, input)
 		def, err := e.ParseDefinition(workflow.Definition)
 		if err != nil {
 			database.DB.Model(&model.WorkflowExecution{}).

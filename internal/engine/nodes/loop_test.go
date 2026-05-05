@@ -1,4 +1,4 @@
-package engine_test
+package nodes_test
 
 import (
 	"encoding/json"
@@ -7,10 +7,11 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"cogniforge/internal/engine"
+	"cogniforge/internal/engine/nodes"
 )
 
 func TestLoopNode_TimesLoop(t *testing.T) {
-	executor := &engine.LoopNodeExecutor{}
+	executor := &nodes.LoopNodeExecutor{}
 
 	config := `{
 		"type": "times",
@@ -31,9 +32,8 @@ func TestLoopNode_TimesLoop(t *testing.T) {
 }
 
 func TestLoopNode_TimesLoop_MaxIterCapped(t *testing.T) {
-	executor := &engine.LoopNodeExecutor{}
+	executor := &nodes.LoopNodeExecutor{}
 
-	// Request 200 iterations but max is 100
 	config := `{
 		"type": "times",
 		"count": 200,
@@ -45,16 +45,15 @@ func TestLoopNode_TimesLoop_MaxIterCapped(t *testing.T) {
 
 	assert.NoError(t, err)
 	result := output.(map[string]any)
-	assert.Equal(t, 100, result["total"]) // Capped at max_iter
+	assert.Equal(t, 100, result["total"])
 
 	iterations := result["iterations"].([]map[string]any)
 	assert.Len(t, iterations, 100)
 }
 
 func TestLoopNode_DefaultMaxIter(t *testing.T) {
-	executor := &engine.LoopNodeExecutor{}
+	executor := &nodes.LoopNodeExecutor{}
 
-	// No max_iter specified, should default to 100
 	config := `{
 		"type": "times",
 		"count": 50
@@ -69,7 +68,7 @@ func TestLoopNode_DefaultMaxIter(t *testing.T) {
 }
 
 func TestLoopNode_ForEachLoop(t *testing.T) {
-	executor := &engine.LoopNodeExecutor{}
+	executor := &nodes.LoopNodeExecutor{}
 
 	config := `{
 		"type": "for_each",
@@ -93,7 +92,7 @@ func TestLoopNode_ForEachLoop(t *testing.T) {
 }
 
 func TestLoopNode_ForEachLoop_EmptyArray(t *testing.T) {
-	executor := &engine.LoopNodeExecutor{}
+	executor := &nodes.LoopNodeExecutor{}
 
 	config := `{
 		"type": "for_each",
@@ -112,7 +111,7 @@ func TestLoopNode_ForEachLoop_EmptyArray(t *testing.T) {
 }
 
 func TestLoopNode_ForEachLoop_ArrayNotFound(t *testing.T) {
-	executor := &engine.LoopNodeExecutor{}
+	executor := &nodes.LoopNodeExecutor{}
 
 	config := `{
 		"type": "for_each",
@@ -125,11 +124,11 @@ func TestLoopNode_ForEachLoop_ArrayNotFound(t *testing.T) {
 
 	assert.NoError(t, err)
 	result := output.(map[string]any)
-	assert.Equal(t, 0, result["total"]) // Empty iterations when variable not found
+	assert.Equal(t, 0, result["total"])
 }
 
 func TestLoopNode_ForEachLoop_MaxIterCapped(t *testing.T) {
-	executor := &engine.LoopNodeExecutor{}
+	executor := &nodes.LoopNodeExecutor{}
 
 	config := `{
 		"type": "for_each",
@@ -144,17 +143,15 @@ func TestLoopNode_ForEachLoop_MaxIterCapped(t *testing.T) {
 
 	assert.NoError(t, err)
 	result := output.(map[string]any)
-	assert.Equal(t, 2, result["total"]) // Capped at max_iter
+	assert.Equal(t, 2, result["total"])
 
 	iterations := result["iterations"].([]map[string]any)
 	assert.Len(t, iterations, 2)
 }
 
 func TestLoopNode_WhileLoop(t *testing.T) {
-	executor := &engine.LoopNodeExecutor{}
+	executor := &nodes.LoopNodeExecutor{}
 
-	// While loop with condition loop.index < 3
-	// Should run 3 times (index 0, 1, 2)
 	config := `{
 		"type": "while",
 		"condition": "loop.index < 3",
@@ -174,9 +171,8 @@ func TestLoopNode_WhileLoop(t *testing.T) {
 }
 
 func TestLoopNode_WhileLoop_MaxIterReached(t *testing.T) {
-	executor := &engine.LoopNodeExecutor{}
+	executor := &nodes.LoopNodeExecutor{}
 
-	// Condition is always true (loop.index >= 0), but should be capped by max_iter
 	config := `{
 		"type": "while",
 		"condition": "loop.index >= 0",
@@ -188,11 +184,11 @@ func TestLoopNode_WhileLoop_MaxIterReached(t *testing.T) {
 
 	assert.NoError(t, err)
 	result := output.(map[string]any)
-	assert.Equal(t, 5, result["total"]) // Stopped at max_iter
+	assert.Equal(t, 5, result["total"])
 }
 
 func TestLoopNode_InvalidType(t *testing.T) {
-	executor := &engine.LoopNodeExecutor{}
+	executor := &nodes.LoopNodeExecutor{}
 
 	config := `{
 		"type": "invalid",
@@ -207,7 +203,7 @@ func TestLoopNode_InvalidType(t *testing.T) {
 }
 
 func TestLoopNode_InvalidConfig(t *testing.T) {
-	executor := &engine.LoopNodeExecutor{}
+	executor := &nodes.LoopNodeExecutor{}
 
 	config := `invalid json`
 
@@ -219,7 +215,7 @@ func TestLoopNode_InvalidConfig(t *testing.T) {
 }
 
 func TestLoopNode_TimesLoop_IndexVariable(t *testing.T) {
-	executor := &engine.LoopNodeExecutor{}
+	executor := &nodes.LoopNodeExecutor{}
 
 	config := `{
 		"type": "times",
@@ -232,10 +228,9 @@ func TestLoopNode_TimesLoop_IndexVariable(t *testing.T) {
 
 	assert.NoError(t, err)
 
-	// After execution, loop.index should be the last value
 	idx, ok := ctx.GetVariable("loop.index")
 	assert.True(t, ok)
-	assert.Equal(t, 2, idx) // Last index (0-based)
+	assert.Equal(t, 2, idx)
 
 	count, ok := ctx.GetVariable("loop.count")
 	assert.True(t, ok)
@@ -243,7 +238,7 @@ func TestLoopNode_TimesLoop_IndexVariable(t *testing.T) {
 }
 
 func TestLoopNode_ForEachLoop_ItemVariable(t *testing.T) {
-	executor := &engine.LoopNodeExecutor{}
+	executor := &nodes.LoopNodeExecutor{}
 
 	config := `{
 		"type": "for_each",
@@ -259,12 +254,11 @@ func TestLoopNode_ForEachLoop_ItemVariable(t *testing.T) {
 
 	assert.NoError(t, err)
 
-	// After execution, should have the last item
 	item, ok := ctx.GetVariable("current_item")
 	assert.True(t, ok)
 	assert.Equal(t, "cherry", item)
 
 	key, ok := ctx.GetVariable("current_key")
 	assert.True(t, ok)
-	assert.Equal(t, 2, key) // Last index
+	assert.Equal(t, 2, key)
 }

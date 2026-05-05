@@ -1,3 +1,3 @@
 """
-Models for knowledge service.
+Knowledge processing models.
 """

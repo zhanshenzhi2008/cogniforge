@@ -1,14 +1,25 @@
 # Cogniforge Knowledge Service Dependencies
 
+# Core framework
 fastapi>=0.100.0
 uvicorn[standard]>=0.23.0
 pydantic>=2.0.0
+python-multipart>=0.0.6
 
-# Vector search / embeddings (uncomment when needed)
+# Document processing
+pypdf>=3.0.0
+python-docx>=1.0.0
+
+# Embeddings - choose one:
+# Option 1: OpenAI API (requires API key)
+openai>=1.0.0
+
+# Option 2: Local sentence transformers (no API key needed)
 # sentence-transformers>=2.2.0
-# faiss-cpu>=1.7.0
-# numpy>=1.24.0
+# torch>=2.0.0
 
-# Document processing (uncomment when needed)
-# python-multipart>=0.0.6
-# pypdf>=3.0.0
+# Vector database
+psycopg2-binary>=2.9.0
+
+# Utilities
+numpy>=1.24.0

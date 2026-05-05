@@ -410,6 +410,10 @@ func chunkText(content string, chunkSize, overlap int) []string {
 		return nil
 	}
 
+	if chunkSize <= 0 {
+		return []string{content}
+	}
+
 	var chunks []string
 	runes := []rune(content)
 	start := 0
@@ -421,9 +425,17 @@ func chunkText(content string, chunkSize, overlap int) []string {
 		}
 
 		chunk := string(runes[start:end])
-		chunks = append(chunks, chunk)
+		if chunk != "" {
+			chunks = append(chunks, chunk)
+		}
 
-		start = end - overlap
+		// Move to next chunk position
+		nextStart := start + chunkSize
+		if overlap >= chunkSize {
+			overlap = chunkSize / 2 // Prevent infinite loop
+		}
+		start = nextStart - overlap
+
 		if start >= len(runes) {
 			break
 		}

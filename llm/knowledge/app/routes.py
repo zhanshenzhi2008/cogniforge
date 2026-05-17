@@ -1,3 +1,0 @@
-"""
-Routes for knowledge service.
-"""

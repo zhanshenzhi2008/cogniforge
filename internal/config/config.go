@@ -11,16 +11,16 @@ import (
 )
 
 type Config struct {
-	Server    ServerConfig
-	Database  DatabaseConfig
-	Redis     RedisConfig
-	AI        AIConfig
-	JWT       JWTConfig
-	Log       LogConfig
-	Knowledge KnowledgeConfig
+	Server   ServerConfig
+	Database DatabaseConfig
+	Redis    RedisConfig
+	AI       AIConfig
+	RAG      RAGConfig
+	JWT      JWTConfig
+	Log      LogConfig
 }
 
-type KnowledgeConfig struct {
+type RAGConfig struct {
 	PythonServiceURL string `mapstructure:"python_service_url"`
 }
 

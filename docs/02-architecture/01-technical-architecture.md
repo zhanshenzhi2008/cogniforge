@@ -4,9 +4,59 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-05-17 | v4.0 | Python AI 服务独立为 cogniforge-ai 项目；Go 后端改为调用外部 Python 服务；删除 llm/ 目录 | orjrs |
 | 2026-04-27 | v3.0 | 后端从 handler 目录重构为业务模块化架构；新增 auth/user/chat/workflow/knowledge/agent 等独立模块，遵循 DTO → Service → Handler 分层模式 | orjrs |
 | 2026-04-04 | v2.0 | 后端架构由 gateway 独立目录收敛为 monolith；删除 go-standards/dev-environment rules；rules 文档变更记录规范 | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] Python AI 服务独立化（2026-05-17）
+
+变更原因：统一 Python 代码到 cogniforge-ai 项目，Go 后端专注于 API 编排和业务逻辑，AI 能力下沉到 Python 服务。
+
+### 变更前
+
+```
+cogniforge/
+├── llm/knowledge/              # Python RAG 服务（存根）
+└── internal/
+    ├── engine/nodes/llm.go    # LLM 节点 mock 实现
+    └── knowledge/             # 知识库 CRUD
+```
+
+### 变更后
+
+```
+cogniforge/                         # Go 后端 - API 编排层
+├── internal/
+│   ├── knowledge/                  # 知识库 CRUD + 调用 Python
+│   └── engine/nodes/llm.go        # LLM 节点（仍为 mock，可改造）
+└── configs/config.yaml             # AI_PYTHON_URL, RAG_PYTHON_URL
+
+cogniforge-ai/                      # Python AI 服务 - AI 能力层
+├── app/
+│   ├── main.py                    # FastAPI 统一入口
+│   └── routers/
+│       ├── agent.py               # /api/agent
+│       ├── llm.py                # /api/llm
+│       ├── memory.py             # /api/memory
+│       └── rag.py               # /api/rag
+├── llm/                          # LLM 提供商
+├── agent/                        # Agent 执行器
+├── tools/                        # 工具注册
+├── memory/                       # 记忆管理
+└── services/rag/                # RAG 服务
+    ├── parsers/                  # PDF/DOCX/TXT/MD/HTML
+    ├── splitters/               # 文本分块
+    ├── embedding/               # OpenAI/Local
+    └── vector_store/            # pgvector
+```
+
+### 关键差异
+
+- **Go 后端**：专注 API 路由、业务逻辑、工作流编排
+- **Python 服务**：统一 AI 能力（LLM、Agent、Memory、RAG）
+- **服务通信**：Go 通过 HTTP 调用 Python 服务
+- **端口分离**：Go 8080，Python AI 8086
 
 ## [变更] 业务模块化架构重构（2026-04-27）
 
@@ -140,7 +190,38 @@ cogniforge/
 
 ## 1. 技术架构概览
 
-### 1.1 设计原则
+### 1.1 整体架构
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                        CogniForge 系统架构                               │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  ┌─────────────────────────────────────────────────────────────────┐   │
+│  │                    Go Backend (API 编排层)                         │   │
+│  │                        端口: 8080                                  │   │
+│  │  ┌─────────────────────────────────────────────────────────────┐  │   │
+│  │  │  auth/ │ user/ │ chat/ │ workflow/ │ knowledge/ │ agent/ │  │   │
+│  │  │  router/ │ middleware/ │ engine/ (工作流编排)              │  │   │
+│  │  └─────────────────────────────────────────────────────────────┘  │   │
+│  │                              │                                    │   │
+│  │                              │ HTTP 调用                          │   │
+│  └──────────────────────────────┼────────────────────────────────────┘   │
+│                                 │ 端口 8086                             │
+│                                 ▼                                      │
+│  ┌─────────────────────────────────────────────────────────────────┐   │
+│  │                   Cogniforge-AI (Python AI 能力层)                 │   │
+│  │                       端口: 8086                                  │   │
+│  │  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐                │   │
+│  │  │  Agent  │ │   LLM   │ │ Memory  │ │   RAG   │                │   │
+│  │  │ Service │ │ Service │ │ Service │ │ Service │                │   │
+│  │  └─────────┘ └─────────┘ └─────────┘ └─────────┘                │   │
+│  └─────────────────────────────────────────────────────────────────┘   │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### 1.2 技术栈选择理由
 
 | 原则 | 描述 |
 |-----|------|
@@ -166,47 +247,38 @@ cogniforge/
 
 ---
 
-## 2. 服务架构图（当前实际）
+## 2. 服务架构图
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                        全球加速层 (CDN/WAF)                               │
+│                        CogniForge 系统架构                               │
 ├─────────────────────────────────────────────────────────────────────────┤
 │                                                                          │
-│   ┌────────────────────────────────────────────────────────────────┐     │
-│   │               API 层 (Go - 单体 monolith)                        │     │
-│   │        cmd/server/main.go → Gin → internal/handler/             │     │
-│   └────────────────────────────────────────────────────────────────┘     │
-│                                       │                                  │
-│           ┌──────────────────────────┼──────────────────────────┐       │
-│           │                          ▼                          │       │
-│   ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐    │
-│   │   用户中心      │    │   计费中心       │    │   监控服务      │    │
-│   │   (Java存根)   │    │   (Java存根)    │    │   (未实现)      │    │
-│   └─────────────────┘    └─────────────────┘    └─────────────────┘    │
-│           │                          │                          │       │
-│           └──────────────────────────┼──────────────────────────┘       │
-│                                      ▼                                 │
-│   ┌────────────────────────────────────────────────────────────────┐    │
-│   │                    核心服务 (Go - 模块化架构)                       │    │
-│   │                                                                  │    │
-│   │  auth/  │ user/  │ chat/  │ workflow/  │ knowledge/  │ agent/ │    │
-│   │  service│ service│ service│ service    │ service     │ service│    │
-│   │  handler│ handler│ handler│ handler    │ handler     │ handler│    │
-│   │                                                                  │    │
-│   │  router/router.go  │  middleware/  │  engine/               │    │
-│   │  (路由聚合)        │  (CORS/JWT)   │  (工作流执行)          │    │
-│   │                                                                  │    │
-│   └────────────────────────────────────────────────────────────────┘    │
-│                                      ▼                                 │
-│   ┌────────────────────────────────────────────────────────────────┐    │
-│   │               AI/ML 层 (Python - llm/knowledge/)                  │    │
-│   └────────────────────────────────────────────────────────────────┘    │
-│                                      ▼                                 │
-│      ┌────────────────┐        ┌────────────────┐       ┌────────────┐  │
-│      │   PostgreSQL    │        │    Redis      │       │   Kafka   │  │
-│      │   5432/5433     │        │    (已配置)   │       │  (未接入)  │  │
-│      └────────────────┘        └────────────────┘       └────────────┘  │
+│  ┌─────────────────────────────────────────────────────────────────┐   │
+│  │                    Go Backend (API 编排层)                         │   │
+│  │                        端口: 8080                                  │   │
+│  │  ┌─────────────────────────────────────────────────────────────┐  │   │
+│  │  │  auth/ │ user/ │ chat/ │ workflow/ │ knowledge/ │ agent/ │  │   │
+│  │  │  router/ │ middleware/ │ engine/ (工作流编排)              │  │   │
+│  │  └─────────────────────────────────────────────────────────────┘  │   │
+│  │                              │                                    │   │
+│  │                              │ HTTP 调用                          │   │
+│  └──────────────────────────────┼────────────────────────────────────┘   │
+│                                 │ 端口 8086                             │
+│                                 ▼                                      │
+│  ┌─────────────────────────────────────────────────────────────────┐   │
+│  │                   Cogniforge-AI (Python AI 能力层)                 │   │
+│  │                       端口: 8086                                  │   │
+│  │  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐                │   │
+│  │  │  Agent  │ │   LLM   │ │ Memory  │ │   RAG   │                │   │
+│  │  │ Service │ │ Service │ │ Service │ │ Service │                │   │
+│  │  └─────────┘ └─────────┘ └─────────┘ └─────────┘                │   │
+│  └─────────────────────────────────────────────────────────────────┘   │
+│                                                                          │
+│  ┌─────────────────────────────────────────────────────────────────┐   │
+│  │                          数据存储层                                 │   │
+│  │      PostgreSQL (5432/5433)      │      Redis (6379)           │   │
+│  └─────────────────────────────────────────────────────────────────┘   │
 │                                                                          │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
@@ -327,33 +399,34 @@ cogniforge/
   - 定时执行 (Cron)
 ```
 
-### 3.4 知识库服务
+### 3.4 知识库服务 (RAG)
 
-**当前状态**：`internal/knowledge/` 模块提供 CRUD，Python 处理层待开发。
+**当前状态**：`internal/knowledge/` 模块提供 CRUD，调用 cogniforge-ai Python 服务处理。
 
 ```yaml
-实际位置: internal/knowledge/ + llm/knowledge/
-端口: 8080 (Go) + 8081 (Python)
+实际位置:
+  - Go: internal/knowledge/ (CRUD + API)
+  - Python: cogniforge-ai/services/rag/
+端口: 8080 (Go) + 8086 (Python AI)
 
 已实现:
   - 知识库 CRUD (Go)
   - 文档列表/删除 (Go)
   - 文档上传接口 (Go，接收 multipart/form-data)
-
-待实现 (Python 处理层):
-  - 文件解析：PDF/DOCX/MD/TXT/HTML
-  - 文本智能分块（RecursiveCharacterTextSplitter）
-  - Embedding 生成（OpenAI API 或本地模型）
-  - 向量存储（PostgreSQL pgvector 扩展）
-  - 语义检索（向量相似度查询）
+  - 文件解析：PDF/DOCX/MD/TXT/HTML (Python)
+  - 文本智能分块（RecursiveCharacterTextSplitter）(Python)
+  - Embedding 生成（OpenAI API 或本地模型）(Python)
+  - 向量存储（PostgreSQL pgvector 扩展）(Python)
+  - 语义检索（向量相似度查询）(Python)
 
 技术栈:
-  - Python 3.11+
+  - Python 3.10+
   - FastAPI（Web 框架）
-  - unstructured / pypdf（PDF 解析）
+  - pypdf（PDF 解析）
   - python-docx（DOCX 解析）
   - openai（Embedding API）
-  - pgvector（向量存储，基于 PostgreSQL）
+  - psycopg2-binary（PostgreSQL 连接）
+  - pgvector（向量存储）
 ```
 
 **架构流程**：
@@ -430,12 +503,25 @@ LIMIT $3;
 Prometheus/Jaeger/Loki: 未接入
 ```
 
-### 3.8 AI/ML 处理服务 (Python) - 存根
+### 3.8 Cogniforge-AI 服务 (Python)
 
 ```yaml
-目录: llm/knowledge/
+目录: cogniforge-ai/
 框架: FastAPI
-实际状态: 仅目录结构，未启动
+端口: 8086
+状态: 已实现
+
+已实现的服务:
+  - /api/agent  - Agent 执行 + 工具
+  - /api/llm   - OpenAI/Claude 调用
+  - /api/memory - 对话记忆管理
+  - /api/rag    - RAG 向量搜索
+
+技术栈:
+  - Python 3.10+
+  - FastAPI + Pydantic
+  - openai / anthropic
+  - httpx
 ```
 
 ---
@@ -446,11 +532,12 @@ Prometheus/Jaeger/Loki: 未接入
 
 | 模式 | 技术 | 实际状态 |
 |-----|------|---------|
-| **同步调用** | REST | 当前唯一方式，所有 handler 同进程 |
+| **Go → Python AI** | REST HTTP | Go 调用 cogniforge-ai (8086) |
+| **Python AI 内部** | 同进程 | LLM/Agent/Memory/RAG |
 | **异步消息** | Kafka | 未接入 |
 | **服务发现** | Consul/etcd | 未接入 |
 
-### 4.2 API 路由（当前实际）
+### 4.2 API 路由（Go Backend - 8080）
 
 ```
 /health | /ready | /live           GET   健康检查
@@ -462,8 +549,7 @@ Prometheus/Jaeger/Loki: 未接入
 /keys                              POST/GET         API Key 管理
 /keys/:id                          DELETE           删除 Key
 /models                            GET              模型列表
-/models/:id                        GET              模型详情
-/chat/stream                       POST             流式聊天（核心）
+/chat/stream                       POST             流式聊天
 /agents                            GET/POST          Agent 列表/创建
 /agents/:id                        GET/PUT/DELETE   Agent CRUD
 /agents/:id/chat                   POST             Agent 对话
@@ -473,6 +559,23 @@ Prometheus/Jaeger/Loki: 未接入
 /knowledge                         GET/POST          知识库列表/创建
 /knowledge/:id                     GET/PUT/DELETE   知识库 CRUD
 /knowledge/:id/documents           GET              知识库文档列表
+```
+
+### 4.3 Python AI 服务路由 (8086)
+
+```
+/health                            GET   健康检查
+/api/agent/chat                    POST  Agent 对话
+/api/agent/health                  GET   Agent 健康检查
+/api/llm/chat                     POST  LLM 调用
+/api/llm/health                   GET   LLM 健康检查
+/api/memory/save                   POST  保存对话
+/api/memory/:session_id           GET   获取记忆
+/api/memory/:session_id           DELETE 清除记忆
+/api/rag/process                   POST  处理文档
+/api/rag/search                    POST  搜索
+/api/rag/upload                    POST  上传并处理
+/api/rag/:collection/:doc_id      DELETE 删除文档
 ```
 
 ### 4.3 微服务存根（未激活）
@@ -593,95 +696,68 @@ workflow_nodes, workflow_edges, workflow_executions
 
 ---
 
-## 8. 技术选型总结（当前实际）
+## 8. 技术选型总结
 
 ### 8.1 服务技术矩阵
 
-| 服务 | 语言 | 框架 | 实际状态 |
-|-----|------|------|---------|
-| **monolith** | Go | Gin | 收敛为单一服务，端口 8080 |
-| user | Java | Spring Boot | 仅目录存根 |
-| billing | Java | Spring Boot | 仅目录存根 |
-| ml | Python | FastAPI | 仅目录存根 |
-| **前端** | TypeScript | Nuxt 3 + Vue 3 | 实际运行 |
+| 服务 | 语言 | 框架 | 端口 | 实际状态 |
+|-----|------|------|------|---------|
+| **Go Backend** | Go | Gin | 8080 | API 编排层 |
+| **Cogniforge-AI** | Python | FastAPI | 8086 | AI 能力层 |
+| **前端** | TypeScript | Nuxt 3 + Vue 3 | 3000 | 实际运行 |
 
 ### 8.2 核心原则
 
-> **"Go for serving, Python for training"**
+> **"Go for serving, Python for AI"**
 >
-> - 实时推理路径使用 Go (monolith)
-> - AI/ML 处理预留 Python 层
-> - 企业级业务预留 Java 微服务
+> - Go 后端：API 路由、业务逻辑、工作流编排
+> - Python AI：LLM 调用、Agent 执行、Memory、RAG
+> - 前后分离：通过 REST API 通信
 > - 前端使用 Nuxt 3 + Vue 3 + TypeScript
 
-### 8.3 实际项目结构
+### 8.3 项目结构
 
 ```
-cogniforge/                          # 后端 Go monolith (模块化架构)
-├── cmd/server/main.go               # 单一入口
-├── configs/config.yaml              # 配置文件
-├── internal/
-│   ├── config/                      # Viper 配置加载
-│   ├── database/                    # GORM PostgreSQL
-│   ├── model/                      # 数据模型
-│   │
-│   │   # === 业务模块 (DTO → Service → Handler 分层) ===
-│   │
-│   ├── auth/                       # 认证模块
-│   │   ├── dto.go                 # 请求/响应结构
-│   │   ├── service.go             # 业务逻辑
-│   │   └── handler.go             # HTTP 处理
-│   │
-│   ├── user/                       # 用户模块
-│   │   ├── dto.go
-│   │   ├── service.go
-│   │   ├── handler.go
-│   │   └── id.go
-│   │
-│   ├── chat/                       # 聊天/模型模块
-│   │   ├── dto.go
-│   │   ├── service.go
-│   │   └── handler.go
-│   │
-│   ├── workflow/                   # 工作流模块
-│   │   ├── dto.go
-│   │   ├── service.go
-│   │   ├── handler.go
-│   │   └── id.go
-│   │
-│   ├── knowledge/                  # 知识库模块
-│   │   ├── dto.go
-│   │   ├── service.go
-│   │   ├── handler.go
-│   │   └── id.go
-│   │
-│   ├── agent/                     # Agent 模块
-│   │   ├── dto.go
-│   │   ├── service.go
-│   │   ├── handler.go
-│   │   └── id.go
-│   │
-│   ├── router/                    # 路由聚合
-│   │   └── router.go             # 统一注册所有模块路由
-│   │
-│   ├── interfaces/                # 模块间接口定义 (预留)
-│   ├── monitor/                    # 监控模块 (目录已创建)
-│   │
-│   │   # === 基础设施 (保持原有结构) ===
-│   │
-│   ├── middleware/                 # CORS/JWT/Logger 中间件
-│   ├── engine/                    # 工作流执行引擎
-│   ├── response/                   # 统一响应封装
-│   ├── logger/                    # slog JSON 日志
-│   └── handler/                   # 旧 handler (暂时保留，向后兼容)
-│       ├── monitor.go             # 监控 API
-│       ├── roles.go              # 角色权限 API
-│       ├── settings.go           # 用户设置 API
-│       └── health.go             # 健康检查
-│
-├── services/                      # Java 微服务存根
-├── llm/                           # Python ML 存根
-└── docs/                          # 文档
+cogniforge/                          # Go 后端 - API 编排层
+├── cmd/server/main.go               # 入口
+├── configs/config.yaml              # 配置 (AI_PYTHON_URL, RAG_PYTHON_URL)
+└── internal/
+    ├── config/                      # Viper 配置
+    ├── database/                    # GORM PostgreSQL
+    ├── model/                      # 数据模型
+    ├── auth/                        # 认证模块
+    ├── user/                        # 用户模块
+    ├── chat/                        # 聊天/模型模块
+    ├── workflow/                    # 工作流模块
+    ├── knowledge/                    # 知识库模块 (调用 Python)
+    ├── agent/                       # Agent 模块
+    ├── router/                      # 路由聚合
+    ├── engine/                      # 工作流执行引擎
+    └── middleware/                   # CORS/JWT
+
+cogniforge-ai/                       # Python AI - AI 能力层
+├── app/
+│   ├── main.py                     # FastAPI 入口 (端口 8086)
+│   └── routers/
+│       ├── agent.py                # /api/agent
+│       ├── llm.py                  # /api/llm
+│       ├── memory.py               # /api/memory
+│       └── rag.py                  # /api/rag
+├── llm/                            # LLM 提供商
+├── agent/                          # Agent 执行器
+├── tools/                          # 工具注册
+├── memory/                         # 记忆管理
+└── services/rag/                   # RAG 服务
+    ├── parsers/                    # PDF/DOCX/TXT/MD/HTML
+    ├── splitters/                  # 文本分块
+    ├── embedding/                  # OpenAI/Local
+    └── vector_store/               # pgvector
+
+cogniforge-web/                     # 前端 Nuxt 3
+├── pages/
+├── composables/
+└── layouts/
+```
 ├── services/                        # Java 微服务存根
 ├── llm/                             # Python ML 存根
 └── docs/                            # 文档
@@ -697,33 +773,31 @@ cogniforge-web/                     # 前端 Nuxt 3
 
 ## 9. 附录
 
-### 9.1 端口分配（当前实际）
+### 9.1 端口分配
 
-| 服务 | 端口 | 协议 | 实际状态 |
-|-----|------|------|---------|
-| **Go monolith** | 8080 | HTTP | 唯一服务，承载全部 API |
-| PostgreSQL | 5432 / 5433 | TCP | 开发: 5433 |
-| Redis | 6379 | TCP | 已配置，未使用 |
-| Java 微服务 | - | - | 未启动 |
-| Python ML | - | - | 未启动 |
+| 服务 | 端口 | 协议 | 状态 |
+|-----|------|------|------|
+| **Go Backend** | 8080 | HTTP | 运行中 |
+| **Cogniforge-AI** | 8086 | HTTP | 运行中 |
+| PostgreSQL | 5432 / 5433 | TCP | 运行中 |
+| Redis | 6379 | TCP | 已配置 |
+| 前端 | 3000 | HTTP | 运行中 |
 
 ### 9.2 依赖版本
 
 ```yaml
 Go: 1.22+
-Java: 21
-Python: 3.11+
+Python: 3.10+
 Node.js: 20+
 Nuxt: 3.14+
 Vue: 3.4+
 TypeScript: 5+
 PostgreSQL: 15+
 Redis: 7+
-Spring Boot: 3.2+
 ```
 
 ---
 
-**文档版本**: v3.0
-**最后更新**: 2026-04-27
+**文档版本**: v4.0
+**最后更新**: 2026-05-17
 **维护团队**: orjrs

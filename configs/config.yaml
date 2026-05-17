@@ -21,8 +21,6 @@ ai:
   base_url: ${AI_BASE_URL:-https://api.openai.com}
   api_key: ${AI_API_KEY:-}
   default_model: ${AI_DEFAULT_MODEL:-gpt-3.5-turbo}
-
-ai:
   python_service_url: ${AI_PYTHON_URL:-http://localhost:8086}
 
 rag:

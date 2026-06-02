@@ -3,7 +3,7 @@ package core
 import (
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"time"
 
 	"cogniforge/internal/database"
@@ -84,6 +84,7 @@ func (e *WorkflowEngine) TopologicalSort(def *WorkflowDefinition) ([]NodeDefinit
 func (e *WorkflowEngine) Execute(ctx *ExecutionContext, def *WorkflowDefinition) *ExecutionResult {
 	result := &ExecutionResult{
 		ExecutionID: ctx.ExecutionID,
+		TraceID:     ctx.TraceID,
 		Status:      "running",
 		Output:      make(map[string]any),
 		Logs:        ctx.Logger.Logs,
@@ -170,6 +171,10 @@ func (e *WorkflowEngine) updateExecutionStatus(executionID, status string, outpu
 }
 
 func (e *WorkflowEngine) ExecuteAsync(workflowID, userID string, input map[string]any) (string, error) {
+	return e.ExecuteAsyncWithTraceID(workflowID, userID, input, "")
+}
+
+func (e *WorkflowEngine) ExecuteAsyncWithTraceID(workflowID, userID string, input map[string]any, traceID string) (string, error) {
 	var workflow model.Workflow
 	if err := database.DB.Where("id = ? AND user_id = ?", workflowID, userID).First(&workflow).Error; err != nil {
 		return "", fmt.Errorf("workflow not found: %w", err)
@@ -179,6 +184,7 @@ func (e *WorkflowEngine) ExecuteAsync(workflowID, userID string, input map[strin
 	now := time.Now()
 	execution := model.WorkflowExecution{
 		ID:         executionID,
+		TraceID:    traceID,
 		WorkflowID: workflowID,
 		UserID:     userID,
 		Status:     "pending",
@@ -190,10 +196,12 @@ func (e *WorkflowEngine) ExecuteAsync(workflowID, userID string, input map[strin
 		return "", fmt.Errorf("failed to create execution: %w", err)
 	}
 
+	// 捕获 traceID 到 goroutine 中
+	currentTraceID := traceID
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
-				log.Printf("Workflow execution panicked: %v", r)
+				slog.Error("workflow execution panicked", "workflow_id", workflowID, "execution_id", executionID, "error", r)
 				database.DB.Model(&model.WorkflowExecution{}).
 					Where("id = ?", executionID).
 					Updates(map[string]any{
@@ -203,7 +211,7 @@ func (e *WorkflowEngine) ExecuteAsync(workflowID, userID string, input map[strin
 			}
 		}()
 
-		ctx := NewExecutionContext(workflowID, executionID, input)
+		ctx := NewExecutionContextWithTraceID(workflowID, executionID, input, currentTraceID)
 		def, err := e.ParseDefinition(workflow.Definition)
 		if err != nil {
 			database.DB.Model(&model.WorkflowExecution{}).
@@ -216,7 +224,12 @@ func (e *WorkflowEngine) ExecuteAsync(workflowID, userID string, input map[strin
 		}
 
 		result := e.Execute(ctx, def)
-		log.Printf("Workflow %s execution %s: %s (duration: %dms)", workflowID, executionID, result.Status, result.Duration)
+		slog.Info("workflow execution completed",
+			"workflow_id", workflowID,
+			"execution_id", executionID,
+			"trace_id", currentTraceID,
+			"status", result.Status,
+			"duration_ms", result.Duration)
 	}()
 
 	return executionID, nil

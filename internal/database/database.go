@@ -72,11 +72,6 @@ func InitTestDBForPkg() *gorm.DB {
 	return db
 }
 
-// GetTestDB returns the current test database instance
-func GetTestDB() *gorm.DB {
-	return DB
-}
-
 // MigrateTestDB migrates the test database with common models
 func MigrateTestDB(db *gorm.DB) {
 	db.AutoMigrate(&model.User{}, &model.ApiKey{}, &model.UserSession{})

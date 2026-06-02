@@ -17,7 +17,7 @@ import (
 )
 
 func main() {
-	logger.Init()
+	logger.InitWithTraceID()
 
 	gin.SetMode(os.Getenv("GIN_MODE"))
 

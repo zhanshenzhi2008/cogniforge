@@ -4,6 +4,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"cogniforge/internal/response"
+	"cogniforge/internal/trace"
 )
 
 type WorkflowHandler struct {
@@ -130,7 +131,7 @@ func (h *WorkflowHandler) ExecuteWorkflow(c *gin.Context) {
 		req.Input = make(map[string]any)
 	}
 
-	result, err := h.service.ExecuteWorkflow(userID, workflowID, &req)
+	result, err := h.service.ExecuteWorkflowWithTraceID(userID, workflowID, &req, trace.GetTraceIDFromGin(c))
 	if err != nil {
 		response.InternalError(c, err.Error())
 		return
@@ -207,7 +208,7 @@ func (h *WorkflowHandler) DebugWorkflow(c *gin.Context) {
 		req.Input = make(map[string]any)
 	}
 
-	result, err := h.service.DebugWorkflow(userID, workflowID, &req)
+	result, err := h.service.DebugWorkflowWithTraceID(userID, workflowID, &req, trace.GetTraceIDFromGin(c))
 	if err != nil {
 		response.InternalError(c, err.Error())
 		return

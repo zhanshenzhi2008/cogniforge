@@ -118,6 +118,11 @@ func (s *WorkflowService) DeleteWorkflow(userID, workflowID string) error {
 
 // ExecuteWorkflow 异步执行工作流
 func (s *WorkflowService) ExecuteWorkflow(userID, workflowID string, req *ExecuteWorkflowRequest) (*ExecuteResponse, error) {
+	return s.ExecuteWorkflowWithTraceID(userID, workflowID, req, "")
+}
+
+// ExecuteWorkflowWithTraceID 异步执行工作流（带 traceId）
+func (s *WorkflowService) ExecuteWorkflowWithTraceID(userID, workflowID string, req *ExecuteWorkflowRequest, traceID string) (*ExecuteResponse, error) {
 	var workflow model.Workflow
 	if err := s.db.Where("id = ? AND user_id = ?", workflowID, userID).First(&workflow).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -131,13 +136,14 @@ func (s *WorkflowService) ExecuteWorkflow(userID, workflowID string, req *Execut
 		input = make(map[string]any)
 	}
 
-	executionID, err := s.workflowEngine.ExecuteAsync(workflowID, userID, input)
+	executionID, err := s.workflowEngine.ExecuteAsyncWithTraceID(workflowID, userID, input, traceID)
 	if err != nil {
 		return nil, fmt.Errorf("执行工作流失败: %w", err)
 	}
 
 	return &ExecuteResponse{
 		ExecutionID: executionID,
+		TraceID:     traceID,
 		Status:      "pending",
 	}, nil
 }
@@ -192,6 +198,11 @@ func (s *WorkflowService) CancelWorkflowExecution(userID, executionID string) er
 
 // DebugWorkflow 调试工作流
 func (s *WorkflowService) DebugWorkflow(userID, workflowID string, req *DebugWorkflowRequest) (*ExecuteResponse, error) {
+	return s.DebugWorkflowWithTraceID(userID, workflowID, req, "")
+}
+
+// DebugWorkflowWithTraceID 调试工作流（带 traceId）
+func (s *WorkflowService) DebugWorkflowWithTraceID(userID, workflowID string, req *DebugWorkflowRequest, traceID string) (*ExecuteResponse, error) {
 	var workflow model.Workflow
 	if err := s.db.Where("id = ? AND user_id = ?", workflowID, userID).First(&workflow).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -221,7 +232,7 @@ func (s *WorkflowService) DebugWorkflow(userID, workflowID string, req *DebugWor
 	}
 
 	go func() {
-		ctx := engine.NewExecutionContext(workflowID, executionID, input)
+		ctx := engine.NewExecutionContextWithTraceID(workflowID, executionID, input, traceID)
 		ctx.OnNodeStart = func(nodeID string) {
 			updates := map[string]any{
 				"current_node": nodeID,
@@ -251,6 +262,7 @@ func (s *WorkflowService) DebugWorkflow(userID, workflowID string, req *DebugWor
 
 	return &ExecuteResponse{
 		ExecutionID: executionID,
+		TraceID:     traceID,
 		Status:      "debugging",
 	}, nil
 }

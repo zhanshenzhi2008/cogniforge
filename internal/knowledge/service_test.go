@@ -281,7 +281,7 @@ func TestKnowledgeService_CRUD(t *testing.T) {
 	userID := "test_kb_crud"
 	database.DB.Where("user_id = ?", userID).Delete(&model.KnowledgeBase{})
 
-	service := NewKnowledgeService()
+	service := NewKnowledgeService(nil)
 
 	// Create
 	kb, err := service.CreateKnowledgeBase(userID, &CreateKBRequest{
@@ -324,7 +324,7 @@ func TestKnowledgeService_List(t *testing.T) {
 	userID := "test_kb_list"
 	database.DB.Where("user_id = ?", userID).Delete(&model.KnowledgeBase{})
 
-	service := NewKnowledgeService()
+	service := NewKnowledgeService(nil)
 
 	// Create multiple KBs
 	for i := 0; i < 3; i++ {
@@ -351,7 +351,7 @@ func TestKnowledgeService_Defaults(t *testing.T) {
 	userID := "test_kb_defaults"
 	database.DB.Where("user_id = ?", userID).Delete(&model.KnowledgeBase{})
 
-	service := NewKnowledgeService()
+	service := NewKnowledgeService(nil)
 
 	kb, err := service.CreateKnowledgeBase(userID, &CreateKBRequest{
 		Name: "Minimal KB",
@@ -372,7 +372,7 @@ func TestKnowledgeService_Search(t *testing.T) {
 	userID := "test_kb_search"
 	database.DB.Where("user_id = ?", userID).Delete(&model.KnowledgeBase{})
 
-	service := NewKnowledgeService()
+	service := NewKnowledgeService(nil)
 
 	kb, err := service.CreateKnowledgeBase(userID, &CreateKBRequest{
 		Name: "Search Test KB",

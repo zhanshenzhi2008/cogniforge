@@ -1,13 +1,11 @@
 package response
 
 import (
-	"encoding/json"
-	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
+
+	"cogniforge/internal/trace"
 )
 
 // =============================================================================
@@ -116,27 +114,13 @@ func GetMessage(code int) string {
 	return "未知错误"
 }
 
-// IsSuccess 判断是否为成功响应
-func IsSuccess(code int) bool {
-	return code >= 2000 && code < 3000
-}
-
-// IsBizError 判断是否为业务校验异常
-func IsBizError(code int) bool {
-	return code >= 5000 && code < 6000
-}
-
-// IsSysError 判断是否为系统运行异常
-func IsSysError(code int) bool {
-	return code >= 4000 && code < 5000
-}
-
 // =============================================================================
 // Helper functions
 // =============================================================================
 
-func generateTraceID() string {
-	return fmt.Sprintf("%s-%d", uuid.New().String()[:8], time.Now().UnixMilli()%1000000)
+// GetTraceID 获取 traceId，优先从 Gin context 获取，否则生成新的
+func GetTraceID(c *gin.Context) string {
+	return trace.GetTraceIDOrGenerate(c)
 }
 
 // Success 返回成功响应
@@ -144,7 +128,7 @@ func Success(c *gin.Context, data interface{}) {
 	c.JSON(http.StatusOK, ApiResponse{
 		Code:    CodeSuccess,
 		Message: GetMessage(CodeSuccess),
-		TraceID: generateTraceID(),
+		TraceID: GetTraceID(c),
 		Data:    data,
 	})
 }
@@ -154,7 +138,7 @@ func SuccessWithMessage(c *gin.Context, data interface{}, message string) {
 	c.JSON(http.StatusOK, ApiResponse{
 		Code:    CodeSuccess,
 		Message: message,
-		TraceID: generateTraceID(),
+		TraceID: GetTraceID(c),
 		Data:    data,
 	})
 }
@@ -164,7 +148,7 @@ func Created(c *gin.Context, data interface{}) {
 	c.JSON(http.StatusCreated, ApiResponse{
 		Code:    CodeCreated,
 		Message: GetMessage(CodeCreated),
-		TraceID: generateTraceID(),
+		TraceID: GetTraceID(c),
 		Data:    data,
 	})
 }
@@ -174,14 +158,14 @@ func Accepted(c *gin.Context, data interface{}) {
 	c.JSON(http.StatusAccepted, ApiResponse{
 		Code:    CodeAccepted,
 		Message: GetMessage(CodeAccepted),
-		TraceID: generateTraceID(),
+		TraceID: GetTraceID(c),
 		Data:    data,
 	})
 }
 
 // Fail 返回失败响应（使用业务 code）
 func Fail(c *gin.Context, code int, errMsg string) {
-	traceID := generateTraceID()
+	traceID := GetTraceID(c)
 	message := errMsg
 	if errMsg == "" {
 		message = GetMessage(code)
@@ -196,7 +180,7 @@ func Fail(c *gin.Context, code int, errMsg string) {
 
 // FailWithHTTPStatus 返回失败响应（使用 HTTP status + 业务 code）
 func FailWithHTTPStatus(c *gin.Context, httpStatus int, bizCode int, errMsg string) {
-	traceID := generateTraceID()
+	traceID := GetTraceID(c)
 	message := errMsg
 	if errMsg == "" {
 		message = GetMessage(bizCode)
@@ -237,13 +221,4 @@ func InternalError(c *gin.Context, errMsg string) {
 // Conflict 返回资源冲突
 func Conflict(c *gin.Context, errMsg string) {
 	FailWithHTTPStatus(c, http.StatusConflict, CodeResourceConflict, errMsg)
-}
-
-// ToJSON 将 ApiResponse 转换为 JSON 字符串
-func (r ApiResponse) ToJSON() (string, error) {
-	bytes, err := json.Marshal(r)
-	if err != nil {
-		return "", err
-	}
-	return string(bytes), nil
 }

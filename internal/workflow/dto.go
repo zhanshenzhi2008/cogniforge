@@ -28,6 +28,7 @@ type DebugWorkflowRequest struct {
 
 type ExecuteResponse struct {
 	ExecutionID string `json:"execution_id"`
+	TraceID     string `json:"trace_id,omitempty"` // 可选的 traceId，用于追踪
 	Status      string `json:"status"`
 }
 

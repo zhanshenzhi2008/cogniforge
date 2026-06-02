@@ -39,8 +39,9 @@ type (
 
 // 核心包函数
 var (
-	NewExecutionContext = core.NewExecutionContext
-	NewExecutionLogger  = core.NewExecutionLogger
+	NewExecutionContext            = core.NewExecutionContext
+	NewExecutionContextWithTraceID = core.NewExecutionContextWithTraceID
+	NewExecutionLogger             = core.NewExecutionLogger
 )
 
 // 调试器构造函数

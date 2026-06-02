@@ -65,6 +65,7 @@ func (WorkflowEdge) TableName() string {
 // WorkflowExecution 工作流执行记录表
 type WorkflowExecution struct {
 	ID          string         `gorm:"primaryKey;type:varchar(64)" json:"id"`
+	TraceID     string         `gorm:"type:varchar(64);index" json:"trace_id"` // 请求追踪 ID
 	WorkflowID  string         `gorm:"type:varchar(64);not null;index" json:"workflow_id"`
 	UserID      string         `gorm:"type:varchar(64);not null;index" json:"user_id"`
 	Status      string         `gorm:"type:varchar(50);default:'pending'" json:"status"`

@@ -176,7 +176,7 @@ func TestExecutionContext_NodeState(t *testing.T) {
 }
 
 func TestExecutionLogger(t *testing.T) {
-	logger := core.NewExecutionLogger("exec1")
+	logger := core.NewExecutionLogger("exec1", "trace1")
 
 	logger.Log("node1", "info", "Test message")
 	assert.Len(t, logger.Logs, 1)

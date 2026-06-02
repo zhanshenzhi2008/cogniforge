@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"strings"
@@ -12,6 +13,7 @@ import (
 
 	"cogniforge/internal/database"
 	"cogniforge/internal/model"
+	"cogniforge/internal/trace"
 )
 
 func RequestLogger() gin.HandlerFunc {
@@ -28,11 +30,20 @@ func RequestLogger() gin.HandlerFunc {
 			return
 		}
 
-		// 生成 Trace ID
-		traceID := c.GetHeader("X-Trace-ID")
+		// 生成或获取 Trace ID，优先使用外部传入的
+		traceID := c.GetHeader(trace.TraceIDHeader)
 		if traceID == "" {
-			traceID = strings.Split(uuid.New().String(), "-")[0]
+			traceID = trace.GenerateTraceID()
 		}
+
+		// 将 traceId 存入 Gin context，供后续 handler 和 response 使用
+		c.Set(string(trace.TraceIDKey), traceID)
+		// 同时存入标准 context，确保 slog 等工具也能访问
+		ctx := context.WithValue(c.Request.Context(), trace.TraceIDKey, traceID)
+		c.Request = c.Request.WithContext(ctx)
+
+		// 设置响应 header，前端可获取 traceId
+		c.Header(trace.ResponseTraceIDHeader, traceID)
 
 		// 读取请求体
 		var requestBody string

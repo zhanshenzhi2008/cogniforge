@@ -1,15 +1,20 @@
 package core
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
+
+	"cogniforge/internal/trace"
 )
 
 type ExecutionContext struct {
 	WorkflowID  string
 	ExecutionID string
+	TraceID     string          // 新增：请求追踪 ID
+	Context     context.Context // 新增：用于传递 traceId
 	NodeID      string
 	Variables   map[string]any
 	Input       map[string]any
@@ -23,16 +28,30 @@ type ExecutionContext struct {
 	OnProgress  func(nodeID string, message string)
 }
 
+// NewExecutionContext 创建执行上下文，可选传入 traceId
 func NewExecutionContext(workflowID, executionID string, input map[string]any) *ExecutionContext {
+	return NewExecutionContextWithTraceID(workflowID, executionID, input, "")
+}
+
+// NewExecutionContextWithTraceID 创建带 traceId 的执行上下文
+func NewExecutionContextWithTraceID(workflowID, executionID string, input map[string]any, traceID string) *ExecutionContext {
+	var ctx context.Context
+	if traceID != "" {
+		ctx = context.WithValue(context.Background(), trace.TraceIDKey, traceID)
+	} else {
+		ctx = context.Background()
+	}
 	return &ExecutionContext{
 		WorkflowID:  workflowID,
 		ExecutionID: executionID,
+		TraceID:     traceID,
+		Context:     ctx,
 		Variables:   make(map[string]any),
 		Input:       input,
 		Output:      make(map[string]any),
 		State:       make(map[string]string),
 		StartTime:   time.Now(),
-		Logger:      NewExecutionLogger(executionID),
+		Logger:      NewExecutionLogger(executionID, traceID),
 	}
 }
 
@@ -63,6 +82,7 @@ func (ctx *ExecutionContext) GetNodeState(nodeID string) string {
 
 type ExecutionLogger struct {
 	ExecutionID string
+	TraceID     string // 新增：请求追踪 ID
 	Logs        []LogEntry
 	mu          sync.Mutex
 }
@@ -75,9 +95,10 @@ type LogEntry struct {
 	Duration int64     `json:"duration_ms"`
 }
 
-func NewExecutionLogger(executionID string) *ExecutionLogger {
+func NewExecutionLogger(executionID string, traceID string) *ExecutionLogger {
 	return &ExecutionLogger{
 		ExecutionID: executionID,
+		TraceID:     traceID,
 		Logs:        make([]LogEntry, 0),
 	}
 }
@@ -128,12 +149,13 @@ type Position struct {
 }
 
 type ExecutionResult struct {
-	ExecutionID string                 `json:"execution_id"`
-	Status      string                 `json:"status"`
-	Output      map[string]any        `json:"output"`
-	Error       string                `json:"error,omitempty"`
-	Logs        []LogEntry            `json:"logs"`
-	Duration    int64                 `json:"duration_ms"`
-	StartedAt   *time.Time           `json:"started_at,omitempty"`
-	CompletedAt *time.Time           `json:"completed_at,omitempty"`
+	ExecutionID string         `json:"execution_id"`
+	TraceID     string         `json:"trace_id"` // 新增：请求追踪 ID
+	Status      string         `json:"status"`
+	Output      map[string]any `json:"output"`
+	Error       string         `json:"error,omitempty"`
+	Logs        []LogEntry     `json:"logs"`
+	Duration    int64          `json:"duration_ms"`
+	StartedAt   *time.Time     `json:"started_at,omitempty"`
+	CompletedAt *time.Time     `json:"completed_at,omitempty"`
 }

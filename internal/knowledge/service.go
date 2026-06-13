@@ -1,18 +1,22 @@
 package knowledge
 
 import (
+	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"mime/multipart"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
 	"cogniforge/internal/database"
 	"cogniforge/internal/model"
+	"cogniforge/internal/trace"
 )
 
 const (
@@ -71,7 +75,7 @@ func (s *KnowledgeService) CreateKnowledgeBase(userID string, req *CreateKBReque
 	}
 
 	if kb.VectorDB == "" {
-		kb.VectorDB = "chroma"
+		kb.VectorDB = "pgvector"
 	}
 	if kb.EmbeddingModel == "" {
 		kb.EmbeddingModel = "text-embedding-ada-002"
@@ -254,7 +258,7 @@ func (s *KnowledgeService) UploadDocument(userID, kbID string, file *multipart.F
 }
 
 // SearchKnowledge 知识库检索
-func (s *KnowledgeService) SearchKnowledge(userID, kbID string, req *SearchRequest) (*SearchResponse, error) {
+func (s *KnowledgeService) SearchKnowledge(c *gin.Context, userID, kbID string, req *SearchRequest) (*SearchResponse, error) {
 	var kb model.KnowledgeBase
 	if err := s.db.Where("id = ? AND user_id = ?", kbID, userID).First(&kb).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -275,8 +279,11 @@ func (s *KnowledgeService) SearchKnowledge(userID, kbID string, req *SearchReque
 		req.MinScore = 0.3
 	}
 
+	// 创建带 trace_id 的 context
+	ctx := context.WithValue(c.Request.Context(), trace.TraceIDKey, trace.GetTraceIDFromGin(c))
+
 	// 调用 Python 服务进行向量检索
-	pythonResp, err := s.pythonClient.Search(&PythonSearchRequest{
+	pythonResp, err := s.pythonClient.Search(ctx, &PythonSearchRequest{
 		Query:          req.Query,
 		CollectionName: kbID,
 		TopK:           req.TopK,
@@ -316,11 +323,19 @@ func (s *KnowledgeService) processDocumentAsync(docID string) {
 
 	var doc model.Document
 	if err := s.db.Where("id = ?", docID).First(&doc).Error; err != nil {
+		slog.Error("查询文档失败", "doc_id", docID, "error", err.Error())
 		return
 	}
 
+	// 为后台任务生成 trace_id
+	ctx := context.Background()
+	traceID := trace.GenerateTraceID()
+	ctx = context.WithValue(ctx, trace.TraceIDKey, traceID)
+
+	slog.Info("开始处理文档", "doc_id", docID, "file", doc.Name, "trace_id", traceID)
+
 	// 调用 Python 服务进行文档处理和向量化
-	result, err := s.pythonClient.ProcessDocument(&ProcessRequest{
+	result, err := s.pythonClient.ProcessDocument(ctx, &ProcessRequest{
 		FilePath:       doc.FilePath,
 		DocumentID:     docID,
 		CollectionName: doc.KnowledgeBaseID,
@@ -333,10 +348,11 @@ func (s *KnowledgeService) processDocumentAsync(docID string) {
 	if err != nil || !result.Success {
 		errMsg := ""
 		if err != nil {
-			errMsg = err.Error()
+			errMsg = fmt.Sprintf("调用 Python 服务失败: %v", err)
 		} else if result.Error != "" {
 			errMsg = result.Error
 		}
+		slog.Error("文档处理失败", "doc_id", docID, "error", errMsg, "trace_id", traceID)
 		s.db.Model(&doc).Updates(map[string]any{
 			"status": "failed",
 			"error":  errMsg,
@@ -350,6 +366,7 @@ func (s *KnowledgeService) processDocumentAsync(docID string) {
 		"status":       "completed",
 		"updated_at":   time.Now(),
 	})
+	slog.Info("文档处理完成", "doc_id", docID, "chunks", result.ChunksCreated, "trace_id", traceID)
 }
 
 func getFileExt(filename string) string {

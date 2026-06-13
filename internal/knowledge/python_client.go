@@ -2,6 +2,7 @@ package knowledge
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	"cogniforge/internal/config"
+	"cogniforge/internal/trace"
 )
 
 type PythonServiceClient struct {
@@ -59,17 +61,27 @@ func NewPythonServiceClient(cfg *config.Config) *PythonServiceClient {
 	}
 }
 
-func (c *PythonServiceClient) ProcessDocument(req *ProcessRequest) (*ProcessResponse, error) {
+func (c *PythonServiceClient) ProcessDocument(ctx context.Context, req *ProcessRequest) (*ProcessResponse, error) {
 	jsonData, err := json.Marshal(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	resp, err := c.client.Post(
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost,
 		fmt.Sprintf("%s/api/rag/process", c.baseURL),
-		"application/json",
 		bytes.NewBuffer(jsonData),
 	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	// Pass trace_id to Python service (统一使用 X-Trace-ID)
+	if traceID := trace.GetTraceIDFromContext(ctx); traceID != "" {
+		httpReq.Header.Set("X-Trace-ID", traceID)
+	}
+
+	resp, err := c.client.Do(httpReq)
 	if err != nil {
 		return nil, fmt.Errorf("failed to call python service: %w", err)
 	}
@@ -88,17 +100,27 @@ func (c *PythonServiceClient) ProcessDocument(req *ProcessRequest) (*ProcessResp
 	return &result, nil
 }
 
-func (c *PythonServiceClient) Search(req *PythonSearchRequest) (*PythonSearchResponse, error) {
+func (c *PythonServiceClient) Search(ctx context.Context, req *PythonSearchRequest) (*PythonSearchResponse, error) {
 	jsonData, err := json.Marshal(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	resp, err := c.client.Post(
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost,
 		fmt.Sprintf("%s/api/rag/search", c.baseURL),
-		"application/json",
 		bytes.NewBuffer(jsonData),
 	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	// Pass trace_id to Python service (统一使用 X-Trace-ID)
+	if traceID := trace.GetTraceIDFromContext(ctx); traceID != "" {
+		httpReq.Header.Set("X-Trace-ID", traceID)
+	}
+
+	resp, err := c.client.Do(httpReq)
 	if err != nil {
 		return nil, fmt.Errorf("failed to call python service: %w", err)
 	}

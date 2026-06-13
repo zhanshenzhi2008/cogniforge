@@ -16,7 +16,7 @@ type KnowledgeBase struct {
 	UserID         string         `gorm:"type:varchar(64);not null;index" json:"user_id"`
 	Name           string         `gorm:"type:varchar(255);not null" json:"name"`
 	Description    string         `gorm:"type:text" json:"description"`
-	VectorDB       string         `gorm:"type:varchar(50);default:'chroma'" json:"vector_db"` // chroma, qdrant, weaviate
+	VectorDB       string         `gorm:"type:varchar(50);default:'pgvector'" json:"vector_db"` // pgvector, chroma, qdrant, weaviate
 	EmbeddingModel string         `gorm:"type:varchar(100);default:'text-embedding-ada-002'" json:"embedding_model"`
 	Status         string         `gorm:"type:varchar(50);default:'active'" json:"status"`
 	Metadata       JSONBMap       `gorm:"type:jsonb" json:"metadata"`

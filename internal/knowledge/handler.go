@@ -150,7 +150,7 @@ func (h *KnowledgeHandler) SearchKnowledge(c *gin.Context) {
 		return
 	}
 
-	result, err := h.service.SearchKnowledge(userID, kbID, &req)
+	result, err := h.service.SearchKnowledge(c, userID, kbID, &req)
 	if err != nil {
 		response.NotFound(c, err.Error())
 		return

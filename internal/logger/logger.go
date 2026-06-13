@@ -2,6 +2,7 @@ package logger
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log/slog"
 	"os"
@@ -9,41 +10,79 @@ import (
 	"cogniforge/internal/trace"
 )
 
-func Init() {
-	opts := &slog.HandlerOptions{
-		Level: slog.LevelInfo,
-	}
-	handler := slog.NewJSONHandler(os.Stdout, opts)
-	slog.SetDefault(slog.New(handler))
+type consoleHandler struct {
+	opts slog.HandlerOptions
+	w    io.Writer
 }
 
-// InitWithTraceID 初始化日志，使用自定义 handler 支持 traceId
-// 当 context 中包含 traceId 时，日志会自动包含该字段
-func InitWithTraceID() {
-	opts := &slog.HandlerOptions{
-		Level: slog.LevelInfo,
-	}
-	handler := NewTraceIDHandler(os.Stdout, opts)
-	slog.SetDefault(slog.New(handler))
-}
-
-// TraceIDHandler 带 traceId 支持的 slog handler
-type TraceIDHandler struct {
-	*slog.JSONHandler
-}
-
-// NewTraceIDHandler 创建支持 traceId 的 handler
-func NewTraceIDHandler(w io.Writer, opts *slog.HandlerOptions) *TraceIDHandler {
-	return &TraceIDHandler{
-		JSONHandler: slog.NewJSONHandler(w, opts),
+func newHandler(w io.Writer) *consoleHandler {
+	return &consoleHandler{
+		opts: slog.HandlerOptions{
+			Level:     slog.LevelDebug,
+			AddSource: true,
+		},
+		w: w,
 	}
 }
 
-// Handle 重写 Handle 方法，自动从 context 中获取 traceId 并添加到日志
-func (h *TraceIDHandler) Handle(ctx context.Context, r slog.Record) error {
-	// 从 context 中获取 traceId
+func (h *consoleHandler) Enabled(_ context.Context, level slog.Level) bool {
+	return level >= h.opts.Level.Level()
+}
+
+func (h *consoleHandler) Handle(ctx context.Context, r slog.Record) error {
+	var buf []byte
+
+	// 时间
+	buf = fmt.Appendf(buf, "%s ", r.Time.Format("2006-01-02 15:04:05"))
+
+	// 级别（彩色）
+	buf = append(buf, colorLevel(r.Level)...)
+	buf = append(buf, ' ')
+
+	// 来源
+	if r.PC != 0 {
+		src := r.Source()
+		buf = fmt.Appendf(buf, "%s:%d ", src.File, src.Line)
+	}
+
+	// traceId
 	if traceID := trace.GetTraceIDFromContext(ctx); traceID != "" {
-		r.Add("trace_id", traceID)
+		buf = fmt.Appendf(buf, "[%s] ", traceID)
 	}
-	return h.JSONHandler.Handle(ctx, r)
+
+	// 消息
+	buf = append(buf, r.Message...)
+
+	// attrs
+	r.Attrs(func(a slog.Attr) bool {
+		buf = fmt.Appendf(buf, " %s=%v", a.Key, a.Value)
+		return true
+	})
+
+	buf = append(buf, '\n')
+	_, err := h.w.Write(buf)
+	return err
+}
+
+func (h *consoleHandler) WithAttrs([]slog.Attr) slog.Handler { return h }
+func (h *consoleHandler) WithGroup(string) slog.Handler      { return h }
+
+func colorLevel(level slog.Level) string {
+	switch level {
+	case slog.LevelDebug:
+		return "\033[36mDEBUG\033[0m"
+	case slog.LevelInfo:
+		return "\033[32mINFO \033[0m"
+	case slog.LevelWarn:
+		return "\033[33mWARN \033[0m"
+	case slog.LevelError:
+		return "\033[31mERROR\033[0m"
+	default:
+		return level.String()
+	}
+}
+
+// Init initializes the logger
+func Init() {
+	slog.SetDefault(slog.New(newHandler(os.Stdout)))
 }

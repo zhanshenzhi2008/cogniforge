@@ -74,6 +74,7 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config) {
 				kb.GET("/:id/documents", knowledgeHandler.ListDocuments)
 				kb.DELETE("/:id/documents/:docId", knowledgeHandler.DeleteDocument)
 				kb.POST("/:id/documents/upload", knowledgeHandler.UploadDocument)
+				kb.POST("/:id/documents/reparse", knowledgeHandler.ReparseDocument)
 				kb.POST("/:id/search", knowledgeHandler.SearchKnowledge)
 			}
 

@@ -8,6 +8,7 @@ import (
 
 	"cogniforge/internal/auth"
 	"cogniforge/internal/config"
+	"cogniforge/internal/crypto"
 	"cogniforge/internal/database"
 	"cogniforge/internal/logger"
 	"cogniforge/internal/middleware"
@@ -22,6 +23,8 @@ func main() {
 	gin.SetMode(os.Getenv("GIN_MODE"))
 
 	cfg := config.Load()
+
+	crypto.Init(cfg.Encryption.Key)
 
 	db, err := database.Connect(cfg)
 	if err != nil {
@@ -44,9 +47,15 @@ func main() {
 		&model.Permission{},
 		&model.Role{},
 		&model.RolePermission{},
+		&model.AIProvider{},
 	); err != nil {
 		slog.Error("failed to migrate database", "error", err)
 		return
+	}
+
+	// 初始化默认 AI 供应商
+	if err := model.InitDefaultProviders(db); err != nil {
+		slog.Warn("failed to init default AI providers", "error", err)
 	}
 
 	// 初始化默认管理员
@@ -77,7 +86,7 @@ func main() {
 	r.MaxMultipartMemory = 50 << 20
 
 	// 设置路由
-	router.SetupRoutes(r, cfg)
+	router.SetupRoutes(r, cfg, db)
 
 	port := os.Getenv("PORT")
 	if port == "" {

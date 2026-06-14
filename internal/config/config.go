@@ -11,13 +11,18 @@ import (
 )
 
 type Config struct {
-	Server   ServerConfig
-	Database DatabaseConfig
-	Redis    RedisConfig
-	AI       AIConfig
-	RAG      RAGConfig
-	JWT      JWTConfig
-	Log      LogConfig
+	Server     ServerConfig
+	Database   DatabaseConfig
+	Redis      RedisConfig
+	AI         AIConfig
+	RAG        RAGConfig
+	JWT        JWTConfig
+	Log        LogConfig
+	Encryption EncryptionConfig
+}
+
+type EncryptionConfig struct {
+	Key string
 }
 
 type RAGConfig struct {
@@ -46,10 +51,12 @@ type RedisConfig struct {
 }
 
 type AIConfig struct {
-	Provider     string `mapstructure:"provider"`
-	BaseURL      string `mapstructure:"base_url"`
-	APIKey       string `mapstructure:"api_key"`
-	DefaultModel string `mapstructure:"default_model"`
+	Provider        string `mapstructure:"provider"`
+	BaseURL         string `mapstructure:"base_url"`
+	APIKey          string `mapstructure:"api_key"`
+	DefaultModel    string `mapstructure:"default_model"`
+	HttpReferer     string `mapstructure:"http_referer"`
+	OpenRouterTitle string `mapstructure:"openrouter_title"`
 }
 
 type JWTConfig struct {

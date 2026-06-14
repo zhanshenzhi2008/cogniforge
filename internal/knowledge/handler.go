@@ -10,7 +10,7 @@ type KnowledgeHandler struct {
 	service *KnowledgeService
 }
 
-func NewKnowledgeHandler(pythonClient *PythonServiceClient) *KnowledgeHandler {
+func NewKnowledgeHandler(pythonClient *ServiceClient) *KnowledgeHandler {
 	return &KnowledgeHandler{
 		service: NewKnowledgeService(pythonClient),
 	}
@@ -131,7 +131,7 @@ func (h *KnowledgeHandler) ReparseDocument(c *gin.Context) {
 		return
 	}
 
-	doc, err := h.service.ReparseDocument(userID, kbID, req.DocumentID)
+	doc, err := h.service.ReparseDocument(c.Request.Context(), userID, kbID, req.DocumentID)
 	if err != nil {
 		response.NotFound(c, err.Error())
 		return
@@ -150,7 +150,7 @@ func (h *KnowledgeHandler) UploadDocument(c *gin.Context) {
 		return
 	}
 
-	doc, err := h.service.UploadDocument(userID, kbID, file)
+	doc, err := h.service.UploadDocument(c.Request.Context(), userID, kbID, file)
 	if err != nil {
 		response.BadRequest(c, err.Error())
 		return

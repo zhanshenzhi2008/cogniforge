@@ -12,17 +12,17 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"cogniforge/internal/config"
+	"cogniforge/internal/provider"
 )
 
 type ChatService struct {
-	cfg           *config.Config
+	providerSvc   *provider.Service
 	builtInModels []string
 }
 
-func NewChatService(cfg *config.Config) *ChatService {
+func NewChatService(providerSvc *provider.Service) *ChatService {
 	return &ChatService{
-		cfg: cfg,
+		providerSvc: providerSvc,
 		builtInModels: []string{
 			"gpt-3.5-turbo",
 			"gpt-3.5-turbo-0125",
@@ -74,8 +74,9 @@ func (s *ChatService) ListModels() *ListModelsResponse {
 }
 
 func (s *ChatService) defaultModel() string {
-	if s.cfg != nil && strings.TrimSpace(s.cfg.AI.DefaultModel) != "" {
-		return s.cfg.AI.DefaultModel
+	active, err := s.providerSvc.GetActive()
+	if err == nil && active.DefaultModel != "" {
+		return active.DefaultModel
 	}
 	return "gpt-3.5-turbo"
 }
@@ -86,12 +87,13 @@ func (s *ChatService) Chat(req *ChatRequest) (*ChatResponse, error) {
 		req.Model = s.defaultModel()
 	}
 
-	if s.cfg == nil || s.cfg.AI.APIKey == "" {
-		slog.Info("using mock AI provider (api_key empty)")
+	baseURL, apiKey, extraHeaders, err := s.providerSvc.GetActiveForChat()
+	if err != nil {
+		slog.Info("using mock AI provider (no active provider)")
 		return s.mockChatResponse(req)
 	}
 
-	providerURL := s.aiChatCompletionsURL(s.cfg.AI.BaseURL)
+	providerURL := s.aiChatCompletionsURL(baseURL)
 	slog.Info("calling AI provider API", "url", providerURL, "model", req.Model)
 
 	payload := s.buildPayload(req)
@@ -102,7 +104,10 @@ func (s *ChatService) Chat(req *ChatRequest) (*ChatResponse, error) {
 		return nil, err
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("Authorization", "Bearer "+s.cfg.AI.APIKey)
+	httpReq.Header.Set("Authorization", "Bearer "+apiKey)
+	for k, v := range extraHeaders {
+		httpReq.Header.Set(k, v)
+	}
 
 	client := &http.Client{Timeout: 60 * time.Second}
 	resp, err := client.Do(httpReq)
@@ -134,12 +139,13 @@ func (s *ChatService) ChatStream(c *gin.Context, req *ChatRequest) error {
 	c.Header("Connection", "keep-alive")
 	c.Header("X-Accel-Buffering", "no")
 
-	if s.cfg == nil || s.cfg.AI.APIKey == "" {
-		slog.Info("using mock AI provider (api_key empty)")
+	baseURL, apiKey, extraHeaders, err := s.providerSvc.GetActiveForChat()
+	if err != nil {
+		slog.Info("using mock AI provider (no active provider)")
 		return s.mockStreamResponse(c, req)
 	}
 
-	providerURL := s.aiChatCompletionsURL(s.cfg.AI.BaseURL)
+	providerURL := s.aiChatCompletionsURL(baseURL)
 	slog.Info("streaming AI provider API", "url", providerURL, "model", req.Model)
 
 	payload := s.buildPayload(req)
@@ -150,7 +156,10 @@ func (s *ChatService) ChatStream(c *gin.Context, req *ChatRequest) error {
 		return err
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("Authorization", "Bearer "+s.cfg.AI.APIKey)
+	httpReq.Header.Set("Authorization", "Bearer "+apiKey)
+	for k, v := range extraHeaders {
+		httpReq.Header.Set(k, v)
+	}
 
 	client := &http.Client{Timeout: 120 * time.Second}
 	resp, err := client.Do(httpReq)

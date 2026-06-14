@@ -7,7 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"cogniforge/internal/config"
+	"cogniforge/internal/provider"
 	"cogniforge/internal/response"
 )
 
@@ -15,9 +15,9 @@ type ChatHandler struct {
 	service *ChatService
 }
 
-func NewChatHandler(cfg *config.Config) *ChatHandler {
+func NewChatHandler(providerSvc *provider.Service) *ChatHandler {
 	return &ChatHandler{
-		service: NewChatService(cfg),
+		service: NewChatService(providerSvc),
 	}
 }
 

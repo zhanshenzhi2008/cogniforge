@@ -2,32 +2,39 @@ package router
 
 import (
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 
 	"cogniforge/internal/agent"
 	"cogniforge/internal/auth"
 	"cogniforge/internal/chat"
 	"cogniforge/internal/config"
+	"cogniforge/internal/httpclient"
 	"cogniforge/internal/knowledge"
 	"cogniforge/internal/middleware"
 	"cogniforge/internal/monitor"
+	"cogniforge/internal/provider"
 	"cogniforge/internal/rbac"
 	"cogniforge/internal/user"
 	"cogniforge/internal/workflow"
 )
 
 // SetupRoutes 配置所有路由
-func SetupRoutes(r *gin.Engine, cfg *config.Config) {
+func SetupRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 	// 健康检查
 	r.GET("/health", healthHandler)
 	r.GET("/ready", readyHandler)
 	r.GET("/live", liveHandler)
 
 	// 初始化各模块 Handler
+	providerRepo := provider.NewRepository(db)
+	providerSvc := provider.NewService(providerRepo)
+	providerHandler := provider.NewHandler(providerSvc)
+
 	authHandler := auth.NewAuthHandler()
 	userHandler := user.NewUserHandler()
-	chatHandler := chat.NewChatHandler(cfg)
+	chatHandler := chat.NewChatHandler(providerSvc)
 	workflowHandler := workflow.NewWorkflowHandler()
-	pythonClient := knowledge.NewPythonServiceClient(cfg)
+	pythonClient := knowledge.NewServiceClient(httpclient.NewClient(cfg.RAG.PythonServiceURL))
 	knowledgeHandler := knowledge.NewKnowledgeHandler(pythonClient)
 	agentHandler := agent.NewAgentHandler(cfg.AI.DefaultModel)
 	monitorHandler := monitor.NewMonitorHandler()
@@ -77,6 +84,9 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config) {
 				kb.POST("/:id/documents/reparse", knowledgeHandler.ReparseDocument)
 				kb.POST("/:id/search", knowledgeHandler.SearchKnowledge)
 			}
+
+			// AI 供应商配置
+			providerHandler.RegisterRoutes(authenticated)
 
 			// Agent
 			agentHandler.RegisterRoutes(authenticated)

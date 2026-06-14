@@ -1,5 +1,7 @@
 package knowledge
 
+import "context"
+
 // ============ 请求结构 ============
 
 type CreateKBRequest struct {
@@ -22,9 +24,11 @@ type ReparseDocumentRequest struct {
 }
 
 type SearchRequest struct {
-	Query    string  `json:"query" binding:"required"`
-	TopK     int     `json:"top_k"`
-	MinScore float64 `json:"min_score"`
+	Context        context.Context `json:"-"`
+	Query          string          `json:"query" binding:"required"`
+	CollectionName string          `json:"collection_name"`
+	TopK           int             `json:"top_k"`
+	MinScore       float64         `json:"min_score"`
 }
 
 // ============ 响应结构 ============
@@ -42,4 +46,46 @@ type SearchResponse struct {
 	Total    int            `json:"total"`
 	Query    string         `json:"query"`
 	Duration int64          `json:"duration_ms"`
+}
+
+// ============ Python RAG 服务 DTO ============
+
+type ProcessRequest struct {
+	Context        context.Context        `json:"-"`
+	FilePath       string                 `json:"file_path"`
+	DocumentID     string                 `json:"document_id"`
+	CollectionName string                 `json:"collection_name"`
+	Metadata       map[string]interface{} `json:"metadata,omitempty"`
+}
+
+type ProcessResponse struct {
+	Success       bool   `json:"success"`
+	DocumentID    string `json:"document_id"`
+	ChunksCreated int    `json:"chunks_created"`
+	Error         string `json:"error,omitempty"`
+}
+
+type RAGSearchResult struct {
+	ChunkID  string                 `json:"chunk_id"`
+	Content  string                 `json:"content"`
+	Score    float64                `json:"score"`
+	Metadata map[string]interface{} `json:"metadata"`
+}
+
+type RAGSearchResponse struct {
+	Query   string            `json:"query"`
+	Results []RAGSearchResult `json:"results"`
+	Total   int               `json:"total"`
+}
+
+type DeleteDocumentRequest struct {
+	Context        context.Context `json:"-"`
+	DocumentID     string
+	CollectionName string
+}
+
+type DeleteDocumentResponse struct {
+	Success       bool   `json:"success"`
+	DocumentID    string `json:"document_id"`
+	ChunksDeleted int    `json:"chunks_deleted"`
 }

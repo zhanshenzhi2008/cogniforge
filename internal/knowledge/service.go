@@ -40,10 +40,10 @@ var allowedExtensions = map[string]string{
 
 type KnowledgeService struct {
 	db           *gorm.DB
-	pythonClient *PythonServiceClient
+	pythonClient *ServiceClient
 }
 
-func NewKnowledgeService(pythonClient *PythonServiceClient) *KnowledgeService {
+func NewKnowledgeService(pythonClient *ServiceClient) *KnowledgeService {
 	return &KnowledgeService{
 		db:           database.DB,
 		pythonClient: pythonClient,
@@ -186,7 +186,7 @@ func (s *KnowledgeService) DeleteDocument(userID, kbID, docID string) error {
 	}
 
 	// 删除向量
-	if err := s.pythonClient.DeleteDocument(context.Background(), docID, kbID); err != nil {
+	if err := s.pythonClient.DeleteDocument(&DeleteDocumentRequest{Context: context.Background(), DocumentID: docID, CollectionName: kbID}); err != nil {
 		slog.Warn("删除文档向量失败，继续删除记录", "doc_id", docID, "error", err.Error())
 	}
 
@@ -199,7 +199,7 @@ func (s *KnowledgeService) DeleteDocument(userID, kbID, docID string) error {
 }
 
 // ReparseDocument 重新解析文档：先删除旧向量，重置状态，再重新处理
-func (s *KnowledgeService) ReparseDocument(userID, kbID, docID string) (*model.Document, error) {
+func (s *KnowledgeService) ReparseDocument(ctx context.Context, userID, kbID, docID string) (*model.Document, error) {
 	var kb model.KnowledgeBase
 	if err := s.db.Where("id = ? AND user_id = ?", kbID, userID).First(&kb).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -217,7 +217,7 @@ func (s *KnowledgeService) ReparseDocument(userID, kbID, docID string) (*model.D
 	}
 
 	// 1. 删除旧的向量数据
-	if err := s.pythonClient.DeleteDocument(context.Background(), docID, kbID); err != nil {
+	if err := s.pythonClient.DeleteDocument(&DeleteDocumentRequest{Context: ctx, DocumentID: docID, CollectionName: kbID}); err != nil {
 		slog.Warn("删除文档旧向量失败，继续重置状态", "doc_id", docID, "error", err.Error())
 	}
 
@@ -233,9 +233,9 @@ func (s *KnowledgeService) ReparseDocument(userID, kbID, docID string) (*model.D
 		return nil, fmt.Errorf("重置文档状态失败")
 	}
 
-	// 3. 触发异步重新处理
+	// 3. 触发异步重新处理（从 context 提取 trace ID 传递下去）
 	go func() {
-		s.processDocumentAsync(docID)
+		s.processDocumentAsync(docID, trace.GetTraceIDFromContext(ctx))
 	}()
 
 	doc.Status = "pending"
@@ -247,7 +247,7 @@ func (s *KnowledgeService) ReparseDocument(userID, kbID, docID string) (*model.D
 }
 
 // UploadDocument 上传文档
-func (s *KnowledgeService) UploadDocument(userID, kbID string, file *multipart.FileHeader) (*model.Document, error) {
+func (s *KnowledgeService) UploadDocument(ctx context.Context, userID, kbID string, file *multipart.FileHeader) (*model.Document, error) {
 	var kb model.KnowledgeBase
 	if err := s.db.Where("id = ? AND user_id = ?", kbID, userID).First(&kb).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -304,7 +304,7 @@ func (s *KnowledgeService) UploadDocument(userID, kbID string, file *multipart.F
 	s.db.Model(&kb).Update("doc_count", gorm.Expr("doc_count + 1"))
 
 	go func() {
-		s.processDocumentAsync(docID)
+		s.processDocumentAsync(docID, trace.GetTraceIDFromContext(ctx))
 	}()
 
 	return &doc, nil
@@ -336,7 +336,8 @@ func (s *KnowledgeService) SearchKnowledge(c *gin.Context, userID, kbID string, 
 	ctx := context.WithValue(c.Request.Context(), trace.TraceIDKey, trace.GetTraceIDFromGin(c))
 
 	// 调用 Python 服务进行向量检索
-	pythonResp, err := s.pythonClient.Search(ctx, &PythonSearchRequest{
+	pythonResp, err := s.pythonClient.Search(&SearchRequest{
+		Context:        ctx,
 		Query:          req.Query,
 		CollectionName: kbID,
 		TopK:           req.TopK,
@@ -368,7 +369,7 @@ func (s *KnowledgeService) SearchKnowledge(c *gin.Context, userID, kbID string, 
 
 // ============ 辅助函数 ============
 
-func (s *KnowledgeService) processDocumentAsync(docID string) {
+func (s *KnowledgeService) processDocumentAsync(docID, parentTraceID string) {
 	s.db.Model(&model.Document{}).Where("id = ?", docID).Updates(map[string]any{
 		"status":     "processing",
 		"updated_at": time.Now(),
@@ -380,15 +381,18 @@ func (s *KnowledgeService) processDocumentAsync(docID string) {
 		return
 	}
 
-	// 为后台任务生成 trace_id
-	ctx := context.Background()
-	traceID := trace.GenerateTraceID()
-	ctx = context.WithValue(ctx, trace.TraceIDKey, traceID)
+	// 为后台任务生成 context，优先使用上游传入的 trace ID
+	traceID := parentTraceID
+	if traceID == "" {
+		traceID = trace.GenerateTraceID()
+	}
+	ctx := context.WithValue(context.Background(), trace.TraceIDKey, traceID)
 
 	slog.Info("开始处理文档", "doc_id", docID, "file", doc.Name, "trace_id", traceID)
 
 	// 调用 Python 服务进行文档处理和向量化
-	result, err := s.pythonClient.ProcessDocument(ctx, &ProcessRequest{
+	result, err := s.pythonClient.ProcessDocument(&ProcessRequest{
+		Context:        ctx,
 		FilePath:       doc.FilePath,
 		DocumentID:     docID,
 		CollectionName: doc.KnowledgeBaseID,

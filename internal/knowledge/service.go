@@ -185,12 +185,65 @@ func (s *KnowledgeService) DeleteDocument(userID, kbID, docID string) error {
 		return fmt.Errorf("查询文档失败")
 	}
 
+	// 删除向量
+	if err := s.pythonClient.DeleteDocument(context.Background(), docID, kbID); err != nil {
+		slog.Warn("删除文档向量失败，继续删除记录", "doc_id", docID, "error", err.Error())
+	}
+
 	if err := s.db.Delete(&doc).Error; err != nil {
 		return fmt.Errorf("删除文档失败")
 	}
 
 	s.db.Model(&kb).Update("doc_count", gorm.Expr("doc_count - 1"))
 	return nil
+}
+
+// ReparseDocument 重新解析文档：先删除旧向量，重置状态，再重新处理
+func (s *KnowledgeService) ReparseDocument(userID, kbID, docID string) (*model.Document, error) {
+	var kb model.KnowledgeBase
+	if err := s.db.Where("id = ? AND user_id = ?", kbID, userID).First(&kb).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, fmt.Errorf("知识库不存在")
+		}
+		return nil, fmt.Errorf("查询知识库失败")
+	}
+
+	var doc model.Document
+	if err := s.db.Where("id = ? AND knowledge_base_id = ?", docID, kbID).First(&doc).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, fmt.Errorf("文档不存在")
+		}
+		return nil, fmt.Errorf("查询文档失败")
+	}
+
+	// 1. 删除旧的向量数据
+	if err := s.pythonClient.DeleteDocument(context.Background(), docID, kbID); err != nil {
+		slog.Warn("删除文档旧向量失败，继续重置状态", "doc_id", docID, "error", err.Error())
+	}
+
+	// 2. 重置文档状态
+	now := time.Now()
+	if err := s.db.Model(&doc).Updates(map[string]any{
+		"status":       "pending",
+		"chunk_count":  0,
+		"vector_count": 0,
+		"error":        "",
+		"updated_at":   now,
+	}).Error; err != nil {
+		return nil, fmt.Errorf("重置文档状态失败")
+	}
+
+	// 3. 触发异步重新处理
+	go func() {
+		s.processDocumentAsync(docID)
+	}()
+
+	doc.Status = "pending"
+	doc.ChunkCount = 0
+	doc.VectorCount = 0
+	doc.Error = ""
+	doc.UpdatedAt = now
+	return &doc, nil
 }
 
 // UploadDocument 上传文档

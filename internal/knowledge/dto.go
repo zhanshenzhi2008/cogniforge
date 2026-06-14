@@ -17,6 +17,10 @@ type UpdateKBRequest struct {
 	Status         string `json:"status"`
 }
 
+type ReparseDocumentRequest struct {
+	DocumentID string `json:"document_id" binding:"required"`
+}
+
 type SearchRequest struct {
 	Query    string  `json:"query" binding:"required"`
 	TopK     int     `json:"top_k"`

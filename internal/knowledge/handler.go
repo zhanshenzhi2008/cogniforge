@@ -120,6 +120,25 @@ func (h *KnowledgeHandler) DeleteDocument(c *gin.Context) {
 	response.SuccessWithMessage(c, nil, "文档已删除")
 }
 
+// ReparseDocument 重新解析文档
+func (h *KnowledgeHandler) ReparseDocument(c *gin.Context) {
+	userID := c.GetString("user_id")
+	kbID := c.Param("id")
+
+	var req ReparseDocumentRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "请求参数无效: "+err.Error())
+		return
+	}
+
+	doc, err := h.service.ReparseDocument(userID, kbID, req.DocumentID)
+	if err != nil {
+		response.NotFound(c, err.Error())
+		return
+	}
+	response.Success(c, doc)
+}
+
 // UploadDocument 上传文档
 func (h *KnowledgeHandler) UploadDocument(c *gin.Context) {
 	userID := c.GetString("user_id")
@@ -170,6 +189,7 @@ func (h *KnowledgeHandler) RegisterRoutes(rg *gin.RouterGroup) {
 		kbs.GET("/:id/documents", h.ListDocuments)
 		kbs.DELETE("/:id/documents/:docId", h.DeleteDocument)
 		kbs.POST("/:id/documents/upload", h.UploadDocument)
+		kbs.POST("/:id/documents/reparse", h.ReparseDocument)
 		kbs.POST("/:id/search", h.SearchKnowledge)
 	}
 }

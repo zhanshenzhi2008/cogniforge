@@ -147,3 +147,35 @@ func (c *PythonServiceClient) Health() bool {
 	defer resp.Body.Close()
 	return resp.StatusCode == http.StatusOK
 }
+
+type DeleteDocumentResponse struct {
+	Success       bool   `json:"success"`
+	DocumentID    string `json:"document_id"`
+	ChunksDeleted int    `json:"chunks_deleted"`
+}
+
+// DeleteDocument 删除文档的所有向量
+func (c *PythonServiceClient) DeleteDocument(ctx context.Context, documentID, collectionName string) error {
+	url := fmt.Sprintf("%s/api/rag/%s/%s", c.baseURL, collectionName, documentID)
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodDelete, url, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	if traceID := trace.GetTraceIDFromContext(ctx); traceID != "" {
+		httpReq.Header.Set("X-Trace-ID", traceID)
+	}
+
+	resp, err := c.client.Do(httpReq)
+	if err != nil {
+		return fmt.Errorf("failed to call python service: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("python service error (status %d): %s", resp.StatusCode, string(body))
+	}
+
+	return nil
+}

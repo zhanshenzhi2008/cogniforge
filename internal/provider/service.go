@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/google/uuid"
+
 	"cogniforge/internal/crypto"
 	"cogniforge/internal/model"
 )
@@ -49,6 +51,10 @@ func (s *Service) Create(req *CreateProviderRequest) (*model.AIProvider, error) 
 		Priority:     req.Priority,
 		Status:       "active",
 	}
+	// 自动生成 ID（如果未指定）
+	if p.ID == "" {
+		p.ID = uuid.New().String()
+	}
 	if req.ExtraHeaders != nil {
 		data, _ := json.Marshal(req.ExtraHeaders)
 		p.ExtraHeaders = model.JSONBMap{}
@@ -81,6 +87,10 @@ func (s *Service) Update(id string, req *UpdateProviderRequest) (*model.AIProvid
 	}
 	if req.DefaultModel != nil {
 		p.DefaultModel = *req.DefaultModel
+	}
+	// 自动生成 ID（如果未指定）
+	if p.ID == "" {
+		p.ID = uuid.New().String()
 	}
 	if req.ExtraHeaders != nil {
 		data, _ := json.Marshal(req.ExtraHeaders)

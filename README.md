@@ -172,7 +172,7 @@ RBAC权限管理、数据隔离、审计日志、合规报告。
 | 组件 | 技术 |
 |-----|------|
 | 前端 | React 18, TypeScript, Next.js, Tailwind CSS |
-| 数据库 | PostgreSQL 15+, Redis 7+ |
+| 数据库 | PostgreSQL 15+, Redis 8+ |
 | 向量库 | Milvus/Qdrant |
 | 消息队列 | Kafka 3.6+ |
 | 容器编排 | Kubernetes 1.28+ |
@@ -207,6 +207,24 @@ RBAC权限管理、数据隔离、审计日志、合规报告。
 - [ ] 多Agent协作
 - [ ] 企业级合规功能
 - [ ] 插件市场
+
+---
+
+## 部署
+
+完整部署说明（Traefik + Docker Compose + 三仓库 CI/CD）见 [`traefik-docker/README.md`](./traefik-docker/README.md)。
+
+快速开始：
+
+```bash
+cd traefik-docker
+cp .env.example .env && vi .env
+docker compose up -d
+```
+
+CI/CD 工作流：
+- 测试：`.github/workflows/ci.yml`（PR 阶段触发）
+- 部署：`.github/workflows/cd.yml`（push main 自动部署到服务器）
 
 ---
 

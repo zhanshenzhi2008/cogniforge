@@ -1,0 +1,58 @@
+| =============================================================================
+# cogniforge (Go 后端) 生产部署
+# 部署位置：/opt/project/cogniforge/docker-compose.yml
+# 单部署根目录：三个仓的 compose 都集中到 /opt/project/cogniforge/
+# 数据库：连接 ../envs/db.env（共享 db-net 寻址 db-postgres）
+# 路由：Traefik 自动发现（labels 块）
+# 镜像：CD 流程构建并推到 ghcr.io，此处只 pull + up
+# =============================================================================
+
+services:
+  cogniforge:
+    image: ghcr.io/${IMAGE_NAMESPACE:-zhanshenzhi2008}/cogniforge/cogniforge:latest
+    container_name: cogniforge
+    restart: unless-stopped
+    expose:
+      - "8080"
+    env_file:
+      # 公共配置（部署根的上级目录）
+      - ../envs/db.env                 # PostgreSQL + Redis 连接
+      # 本服务私有配置（与 AI/Web 同部署根目录）
+      - .env                           # 后端独立配置（JWT、DOMAIN 等）
+    environment:
+      GIN_MODE: release
+      # ── 业务配置（云端不走 db.env 时也能跑）────────────────────
+      AI_SERVICE_URL: http://cogniforge-ai:8086
+    volumes:
+      - cogniforge-uploads:/app/uploads
+      - ./configs:/app/configs:ro
+    networks:
+      - cogniforge-net
+      - db-net           # ← 连接公用数据库网络
+    labels:
+      # ── Traefik 路由配置（自动 HTTPS）──
+      - "traefik.enable=true"
+      - "traefik.http.routers.cogniforge-api.rule=Host(`${DOMAIN:?DOMAIN is required}`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.cogniforge-api.entrypoints=websecure"
+      - "traefik.http.routers.cogniforge-api.tls=true"
+      - "traefik.http.routers.cogniforge-api.tls.certresolver=letsencrypt"
+      - "traefik.http.services.cogniforge-api.loadbalancer.server.port=8080"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  cogniforge-net:
+    external: true
+    name: cogniforge-net
+  db-net:
+    external: true
+    name: db-net
+
+volumes:
+  cogniforge-uploads:
+    external: true
+    name: cogniforge-uploads

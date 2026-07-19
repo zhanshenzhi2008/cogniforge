@@ -1,0 +1,13 @@
+.git
+.gitignore
+*.md
+uploads
+.idea
+.vscode
+.env
+.env.*
+!.env.example
+.DS_Store
+node_modules
+vendor
+fixtures

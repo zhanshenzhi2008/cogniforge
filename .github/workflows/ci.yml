@@ -1,0 +1,117 @@
+# =============================================================================
+# GitHub Actions CI 模板：cogniforge (Go)
+# 适用：Go 后端单元测试
+# 数据库：PostgreSQL（与部署环境一致）
+# 用法：放到 .github/workflows/ci.yml，改顶部 env 块
+# =============================================================================
+
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+env:
+  # ── Go 配置 ───────────────────────────────────────────────────────
+  BACKEND_DIR: .                # ← 改 1：后端代码目录（仓库根或子目录）
+  GO_VERSION: '1.24'            # ← 改 2：Go 版本（go.mod 里写的）
+
+  # ── 服务镜像版本（与部署环境保持一致）─────────────────────────────
+  POSTGRES_IMAGE: postgres:16-alpine      # ← 改 3
+  REDIS_IMAGE: redis:7-alpine            # ← 改 4
+
+  # ── 数据库初始化脚本（相对于仓库根）──────────────────────────────
+  DB_INIT_SCRIPT: fixtures/postgres/init.sql   # ← 改 5：建表 SQL 路径，留空则跳过
+
+jobs:
+  # =========================================================================
+  # 后端单元测试（PostgreSQL + Redis）
+  # =========================================================================
+  backend-test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: ${{ env.POSTGRES_IMAGE }}
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: cogniforge_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+          --health-start-period=30s
+
+      redis:
+        image: ${{ env.REDIS_IMAGE }}
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s
+          --health-timeout=3s
+          --health-retries=10
+
+    defaults:
+      run:
+        working-directory: ${{ env.BACKEND_DIR }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go ${{ env.GO_VERSION }}
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/go-build
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: ${{ runner.os }}-go-
+
+      - name: Install psql client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Wait for PostgreSQL to be ready
+        run: |
+          for i in $(seq 1 30); do
+            pg_isready -h 127.0.0.1 -U postgres && echo "PostgreSQL ready" && break
+            echo "Waiting for PostgreSQL... ($i/30)"
+            sleep 2
+          done
+
+      - name: Run SQL init script
+        if: env.DB_INIT_SCRIPT != ''
+        run: |
+          if [ -f "../${{ env.DB_INIT_SCRIPT }}" ]; then
+            PGPASSWORD=postgres psql -h 127.0.0.1 -U postgres -d cogniforge_test < "../${{ env.DB_INIT_SCRIPT }}"
+          else
+            echo "SQL init script not found: ${{ env.DB_INIT_SCRIPT }}, skipping..."
+          fi
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: Run Go tests
+        env:
+          POSTGRES_HOST: 127.0.0.1
+          POSTGRES_PORT: 5432
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: cogniforge_test
+          REDIS_HOST: 127.0.0.1
+          REDIS_PORT: 6379
+          ENCRYPTION_KEY: test_encryption_key_at_least_32_characters_long_for_ci
+          JWT_SECRET: test_jwt_secret_at_least_32_characters_long_for_ci
+        run: go test -v -race -short ./...

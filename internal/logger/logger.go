@@ -6,6 +6,7 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"runtime"
 
 	"cogniforge/internal/trace"
 )
@@ -41,8 +42,9 @@ func (h *consoleHandler) Handle(ctx context.Context, r slog.Record) error {
 
 	// 来源
 	if r.PC != 0 {
-		src := r.Source()
-		buf = fmt.Appendf(buf, "%s:%d ", src.File, src.Line)
+		frames := runtime.CallersFrames([]uintptr{r.PC})
+		frame, _ := frames.Next()
+		buf = fmt.Appendf(buf, "%s:%d ", frame.File, frame.Line)
 	}
 
 	// traceId

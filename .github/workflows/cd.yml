@@ -45,7 +45,7 @@ jobs:
   # ---------------------------------------------------------------------------
   build:
     runs-on: ubuntu-latest
-    environment: production
+    environment: xcy
 
     permissions:
       contents: read
@@ -83,7 +83,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
-    environment: production
+    environment: xcy
 
     permissions:
       contents: read

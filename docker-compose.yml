@@ -32,10 +32,14 @@ services:
     labels:
       # ── Traefik 路由配置（自动 HTTPS）──
       - "traefik.enable=true"
-      - "traefik.http.routers.cogniforge-api.rule=Host(`${DOMAIN:?DOMAIN is required}`) && PathPrefix(`/api`)"
-      - "traefik.http.routers.cogniforge-api.entrypoints=websecure"
-      - "traefik.http.routers.cogniforge-api.tls=true"
-      - "traefik.http.routers.cogniforge-api.tls.certresolver=letsencrypt"
+      # # 域名模式（需要 DOMAIN 环境变量，适合有域名的场景）
+      # - "traefik.http.routers.cogniforge-api.rule=Host(`${DOMAIN:?DOMAIN is required}`) && PathPrefix(`/api`)"
+      # - "traefik.http.routers.cogniforge-api.entrypoints=websecure"
+      # - "traefik.http.routers.cogniforge-api.tls=true"
+      # - "traefik.http.routers.cogniforge-api.tls.certresolver=letsencrypt"
+      # 纯路径模式（无需域名，适合 IP 直接访问）
+      - "traefik.http.routers.cogniforge-api.rule=PathPrefix(`/api`)"
+      - "traefik.http.routers.cogniforge-api.entrypoints=web"
       - "traefik.http.services.cogniforge-api.loadbalancer.server.port=8080"
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:8080/api/v1/health"]

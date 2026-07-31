@@ -142,7 +142,7 @@ jobs:
             cd ${{ env.DEPLOY_PATH }}
             docker compose -f ${{ env.COMPOSE_FILE }} pull ${{ env.COMPOSE_SERVICES }}
 
-            # ── 5. 滚动升级 ─────────────────────────────────────────
+            # ── 6. 滚动升级 ─────────────────────────────────────────
             docker compose -f ${{ env.COMPOSE_FILE }} up -d --no-deps ${{ env.COMPOSE_SERVICES }}
 
             # ── 6. 清理旧镜像 ──────────────────────────────────────

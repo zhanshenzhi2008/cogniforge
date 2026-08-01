@@ -24,7 +24,8 @@ services:
       # ── 业务配置（云端不走 db.env 时也能跑）────────────────────
       AI_SERVICE_URL: http://cogniforge-ai:8086
     volumes:
-      - cogniforge-uploads:/app/uploads
+      - ./data/uploads:/app/uploads
+      - ./data/logs:/app/logs
       - ./configs:/app/configs:ro
     networks:
       - cogniforge-net
@@ -55,8 +56,3 @@ networks:
   db-net:
     external: true
     name: db-net
-
-volumes:
-  cogniforge-uploads:
-    external: true
-    name: cogniforge-uploads

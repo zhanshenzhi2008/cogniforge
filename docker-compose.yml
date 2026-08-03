@@ -15,10 +15,11 @@ services:
     expose:
       - "8080"
     env_file:
-      # 公共配置（部署根的上级目录）
-      - ../envs/db.env                 # PostgreSQL + Redis 连接
-      # 本服务私有配置（与 AI/Web 同部署根目录）
-      - .env                           # 后端独立配置（JWT、DOMAIN 等）
+      # 数据库连接（需先 cp envs/db.env.example envs/db.env 并填写）
+      - ../envs/global-db.env
+      # AI 凭据（需先 cp envs/llm.env.example envs/llm.env 并填写，AI_ENABLED=false 时可留空）
+      #- ../envs/global-llm.env
+      - .env
     environment:
       GIN_MODE: release
       # ── 业务配置（云端不走 db.env 时也能跑）────────────────────

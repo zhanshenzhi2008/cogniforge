@@ -3,12 +3,12 @@ server:
   mode: ${GIN_MODE:-debug}
 
 database:
-  host: ${POSTGRES_HOST:-localhost}
-  port: ${POSTGRES_PORT:-5433}
-  user: ${POSTGRES_USER:-postgres}
-  password: ${POSTGRES_PASSWORD:-postgres-root}
-  dbname: ${POSTGRES_DB:-cogniforge}
-  sslmode: ${POSTGRES_SSLMODE:-disable}
+  host: ${PGSQL_HOST:-localhost}
+  port: ${PGSQL_PORT:-5433}
+  user: ${PGSQL_USERNAME:-postgres}
+  password: ${PGSQL_PASSWORD:-postgres-root}
+  dbname: ${PGSQL_DB:-cogniforge}
+  sslmode: ${PGSQL_SSLMODE:-disable}
 
 redis:
   host: ${REDIS_HOST:-localhost}

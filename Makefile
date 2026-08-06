@@ -18,7 +18,7 @@ build:
 
 # Run the server (development mode)
 run: build
-	POSTGRES_PORT=5433 ./$(BINARY_NAME)
+	PGSQL_PORT=5433 ./$(BINARY_NAME)
 
 # Run tests
 test:

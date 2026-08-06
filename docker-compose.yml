@@ -16,9 +16,9 @@ services:
       - "8080"
     env_file:
       # 数据库连接（需先 cp envs/db.env.example envs/db.env 并填写）
-      - ../envs/global-db.env
+      - ../envs/db.env
       # AI 凭据（需先 cp envs/llm.env.example envs/llm.env 并填写，AI_ENABLED=false 时可留空）
-      #- ../envs/global-llm.env
+      - ../envs/llm.env
       - .env
     environment:
       GIN_MODE: release

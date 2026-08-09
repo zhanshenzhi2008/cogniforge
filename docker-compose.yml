@@ -1,9 +1,9 @@
-| =============================================================================
+# =============================================================================
 # cogniforge (Go 后端) 生产部署
 # 部署位置：/opt/project/cogniforge/docker-compose.yml
 # 单部署根目录：三个仓的 compose 都集中到 /opt/project/cogniforge/
-# 数据库：连接 ../envs/db.env（共享 db-net 寻址 db-postgres）
-# 路由：Traefik 自动发现（labels 块）
+# 方案 A：Traefik 仅路由前端；前端 Nginx 通过 cogniforge-net 代理 /api/*。
+# 数据库：经 external 网络 db-net 访问 pgsql / redis。
 # 镜像：CD 流程构建并推到 ghcr.io，此处只 pull + up
 # =============================================================================
 
@@ -14,11 +14,8 @@ services:
     restart: unless-stopped
     expose:
       - "8080"
+    # 本项目的全部非公开配置都来自同级 .env；不要提交该文件。
     env_file:
-      # 数据库连接（需先 cp envs/db.env.example envs/db.env 并填写）
-      - ../envs/db.env
-      # AI 凭据（需先 cp envs/llm.env.example envs/llm.env 并填写，AI_ENABLED=false 时可留空）
-      - ../envs/llm.env
       - .env
     environment:
       GIN_MODE: release
@@ -29,22 +26,10 @@ services:
       - ./data/logs:/app/logs
       - ./configs:/app/configs:ro
     networks:
-      - cogniforge-net
-      - db-net           # ← 连接公用数据库网络
-    labels:
-      # ── Traefik 路由配置（自动 HTTPS）──
-      - "traefik.enable=true"
-      # # 域名模式（需要 DOMAIN 环境变量，适合有域名的场景）
-      # - "traefik.http.routers.cogniforge-api.rule=Host(`${DOMAIN:?DOMAIN is required}`) && PathPrefix(`/api`)"
-      # - "traefik.http.routers.cogniforge-api.entrypoints=websecure"
-      # - "traefik.http.routers.cogniforge-api.tls=true"
-      # - "traefik.http.routers.cogniforge-api.tls.certresolver=letsencrypt"
-      # 纯路径模式（无需域名，适合 IP 直接访问）
-      - "traefik.http.routers.cogniforge-api.rule=PathPrefix(`/api`)"
-      - "traefik.http.routers.cogniforge-api.entrypoints=web"
-      - "traefik.http.services.cogniforge-api.loadbalancer.server.port=8080"
+      - cogniforge-net  # 仅供 Web 和 AI 服务内部访问
+      - db-net          # 公用 PostgreSQL / Redis 网络
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:8080/api/v1/health"]
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/health"]
       interval: 30s
       timeout: 10s
       retries: 3

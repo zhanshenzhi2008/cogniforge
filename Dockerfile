@@ -28,6 +28,7 @@ WORKDIR /app
 RUN apk add --no-cache ca-certificates tzdata wget
 
 COPY --from=builder /app/cogniforge .
+COPY --from=builder /app/configs /app/configs
 
 RUN mkdir -p /app/uploads
 

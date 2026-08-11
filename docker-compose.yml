@@ -24,7 +24,6 @@ services:
     volumes:
       - ./data/uploads:/app/uploads
       - ./data/logs:/app/logs
-      - ./configs:/app/configs:ro
     networks:
       - cogniforge-net  # 仅供 Web 和 AI 服务内部访问
       - db-net          # 公用 PostgreSQL / Redis 网络

@@ -18,10 +18,6 @@ env:
   BACKEND_DIR: .                # ← 改 1：后端代码目录（仓库根或子目录）
   GO_VERSION: '1.24'            # ← 改 2：Go 版本（go.mod 里写的）
 
-  # ── 服务镜像版本（与部署环境保持一致）─────────────────────────────
-  POSTGRES_IMAGE: postgres:16-alpine      # ← 改 3
-  REDIS_IMAGE: redis:7-alpine            # ← 改 4
-
   # ── 数据库初始化脚本（相对于仓库根）──────────────────────────────
   DB_INIT_SCRIPT: fixtures/postgres/init.sql   # ← 改 5：建表 SQL 路径，留空则跳过
 
@@ -34,7 +30,7 @@ jobs:
 
     services:
       postgres:
-        image: ${{ env.POSTGRES_IMAGE }}
+        image: pgvector/pgvector:0.8.6-pg18-bookworm
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -49,7 +45,7 @@ jobs:
           --health-start-period=30s
 
       redis:
-        image: ${{ env.REDIS_IMAGE }}
+        image: redis:8.8.0-alpine
         ports:
           - 6379:6379
         options: >-

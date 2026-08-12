@@ -1,5 +1,9 @@
 # 知识库 Python 文档处理层技术方案
 
+> **注意（2026-08-12）**：产品级前端 UI 重设计请以  
+> [`03-ui-redesign-shadcn.md`](./03-ui-redesign-shadcn.md)  
+> 为准。本文后续章节含历史前端片段，若与新设计冲突，以 `03` 文档为准。
+
 ## 1. 架构设计
 
 ### 1.1 整体架构
@@ -2367,6 +2371,64 @@ export default defineNuxtRouteMiddleware((to, from) => {
 
 ---
 
-**文档版本**: v1.0  
-**最后更新**: 2026-04-11  
+---
+
+## [变更] 控制台首页栅格再对齐（2026-08-12）
+
+### 变更原因
+第一版优化后仍可能出现：内容区（1200px）比顶栏（1400px）窄、统计卡未铺满、窄屏 `span=2/3` 落在 1 列栅格上错位。
+
+### 包含代码
+- `cogniforge-web/pages/index.vue`
+
+### 变更后
+- 页面 `max-width: 1400px`，与顶栏 `header-inner` 对齐
+- 统计卡改 24 栅格：`span="12 960:6"`（小屏 2 列、宽屏 4 列等宽铺满）
+- 下方改为 `span="24 900:10"` / `span="24 900:14"`（约 5:7），窄屏自动整行
+- 快速开始三项在卡片内均分高度，与「最近活动」齐平
+
+---
+
+## [变更] 前端 API 基址改为同源（2026-08-12）
+
+### 变更原因
+登录/退出请求打到浏览器本机 `http://localhost:8080`。公网站点的 JS 写死了本地地址：本机开着后端时“看起来能用”，关掉就 `ERR_CONNECTION_REFUSED`。
+
+### 包含代码
+- `cogniforge-web/composables/useApi.ts` 及 Agents/Sessions/Providers/KnowledgeBases/Workflows
+- `cogniforge-web/utils/apiBase.ts`
+- `cogniforge-web/nuxt.config.ts`、`Dockerfile`、`nginx.conf`（仍反代 `/api/`）
+
+### 变更后
+| 环境 | `API_BASE` | 浏览器实际请求 |
+|------|------------|----------------|
+| 生产镜像 | 空字符串 | `https://当前域名/api/v1/...`（Nginx → 后端容器） |
+| 本地 `pnpm dev` | `http://localhost:8080` | `http://localhost:8080/api/v1/...` |
+
+历史值 `/api`、`.../api/v1` 会在 `resolveApiBase` 中去掉，避免拼成 `/api/api/v1`。
+
+---
+
+## [变更] 控制台首页布局优化（2026-08-12）
+
+### 变更原因
+控制台首页统计卡不对齐、快速开始偏挤、最近活动空状态信息不足，影响工作台第一印象。
+
+### 包含代码
+- `cogniforge-web/pages/index.vue`
+
+### 变更后结构
+1. **页头**：标题「控制台」+ 个性化欢迎语（`useAuth().user.name`）
+2. **统计卡**：`n-grid` 在 `≥960px` 等分 4 列，带 caption「全部」
+3. **快速开始（约 2/5 宽）**：列表式入口（图标 + 标题 + 说明 + 箭头），首项突出「体验 Playground」
+4. **最近活动（约 3/5 宽）**：空状态引导文案 + CTA 按钮跳转 Playground
+
+### 交互
+- 统计卡、快速开始项、空状态按钮均 `navigateTo` 到对应业务页
+- 数据指标目前仍为占位 `0`，后续对接统计 API
+
+---
+
+**文档版本**: v1.3  
+**最后更新**: 2026-08-12  
 **维护团队**: CogniForge 前端团队

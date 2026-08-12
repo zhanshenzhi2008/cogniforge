@@ -4,8 +4,24 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-08-12 | v1.18 | P2：Agents/Keys 换皮完成；loop 续推 Models→其余页→最终移除 Naive | orjrs |
+| 2026-08-12 | v1.18 | P2 列表页全部迁完并分阶段 git commit；loop 续推 P3 Playground/Settings，最终卸 naive-ui | orjrs |
+| 2026-08-12 | v1.17 | P2 控制台首页换皮完成；loop 续推 Agents/Models/Keys | orjrs |
+| 2026-08-12 | v1.16 | P1 完成：登录/注册 Nuxt UI 换皮；动态 loop 推进 P2 控制台 | orjrs |
+| 2026-08-12 | v1.15 | P0 完成：Nuxt4 + Nuxt UI4 + 四主题 + Header 壳；下一步 P1 登录换皮 | orjrs |
+| 2026-08-12 | v1.14 | 阶段十一排期细化（P0–P6）；启动 P0：Nuxt UI + 四主题 + Header 壳 | orjrs |
+| 2026-08-12 | v1.13 | 确认四套 UI 主题全部采纳，默认 Aurora；可进入 Phase 0 基建 | orjrs |
+| 2026-08-12 | v1.12 | 视觉主题可切换：Aurora（默认）/ Ink Night / Citrus / Glass，背景更绚丽 | orjrs |
+| 2026-08-12 | v1.11 | 导航 IA 冻结：现网 8 个主模块 + 用户菜单/权限全部保留，仅换 Nuxt UI 壳 | orjrs |
+| 2026-08-12 | v1.10 | Playground Chat：助手左/用户右；锁定 Nuxt UI AI Chat 组件（设计文档 v1.5） | orjrs |
+| 2026-08-12 | v1.9 | UI 组件混用：Nuxt UI（Chat/Table/Upload等）+ shadcn（品牌壳/基础件）；见设计文档 v1.3 | orjrs |
+| 2026-08-12 | v1.8 | UI 重设计补充响应式：Web 桌面优先验收，手机兼容不阻塞主路径 | orjrs |
+| 2026-08-12 | v1.7 | 前端 UI 重设计立项：Nuxt3 + Tailwind4 + shadcn-vue；保留 Vue Flow；接口/CI 不变（见 `docs/05-frontend/03-ui-redesign-shadcn.md`） | orjrs |
+| 2026-08-12 | v1.6 | 控制台首页栅格对齐：内容宽与顶栏一致、24 栅格等分统计卡 | orjrs |
+| 2026-08-12 | v1.5 | 修复前端 API 基址写死 localhost，生产改为同源 /api/v1 | orjrs |
+| 2026-08-12 | v1.4 | 控制台首页布局优化（欢迎语、等宽统计卡、快速开始列表、空状态引导） | orjrs |
 | 2026-04-11 | v1.2 | 阶段八监控中心完成（请求日志中间件、日志列表 API、用量统计 API、监控仪表板页面） | orjrs |
-|| 2026-04-17 | v1.3 | 阶段九用户管理与个人设置完成（用户CRUD、个人设置、会话管理、RBAC权限系统） | orjrs |
+| 2026-04-17 | v1.3 | 阶段九用户管理与个人设置完成（用户CRUD、个人设置、会话管理、RBAC权限系统） | orjrs |
 > 注：任务状态变更直接在下方任务表格中更新即可，无需额外记录。
 
 ## 总体策略
@@ -495,6 +511,57 @@ pnpm test:e2e          # E2E 测试
 - 并发执行控制（goroutine + sync）
 - Cron 表达式解析（robfig/cron）
 - 调试协议设计
+
+---
+
+### 阶段十一：前端 UI 重设计（Nuxt UI + 四主题）（进行中）⭐
+
+**设计文档**：`docs/05-frontend/03-ui-redesign-shadcn.md`（v1.9）  
+**分支**：`cogniforge-web` → `feat/nuxt-shadcn-vue`  
+**排期说明**：下列为 UI 重设计独立排期；与阶段二～十业务功能并行不冲突。状态随开发实时更新。
+
+**目标**：Nuxt**4** + Tailwind4 + **Nuxt UI 为主**；四套主题可切换（默认 Aurora）；导航 IA 冻结；Vue Flow / API / CI 尽量不动。
+
+#### 排期总览
+
+| Phase | 内容 | 预计 | 状态 |
+|-------|------|------|------|
+| P0 | 基建：Nuxt UI + 四主题 Token + Header 壳 | 1天 | 🟢 完成 |
+| P1 | 登录/注册换皮 + 默认布局切换 | 1–2天 | 🟢 完成 |
+| P2 | 列表页迁移（Console/Agents/Models/Knowledge/Keys/Monitor/Admin） | 3天 | 🟢 完成 |
+| P3 | Playground（UChat 左右分侧）+ Settings（含外观主题切换） | 2–3天 | 🟡 进行中 |
+| P4 | Workflows 壳层换皮（画布逻辑冻结） | 2天 | 🔴 未开始 |
+| P5 | 移除 Naive/Element + 构建/CI 回归 | 0.5–1天 | 🔴 未开始 |
+| P6 | 手机兼容打磨（不阻塞 Desktop 上线） | 1天 | 🔴 未开始 |
+
+#### 任务明细
+
+| 序号 | 功能点 | 预计 | 难度 | 状态 | 说明 |
+|-----|-------|------|------|------|------|
+| 11.1 | 设计系统文档与示意 | 0.5天 | ⭐ | 🟢 完成 | 文档 v1.9；四主题示意已确认 |
+| 11.2 | P0 基建：`@nuxt/ui` + Tailwind4 + 主题 CSS | 0.5天 | ⭐⭐ | 🟢 完成 | Nuxt 升至 4.5（UI4 要求）；四主题 data-theme |
+| 11.3 | P0：`UHeader` 导航壳（IA 冻结 8 模块+用户菜单） | 0.5天 | ⭐⭐ | 🟢 完成 | 含主题快捷切换；`pnpm build` 通过 |
+| 11.4 | P1：登录 / 注册换皮 | 1天 | ⭐⭐ | 🟢 完成 | UForm/UInput/UButton + Forge 品牌区；API 不变 |
+| 11.5 | P1：默认布局全面切到新壳 | 0.5天 | ⭐ | 🟢 完成 | 随 P0 Header 已切换 |
+| 11.6 | P2：控制台首页 | 0.5天 | ⭐⭐ | 🟢 完成 | Nuxt UI + 主题变量；入口不变 |
+| 11.7 | P2：Agents / Models / Keys | 1天 | ⭐⭐ | 🟢 完成 | Agents/Keys/Models 已迁 Nuxt UI 并提交 |
+| 11.8 | P2：Knowledge（含 FileUpload） | 0.5天 | ⭐⭐ | 🟢 完成 | 已提交 |
+| 11.9 | P2：Monitor + Admin Users/Roles | 1天 | ⭐⭐ | 🟢 完成 | 已提交 |
+| 11.10 | P3：Playground UChat 左右分侧 + 适配层 | 1.5天 | ⭐⭐⭐ | 🟡 进行中 | loop 下一拍 |
+| 11.11 | P3：Settings + 外观四主题切换入口 | 1天 | ⭐⭐ | 🔴 未开始 | 本地持久化优先 |
+| 11.12 | P4：Workflows 列表/编辑器壳 | 2天 | ⭐⭐ | 🔴 未开始 | Vue Flow 冻结 |
+| 11.13 | P5：移除 naive-ui / element-plus | 0.5天 | ⭐ | 🔴 未开始 | **最终目标**；全部页面迁完后执行 |
+| 11.14 | P6：手机导航 Slideover 等 | 1天 | ⭐⭐ | 🔴 未开始 | 不阻断 Desktop |
+
+**硬约束**：
+- 接口入参/出参不变
+- Vue Flow 不换库、不改编排 JSON
+- `Dockerfile` / `nginx.conf` / GitHub Actions 流程尽量不变
+- **验收优先级**：Desktop Web 必须过 → 手机兼容可后补，不阻断上线
+- **导航 IA 冻结**：控制台 / Playground / Agent / 模型 / 工作流 / 知识库 / API 密钥 / 监控（admin）+ 设置 / 用户 / 角色 / 退出，路径与权限与现网一致
+- **主题**：Aurora（默认）/ Ink Night / Citrus / Glass 四套全部落地
+
+---
 
 **后端实现要点**：
 ```go

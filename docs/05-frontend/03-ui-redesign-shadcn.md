@@ -4,6 +4,8 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-08-13 | v1.12 | P4/P5 完成：Workflows 壳层 Nuxt UI；卸载 naive-ui / element-plus / @vicons；app 仅 UApp | orjrs |
+| 2026-08-12 | v1.11 | Playground 落地：UChatMessages/Message/Prompt/Submit/Shimmer；本地消息 → parts 适配层；侧栏 Nuxt UI；去尽 naive-ui | orjrs |
 | 2026-08-12 | v1.10 | 框架改为 Nuxt 4.5 + Nuxt UI 4（解锁 AI Chat）；P0 壳与四主题已落地 | orjrs |
 | 2026-08-12 | v1.9 | 确认四套主题全部采纳（Aurora 默认；Ink Night / Citrus / Glass 可切换） | orjrs |
 | 2026-08-12 | v1.8 | 增加 4 套可切换视觉主题（Aurora / Ink Night / Citrus / Glass）；默认更绚丽 | orjrs |
@@ -15,6 +17,19 @@
 | 2026-08-12 | v1.2 | 补充关键屏 UI 示意稿（登录 / 控制台 / Playground / 手机） | orjrs |
 | 2026-08-12 | v1.1 | 补充响应式策略：Web 优先验收，手机端预留兼容但不阻塞主路径 | orjrs |
 | 2026-08-12 | v1.0 | 全新 UI 方向：Vue3 + Nuxt3 + Tailwind4 + shadcn-vue；保留 Vue Flow；接口与 CI/CD 不变 | orjrs |
+
+## [变更] Playground 迁 Nuxt UI Chat（2026-08-12）
+
+### 变更原因
+P3 落地：Playground 从 Naive UI 迁到 Nuxt UI 4 Chat 套件，实现助手左 / 用户右，并去掉本页全部 naive-ui / @vicons。
+
+### 包含代码
+- `cogniforge-web/pages/playground.vue`
+
+### 变更后
+- 对话区：`UChatMessages` + `UChatPrompt` + `UChatPromptSubmit` + `UChatShimmer`
+- 适配层：本地 `{ role, content }` → AI SDK 形 `{ id, role, parts:[{type:'text',text}] }`（`mapToUIMessage`）；**不改后端 SSE / chat 契约**
+- 侧栏：`USelect` / `USlider` / `UInput` / `UBadge` / `UIcon` / `UButton`；主题用 `--cf-*` + `cf-surface`（电青 accent）
 
 ## [变更] Nuxt UI + shadcn-vue 混用选型（2026-08-12）
 

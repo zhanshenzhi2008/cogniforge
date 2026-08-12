@@ -4,6 +4,9 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-08-13 | v1.21 | P4 Workflows 壳层 Nuxt UI + P5 移除 naive-ui/element-plus；loop 可停 | orjrs |
+| 2026-08-12 | v1.20 | P3 完成：Playground UChat + Settings 四主题切换已提交；loop 续推 P4 Workflows→P5 卸 naive | orjrs |
+| 2026-08-12 | v1.19 | P3：Playground 迁 Nuxt UI UChat*（助手左/用户右）+ mapToUIMessage 适配层；API 不变 | orjrs |
 | 2026-08-12 | v1.18 | P2：Agents/Keys 换皮完成；loop 续推 Models→其余页→最终移除 Naive | orjrs |
 | 2026-08-12 | v1.18 | P2 列表页全部迁完并分阶段 git commit；loop 续推 P3 Playground/Settings，最终卸 naive-ui | orjrs |
 | 2026-08-12 | v1.17 | P2 控制台首页换皮完成；loop 续推 Agents/Models/Keys | orjrs |
@@ -529,9 +532,9 @@ pnpm test:e2e          # E2E 测试
 | P0 | 基建：Nuxt UI + 四主题 Token + Header 壳 | 1天 | 🟢 完成 |
 | P1 | 登录/注册换皮 + 默认布局切换 | 1–2天 | 🟢 完成 |
 | P2 | 列表页迁移（Console/Agents/Models/Knowledge/Keys/Monitor/Admin） | 3天 | 🟢 完成 |
-| P3 | Playground（UChat 左右分侧）+ Settings（含外观主题切换） | 2–3天 | 🟡 进行中 |
-| P4 | Workflows 壳层换皮（画布逻辑冻结） | 2天 | 🔴 未开始 |
-| P5 | 移除 Naive/Element + 构建/CI 回归 | 0.5–1天 | 🔴 未开始 |
+| P3 | Playground（UChat 左右分侧）+ Settings（含外观主题切换） | 2–3天 | 🟢 完成 |
+| P4 | Workflows 壳层换皮（画布逻辑冻结） | 2天 | 🟢 完成 |
+| P5 | 移除 Naive/Element + 构建/CI 回归 | 0.5–1天 | 🟢 完成 |
 | P6 | 手机兼容打磨（不阻塞 Desktop 上线） | 1天 | 🔴 未开始 |
 
 #### 任务明细
@@ -547,10 +550,10 @@ pnpm test:e2e          # E2E 测试
 | 11.7 | P2：Agents / Models / Keys | 1天 | ⭐⭐ | 🟢 完成 | Agents/Keys/Models 已迁 Nuxt UI 并提交 |
 | 11.8 | P2：Knowledge（含 FileUpload） | 0.5天 | ⭐⭐ | 🟢 完成 | 已提交 |
 | 11.9 | P2：Monitor + Admin Users/Roles | 1天 | ⭐⭐ | 🟢 完成 | 已提交 |
-| 11.10 | P3：Playground UChat 左右分侧 + 适配层 | 1.5天 | ⭐⭐⭐ | 🟡 进行中 | loop 下一拍 |
-| 11.11 | P3：Settings + 外观四主题切换入口 | 1天 | ⭐⭐ | 🔴 未开始 | 本地持久化优先 |
-| 11.12 | P4：Workflows 列表/编辑器壳 | 2天 | ⭐⭐ | 🔴 未开始 | Vue Flow 冻结 |
-| 11.13 | P5：移除 naive-ui / element-plus | 0.5天 | ⭐ | 🔴 未开始 | **最终目标**；全部页面迁完后执行 |
+| 11.10 | P3：Playground UChat 左右分侧 + 适配层 | 1.5天 | ⭐⭐⭐ | 🟢 完成 | `playground.vue`：UChat* + mapToUIMessage；侧栏 USelect/USlider；零 naive-ui |
+| 11.11 | P3：Settings + 外观四主题切换入口 | 1天 | ⭐⭐ | 🟢 完成 | Preferences 接 useTheme；Settings 零 naive |
+| 11.12 | P4：Workflows 列表/编辑器壳 | 2天 | ⭐⭐ | 🟢 完成 | Vue Flow 冻结；壳层 Nuxt UI |
+| 11.13 | P5：移除 naive-ui / element-plus | 0.5天 | ⭐ | 🟢 完成 | **最终目标已达成** |
 | 11.14 | P6：手机导航 Slideover 等 | 1天 | ⭐⭐ | 🔴 未开始 | 不阻断 Desktop |
 
 **硬约束**：

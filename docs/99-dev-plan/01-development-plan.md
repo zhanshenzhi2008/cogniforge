@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-08-13 | v1.22 | P6：手机导航/Playground 参数滑层/工作流桌面提示；阶段十一主路径完成 | orjrs |
 | 2026-08-13 | v1.21 | P4 Workflows 壳层 Nuxt UI + P5 移除 naive-ui/element-plus；loop 可停 | orjrs |
 | 2026-08-12 | v1.20 | P3 完成：Playground UChat + Settings 四主题切换已提交；loop 续推 P4 Workflows→P5 卸 naive | orjrs |
 | 2026-08-12 | v1.19 | P3：Playground 迁 Nuxt UI UChat*（助手左/用户右）+ mapToUIMessage 适配层；API 不变 | orjrs |
@@ -535,7 +536,7 @@ pnpm test:e2e          # E2E 测试
 | P3 | Playground（UChat 左右分侧）+ Settings（含外观主题切换） | 2–3天 | 🟢 完成 |
 | P4 | Workflows 壳层换皮（画布逻辑冻结） | 2天 | 🟢 完成 |
 | P5 | 移除 Naive/Element + 构建/CI 回归 | 0.5–1天 | 🟢 完成 |
-| P6 | 手机兼容打磨（不阻塞 Desktop 上线） | 1天 | 🔴 未开始 |
+| P6 | 手机兼容打磨（不阻塞 Desktop 上线） | 1天 | 🟢 完成 |
 
 #### 任务明细
 
@@ -554,7 +555,7 @@ pnpm test:e2e          # E2E 测试
 | 11.11 | P3：Settings + 外观四主题切换入口 | 1天 | ⭐⭐ | 🟢 完成 | Preferences 接 useTheme；Settings 零 naive |
 | 11.12 | P4：Workflows 列表/编辑器壳 | 2天 | ⭐⭐ | 🟢 完成 | Vue Flow 冻结；壳层 Nuxt UI |
 | 11.13 | P5：移除 naive-ui / element-plus | 0.5天 | ⭐ | 🟢 完成 | **最终目标已达成** |
-| 11.14 | P6：手机导航 Slideover 等 | 1天 | ⭐⭐ | 🔴 未开始 | 不阻断 Desktop |
+| 11.14 | P6：手机导航 Slideover 等 | 1天 | ⭐⭐ | 🟢 完成 | 导航滑层 + Playground 参数 + 工作流桌面提示 |
 
 **硬约束**：
 - 接口入参/出参不变

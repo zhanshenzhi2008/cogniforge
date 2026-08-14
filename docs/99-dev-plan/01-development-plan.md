@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-08-15 | v1.23 | Dashboard 命名 + 导航英文短标签；登录/Play 向示意稿靠拢 | orjrs |
 | 2026-08-13 | v1.22 | P6：手机导航/Playground 参数滑层/工作流桌面提示；阶段十一主路径完成 | orjrs |
 | 2026-08-13 | v1.21 | P4 Workflows 壳层 Nuxt UI + P5 移除 naive-ui/element-plus；loop 可停 | orjrs |
 | 2026-08-12 | v1.20 | P3 完成：Playground UChat + Settings 四主题切换已提交；loop 续推 P4 Workflows→P5 卸 naive | orjrs |

@@ -373,20 +373,20 @@ components/
 
 #### 顶栏主模块（按角色过滤）
 
-| 顺序 | 现网文案 | key | 路由 | 可见角色 |
-|------|----------|-----|------|----------|
-| 1 | 控制台 | `dashboard` | `/` | admin, user |
-| 2 | Playground | `playground` | `/playground` | admin, user |
-| 3 | Agent 管理 | `agents` | `/agents` | admin, user |
-| 4 | 模型配置 | `models` | `/models` | admin, user |
-| 5 | 工作流 | `workflows` | `/workflows` | admin, user |
-| 6 | 知识库 | `knowledge` | `/knowledge` | admin, user |
-| 7 | API 密钥 | `keys` | `/keys` | admin, user |
-| 8 | 监控中心 | `monitor` | `/monitor` | **仅 admin** |
+| 顺序 | 显示名 | key | 路由 | 可见角色 |
+|------|--------|-----|------|----------|
+| 1 | Dashboard | `dashboard` | `/` | admin, user |
+| 2 | Play | `playground` | `/playground` | admin, user |
+| 3 | Agents | `agents` | `/agents` | admin, user |
+| 4 | Models | `models` | `/models` | admin, user |
+| 5 | Flows | `workflows` | `/workflows` | admin, user |
+| 6 | Knowledge | `knowledge` | `/knowledge` | admin, user |
+| 7 | Keys | `keys` | `/keys` | admin, user |
+| 8 | Monitor | `monitor` | `/monitor` | **仅 admin** |
 
 激活态规则（保持）：
-- `/` 仅精确匹配控制台
-- 其余：`path === to` 或 `path.startsWith(to + '/')`（如 `/workflows/:id` 仍高亮「工作流」）
+- `/` 仅精确匹配 Dashboard
+- 其余：`path === to` 或 `path.startsWith(to + '/')`（如 `/workflows/:id` 仍高亮 Flows）
 
 #### 用户下拉菜单（保持）
 

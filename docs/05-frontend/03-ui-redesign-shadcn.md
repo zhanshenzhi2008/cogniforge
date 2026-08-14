@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-08-15 | v1.14 | Console→Dashboard；导航英文短标签；登录/Playground 向示意稿构图靠拢（主题 token 不变） | orjrs |
 | 2026-08-13 | v1.13 | P6 手机兼容：导航账户区、Playground 参数 USlideover、工作流「请用电脑」提示 | orjrs |
 | 2026-08-13 | v1.12 | P4/P5 完成：Workflows 壳层 Nuxt UI；卸载 naive-ui / element-plus / @vicons；app 仅 UApp | orjrs |
 | 2026-08-12 | v1.11 | Playground 落地：UChatMessages/Message/Prompt/Submit/Shimmer；本地消息 → parts 适配层；侧栏 Nuxt UI；去尽 naive-ui | orjrs |

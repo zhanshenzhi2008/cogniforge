@@ -52,11 +52,11 @@ Nuxt UI 在 Chat、CommandPalette、FileUpload、可搜索 Select、Toast、Tabl
 | 文件 | 画面 |
 |------|------|
 | `cogniforge-ui-login.png` | 登录 |
-| `cogniforge-ui-console.png` | 控制台（Desktop） |
+| `cogniforge-ui-console.png` | Dashboard（Desktop，原 Console） |
 | `cogniforge-ui-playground.png` | Playground（旧：API 调试台，不推荐） |
 | `cogniforge-ui-chat-v2.png` | Chat v2（阅读流、左右弱） |
 | `cogniforge-ui-chat-v3-lr.png` | Chat v3（**推荐**：助手左 / 用户右 + Nuxt UI AI） |
-| `cogniforge-ui-mobile.png` | 控制台（手机兼容示意） |
+| `cogniforge-ui-mobile.png` | Dashboard（手机兼容示意） |
 
 > 示意稿表达气质与布局，正式实现以本文 Token / 组件约定为准；细节文案可微调。
 

@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-08-15 | v1.24 | P7：各模块统一 editorial 页面壳（cf-page / 标题英文 / 面板表格） | orjrs |
 | 2026-08-15 | v1.23 | Dashboard 命名 + 导航英文短标签；登录/Play 向示意稿靠拢 | orjrs |
 | 2026-08-13 | v1.22 | P6：手机导航/Playground 参数滑层/工作流桌面提示；阶段十一主路径完成 | orjrs |
 | 2026-08-13 | v1.21 | P4 Workflows 壳层 Nuxt UI + P5 移除 naive-ui/element-plus；loop 可停 | orjrs |
@@ -538,6 +539,7 @@ pnpm test:e2e          # E2E 测试
 | P4 | Workflows 壳层换皮（画布逻辑冻结） | 2天 | 🟢 完成 |
 | P5 | 移除 Naive/Element + 构建/CI 回归 | 0.5–1天 | 🟢 完成 |
 | P6 | 手机兼容打磨（不阻塞 Desktop 上线） | 1天 | 🟢 完成 |
+| P7 | 各模块样式对齐 Dashboard editorial 语言 | 1天 | 🟢 完成 |
 
 #### 任务明细
 
@@ -557,6 +559,7 @@ pnpm test:e2e          # E2E 测试
 | 11.12 | P4：Workflows 列表/编辑器壳 | 2天 | ⭐⭐ | 🟢 完成 | Vue Flow 冻结；壳层 Nuxt UI |
 | 11.13 | P5：移除 naive-ui / element-plus | 0.5天 | ⭐ | 🟢 完成 | **最终目标已达成** |
 | 11.14 | P6：手机导航 Slideover 等 | 1天 | ⭐⭐ | 🟢 完成 | 导航滑层 + Playground 参数 + 工作流桌面提示 |
+| 11.15 | P7：模块页统一 chrome | 1天 | ⭐ | 🟢 完成 | `cf-page`/`cf-panel`/`cf-data-table`；英文标题；Settings/Play 壳层对齐 |
 
 **硬约束**：
 - 接口入参/出参不变

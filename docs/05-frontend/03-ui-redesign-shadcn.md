@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-08-15 | v1.15 | P7：共享 editorial chrome（cf-page 等）；各模块标题/面板/表格对齐 Dashboard | orjrs |
 | 2026-08-15 | v1.14 | Console→Dashboard；导航英文短标签；登录/Playground 向示意稿构图靠拢（主题 token 不变） | orjrs |
 | 2026-08-13 | v1.13 | P6 手机兼容：导航账户区、Playground 参数 USlideover、工作流「请用电脑」提示 | orjrs |
 | 2026-08-13 | v1.12 | P4/P5 完成：Workflows 壳层 Nuxt UI；卸载 naive-ui / element-plus / @vicons；app 仅 UApp | orjrs |
@@ -19,6 +20,23 @@
 | 2026-08-12 | v1.2 | 补充关键屏 UI 示意稿（登录 / 控制台 / Playground / 手机） | orjrs |
 | 2026-08-12 | v1.1 | 补充响应式策略：Web 优先验收，手机端预留兼容但不阻塞主路径 | orjrs |
 | 2026-08-12 | v1.0 | 全新 UI 方向：Vue3 + Nuxt3 + Tailwind4 + shadcn-vue；保留 Vue Flow；接口与 CI/CD 不变 | orjrs |
+
+## [变更] P7 各模块 editorial 页面壳（2026-08-15）
+
+### 变更原因
+Dashboard 已定「安静编辑室」视觉语言后，各业务模块仍有各自一套标题/面板/表格间距，需要统一。
+
+### 包含代码
+- `cogniforge-web/assets/css/main.css`：`.cf-page` / `.cf-page-header` / `.cf-page-title` / `.cf-page-sub` / `.cf-panel` / `.cf-state` / `.cf-data-table` / `.cf-section-title`
+- 列表与管理页：`agents` / `workflows` / `knowledge` / `keys` / `models` / `monitor` / `admin/users` / `admin/roles`
+- Settings 侧栏与 Profile/Security/Preferences/Sessions 章节标题；Playground 顶栏与空状态
+
+### 变更后
+- 页面标题与导航英文短标签一致（Agents / Flows / Knowledge / Keys / Models / Monitor / Users / Roles / Settings）
+- 主内容区统一 max-width、serif 大标题、细边框面板、大写表头
+- **不改** API、路由、Vue Flow、角色可见性
+
+---
 
 ## [变更] Playground 迁 Nuxt UI Chat（2026-08-12）
 

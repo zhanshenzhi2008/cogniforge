@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-08-15 | v1.16 | Agents/Workflows 模型下拉改为 GET /api/v1/models（数据库配置） | orjrs |
 | 2026-08-15 | v1.15 | P7：共享 editorial chrome（cf-page 等）；各模块标题/面板/表格对齐 Dashboard | orjrs |
 | 2026-08-15 | v1.14 | Console→Dashboard；导航英文短标签；登录/Playground 向示意稿构图靠拢（主题 token 不变） | orjrs |
 | 2026-08-13 | v1.13 | P6 手机兼容：导航账户区、Playground 参数 USlideover、工作流「请用电脑」提示 | orjrs |
@@ -20,6 +21,12 @@
 | 2026-08-12 | v1.2 | 补充关键屏 UI 示意稿（登录 / 控制台 / Playground / 手机） | orjrs |
 | 2026-08-12 | v1.1 | 补充响应式策略：Web 优先验收，手机端预留兼容但不阻塞主路径 | orjrs |
 | 2026-08-12 | v1.0 | 全新 UI 方向：Vue3 + Nuxt3 + Tailwind4 + shadcn-vue；保留 Vue Flow；接口与 CI/CD 不变 | orjrs |
+
+## [变更] 模型下拉改为数据库配置（2026-08-15）
+
+- **变更原因**：Agents / 工作流 LLM 节点写死 GPT/Claude，与「模型」页无关
+- **包含代码**：`pages/agents.vue`、`pages/workflows/[id].vue`；后端 `GET /api/v1/models`
+- **变更后**：下拉只显示已启用供应商的 `default_model`
 
 ## [变更] P7 各模块 editorial 页面壳（2026-08-15）
 

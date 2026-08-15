@@ -14,7 +14,6 @@ type Config struct {
 	Server     ServerConfig
 	Database   DatabaseConfig
 	Redis      RedisConfig
-	AI         AIConfig
 	RAG        RAGConfig
 	JWT        JWTConfig
 	Log        LogConfig
@@ -48,15 +47,6 @@ type RedisConfig struct {
 	Port     int
 	Password string
 	DB       int
-}
-
-type AIConfig struct {
-	Provider        string `mapstructure:"provider"`
-	BaseURL         string `mapstructure:"base_url"`
-	APIKey          string `mapstructure:"api_key"`
-	DefaultModel    string `mapstructure:"default_model"`
-	HttpReferer     string `mapstructure:"http_referer"`
-	OpenRouterTitle string `mapstructure:"openrouter_title"`
 }
 
 type JWTConfig struct {

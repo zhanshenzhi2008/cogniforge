@@ -9,18 +9,19 @@ import (
 	"gorm.io/gorm"
 
 	"cogniforge/internal/database"
+	"cogniforge/internal/provider"
 	"cogniforge/internal/response"
 )
 
 type AgentHandler struct {
-	service      *AgentService
-	defaultModel string
+	service     *AgentService
+	providerSvc *provider.Service
 }
 
-func NewAgentHandler(defaultModel string) *AgentHandler {
+func NewAgentHandler(providerSvc *provider.Service) *AgentHandler {
 	return &AgentHandler{
-		service:      NewAgentService(),
-		defaultModel: defaultModel,
+		service:     NewAgentService(),
+		providerSvc: providerSvc,
 	}
 }
 
@@ -162,7 +163,7 @@ func (h *AgentHandler) AgentChat(c *gin.Context) {
 		model = agent.Model
 	}
 	if model == "" {
-		model = h.defaultModel
+		model = h.defaultModel()
 	}
 
 	systemPrompt := agent.SystemPrompt
@@ -204,6 +205,17 @@ func (h *AgentHandler) AgentChat(c *gin.Context) {
 		}
 		response.Success(c, resp)
 	}
+}
+
+func (h *AgentHandler) defaultModel() string {
+	if h.providerSvc == nil {
+		return ""
+	}
+	active, err := h.providerSvc.GetActive()
+	if err == nil && active.DefaultModel != "" {
+		return active.DefaultModel
+	}
+	return ""
 }
 
 func (h *AgentHandler) callChat(req *ChatRequest) (*ChatResponse, error) {

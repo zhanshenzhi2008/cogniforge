@@ -16,42 +16,17 @@ import (
 )
 
 type ChatService struct {
-	providerSvc   *provider.Service
-	builtInModels []string
+	providerSvc *provider.Service
 }
 
 func NewChatService(providerSvc *provider.Service) *ChatService {
-	return &ChatService{
-		providerSvc: providerSvc,
-		builtInModels: []string{
-			"gpt-3.5-turbo",
-			"gpt-3.5-turbo-0125",
-			"gpt-3.5-turbo-0301",
-			"gpt-3.5-turbo-0302",
-			"gpt-3.5-turbo-0613",
-			"gpt-3.5-turbo-0615",
-			"gpt-3.5-turbo-1106",
-			"gpt-3.5-turbo-1107",
-			"gpt-3.5-turbo-16k",
-			"gpt-3.5-turbo-16k-0613",
-			"gpt-3.5-turbo-instruct",
-			"text-davinci-003",
-			"text-embedding-3-large",
-			"text-embedding-3-small",
-			"text-embedding-ada-002",
-			"tts-1",
-			"tts-1-1106",
-			"tts-1-hd",
-			"tts-1-hd-1106",
-			"whisper-1",
-		},
-	}
+	return &ChatService{providerSvc: providerSvc}
 }
 
-// ListModels 获取模型列表
+// ListModels 返回已启用供应商在模型模块里配置的默认模型（不再使用环境变量或内置 GPT 列表）
 func (s *ChatService) ListModels() *ListModelsResponse {
-	models := make([]ModelInfo, 0, len(s.builtInModels)+1)
-	seen := make(map[string]struct{}, len(s.builtInModels)+1)
+	models := make([]ModelInfo, 0)
+	seen := make(map[string]struct{})
 
 	add := func(m string) {
 		m = strings.TrimSpace(m)
@@ -66,19 +41,29 @@ func (s *ChatService) ListModels() *ListModelsResponse {
 	}
 
 	add(s.defaultModel())
-	for _, m := range s.builtInModels {
-		add(m)
+	if s.providerSvc != nil {
+		list, err := s.providerSvc.List()
+		if err == nil {
+			for _, p := range list {
+				if p.IsEnabled {
+					add(p.DefaultModel)
+				}
+			}
+		}
 	}
 
 	return &ListModelsResponse{Models: models}
 }
 
 func (s *ChatService) defaultModel() string {
+	if s.providerSvc == nil {
+		return ""
+	}
 	active, err := s.providerSvc.GetActive()
 	if err == nil && active.DefaultModel != "" {
 		return active.DefaultModel
 	}
-	return "gpt-3.5-turbo"
+	return ""
 }
 
 // Chat 非流式对话
@@ -96,7 +81,7 @@ func (s *ChatService) Chat(req *ChatRequest) (*ChatResponse, error) {
 	providerURL := s.aiChatCompletionsURL(baseURL)
 	slog.Info("calling AI provider API", "url", providerURL, "model", req.Model)
 
-	payload := s.buildPayload(req)
+	payload := s.buildPayload(req, false)
 	body, _ := json.Marshal(payload)
 
 	httpReq, err := http.NewRequest("POST", providerURL, bytes.NewBuffer(body))
@@ -146,16 +131,17 @@ func (s *ChatService) ChatStream(c *gin.Context, req *ChatRequest) error {
 	}
 
 	providerURL := s.aiChatCompletionsURL(baseURL)
-	slog.Info("streaming AI provider API", "url", providerURL, "model", req.Model)
+	slog.Info("streaming AI provider API", "url", providerURL, "model", req.Model, "stream", true)
 
-	payload := s.buildPayload(req)
+	payload := s.buildPayload(req, true)
 	body, _ := json.Marshal(payload)
 
-	httpReq, err := http.NewRequest("POST", providerURL, bytes.NewBuffer(body))
+	httpReq, err := http.NewRequestWithContext(c.Request.Context(), "POST", providerURL, bytes.NewBuffer(body))
 	if err != nil {
 		return err
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Accept", "text/event-stream")
 	httpReq.Header.Set("Authorization", "Bearer "+apiKey)
 	for k, v := range extraHeaders {
 		httpReq.Header.Set(k, v)
@@ -197,11 +183,11 @@ func (s *ChatService) aiChatCompletionsURL(base string) string {
 	return base + "/v1/chat/completions"
 }
 
-func (s *ChatService) buildPayload(req *ChatRequest) map[string]any {
+func (s *ChatService) buildPayload(req *ChatRequest, stream bool) map[string]any {
 	payload := map[string]any{
 		"model":    req.Model,
 		"messages": req.Messages,
-		"stream":   false,
+		"stream":   stream,
 	}
 	if req.Temperature != nil {
 		payload["temperature"] = *req.Temperature

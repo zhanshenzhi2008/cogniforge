@@ -4,8 +4,20 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-08-15 | v1.2 | GET /v1/models 改为返回已启用供应商的 default_model（不再写死 GPT 列表） | orjrs |
 | 2026-04-09 | v1.1 | 新增文档上传接口、语义检索接口实现说明 | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] 模型列表改为数据库配置（2026-08-15）
+
+- **变更原因**：Playground/Agent 下拉仍写死 GPT，且 `AI_*` 环境变量与「模型」页重复
+- **包含代码**：`internal/chat/service.go`、`internal/agent/handler.go`、`configs/config.yaml`
+- **影响范围**：`GET /api/v1/models`、Agent 缺省模型；密钥只走 `ai_providers`
+
+### 变更前 vs 变更后
+
+- **变更前**：`ListModels` 内置一串 gpt-3.5；Agent 缺省读 `AI_DEFAULT_MODEL`
+- **变更后**：只返回已启用供应商的 `default_model`；无环境变量兜底
 
 ## [变更] 文档上传与检索接口实现（2026-04-09）
 
@@ -264,19 +276,16 @@ POST /v1/embeddings
 接口组: /v1/models
 
 GET /v1/models
-描述: 获取可用模型列表
+描述: 获取可用模型列表（来自已启用的 ai_providers.default_model）
+认证: 无
 响应:
   {
-    "data": [
-      {
-        "id": "gpt-4o",
-        "object": "model",
-        "created": 1234567890,
-        "owned_by": "openai",
-        "name": "GPT-4o",
-        "description": "最新一代GPT-4模型"
-      }
-    ]
+    "code": 2000,
+    "data": {
+      "models": [
+        {"id": "deepseek-chat", "name": "deepseek-chat"}
+      ]
+    }
   }
 
 ---

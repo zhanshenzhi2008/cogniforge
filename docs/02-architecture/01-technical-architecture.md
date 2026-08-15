@@ -4,10 +4,22 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-08-15 | v4.1 | 移除 config.yaml 的 AI_* 环境变量；聊天密钥与模型只读 ai_providers | orjrs |
 | 2026-05-17 | v4.0 | Python AI 服务独立为 cogniforge-ai 项目；Go 后端改为调用外部 Python 服务；删除 llm/ 目录 | orjrs |
 | 2026-04-27 | v3.0 | 后端从 handler 目录重构为业务模块化架构；新增 auth/user/chat/workflow/knowledge/agent 等独立模块，遵循 DTO → Service → Handler 分层模式 | orjrs |
 | 2026-04-04 | v2.0 | 后端架构由 gateway 独立目录收敛为 monolith；删除 go-standards/dev-environment rules；rules 文档变更记录规范 | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] 移除 AI 环境变量（2026-08-15）
+
+- **变更原因**：模型模块（`ai_providers`）已承担供应商 URL/Key/默认模型；`AI_PROVIDER` 等环境变量会造成两套配置
+- **包含代码**：`configs/config.yaml`、`internal/config/config.go`、`internal/chat/service.go`
+- **影响范围**：Go 后端启动配置；远程 `/opt/project/cogniforge/.env` 需人工删除对应键
+
+### 变更前 vs 变更后
+
+- **变更前**：~~config.yaml `ai.provider/base_url/api_key/default_model` 读环境变量~~（2026-08-15）
+- **变更后**：聊天走 `GetActive()`；列表走已启用供应商的 `default_model`
 
 ## [变更] Python AI 服务独立化（2026-05-17）
 
@@ -720,7 +732,7 @@ workflow_nodes, workflow_edges, workflow_executions
 ```
 cogniforge/                          # Go 后端 - API 编排层
 ├── cmd/server/main.go               # 入口
-├── configs/config.yaml              # 配置 (AI_PYTHON_URL, RAG_PYTHON_URL)
+├── configs/config.yaml              # 配置 (RAG_PYTHON_URL；LLM 在 ai_providers)
 └── internal/
     ├── config/                      # Viper 配置
     ├── database/                    # GORM PostgreSQL

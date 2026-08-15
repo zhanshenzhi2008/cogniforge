@@ -1,5 +1,17 @@
 # 个人设置模块详细设计文档
 
+## [变更记录]
+| 日期 | 版本 | 变更摘要 | 负责人 |
+|------|------|---------|--------|
+| 2026-08-15 | v1.1 | Preferences 语言选项真正切换中/英界面（现有 `language` 字段） | orjrs |
+| 2026-04-17 | v1.0 | 个人设置模块设计 | orjrs |
+
+## [变更] 界面语言生效（2026-08-15）
+
+- **变更原因**：设置页已有「界面语言」下拉，但只读本地默认值，不换文案
+- **变更后**：选项仍为简体中文 / English；切换立即换界面；写入 `localStorage` `cf-locale`；登录后 `PUT /api/v1/settings` `{ language }`（**接口不变**）
+- **实现**：见 `docs/05-frontend/03-ui-redesign-shadcn.md` P8；代码在 `cogniforge-web/composables/useLocale.ts`
+
 ## 1. 模块概述
 
 ### 1.1 功能范围
@@ -634,7 +646,7 @@ r.POST("/api/v1/agents", middleware.RequirePermission("agents:write"), handler.C
   flex-shrink: 0;
 }
 
-.card-icon :deep(.n-icon) {
+.card-icon :deep(.UIcon /* was n-icon */) {
   font-size: 18px;
   color: #ffffff;
 }
@@ -678,8 +690,8 @@ r.POST("/api/v1/agents", middleware.RequirePermission("agents:write"), handler.C
 }
 
 /* 输入控件 - 使用 small 尺寸 */
-.form-section :deep(.n-input),
-.form-section :deep(.n-select) {
+.form-section :deep(.UInput /* was n-input */),
+.form-section :deep(.USelect /* was n-select */) {
   --n-height: 32px;  /* 统一高度 */
 }
 
@@ -693,7 +705,7 @@ r.POST("/api/v1/agents", middleware.RequirePermission("agents:write"), handler.C
   border-top: 1px solid #f1f5f9;
 }
 
-.form-actions :deep(.n-button) {
+.form-actions :deep(.u-button /* was n-button */) {
   font-size: 13px;  /* 按钮字体 */
 }
 ```
@@ -903,8 +915,8 @@ export const useSettingsStore = defineStore('settings', () => {
 ```vue
 <template>
   <div class="settings-page">
-    <n-card title="个人资料" class="profile-card">
-      <n-form
+    <div title="个人资料" class="profile-card">
+      <form
         ref="formRef"
         :model="form"
         :rules="rules"
@@ -912,86 +924,86 @@ export const useSettingsStore = defineStore('settings', () => {
         label-width="100px"
       >
         <!-- 头像上传 -->
-        <n-form-item label="头像">
+        <div label="头像">
           <div class="avatar-upload">
-            <n-avatar
+            <UAvatar
               :size="80"
               :src="form.avatar_url"
               fallback-src="https://cdn.example.com/avatars/default.png"
             />
-            <n-upload
+            <UFileUpload
               :custom-request="handleAvatarUpload"
               :show-file-list="false"
               accept="image/*"
             >
-              <n-button size="small" type="primary" class="upload-btn">
+              <UButton size="small" color="primary" class="upload-btn">
                 更换头像
-              </n-button>
-            </n-upload>
+              </UButton>
+            </UFileUpload>
             <p class="hint">支持 JPG、PNG，最大 2MB</p>
           </div>
-        </n-form-item>
+        </div>
 
         <!-- 姓名 -->
-        <n-form-item label="姓名" path="name">
-          <n-input v-model:value="form.name" placeholder="请输入姓名" />
-        </n-form-item>
+        <div label="姓名" path="name">
+          <UInput v-model:value="form.name" placeholder="请输入姓名" />
+        </div>
 
         <!-- 邮箱（只读） -->
-        <n-form-item label="邮箱">
-          <n-input :value="form.email" disabled />
-        </n-form-item>
+        <div label="邮箱">
+          <UInput :value="form.email" disabled />
+        </div>
 
         <!-- 手机号 -->
-        <n-form-item label="手机号" path="phone">
-          <n-input v-model:value="form.phone" placeholder="+86 13800138000" />
-        </n-form-item>
+        <div label="手机号" path="phone">
+          <UInput v-model:value="form.phone" placeholder="+86 13800138000" />
+        </div>
 
         <!-- 时区 -->
-        <n-form-item label="时区" path="timezone">
-          <n-select v-model:value="form.timezone" :options="timezoneOptions" />
-        </n-form-item>
+        <div label="时区" path="timezone">
+          <USelect v-model:value="form.timezone" :options="timezoneOptions" />
+        </div>
 
         <!-- 语言 -->
-        <n-form-item label="语言" path="locale">
-          <n-select v-model:value="form.locale" :options="localeOptions" />
-        </n-form-item>
+        <div label="语言" path="locale">
+          <USelect v-model:value="form.locale" :options="localeOptions" />
+        </div>
 
         <!-- 主题 -->
-        <n-form-item label="主题" path="theme">
-          <n-radio-group v-model:value="form.theme">
-            <n-radio-button value="light">浅色</n-radio-button>
-            <n-radio-button value="dark">深色</n-radio-button>
-            <n-radio-button value="auto">跟随系统</n-radio-button>
-          </n-radio-group>
-        </n-form-item>
+        <div label="主题" path="theme">
+          <div class="theme-radio-row">
+            <UButton size="sm" :variant="form.theme === 'light' ? 'soft' : 'ghost'" @click="form.theme = 'light'">浅色</UButton>
+            <UButton size="sm" :variant="form.theme === 'dark' ? 'soft' : 'ghost'" @click="form.theme = 'dark'">深色</UButton>
+            <UButton size="sm" :variant="form.theme === 'auto' ? 'soft' : 'ghost'" @click="form.theme = 'auto'">跟随系统</UButton>
+          </div>
+        </div>
 
         <!-- 邮件通知 -->
-        <n-form-item label="邮件通知">
-          <n-switch v-model:value="form.email_notifications" />
-        </n-form-item>
+        <div label="邮件通知">
+          <USwitch v-model:value="form.email_notifications" />
+        </div>
 
         <!-- 保存按钮 -->
-        <n-form-item>
-          <n-space>
-            <n-button type="primary" :loading="loading" @click="handleSave">
+        <div>
+          <div>
+            <UButton color="primary" :loading="loading" @click="handleSave">
               保存修改
-            </n-button>
-            <n-button @click="resetForm">重置</n-button>
-          </n-space>
-        </n-form-item>
-      </n-form>
-    </n-card>
+            </UButton>
+            <UButton @click="resetForm">重置</UButton>
+          </div>
+        </div>
+      </form>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, reactive } from 'vue'
-import { useMessage, useDialog } from 'naive-ui'
+// 已迁移 Nuxt UI：useToast() / UModal
+const toast = useToast()
 import { useSettingsStore } from '@/stores/settings'
 
-const message = useMessage()
-const dialog = useDialog()
+// 已迁移：确认框用 UModal，不再使用 useDialog()
 const settingsStore = useSettingsStore()
 
 const formRef = ref()
@@ -1041,13 +1053,13 @@ const handleAvatarUpload = async (options: { file: File }) => {
 
   // 验证文件大小
   if (file.size > 2 * 1024 * 1024) {
-    message.error('文件大小不能超过 2MB')
+    toast.add({ title: '文件大小不能超过 2MB', color: 'error' })
     return
   }
 
   // 验证文件类型
   if (!file.type.startsWith('image/')) {
-    message.error('只支持图片文件')
+    toast.add({ title: '只支持图片文件', color: 'error' })
     return
   }
 
@@ -1055,9 +1067,9 @@ const handleAvatarUpload = async (options: { file: File }) => {
   try {
     const result = await settingsStore.uploadAvatar(file)
     if (result.error) {
-      message.error(result.error)
+      toast.add({ title: result.error, color: 'error' })
     } else {
-      message.success('头像上传成功')
+      toast.add({ title: '头像上传成功', color: 'success' })
     }
   } finally {
     loading.value = false
@@ -1080,9 +1092,9 @@ const handleSave = async () => {
     })
 
     if (result.error) {
-      message.error(result.error)
+      toast.add({ title: result.error, color: 'error' })
     } else {
-      message.success('保存成功')
+      toast.add({ title: '保存成功', color: 'success' })
     }
   } catch (error) {
     // 表单验证失败
@@ -1137,25 +1149,25 @@ onMounted(() => {
 <template>
   <div class="settings-page">
     <!-- 修改密码卡片 -->
-    <n-card title="修改密码" class="security-card">
-      <n-form
+    <div title="修改密码" class="security-card">
+      <form
         ref="passwordFormRef"
         :model="passwordForm"
         :rules="passwordRules"
         label-placement="left"
         label-width="120px"
       >
-        <n-form-item label="当前密码" path="current_password">
-          <n-input
+        <div label="当前密码" path="current_password">
+          <UInput
             v-model:value="passwordForm.current_password"
             type="password"
             show-password-on="click"
             placeholder="请输入当前密码"
           />
-        </n-form-item>
+        </div>
 
-        <n-form-item label="新密码" path="new_password">
-          <n-input
+        <div label="新密码" path="new_password">
+          <UInput
             v-model:value="passwordForm.new_password"
             type="password"
             show-password-on="click"
@@ -1164,66 +1176,67 @@ onMounted(() => {
           <template #help>
             <PasswordStrength :password="passwordForm.new_password" />
           </template>
-        </n-form-item>
+        </div>
 
-        <n-form-item label="确认新密码" path="confirm_password">
-          <n-input
+        <div label="确认新密码" path="confirm_password">
+          <UInput
             v-model:value="passwordForm.confirm_password"
             type="password"
             show-password-on="click"
             placeholder="请再次输入新密码"
           />
-        </n-form-item>
+        </div>
 
-        <n-form-item>
-          <n-button
-            type="primary"
+        <div>
+          <UButton
+            color="primary"
             :loading="loading"
             @click="handleChangePassword"
           >
             修改密码
-          </n-button>
-        </n-form-item>
-      </n-form>
-    </n-card>
+          </UButton>
+        </div>
+      </form>
+    </div>
 
     <!-- 登录会话卡片 -->
-    <n-card title="登录会话" class="sessions-card">
-      <n-data-table
+    <div title="登录会话" class="sessions-card">
+      <table
         :columns="sessionColumns"
         :data="sessions"
         :pagination="false"
         :bordered="false"
       >
         <template #device-type="{ row }">
-          <n-icon :size="16" :component="getDeviceIcon(row.device_info?.device_type)" />
+          <UIcon :size="16" :component="getDeviceIcon(row.device_info?.device_type)" />
           {{ getDeviceLabel(row.device_info?.device_type) }}
         </template>
 
         <template #is-current="{ row }">
-          <n-tag v-if="row.is_current" type="success" size="small">
+          <UBadge v-if="row.is_current" type="success" size="small">
             当前设备
-          </n-tag>
+          </UBadge>
         </template>
 
         <template #actions="{ row }">
-          <n-button
+          <UButton
             v-if="!row.is_current"
             size="tiny"
             type="error"
             @click="handleRevokeSession(row.id)"
           >
             登出
-          </n-button>
+          </UButton>
         </template>
-      </n-data-table>
-    </n-card>
+      </table>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, h } from 'vue'
-import { useMessage } from 'naive-ui'
+// 已迁移 Nuxt UI：useToast()
+const toast = useToast()
 import { useSettingsStore } from '@/stores/settings'
 import PasswordStrength from '@/components/common/PasswordStrength.vue'
 import {
@@ -1233,7 +1246,6 @@ import {
   WarningOutline
 } from '@vicons/ionicons5'
 
-const message = useMessage()
 const settingsStore = useSettingsStore()
 
 const passwordFormRef = ref()
@@ -1318,9 +1330,9 @@ const handleChangePassword = async () => {
     )
 
     if (res.error) {
-      message.error(res.error)
+      toast.add({ title: res.error, color: 'error' })
     } else {
-      message.success('密码修改成功，请重新登录')
+      toast.add({ title: '密码修改成功，请重新登录', color: 'success' })
       // 清空表单
       passwordForm.current_password = ''
       passwordForm.new_password = ''
@@ -1345,9 +1357,9 @@ const handleRevokeSession = async (sessionId: string) => {
     onPositiveClick: async () => {
       const res = await settingsStore.revokeSession(sessionId)
       if (res.error) {
-        message.error(res.error)
+        toast.add({ title: res.error, color: 'error' })
       } else {
-        message.success('已登出该设备')
+        toast.add({ title: '已登出该设备', color: 'success' })
       }
     },
   })
@@ -1506,18 +1518,18 @@ const strengthLabel = computed(() => {
 ```vue
 <template>
   <div class="admin-users-page">
-    <n-card title="用户管理">
+    <div title="用户管理">
       <!-- 搜索栏 -->
-      <n-space class="mb-4" vertical>
-        <n-space>
-          <n-input
+      <div class="mb-4" vertical>
+        <div>
+          <UInput
             v-model:value="searchQuery"
             placeholder="搜索姓名/邮箱"
             clearable
             style="width: 300px"
             @update:value="handleSearch"
           />
-          <n-select
+          <USelect
             v-model:value="filterStatus"
             :options="statusOptions"
             placeholder="状态筛选"
@@ -1525,7 +1537,7 @@ const strengthLabel = computed(() => {
             style="width: 150px"
             @update:value="handleSearch"
           />
-          <n-select
+          <USelect
             v-model:value="filterRole"
             :options="roleOptions"
             placeholder="角色筛选"
@@ -1533,17 +1545,17 @@ const strengthLabel = computed(() => {
             style="width: 150px"
             @update:value="handleSearch"
           />
-          <n-button type="primary" @click="handleCreate">
+          <UButton color="primary" @click="handleCreate">
             <template #icon>
-              <n-icon :component="AddOutline" />
+              <UIcon :component="AddOutline" />
             </template>
             创建用户
-          </n-button>
-        </n-space>
-      </n-space>
+          </UButton>
+        </div>
+      </div>
 
       <!-- 用户表格 -->
-      <n-data-table
+      <table
         :columns="columns"
         :data="users"
         :loading="loading"
@@ -1551,71 +1563,71 @@ const strengthLabel = computed(() => {
         :row-key="(row: User) => row.id"
         @update:page="handlePageChange"
       />
-    </n-card>
+    </div>
 
     <!-- 创建/编辑用户模态框 -->
-    <n-modal
+    <UModal
       v-model:show="modalVisible"
       preset="card"
       :title="isEditing ? '编辑用户' : '创建用户'"
       style="width: 500px"
       :segmented="{ content: true, footer: true }"
     >
-      <n-form
+      <form
         ref="userFormRef"
         :model="userForm"
         :rules="userRules"
         label-placement="left"
         label-width="100px"
       >
-        <n-form-item label="邮箱" path="email">
-          <n-input v-model:value="userForm.email" :disabled="isEditing" placeholder="user@example.com" />
-        </n-form-item>
+        <div label="邮箱" path="email">
+          <UInput v-model:value="userForm.email" :disabled="isEditing" placeholder="user@example.com" />
+        </div>
 
-        <n-form-item label="姓名" path="name">
-          <n-input v-model:value="userForm.name" placeholder="张三" />
-        </n-form-item>
+        <div label="姓名" path="name">
+          <UInput v-model:value="userForm.name" placeholder="张三" />
+        </div>
 
-        <n-form-item v-if="!isEditing" label="密码" path="password">
-          <n-input
+        <div v-if="!isEditing" label="密码" path="password">
+          <UInput
             v-model:value="userForm.password"
             type="password"
             show-password-on="click"
             placeholder="初始密码（至少8位）"
           />
-        </n-form-item>
+        </div>
 
-        <n-form-item label="角色" path="role">
-          <n-select v-model:value="userForm.role" :options="availableRoles" placeholder="选择角色" />
-        </n-form-item>
+        <div label="角色" path="role">
+          <USelect v-model:value="userForm.role" :options="availableRoles" placeholder="选择角色" />
+        </div>
 
-        <n-form-item label="状态">
-          <n-switch v-model:value="userForm.status" :checked-value="'active'" :unchecked-value="'disabled'">
+        <div label="状态">
+          <USwitch v-model:value="userForm.status" :checked-value="'active'" :unchecked-value="'disabled'">
             <template #checked>启用</template>
             <template #unchecked>禁用</template>
-          </n-switch>
-        </n-form-item>
-      </n-form>
+          </USwitch>
+        </div>
+      </form>
 
       <template #footer>
-        <n-space justify="end">
-          <n-button @click="modalVisible = false">取消</n-button>
-          <n-button type="primary" :loading="submitting" @click="handleSubmit">
+        <div justify="end">
+          <UButton @click="modalVisible = false">取消</UButton>
+          <UButton color="primary" :loading="submitting" @click="handleSubmit">
             {{ isEditing ? '保存' : '创建' }}
-          </n-button>
-        </n-space>
+          </UButton>
+        </div>
       </template>
-    </n-modal>
+    </UModal>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, h } from 'vue'
-import { useMessage, NIcon } from 'naive-ui'
+// 已迁移 Nuxt UI：useToast() / UIcon
+const toast = useToast()
 import { AddOutline, EditOutline, DeleteOutline } from '@vicons/ionicons5'
 import { useAdminStore } from '@/stores/admin'
 
-const message = useMessage()
 const adminStore = useAdminStore()
 
 const loading = ref(false)
@@ -1675,7 +1687,7 @@ const columns = [
     width: 120,
     render(row: User) {
       const role = roles.value.find(r => r.name === row.role)
-      return h(NIcon, null, {
+      return h(UIcon, /* was NIcon */ null, {
         default: () => h('span', {
           style: { color: role?.color || '#666' }
         }, role?.label || row.role)
@@ -1701,12 +1713,12 @@ const columns = [
     render(row: User) {
       return h('n-space', {}, {
         default: () => [
-          h('n-button', {
+          h(UButton, {
             size: 'tiny',
-            type: 'primary',
+            color: 'primary',
             onClick: () => handleEdit(row)
           }, { default: () => '编辑' }),
-          h('n-button', {
+          h(UButton, {
             size: 'tiny',
             type: 'error',
             onClick: () => handleDelete(row)
@@ -1821,9 +1833,9 @@ const handleDelete = (user: User) => {
     onPositiveClick: async () => {
       const res = await adminStore.deleteUser(user.id)
       if (res.error) {
-        message.error(res.error)
+        toast.add({ title: res.error, color: 'error' })
       } else {
-        message.success('删除成功')
+        toast.add({ title: '删除成功', color: 'success' })
         fetchUsers()
       }
     },
@@ -1853,9 +1865,9 @@ const handleSubmit = async () => {
     }
 
     if (res.error) {
-      message.error(res.error)
+      toast.add({ title: res.error, color: 'error' })
     } else {
-      message.success(isEditing.value ? '更新成功' : '创建成功')
+      toast.add({ title: isEditing.value ? '更新成功' : '创建成功', color: 'success' })
       modalVisible.value = false
       fetchUsers()
     }
@@ -1931,13 +1943,13 @@ export default defineNuxtPlugin((nuxtApp) => {
 
 ```vue
 <template>
-  <n-button
+  <UButton
     v-permission="'agents:write'"
-    type="primary"
+    color="primary"
     @click="createAgent"
   >
     创建 Agent
-  </n-button>
+  </UButton>
 </template>
 ```
 
@@ -1997,12 +2009,12 @@ describe('ProfileForm', () => {
 
   it('validates required fields', async () => {
     const wrapper = mount(ProfileForm)
-    const submitBtn = wrapper.find('n-button[type="primary"]')
+    const submitBtn = wrapper.find('UButton[type="primary"]')
 
     await submitBtn.trigger('click')
 
     // 应该显示验证错误
-    expect(wrapper.find('.n-form-item--error').exists()).toBe(true)
+    expect(wrapper.find('.div /* was n-form-item */--error').exists()).toBe(true)
   })
 
   it('submits form successfully', async () => {

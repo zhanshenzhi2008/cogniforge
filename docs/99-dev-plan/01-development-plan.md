@@ -4,6 +4,21 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-08-15 | v1.39 | 修复 Playground 流式对话：上游误发 `stream:false`，前端只解析 SSE 导致空白回复 | orjrs |
+| 2026-08-15 | v1.38 | P8：前端中英文切换（无路由前缀） | orjrs |
+| 2026-08-15 | v1.37 | P7.8：注册页英文对齐登录；测试弹窗去多余关闭；文档补 P7.7 | orjrs |
+| 2026-08-15 | v1.36 | P7.7：Users / Roles 双击行编辑 | orjrs |
+| 2026-08-15 | v1.35 | P7.6：画布壳 + 登录提交迁 `CfButton`；业务页按钮改造收口 | orjrs |
+| 2026-08-15 | v1.34 | P7.5：Settings / Dashboard / Playground 迁 `CfButton` | orjrs |
+| 2026-08-15 | v1.33 | P7.4：Flows / Admin / Monitor 迁 `CfButton` | orjrs |
+| 2026-08-15 | v1.32 | P7.3：Keys / Knowledge 迁 `CfButton` | orjrs |
+| 2026-08-15 | v1.31 | Favicon：√3 + orjrs 独特组合 | orjrs |
+| 2026-08-15 | v1.30 | 站点 favicon / 品牌标落地（public + BrandMark） | orjrs |
+| 2026-08-15 | v1.29 | CfButton：大按钮必带图标；文字可并排或 label-mode=tip | orjrs |
+| 2026-08-15 | v1.28 | 引入统一 `CfButton`（有底 + tone 场景；卡片 icon-only） | orjrs |
+| 2026-08-15 | v1.27 | P7.2：§2.8 轻量按钮落地；Agents/Knowledge 双击详情；全站取消 ghost | orjrs |
+| 2026-08-15 | v1.26 | 清除 web `.npmrc` naive hoist；历史文档示例去 naive 引用 | orjrs |
+| 2026-08-15 | v1.25 | 文档：按钮规范 §2.8；Models 卡片/列表/详情；校正列表实现描述 | orjrs |
 | 2026-08-15 | v1.24 | P7：各模块统一 editorial 页面壳（cf-page / 标题英文 / 面板表格） | orjrs |
 | 2026-08-15 | v1.23 | Dashboard 命名 + 导航英文短标签；登录/Play 向示意稿靠拢 | orjrs |
 | 2026-08-13 | v1.22 | P6：手机导航/Playground 参数滑层/工作流桌面提示；阶段十一主路径完成 | orjrs |
@@ -522,7 +537,7 @@ pnpm test:e2e          # E2E 测试
 
 ### 阶段十一：前端 UI 重设计（Nuxt UI + 四主题）（进行中）⭐
 
-**设计文档**：`docs/05-frontend/03-ui-redesign-shadcn.md`（v1.9）  
+**设计文档**：`docs/05-frontend/03-ui-redesign-shadcn.md`（v1.16，含 §2.8 按钮规范）  
 **分支**：`cogniforge-web` → `feat/nuxt-shadcn-vue`  
 **排期说明**：下列为 UI 重设计独立排期；与阶段二～十业务功能并行不冲突。状态随开发实时更新。
 
@@ -540,12 +555,21 @@ pnpm test:e2e          # E2E 测试
 | P5 | 移除 Naive/Element + 构建/CI 回归 | 0.5–1天 | 🟢 完成 |
 | P6 | 手机兼容打磨（不阻塞 Desktop 上线） | 1天 | 🟢 完成 |
 | P7 | 各模块样式对齐 Dashboard editorial 语言 | 1天 | 🟢 完成 |
+| P7.1 | Models 卡片/列表切换 + 详情只读；按钮规范入库 | 0.5天 | 🟢 完成 |
+| P7.2 | 全站 §2.8 轻量按钮 + Agents/Knowledge 双击详情 | 0.5天 | 🟢 完成 |
+| P7.3 | Keys / Knowledge 迁 `CfButton` | 0.5天 | 🟢 完成 |
+| P7.4 | Flows / Admin / Monitor 迁 `CfButton` | 0.5天 | 🟢 完成 |
+| P7.5 | Settings / Dashboard / Playground 迁 `CfButton` | 0.5天 | 🟢 完成 |
+| P7.6 | 画布壳 + 登录提交迁 `CfButton` | 0.5天 | 🟢 完成 |
+| P7.7 | Users / Roles 双击行编辑 | 0.2天 | 🟢 完成 |
+| P7.8 | 注册英文对齐 + 残留收口 | 0.2天 | 🟢 完成 |
+| P8 | 中英文界面切换 | 0.5天 | 🟢 完成 |
 
 #### 任务明细
 
 | 序号 | 功能点 | 预计 | 难度 | 状态 | 说明 |
 |-----|-------|------|------|------|------|
-| 11.1 | 设计系统文档与示意 | 0.5天 | ⭐ | 🟢 完成 | 文档 v1.9；四主题示意已确认 |
+| 11.1 | 设计系统文档与示意 | 0.5天 | ⭐ | 🟢 完成 | 文档持续更新至 v1.16；四主题示意已确认 |
 | 11.2 | P0 基建：`@nuxt/ui` + Tailwind4 + 主题 CSS | 0.5天 | ⭐⭐ | 🟢 完成 | Nuxt 升至 4.5（UI4 要求）；四主题 data-theme |
 | 11.3 | P0：`UHeader` 导航壳（IA 冻结 8 模块+用户菜单） | 0.5天 | ⭐⭐ | 🟢 完成 | 含主题快捷切换；`pnpm build` 通过 |
 | 11.4 | P1：登录 / 注册换皮 | 1天 | ⭐⭐ | 🟢 完成 | UForm/UInput/UButton + Forge 品牌区；API 不变 |
@@ -560,6 +584,15 @@ pnpm test:e2e          # E2E 测试
 | 11.13 | P5：移除 naive-ui / element-plus | 0.5天 | ⭐ | 🟢 完成 | **最终目标已达成** |
 | 11.14 | P6：手机导航 Slideover 等 | 1天 | ⭐⭐ | 🟢 完成 | 导航滑层 + Playground 参数 + 工作流桌面提示 |
 | 11.15 | P7：模块页统一 chrome | 1天 | ⭐ | 🟢 完成 | `cf-page`/`cf-panel`/`cf-data-table`；英文标题；Settings/Play 壳层对齐 |
+| 11.16 | P7.1：Models UX + 按钮规范文档 | 0.5天 | ⭐ | 🟢 完成 | 卡片默认/列表切换/双击详情；设计文档 §2.8 |
+| 11.17 | P7.2：全站按钮轻量化 + Agents/Knowledge 详情 | 0.5天 | ⭐ | 🟢 完成 | 保存 soft / 编辑 ghost；取消 ghost；双击详情 |
+| 11.18 | P7.3：Keys / Knowledge 迁 CfButton | 0.5天 | ⭐ | 🟢 完成 | 大按钮带图标；行内 icon-only |
+| 11.19 | P7.4：Flows / Admin / Monitor 迁 CfButton | 0.5天 | ⭐ | 🟢 完成 | 列表/弹窗/分页统一；日志详情用右上角 X |
+| 11.20 | P7.5：Settings / Dashboard / Playground | 0.5天 | ⭐ | 🟢 完成 | 资料/会话/对话顶栏 |
+| 11.21 | P7.6：画布壳 + 登录提交 | 0.5天 | ⭐ | 🟢 完成 | Vue Flow 冻结；业务页 CfButton 收口 |
+| 11.22 | P7.7：Users / Roles 双击编辑 | 0.2天 | ⭐ | 🟢 完成 | Monitor 双击详情、Keys 显示/复制已随手对齐 |
+| 11.23 | P7.8：注册英文 + 测试弹窗去 Close | 0.2天 | ⭐ | 🟢 完成 | 汉堡菜单改 CfButton；主题下拉仍 UButton |
+| 11.24 | P8：中英文 i18n | 0.5天 | ⭐⭐ | 🟢 完成 | `useLocale` + 词条表；顶栏/设置/登录切换；不改路由 |
 
 **硬约束**：
 - 接口入参/出参不变

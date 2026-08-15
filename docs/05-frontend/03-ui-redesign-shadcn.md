@@ -4,6 +4,22 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-08-15 | v1.31 | Playground：兼容非 SSE 完整 JSON，避免发送后空白气泡 | orjrs |
+| 2026-08-15 | v1.30 | P8：中英文界面切换（无路由前缀；设置/顶栏/登录可切） | orjrs |
+| 2026-08-15 | v1.29 | P7.8：注册页英文对齐登录；测试弹窗去掉多余关闭；文档补 P7.7 | orjrs |
+| 2026-08-15 | v1.28 | P7.6：工作流画布壳 + 登录/注册提交迁 `CfButton`；业务页改造收口 | orjrs |
+| 2026-08-15 | v1.27 | P7.5：Settings / Dashboard / Playground 顶栏迁 `CfButton` | orjrs |
+| 2026-08-15 | v1.26 | P7.4：Flows / Admin / Monitor 迁 `CfButton` | orjrs |
+| 2026-08-15 | v1.25 | P7.3：Keys / Knowledge 迁 `CfButton`（大按钮带图标；行内 icon-only） | orjrs |
+| 2026-08-15 | v1.24 | 个人标定稿 Solitary √3；技能 `orjrs-brand` 跨项目复用 | orjrs |
+| 2026-08-15 | v1.23 | 品牌分层：个人标 √3/orjrs 跨项目复用；产品名仅作字标 | orjrs |
+| 2026-08-15 | v1.22 | Favicon 改为 √3 + orjrs 签名（sqrt3lab DNA），降低撞标风险 | orjrs |
+| 2026-08-15 | v1.21 | 站点 favicon / 品牌标：青底 C+火花；顶栏与登录同用 | orjrs |
+| 2026-08-15 | v1.20 | CfButton：大按钮必带图标；文字可并排或 label-mode=tip | orjrs |
+| 2026-08-15 | v1.19 | 统一 `CfButton`：全员有底；卡片 icon-only；primary=保存 soft | orjrs |
+| 2026-08-15 | v1.18 | 按钮观感：保存/添加改 soft，编辑改 primary ghost；禁用实心青绿块 | orjrs |
+| 2026-08-15 | v1.17 | 清除残留 naive 配置（`.npmrc` hoist）与历史文档示例中的 naive 引用 | orjrs |
+| 2026-08-15 | v1.16 | 常用按钮规范；Models 卡片/列表切换 + 详情只读同弹窗；校正字体/列表实现描述 | orjrs |
 | 2026-08-15 | v1.15 | P7：共享 editorial chrome（cf-page 等）；各模块标题/面板/表格对齐 Dashboard | orjrs |
 | 2026-08-15 | v1.14 | Console→Dashboard；导航英文短标签；登录/Playground 向示意稿构图靠拢（主题 token 不变） | orjrs |
 | 2026-08-13 | v1.13 | P6 手机兼容：导航账户区、Playground 参数 USlideover、工作流「请用电脑」提示 | orjrs |
@@ -20,6 +36,118 @@
 | 2026-08-12 | v1.2 | 补充关键屏 UI 示意稿（登录 / 控制台 / Playground / 手机） | orjrs |
 | 2026-08-12 | v1.1 | 补充响应式策略：Web 优先验收，手机端预留兼容但不阻塞主路径 | orjrs |
 | 2026-08-12 | v1.0 | 全新 UI 方向：Vue3 + Nuxt3 + Tailwind4 + shadcn-vue；保留 Vue Flow；接口与 CI/CD 不变 | orjrs |
+
+## [变更] Playground 流式空白兜底（2026-08-15）
+
+- **变更原因**：`/chat/stream` 在有 Provider 时上游曾误发非流式 JSON，页面只认 SSE `delta`，助手气泡为空
+- **包含代码**：`pages/playground.vue`（解析兜底）；后端见 `internal/chat/service.go`
+- **变更后**：SSE `delta.content` 逐字追加；若整包是 `choices[0].message.content` 也显示；空 assistant 不再塞进下一轮上下文
+- **未改**：UChat 布局、API 路径
+
+## [变更] P8 中英文界面（2026-08-15）
+
+- **变更原因**：设置里已有语言选项但不换界面；页面中英混排
+- **包含代码**：`cogniforge-web/i18n/messages.ts`、`composables/useLocale.ts`、`components/LanguageSwitch.vue`；业务页文案走 `t()` / `d()`
+- **行为**：仅 `zh-CN` / `en-US`；**不改路由**（无 `/en` 前缀，IA 冻结）；本地 `localStorage` `cf-locale`；登录后 `PUT /api/v1/settings` `{ language }`（现有接口，入参不变）
+- **入口**：顶栏地球图标、登录/注册右上角、设置 → Preferences
+- **默认**：有本地记录用本地；否则浏览器 `zh*` → 中文，其余英文
+- **未改**：API 契约、Vue Flow 逻辑、产品名 CogniForge
+
+## [变更] P7.8 注册英文 + 收口残留（2026-08-15）
+
+- **变更原因**：登录已是英文，注册仍中文；Models 测试结果弹窗底栏「关闭」与右上角 X 重复；设计文档未记 P7.7
+- **包含代码**：`pages/register.vue`、`pages/models.vue`、`layouts/default.vue`（汉堡菜单改 `CfButton`）
+- **已完成未单独成章**：Users/Roles 双击行编辑；Monitor 双击日志详情（无底栏 Close）；Keys 显示/复制
+- **刻意保留 `UButton`**：顶栏主题下拉触发器（`UDropdownMenu` 槽）；登录/注册文字 link；`CfButton` 内部封装
+
+## [变更] P7.6 画布壳 + 登录提交迁 CfButton（2026-08-15）
+
+- **变更原因**：工作流编辑器顶栏/抽屉、登录注册主按钮尚未对齐 §2.8
+- **包含代码**：`pages/workflows/[id].vue`、`pages/login.vue`、`pages/register.vue`
+- **硬约束**：Vue Flow 画布逻辑未改
+- **刻意保留 `UButton`**：顶栏主题/菜单图标（`layouts/default.vue`）；登录注册文字 link；`CfButton` 内部封装
+
+## [变更] P7.5 Settings / Dashboard / Playground 迁 CfButton（2026-08-15）
+
+- **变更原因**：设置与对话顶栏仍混用 ghost `UButton`
+- **包含代码**：`ProfileSection.vue`、`SecuritySection.vue`、`SessionsSection.vue`、`pages/index.vue`、`pages/playground.vue`
+- **影响范围**：资料保存、改密、会话撤销、Dashboard CTA、Playground Params/清空/建议词
+- **未改**：工作流画布壳、登录/注册 link、顶栏主题/菜单图标（壳层控件）
+
+## [变更] P7.4 Flows / Admin / Monitor 迁 CfButton（2026-08-15）
+
+- **变更原因**：列表页按钮尚未对齐 §2.8
+- **包含代码**：`pages/workflows/index.vue`、`pages/admin/users.vue`、`pages/admin/roles.vue`、`pages/monitor.vue`
+- **影响范围**：工作流列表、用户/角色、监控日志；画布编辑器与 Settings 未改
+- **变更前**：ghost 文字按钮、分页 outline、日志详情多余「关闭」
+- **变更后**：大按钮带图标；行内 icon-only；分页 secondary；日志详情只靠右上角 X
+
+## [变更] P7.3 Keys / Knowledge 迁 CfButton（2026-08-15）
+
+- **变更原因**：Models / Agents 已统一 `CfButton`；Keys / Knowledge 仍混用 ghost `UButton`
+- **包含代码**：`pages/keys.vue`、`pages/knowledge.vue`
+- **影响范围**：密钥列表/创建/撤销；知识库卡片菜单、详情弹窗、文档抽屉、上传与删除确认
+- **变更前**：页头/底栏/行内多为 `UButton` ghost 或无图标
+- **变更后**：大按钮必带图标；行内仅图标 + tip；危险操作用 `tone="danger" strong`
+
+## [变更] Solitary √3 个人标（2026-08-15）
+
+- **中文意图**：孤独的根号3
+- **英文定名**：**Solitary √3**（the lonely √3）
+- **资产与规则**：个人技能 `~/.cursor/skills/orjrs-brand/`；图标只含 √3 + orjrs；产品名（CogniForge）只做旁边字标
+
+## [变更] 站点品牌 Favicon（2026-08-15）
+
+- **变更原因**：浏览器标签页此前指向不存在的 `/favicon.ico`，显示默认地球图标
+- **包含代码**：`cogniforge-web/public/favicon.svg` 等；`nuxt.config.ts`；`BrandMark.vue`；登录/注册页
+- **影响范围**：标签页图标、顶栏品牌、登录/注册品牌区
+- **变更前**：无真实 favicon → 曾用 C+火花 → 现为 **Solitary √3 + orjrs**
+- **变更后**：个人标（孤独的根号3）跨项目复用；本仓库产品字标为 CogniForge
+
+## [变更] CfButton 大按钮必带图标（2026-08-15）
+
+- **变更原因**：大按钮只有文字显得空、不好认；图标统一后更整齐好看
+- **包含代码**：`CfButton.vue`、`main.css`、`pages/models.vue`、`pages/agents.vue`
+- **影响范围**：Models / Agents 弹窗与页头；其余模块后续继续迁到 `CfButton`
+- **变更前**：大按钮可无图标；文字只有并排一种
+- **变更后**：`primary` / `secondary` / `danger` 必有图标；默认图标+文字；`label-mode="tip"` 时只显示图标、文字进悬浮
+- **关键差异**：新增 `labelMode`；默认图标表；大按钮间距/图标尺寸微调
+
+## [变更] 清除 naive 残留引用（2026-08-15）
+
+### 变更原因
+业务代码已卸 naive-ui，但仍残留 `.npmrc` hoist，以及 `01`/`02` 设计文档示例中的 `naive-ui` / `n-*` 片段，容易误导后续实现。
+
+### 变更后
+- 删除 `cogniforge-web/.npmrc`（原 `@bg-dev/nuxt-naiveui` / `naive-ui` hoist）
+- `01-frontend-design.md` / `02-settings-module-design.md` 示例改为 Nuxt UI 写法；产品实现仍以本文为准
+- 变更记录中「曾卸载 naive」的历史摘要保留，不作代码依赖
+
+---
+
+## [变更] 按钮规范 + Models 详情体验（2026-08-15）
+
+### 变更原因
+全站保存 / 编辑 / 删除等按钮用法不统一，弹窗底栏观感差；Models 卡片过高且缺少详情只读入口。需在设计文档固化约定，并与实现对齐。
+
+### 包含代码
+- `cogniforge-web/pages/models.vue`：卡片默认 + 列表切换、双击只读详情、同弹窗编辑、底栏左右分区
+- `docs/05-frontend/03-ui-redesign-shadcn.md`：§2.8 常用操作按钮规范；校正字体与列表实现描述
+
+### 变更后
+- 见 **§2.8**：主操作 / 次操作 / 危险操作 / 行内图标按钮约定
+- Models：默认紧凑卡片（约 3–5 列），可切列表；双击进只读详情，详情与编辑同一 `UModal`
+- 资源列表优先 **editorial 原生表**（`.cf-data-table`），不强制 `UTable`
+
+### 变更前 vs 变更后（Models）
+
+| 项 | 变更前 | 变更后 |
+|----|--------|--------|
+| 列表形态 | 高大双列卡片 | 紧凑多列卡片（默认）+ 列表切换 |
+| 详情 | 无 / 直接编辑 | 双击只读详情 → 可切编辑 |
+| 弹窗底栏 | 按钮挤在左侧 | 左关闭/返回，右主操作 |
+
+---
 
 ## [变更] P7 各模块 editorial 页面壳（2026-08-15）
 
@@ -240,25 +368,26 @@ Nuxt UI：`app.config` / runtime 把 `primary` 绑到 `--cf-accent`。
 
 | 用途 | 字体 | 理由 |
 |------|------|------|
-| 品牌 / 大标题 | **Syne**（或 Space Grotesk） | 有个性，不像系统后台 |
-| 正文 / UI | **IBM Plex Sans** | 可读、偏工程 |
-| 代码 / Trace / Key | **JetBrains Mono** | 技术风锚点 |
+| 品牌 / 大标题（`--font-display`） | **Source Serif 4**（回退 Syne / IBM Plex Sans） | 安静编辑室气质；与 Dashboard 标题一致 |
+| 正文 / UI | **IBM Plex Sans**（或系统无衬线回退） | 可读、偏工程 |
+| 代码 / Trace / Key / 模型名 | **ui-monospace / JetBrains Mono** | 技术风锚点 |
 
-加载方式：Google Fonts 或自托管 woff2；在 `nuxt.config` `app.head` 引入，正文用 Tailwind `font-sans` / `font-display` / `font-mono` 映射。
+加载方式：在 `nuxt.config` / CSS 引入；标题用 `font-display` / `.cf-page-title`，正文走 Tailwind `font-sans`。
 
 ### 2.5 造型与密度
 
 - 圆角：`6px` / `10px`（组件），**不用** `rounded-full` 做主按钮
 - 边框：1px `--cf-line`，靠线条分区，不靠厚卡片阴影
-- 间距：页面水平桌面 `24–32px`、手机 `16px`，内容最大宽 `1280–1400px`
-- 卡片：**默认无卡**；仅在「可交互容器」或「需要隔离的编辑区」使用表面块（Glass 主题允许更多半透明面）
+- 间距：页面水平桌面 `20–28px`、手机 `16px`；内容宽默认 `~1120px`（Models 等可放宽至 `~1360px`）
+- 页面壳：统一 `.cf-page` / `.cf-page-header` / `.cf-panel` / `.cf-data-table`（见 P7）
+- 卡片：**默认无卡**；资源总览可用**紧凑卡片网格**（可交互容器）；列表型数据优先细边框表格
 - 背景氛围：由主题 `--cf-bg-aura` 提供，可绚丽；正文区保持清晰
 
 ### 2.6 动效（至少 3 处有意为之）
 
 1. 路由切换：主内容区短 fade（150–200ms）
-2. 顶栏当前项：下划线/色条滑动
-3. 主 CTA / 列表行：hover 时 `translateY(-1px)` + 边框色微变（触摸设备以 `:active` / 透明度反馈代替 hover）  
+2. 顶栏当前项：下划线/色条滑动（editorial）或胶囊（island）
+3. 主 CTA / 列表行 / 供应商卡片：hover 时 `translateY(-1px)` + 边框色微变（触摸设备以 `:active` / 透明度反馈代替 hover）  
 禁止装饰性无限闪烁与大段视差。  
 `prefers-reduced-motion: reduce` 时关闭非必要动画。
 
@@ -273,9 +402,9 @@ Nuxt UI：`app.config` / runtime 把 `primary` 绑到 `--cf-accent`。
 | Mobile | 默认 <768 | 汉堡菜单 + Sheet；列表可浏览；重操作降级 |
 
 **布局约定（写代码时就要带上，避免事后返工）：**
-1. 壳层：桌面横排导航；`<lg` 收成 `Sheet`/`Drawer` 菜单（shadcn `Sheet`）
+1. 壳层：桌面横排导航；`<lg` 收成 `USlideover` 菜单
 2. 栅格：统计/双栏用 `grid` + `md:`/`lg:` 断点，禁止写死只适配 1440
-3. 表格：桌面 `Table`；窄屏优先横滑（`overflow-x-auto`），P2 再考虑卡片列表
+3. 表格：桌面 `.cf-data-table`（或 `UTable`）；窄屏优先横滑（`overflow-x-auto`）；Models 等可提供卡片/列表切换
 4. 触摸：可点区域 ≥ 44px；主按钮全宽仅在 `<md`
 5. 安全区：底部固定条预留 `env(safe-area-inset-*)`（P1/P2）
 
@@ -284,15 +413,85 @@ Nuxt UI：`app.config` / runtime 把 `primary` 绑到 `--cf-accent`。
 | 模块 | Desktop | Mobile（P2） |
 |------|---------|--------------|
 | 登录 / 注册 | 完整 | 完整 |
-| 控制台 | 完整 | 完整（单列） |
+| Dashboard | 完整 | 完整（单列；活动区可隐藏） |
 | 列表页（Agent/模型/知识库/密钥） | 完整 | 浏览 + 简易新建；复杂筛选可收纳 |
-| Playground | 三栏 | 单栏：对话为主，参数进 Sheet |
+| Models | 卡片默认 + 列表切换；双击详情 | 单列卡片；详情弹窗 |
+| Playground | 三栏 | 单栏：对话为主，参数进 Slideover |
 | 工作流画布（Vue Flow） | **完整编辑** | **只读/提示用电脑编辑**（不阻塞 Web 交付） |
 | 监控 / 管理表 | 完整 | 横滑查看；批量操作可隐藏 |
 
 实施顺序仍以 Desktop 验收为准：某一页 Desktop 未过，不开始该页 Mobile 精细打磨。
 
----
+### 2.8 按钮系统（`CfButton` 统一调用）
+
+> **实现入口**：`cogniforge-web/components/CfButton.vue`  
+> 全站业务按钮优先用 `CfButton`，不要再手写一堆不同的 `UButton` color/variant。  
+> 底层仍是 Nuxt UI `UButton`，但对外只暴露 **场景 tone**。
+
+#### 2.8.1 设计原则
+
+1. **都有背景**：一律 soft 浅色填充
+2. **大按钮必有图标**：`primary` / `secondary` / `danger` 必须带 `icon`（未传有默认）
+3. **文字两种展示**：默认图标+文字并排；`label-mode="tip"` 时只显示图标，文字进悬浮
+4. **小空间**：`icon*` 永远仅图标 + `tip`
+5. **保存感**：`tone="primary"` = 浅青 soft
+6. **危险**：确认删除 `tone="danger" strong`
+
+#### 2.8.2 Tone 一览
+
+| `tone` | 场景 | 外观 | 文案 |
+|--------|------|------|------|
+| `primary` | 保存 / 添加 / 页头 New / 详情里「编辑」 | 浅青底 | **必有图标** + 文字（或 `label-mode="tip"`） |
+| `secondary` | 取消 / 测试连接 / 返回详情 / 关闭 | 中性浅底 | **必有图标** + 文字（或 tip） |
+| `danger` | 确认框删除 | 浅红底；`strong` 时实心红 | **必有图标** + 文字 |
+| `icon` | 卡片/行内次要工具（测试、星标…） | 中性浅底小方钮 | **仅图标** + `tip` |
+| `icon-accent` | 卡片/行内编辑 | 浅青小方钮 | **仅图标** + `tip` |
+| `icon-danger` | 卡片/行内删除 | 浅红小方钮 | **仅图标** + `tip` |
+
+#### 2.8.3 调用示例
+
+```vue
+<!-- 页头新建：图标 + 文字并排（默认好看） -->
+<CfButton tone="primary" icon="i-lucide-plus" @click="create">Add provider</CfButton>
+
+<!-- 弹窗底栏：大按钮都带图标 -->
+<CfButton tone="secondary" icon="i-lucide-x" @click="close">取消</CfButton>
+<CfButton tone="primary" icon="i-lucide-check" type="submit" form="f" :loading="saving">保存</CfButton>
+
+<!-- 大按钮只显示图标，文字进悬浮 -->
+<CfButton tone="secondary" icon="i-lucide-x" tip="关闭" label-mode="tip" @click="close" />
+
+<!-- 卡片操作（无文字） -->
+<CfButton tone="icon-accent" icon="i-lucide-pencil" tip="编辑" @click="edit" />
+<CfButton tone="icon" icon="i-lucide-refresh-cw" tip="测试连接" @click="test" />
+<CfButton tone="icon-danger" icon="i-lucide-trash-2" tip="删除" @click="askDelete" />
+
+<!-- 危险确认 -->
+<CfButton tone="danger" strong icon="i-lucide-trash-2" :loading="deleting" @click="confirm">删除</CfButton>
+```
+
+#### 2.8.4 弹窗底栏布局
+
+```
+┌─────────────────────────────────────────────┐
+│  [secondary 详情]     [secondary] [primary] │
+└─────────────────────────────────────────────┘
+```
+
+- 只读详情：不放「关闭」文案（右上角 X）；右下 `secondary` 测试 + `primary` 编辑
+- 编辑/新建：右下取消 + 保存/添加
+- 用 `.modal-actions` / `__left` / `__right`
+
+#### 2.8.5 反例（禁止）
+
+- 裸 `ghost` 无背景文字按钮当主操作
+- **大按钮只有文字、没有图标**
+- 卡片里「编辑」「删除」带长文字挤布局
+- 同页混用未封装的各色 `UButton` 冒充规范
+- `rounded-full` 胶囊主按钮、紫渐变
+
+> 参考落地页：`pages/models.vue`、`pages/agents.vue`、`pages/keys.vue`、`pages/knowledge.vue`、`pages/workflows/index.vue`、`pages/admin/*`、`pages/monitor.vue`。
+
 
 ## 3. 技术栈（最新且兼容 Nuxt 3）
 
@@ -373,14 +572,15 @@ components/
 ### 3.5 混用冲突规则（必须遵守）
 
 1. **壳层与导航统一 Nuxt UI**，不要再用 shadcn 另做一套顶栏。
-2. **主按钮全站优先 `UButton`**，避免同页混用 shadcn `Button`。
+2. **主按钮全站优先 `CfButton`**（底层仍是 `UButton`），避免同页混用 shadcn `Button`。**保存 / 编辑 / 删除等语义见 §2.8**。
 3. **Toast 只用 Nuxt UI**（`UToast` / `useToast`）。
 4. **表单**：复杂表单 `UForm`；极简登录也可用 `UInput` + `UButton` 以保持一套。
-5. **圆角 / 主色 / 字号**走 Forge Ink；`app.config.ts` 把 Nuxt UI `primary` 映射电青。
+5. **圆角 / 主色 / 字号**走主题 Token；`app.config.ts` 把 Nuxt UI `primary` 映射 `--cf-accent`。
 6. **营销向 Page\*** 默认不用。
 7. Chat 做适配层，**不改后端接口**。
 8. shadcn：**能不用则不用**；若引入，禁止与 Nuxt UI 职责重叠（尤其 Button/Nav）。
-
+9. **资源列表**：优先自研 editorial 表（`.cf-data-table`）+ `UBadge`/`CfButton`；复杂排序筛选再考虑 `UTable`。
+10. **弹窗底栏**：左次操作、右主操作（§2.8.2）。
 ---
 
 ## 4. 信息架构与壳层
@@ -593,15 +793,23 @@ Nuxt UI 的 Header / NavigationMenu / Dashboard / Slideover 开箱即好看、�
 手机（P2）：单列仍保持左右分侧；参数进 Slideover。
 
 ### 5.4 Agent / 模型 / 知识库 / 密钥
-- 列表：优先 **`UTable` + `UPagination` + `UBadge`**
-- 筛选/模型选择：优先 **`USelectMenu` / `UInputMenu`**（可搜索，比裸 Select 强）
-- 新建/编辑：`UModal` 或 `USlideover`；简单确认也可用 shadcn `Dialog`（全站弹层建议统一 Nuxt UI Overlay）
+- 页面壳：`.cf-page` + 英文标题（与导航一致）
+- 列表：优先 **`.cf-data-table`（原生表）+ `UBadge` + 行内 `CfButton`**；分页可用 `UPagination` 或简易 pager
+- 筛选/模型选择：优先 **`USelect` / `USelectMenu` / `UInput`**
+- 新建/编辑：统一 **`UModal`**；按钮语义见 **§2.8**
+- **Models 专项**：
+  - 默认**紧凑卡片网格**（约 3–5 列），可切换列表；偏好存 `localStorage`（`cf-models-view`）
+  - **双击**卡片/行 → 只读详情（同弹窗）；详情可切编辑；API Key 脱敏展示
+  - 页头 Active 条保持单行，避免大块横幅占高
+- **Agents / Knowledge**：同样支持双击只读详情 → 同弹窗编辑；Knowledge 单击仍打开文档抽屉（与双击防抖区分）
 - 知识库上传：**`UFileUpload`**
+- 知识库也可卡片网格（业务需要时）；密钥/Agent 以表为主（Agent 表 + 双击详情）
+- **Keys**：行内显示/隐藏 + 复制（未揭示时复制脱敏并 toast 提示）；无独立详情弹窗
 
 ### 5.5 工作流（**Vue Flow 先不动引擎**）
-- 列表页：同其他资源列表（`UTable`）
+- 列表页：`.cf-data-table` + §2.8 按钮
 - 编辑器页（Desktop）：
-  - 顶栏工具换皮：按钮体系与全站一致（见 §6，基础按钮走选定的那一套）
+  - 顶栏工具换皮：按钮体系与全站一致（§2.8 / §6）
   - 左侧节点面板、右侧属性面板换皮
   - **画布核心**：继续 `WorkflowCanvas.vue` + `@vue-flow/*`
   - 节点外壳允许换成 Tailwind class；**节点 type、handle id、events、存盘 JSON 结构不变**
@@ -609,13 +817,14 @@ Nuxt UI 的 Header / NavigationMenu / Dashboard / Slideover 开箱即好看、�
 - 本阶段明确：**不升级 Vue Flow 大版本、不换库、不改编排协议**
 
 ### 5.6 监控中心
-- 指标 + **`UTable`** 日志；筛选用 `USelectMenu` / `UInput`
+- 指标卡 + **`.cf-data-table`** 日志；筛选用 `USelect` / `UInput`
 - 状态码、耗时：mono
+- **双击行**打开日志详情；详情无底栏 Close，用右上角 X
 
 ### 5.7 设置 / 管理
-- 设置分区：可用 shadcn `Tabs` 或 `UTabs`（全站选一种）
-- 复杂表单：优先 **`UForm` + `UFormField`**
-- 管理 CRUD：`UTable` + `UModal`
+- 设置侧栏英文分区标题（Profile / Security / Preferences / Sessions）+ `.cf-section-title`
+- 复杂表单：优先 **`UForm` + `UFormField`** 或 `UInput`/`CfButton`（§2.8）
+- 管理 CRUD：`.cf-data-table` + `UModal`；**Users / Roles 双击行进入编辑**
 
 ---
 
@@ -641,11 +850,11 @@ Nuxt UI 的 Header / NavigationMenu / Dashboard / Slideover 开箱即好看、�
 | 顶栏 / 导航 / 移动菜单 | **`UHeader` `UNavigationMenu` `USlideover`** | 需自拼 | **Nuxt UI** | 好看、省事、响应式现成 |
 | Dashboard 分栏 | `UDashboard*` | 自研 | **按需 Nuxt UI** | Playground 三栏可借力 |
 | BrandMark | 槽位插入 | 自研 | **自研插入 Header** | 保证品牌测试通过 |
-| Button / Input | `UButton` `UInput` | 有 | **Nuxt UI** | 与壳一套，避免混用 |
+| Button / Input | `UButton` `UInput` | 有 | **`CfButton` + `UInput`** | 业务按钮走 §2.8；底层仍 Nuxt UI |
 | Select（可搜索） | `USelectMenu` | 基础 Select | **Nuxt UI** | 长列表 |
 | Form | `UForm` | 自搭 | **Nuxt UI** | |
-| Table / Pagination | `UTable` | 基础 Table | **Nuxt UI** | |
-| Overlay / Toast | `UModal` `UToast`… | Dialog/sonner | **Nuxt UI** | |
+| Table / Pagination | `UTable` | 基础 Table | **优先 `.cf-data-table`；复杂表再用 UTable** | editorial 列表已落地原生表 |
+| Overlay / Toast | `UModal` `UToast`… | Dialog/sonner | **Nuxt UI** | 底栏布局见 §2.8.2 |
 | AI Chat | `UChat*` | 无对等 | **Nuxt UI** | 已定，左右分侧 |
 | FileUpload | `UFileUpload` | 自研 | **Nuxt UI** | |
 | Command palette | `UCommandPalette` | 需拼 | **Nuxt UI** | |
@@ -656,21 +865,22 @@ Nuxt UI 的 Header / NavigationMenu / Dashboard / Slideover 开箱即好看、�
 
 | 页面 | Nuxt UI | 自研 / 备注 |
 |------|---------|-------------|
-| 全局壳 | Header、NavigationMenu、Slideover、Toast、UApp | BrandMark 插入 leading |
-| Login / Register | Input、Button、Form、Toast | 大标题品牌区自研 |
-| Console | Button、可选 Empty | 指标块可用简单 section |
-| Playground | **Chat* 左右分侧**、SelectMenu、Slider、可选 DashboardPanel | 元数据小条 |
-| Agents / Models / Keys / Admin | Table、Pagination、Modal/Slideover、SelectMenu | PageHeader 可用 UPageHeader 或自研一句 |
-| Knowledge | Table、FileUpload、Modal | |
-| Workflows | Table、Toast、Slideover；画布 Vue Flow | 节点壳换皮 |
-| Settings | Form、FormField、Tabs、Toast | |
+| 全局壳 | Header（editorial/island）、Slideover、Toast、UApp | BrandMark / 自研导航链 |
+| Login / Register | Input、`CfButton` 提交、文字 link 仍 `UButton` | 大标题品牌区自研；文案英文 |
+| Dashboard | Button、统计区 | `.cf-page` 欢迎 + next steps |
+| Playground | **Chat* 左右分侧**、Select、Slider | 元数据小条；空态英文 |
+| Agents / Keys / Flows / Admin | `.cf-data-table`、Modal、Badge、行内 `CfButton` | §2.8 |
+| Models | 同上 + **卡片/列表切换**、详情只读同弹窗 | `cf-models-view` |
+| Knowledge | 卡片网格 / Modal、FileUpload | |
+| Workflows 编辑器 | Toast、Slideover；画布 Vue Flow | 节点壳换皮 |
+| Settings | Form 控件、章节 `.cf-section-title` | 侧栏 Settings |
 
 ### 6.4 从 Naive 迁移时的替换方向
 
 | 现用（Naive） | 目标 |
 |---------------|------|
 | `n-layout` / `n-menu` 顶栏 | `UHeader` + `UNavigationMenu` |
-| `n-button` / `n-input` | `UButton` / `UInput` |
+| `n-button` / `n-input` | `CfButton` / `UInput` |
 | `n-select`（长列表） | `USelectMenu` |
 | `n-data-table` | `UTable` |
 | `n-modal` / `n-drawer` | `UModal` / `USlideover` |
@@ -690,12 +900,13 @@ Nuxt UI 的 Header / NavigationMenu / Dashboard / Slideover 开箱即好看、�
 4. `pnpm build` / Docker 回归
 
 ### Phase 1 — 认证 + Shell（**Desktop 验收**）
-- 登录注册用 `UForm`/`UInput`/`UButton`
+- 登录注册提交用 `CfButton`；页脚文字 link 仍可用 `UButton variant="link"`
 - 默认布局切换到 Nuxt UI Header 导航
 
 ### Phase 2 — 列表型页面（Desktop 优先）
-- Console / Agents / Models / Knowledge / Keys / Monitor / Admin
-- 列表统一 `UTable`；上传用 `UFileUpload`
+- Dashboard / Agents / Models / Knowledge / Keys / Monitor / Admin
+- 列表统一 `.cf-data-table`（复杂场景可再用 `UTable`）；上传用 `UFileUpload`
+- 按钮语义统一 **§2.8**
 
 ### Phase 3 — 复杂页（Desktop 优先）
 - Playground（**Nuxt UI Chat* + 适配层**）
@@ -707,6 +918,17 @@ Nuxt UI 的 Header / NavigationMenu / Dashboard / Slideover 开箱即好看、�
 - 删除 Naive/Element 依赖与 `plugins/naive-ui.client.ts`
 - 更新 `cogniforge-web/README.md` 技术栈说明
 - 回归 composable 单测
+
+### Phase 7 — editorial 对齐 + Models（已完成）
+- 共享 `.cf-page` chrome；英文模块标题
+- Models：卡片默认、列表切换、双击只读详情、同弹窗编辑；按钮规范入库 §2.8
+- 业务页 `CfButton`；Users/Roles/Monitor 双击；Keys 显示/复制
+- 登录/注册提交 `CfButton`、文案英文；测试弹窗无多余 Close
+
+### Phase 8 — 中英文（已完成）
+- `useLocale` + `i18n/messages.ts`；仅 zh-CN / en-US
+- 顶栏 / 登录 / Preferences 切换；`localStorage` + 现有 settings `language`
+- **不改路由前缀**
 
 ### Phase 5 — 手机兼容打磨（不阻塞上线）
 - 导航滑层、Playground 参数滑层、表格横滑、工作流只读提示

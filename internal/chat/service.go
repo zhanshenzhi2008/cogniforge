@@ -96,7 +96,7 @@ func (s *ChatService) Chat(req *ChatRequest) (*ChatResponse, error) {
 	providerURL := s.aiChatCompletionsURL(baseURL)
 	slog.Info("calling AI provider API", "url", providerURL, "model", req.Model)
 
-	payload := s.buildPayload(req)
+	payload := s.buildPayload(req, false)
 	body, _ := json.Marshal(payload)
 
 	httpReq, err := http.NewRequest("POST", providerURL, bytes.NewBuffer(body))
@@ -146,16 +146,17 @@ func (s *ChatService) ChatStream(c *gin.Context, req *ChatRequest) error {
 	}
 
 	providerURL := s.aiChatCompletionsURL(baseURL)
-	slog.Info("streaming AI provider API", "url", providerURL, "model", req.Model)
+	slog.Info("streaming AI provider API", "url", providerURL, "model", req.Model, "stream", true)
 
-	payload := s.buildPayload(req)
+	payload := s.buildPayload(req, true)
 	body, _ := json.Marshal(payload)
 
-	httpReq, err := http.NewRequest("POST", providerURL, bytes.NewBuffer(body))
+	httpReq, err := http.NewRequestWithContext(c.Request.Context(), "POST", providerURL, bytes.NewBuffer(body))
 	if err != nil {
 		return err
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Accept", "text/event-stream")
 	httpReq.Header.Set("Authorization", "Bearer "+apiKey)
 	for k, v := range extraHeaders {
 		httpReq.Header.Set(k, v)
@@ -197,11 +198,11 @@ func (s *ChatService) aiChatCompletionsURL(base string) string {
 	return base + "/v1/chat/completions"
 }
 
-func (s *ChatService) buildPayload(req *ChatRequest) map[string]any {
+func (s *ChatService) buildPayload(req *ChatRequest, stream bool) map[string]any {
 	payload := map[string]any{
 		"model":    req.Model,
 		"messages": req.Messages,
-		"stream":   false,
+		"stream":   stream,
 	}
 	if req.Temperature != nil {
 		payload["temperature"] = *req.Temperature

@@ -1,5 +1,55 @@
 # CogniForge 技术债务与待优化项
 
+## [变更记录]
+| 日期 | 版本 | 变更摘要 | 负责人 |
+|------|------|---------|--------|
+| 2026-08-15 | v1.2 | 记录并修复 Playground `/chat/stream` 无流式回复 | orjrs |
+| 2026-08-15 | v1.1 | Element Plus SSR 条目作废（已卸依赖）；状态表同步 | orjrs |
+| 2026-04-09 | v1.0 | 阶段七知识库完成；动态路由与统一响应已文档化 | orjrs |
+
+## [变更] Playground 流式对话空白（2026-08-15）
+
+- **变更原因**：Playground 发送后界面无助手回复；`request_logs` 显示上游返回了完整 `chat.completion` JSON，前端只认 SSE `delta.content`
+- **包含代码**：`internal/chat/service.go`、`cogniforge-web/pages/playground.vue`
+- **影响范围**：`POST /api/v1/chat/stream`、Playground 通用对话
+
+### 变更前 vs 变更后
+
+| | 变更前 | 变更后 |
+|--|--------|--------|
+| 上游 payload | `buildPayload` 写死 `"stream": false` | `/chat/stream` 强制 `"stream": true` |
+| 上游响应 | `object: chat.completion` + `choices[0].message.content` | SSE `data:` + `choices[0].delta.content` |
+| 前端 | 只解析 `data:` 行的 `delta.content` | 同时兜底解析完整 JSON 的 `message.content` |
+
+### 日志怎么看
+
+| 位置 | 内容 |
+|------|------|
+| PostgreSQL `request_logs` | 每次 HTTP 的 path / body / 截断后的 response / duration（监控页同源） |
+| 进程 **stdout**（GoLand Run/Debug 控制台） | `slog`：`streaming AI provider API url=... model=... stream=true` |
+| 没有独立 log 文件 | `internal/logger` 写 `os.Stdout`，不落盘 |
+
+查最近一次对话：
+
+```sql
+SELECT created_at, path, status_code, duration,
+       left(request_body, 300), left(response_body, 400)
+FROM request_logs
+WHERE path = '/api/v1/chat/stream'
+ORDER BY created_at DESC
+LIMIT 5;
+```
+
+- 响应以 `{` 开头且 `"object":"chat.completion"` → 上游被当成非流式
+- 响应以 `data: {` 开头且含 `"delta"` → 流式正常
+- 响应含 `Mock stream response` → 当时没有启用的 AI Provider，走了 mock
+
+## [变更] Element Plus 水合问题作废（2026-08-15）
+
+- **变更原因**：P5 已卸载 `element-plus` / naive-ui，壳层为 Nuxt UI；§1 仍写 ElDropdown 会误导
+- **变更前**：🟡 临时方案（`ssr: false` + Element Plus）
+- **变更后**：~~Element Plus SSR 水合不匹配~~（2026-08-15）标为 🟢 已作废；`ssr: false` 若仍保留，原因不再是 Element Plus
+
 ## 📋 概述
 
 本文档用于记录开发过程中发现的技术债务、已知问题和待优化项，便于后期跟进和优化。
@@ -8,45 +58,15 @@
 
 ## 🐛 已知问题
 
-### 1. Element Plus 与 Nuxt SSR 水合不匹配
+### 1. ~~Element Plus 与 Nuxt SSR 水合不匹配~~（2026-08-15 作废）
 
-**问题描述**：
+**问题描述**（历史）：
 
-在使用 Nuxt SSR 模式时，Element Plus 组件（如 `ElDropdown`、`ElTooltip`、`ElEmpty`）在服务端渲染和客户端渲染时生成的 DOM ID 不一致，导致大量 Hydration Mismatch 警告：
+在使用 Nuxt SSR 模式时，Element Plus 组件（如 `ElDropdown`、`ElTooltip`、`ElEmpty`）在服务端渲染和客户端渲染时生成的 DOM ID 不一致，导致大量 Hydration Mismatch 警告。
 
-```
-[Vue warn]: Hydration attribute mismatch on <span class="user-dropdown">
-  - rendered on server: id="el-id-7461-20"
-  - expected on client: id="el-id-6630-0"
-```
+**现状**：`element-plus` 已从 `cogniforge-web` 卸载；布局改用 Nuxt UI（`UHeader` / `UDropdownMenu`）。本条不再跟踪。
 
-**影响范围**：
-- `layouts/default.vue` 中的下拉菜单组件
-- `pages/index.vue` 中的空状态组件
-- 任何使用 Element Plus 弹窗类组件的页面
-
-**当前解决方案**：
-在 `nuxt.config.ts` 中设置 `ssr: false`，禁用服务端渲染。
-
-**影响**：
-- ✅ 功能正常
-- ⚠️ SEO 略有影响（首屏需要 JS 执行后才能渲染）
-- ⚠️ 首屏加载略慢
-
-**后续优化方案**（按优先级）：
-
-| 优先级 | 方案 | 说明 |
-|-------|------|------|
-| P1 | 升级 Element Plus | 检查新版本是否已修复此问题 |
-| P2 | 使用 `<ClientOnly>` 包裹 | 只在客户端渲染特定组件 |
-| P3 | 自定义 Element Plus ID 生成策略 | 需要修改 Element Plus 源码或配置 |
-
-**相关文件**：
-- `nuxt.config.ts` - 已设置 `ssr: false`
-- `layouts/default.vue` - 使用 ElDropdown 组件
-- `pages/index.vue` - 使用 ElEmpty 组件
-
-**状态**：🟡 临时方案，待长期优化
+**状态**：🟢 已作废（P5 卸依赖）
 
 ---
 
@@ -303,7 +323,8 @@ var users = map[string]*User{}  // 内存存储
 | 2026-04-09 | 知识库文档上传功能 | 🟢 已完成 | 阶段七 7.2 |
 | 2026-04-09 | 知识库语义检索 API | 🟢 已完成 | 阶段七 7.4 |
 | 2026-04-09 | 知识库检索测试页面 | 🟢 已完成 | 阶段七 7.5 |
-| 2026-03-21 | Element Plus SSR 水合问题 | 🟡 临时方案 | 禁用 SSR |
+| 2026-08-15 | Playground `/chat/stream` 无流式回复 | 🟢 已修复 | 上游误发 stream:false；需重启 Go 后端 |
+| 2026-08-15 | Element Plus SSR 水合问题 | 🟢 已作废 | P5 已卸 element-plus |
 | 2026-03-21 | 重复导入警告 | 🟡 待优化 | - |
 | 2026-03-21 | 内存数据存储 | 🔴 待实现 | 需要数据库 |
 | 2026-04-06 | Nuxt 动态路由（工作流） | 🟢 已修复并文档化 | 见「§3」 |
@@ -315,6 +336,8 @@ var users = map[string]*User{}  // 内存存储
 
 ## 📝 更新日志
 
+- **2026-08-15**: 修复 Playground 流式空白：`buildPayload` 不再写死 `stream:false`；前端兜底解析完整 JSON
+- **2026-08-15**: Element Plus SSR 条目作废（已卸载依赖，壳层为 Nuxt UI）
 - **2026-04-09**: 阶段七知识库服务全部完成：文档上传（支持 PDF/TXT/MD/DOCX/HTML）、异步分块处理、基于关键词的语义检索 API、前端检索测试页面
 - **2026-04-06**: 业务 Code 规范重构：响应结构拆分 `code.go`/`response.go`/`model.go`、2xxx 成功/4xxx 系统异常/5xxx 业务异常
 - **2026-04-06**: 知识库服务（阶段七 7.1/7.3）：新增 `KnowledgeBase`/`Document` 模型、知识库 CRUD API、文档列表/删除 API、前端知识库管理页面

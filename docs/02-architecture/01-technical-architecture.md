@@ -4,10 +4,22 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-08-15 | v4.1 | 澄清本地日志：stdout slog + PostgreSQL `request_logs`（无独立 log 文件） | orjrs |
 | 2026-05-17 | v4.0 | Python AI 服务独立为 cogniforge-ai 项目；Go 后端改为调用外部 Python 服务；删除 llm/ 目录 | orjrs |
 | 2026-04-27 | v3.0 | 后端从 handler 目录重构为业务模块化架构；新增 auth/user/chat/workflow/knowledge/agent 等独立模块，遵循 DTO → Service → Handler 分层模式 | orjrs |
 | 2026-04-04 | v2.0 | 后端架构由 gateway 独立目录收敛为 monolith；删除 go-standards/dev-environment rules；rules 文档变更记录规范 | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] 本地日志位置说明（2026-08-15）
+
+- **变更原因**：排查 Playground 流式空白时发现架构文档仍写「slog JSON + 运维收集」，与实现不符
+- **包含代码**：`internal/logger/logger.go`、`internal/middleware/request_logger.go`
+- **影响范围**：排障方式；不改采集链路
+
+### 变更前 vs 变更后
+
+- **变更前**：~~slog JSON 输出到 stdout，由运维层收集~~（2026-08-15）
+- **变更后**：stdout 彩色 slog + 表 `request_logs`；本地无 log 文件
 
 ## [变更] Python AI 服务独立化（2026-05-17）
 
@@ -499,7 +511,13 @@ LIMIT $3;
 ### 3.7 监控服务 - 未实现
 
 ```yaml
-当前日志: slog JSON 输出到 stdout，由运维层收集
+当前日志:
+  - 运行日志: slog 彩色文本输出到 stdout（internal/logger，无独立 log 文件）
+    本地开发看 GoLand Run/Debug 控制台，或 go run 所在终端
+    关键行: "streaming AI provider API" / "ChatStream failed"
+  - 请求日志: RequestLogger 异步写入 PostgreSQL request_logs
+    字段: path, request_body, response_body(截断 2000), status_code, duration, trace_id
+    查询: GET /api/v1/monitor/logs ；或 SQL WHERE path = '/api/v1/chat/stream'
 Prometheus/Jaeger/Loki: 未接入
 ```
 

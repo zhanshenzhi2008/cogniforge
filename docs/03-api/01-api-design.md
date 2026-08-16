@@ -4,9 +4,21 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-08-15 | v1.3 | 新增 POST /api/v1/embeddings；Python RAG 回调 Go，不自己拿 Key | orjrs |
 | 2026-08-15 | v1.2 | GET /v1/models 改为返回已启用供应商的 default_model（不再写死 GPT 列表） | orjrs |
 | 2026-04-09 | v1.1 | 新增文档上传接口、语义检索接口实现说明 | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] 新增 Embeddings 内部接口（2026-08-15）
+
+- **变更原因**：Python RAG 不应自己持有供应商 Key；与聊天共用 `ai_providers`
+- **包含代码**：`internal/chat/handler.go`、`internal/chat/service.go`
+- **影响范围**：`POST /api/v1/embeddings`（公开、无登录，供内网 Python 调用）
+
+### 变更前 vs 变更后
+
+- **变更前**：文档写了 `/v1/embeddings` 但 Go 未实现
+- **变更后**：Go 用当前启用供应商转发上游 `/v1/embeddings`，响应包在统一 `{code,data}` 里
 
 ## [变更] 模型列表改为数据库配置（2026-08-15）
 
@@ -242,33 +254,38 @@ POST /v1/chat/completions (流式)
 ### 3.2 Embeddings
 
 ```yaml
-接口组: /v1/embeddings
+接口组: /api/v1/embeddings
 
-POST /v1/embeddings
-描述: 生成文本向量
-认证: API密钥
+POST /api/v1/embeddings
+描述: 生成文本向量。用当前启用的 ai_providers 调上游 /v1/embeddings（与聊天同一套配置）
+认证: 无（内网 Python RAG 回调；勿对公网暴露 Go 8080）
 请求体:
   {
-    "model": "text-embedding-3-small",
-    "input": "要向量化的文本"
+    "model": "可选，空则用供应商 default_model",
+    "input": "要向量化的文本，或字符串数组"
   }
-响应:
+响应（统一信封）:
   {
-    "object": "list",
-    "data": [
-      {
-        "object": "embedding",
-        "embedding": [0.123, -0.456, ...],
-        "index": 0
+    "code": 2000,
+    "data": {
+      "object": "list",
+      "data": [
+        {
+          "object": "embedding",
+          "embedding": [0.123, -0.456],
+          "index": 0
+        }
+      ],
+      "model": "text-embedding-3-small",
+      "usage": {
+        "prompt_tokens": 10,
+        "total_tokens": 10
       }
-    ],
-    "model": "text-embedding-3-small",
-    "usage": {
-      "prompt_tokens": 10,
-      "total_tokens": 10
     }
   }
 ```
+
+~~原规划的独立 OpenAI 风格 `/v1/embeddings`（需 API 密钥认证）尚未作为对外网关实现。~~（2026-08-15）
 
 ### 3.3 模型列表
 

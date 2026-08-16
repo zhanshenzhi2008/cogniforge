@@ -4,11 +4,46 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-08-15 | v4.4 | 模型配置本地+Redis 两级缓存（rev 一致性）；Go 明文 Key 不进 Redis | orjrs |
+| 2026-08-15 | v4.3 | Python 不再读 ai_providers；LLM/embedding 一律回调 Go（单一配置出口） | orjrs |
+| 2026-08-15 | v4.2 | ~~cogniforge-ai 直接读 ai_providers 解密 Key~~（同日改为 v4.3 Hub） | orjrs |
 | 2026-08-15 | v4.1 | 移除 config.yaml 的 AI_* 环境变量；聊天密钥与模型只读 ai_providers | orjrs |
 | 2026-05-17 | v4.0 | Python AI 服务独立为 cogniforge-ai 项目；Go 后端改为调用外部 Python 服务；删除 llm/ 目录 | orjrs |
 | 2026-04-27 | v3.0 | 后端从 handler 目录重构为业务模块化架构；新增 auth/user/chat/workflow/knowledge/agent 等独立模块，遵循 DTO → Service → Handler 分层模式 | orjrs |
 | 2026-04-04 | v2.0 | 后端架构由 gateway 独立目录收敛为 monolith；删除 go-standards/dev-environment rules；rules 文档变更记录规范 | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] 模型配置两级缓存（2026-08-15）
+
+- **变更原因**：每次聊天都查 `ai_providers` 并解密 Key；多实例要对齐
+- **包含代码**：`internal/modelcache/`、`internal/provider/service.go`、`cogniforge-ai/llm/model_config.py`
+- **本地缓存**：Go 进程内 TTL（对标 Java Caffeine；单 key 不必上 Otter/Ristretto）；Python `cachetools.TTLCache`
+- **共享缓存**：Redis `cogniforge:modelcfg:rev` + `cogniforge:modelcfg:snapshot`（项目前缀，共用 db0）
+- **一致性**：写模型页时 `INCR rev` 并删 snapshot；读时用 rev 校验本地，对不上就丢
+- **安全**：Redis 只存库里的密文 Key；明文只在 Go 进程内存
+
+## [变更] Python 只回调 Go，不再自己拿 Key（2026-08-15）
+
+- **变更原因**：Python 自己读库解密 Key，等于第二套 LLM 客户端，密钥扩散、和 Playground 日志/流式也不一致
+- **包含代码**：Go `internal/chat` 新增 `POST /api/v1/embeddings`；Python `llm/go_gateway.py`、`services/rag/embedding/go_embedder.py`
+- **影响范围**：cogniforge-ai 启动只依赖 `COGNIFORGE_API_URL`；不再需要 `ENCRYPTION_KEY` 解 LLM Key
+- **禁止**：Go 聊天再转到 Python `/api/llm`（会绕回 Go）
+
+### 变更前 vs 变更后
+
+- **变更前**：~~Python 查 `ai_providers` + `ENCRYPTION_KEY` 解密，自己调供应商~~（2026-08-15）
+- **变更后**：
+
+```
+浏览器 → Go /chat/stream|/chat/completions → 供应商
+Go 知识库 → Python /api/rag（解析/分块/pgvector）
+Python Agent/LLM/embed → Go /api/v1/chat/* 与 /api/v1/embeddings
+```
+
+## [变更] cogniforge-ai 共用 ai_providers（2026-08-15）
+
+- ~~变更原因：Python 仍用 `OPENAI_API_KEY` 等环境变量，与控制台模型页两套配置~~（2026-08-15，被 v4.3 取代）
+- ~~变更后：启动时查 `ai_providers` 当前启用行，解密 Key~~（2026-08-15）
 
 ## [变更] 移除 AI 环境变量（2026-08-15）
 
@@ -210,25 +245,19 @@ cogniforge/
 ├─────────────────────────────────────────────────────────────────────────┤
 │                                                                          │
 │  ┌─────────────────────────────────────────────────────────────────┐   │
-│  │                    Go Backend (API 编排层)                         │   │
+│  │                    Go Backend（模型配置唯一出口）                    │   │
 │  │                        端口: 8080                                  │   │
 │  │  ┌─────────────────────────────────────────────────────────────┐  │   │
 │  │  │  auth/ │ user/ │ chat/ │ workflow/ │ knowledge/ │ agent/ │  │   │
 │  │  │  router/ │ middleware/ │ engine/ (工作流编排)              │  │   │
 │  │  └─────────────────────────────────────────────────────────────┘  │   │
-│  │                              │                                    │   │
-│  │                              │ HTTP 调用                          │   │
-│  └──────────────────────────────┼────────────────────────────────────┘   │
-│                                 │ 端口 8086                             │
-│                                 ▼                                      │
-│  ┌─────────────────────────────────────────────────────────────────┐   │
-│  │                   Cogniforge-AI (Python AI 能力层)                 │   │
-│  │                       端口: 8086                                  │   │
-│  │  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐                │   │
-│  │  │  Agent  │ │   LLM   │ │ Memory  │ │   RAG   │                │   │
-│  │  │ Service │ │ Service │ │ Service │ │ Service │                │   │
-│  │  └─────────┘ └─────────┘ └─────────┘ └─────────┘                │   │
-│  └─────────────────────────────────────────────────────────────────┘   │
+│  │         │ 知识库 RAG                    ▲ 聊天 / embeddings        │   │
+│  └─────────┼───────────────────────────────┼─────────────────────────┘   │
+│            ▼ 8086                          │                             │
+│  ┌─────────────────────────────────────────┴─────────────────────────┐   │
+│  │                   Cogniforge-AI（解析/分块/Agent，不持有 Key）     │   │
+│  │  Agent │ LLM(经 Go) │ Memory │ RAG(embedding 经 Go)               │   │
+│  └───────────────────────────────────────────────────────────────────┘   │
 │                                                                          │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
@@ -249,11 +278,11 @@ cogniforge/
 |-----|---------|---------|
 | **Go** | 高并发、低延迟、编译型无GC暂停 | API网关（monolith）、模型调用、Agent引擎 |
 | **Java (Spring Boot 3)** | 成熟稳定、丰富生态 | 用户中心、计费系统（存根） |
-| **Python** | AI/ML事实标准 | 模型微调、向量 embedding、RAG处理（存根） |
+| **Python** | 文档解析/分块/pgvector | RAG 管道；LLM 回调 Go，不持有供应商 Key |
 | **Vue 3 + Nuxt 3** | 组合式 API、SSR/SSG、内置 API 路由 | Web控制台前端 |
 | **TypeScript** | 强类型支持、IDE友好 | 全栈类型安全 |
 | **PostgreSQL** | ACID事务、JSON支持 | 核心业务数据存储（GORM） |
-| **Redis** | 高速缓存、会话存储 | 已配置，暂未使用 |
+| **Redis** | 高速缓存、会话存储 | 模型配置已用；会话仍规划 |
 | **Milvus/Qdrant** | 高效向量检索 | 知识库语义搜索（规划） |
 | **Kafka** | 高吞吐消息队列 | 异步任务、事件流（规划） |
 
@@ -267,25 +296,19 @@ cogniforge/
 ├─────────────────────────────────────────────────────────────────────────┤
 │                                                                          │
 │  ┌─────────────────────────────────────────────────────────────────┐   │
-│  │                    Go Backend (API 编排层)                         │   │
+│  │                    Go Backend（模型配置唯一出口）                    │   │
 │  │                        端口: 8080                                  │   │
 │  │  ┌─────────────────────────────────────────────────────────────┐  │   │
 │  │  │  auth/ │ user/ │ chat/ │ workflow/ │ knowledge/ │ agent/ │  │   │
 │  │  │  router/ │ middleware/ │ engine/ (工作流编排)              │  │   │
 │  │  └─────────────────────────────────────────────────────────────┘  │   │
-│  │                              │                                    │   │
-│  │                              │ HTTP 调用                          │   │
-│  └──────────────────────────────┼────────────────────────────────────┘   │
-│                                 │ 端口 8086                             │
-│                                 ▼                                      │
-│  ┌─────────────────────────────────────────────────────────────────┐   │
-│  │                   Cogniforge-AI (Python AI 能力层)                 │   │
-│  │                       端口: 8086                                  │   │
-│  │  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐                │   │
-│  │  │  Agent  │ │   LLM   │ │ Memory  │ │   RAG   │                │   │
-│  │  │ Service │ │ Service │ │ Service │ │ Service │                │   │
-│  │  └─────────┘ └─────────┘ └─────────┘ └─────────┘                │   │
-│  └─────────────────────────────────────────────────────────────────┘   │
+│  │         │ 知识库 RAG                    ▲ 聊天 / embeddings        │   │
+│  └─────────┼───────────────────────────────┼─────────────────────────┘   │
+│            ▼ 8086                          │                             │
+│  ┌─────────────────────────────────────────┴─────────────────────────┐   │
+│  │                   Cogniforge-AI（解析/分块/Agent，不持有 Key）     │   │
+│  │  Agent │ LLM(经 Go) │ Memory │ RAG(embedding 经 Go)               │   │
+│  └───────────────────────────────────────────────────────────────────┘   │
 │                                                                          │
 │  ┌─────────────────────────────────────────────────────────────────┐   │
 │  │                          数据存储层                                 │   │
@@ -427,7 +450,7 @@ cogniforge/
   - 文档上传接口 (Go，接收 multipart/form-data)
   - 文件解析：PDF/DOCX/MD/TXT/HTML (Python)
   - 文本智能分块（RecursiveCharacterTextSplitter）(Python)
-  - Embedding 生成（OpenAI API 或本地模型）(Python)
+  - Embedding 生成（回调 Go `/api/v1/embeddings`，或 `EMBEDDER_TYPE=local`）(Python)
   - 向量存储（PostgreSQL pgvector 扩展）(Python)
   - 语义检索（向量相似度查询）(Python)
 
@@ -524,16 +547,16 @@ Prometheus/Jaeger/Loki: 未接入
 状态: 已实现
 
 已实现的服务:
-  - /api/agent  - Agent 执行 + 工具
-  - /api/llm   - OpenAI/Claude 调用
+  - /api/agent  - Agent 执行 + 工具（LLM 回调 Go）
+  - /api/llm   - 转发 Go /api/v1/chat/*
   - /api/memory - 对话记忆管理
-  - /api/rag    - RAG 向量搜索
+  - /api/rag    - RAG 解析/分块/pgvector（embedding 回调 Go）
 
 技术栈:
   - Python 3.10+
   - FastAPI + Pydantic
-  - openai / anthropic
-  - httpx
+  - httpx（COGNIFORGE_API_URL）
+  - psycopg2 + pgvector
 ```
 
 ---
@@ -544,8 +567,9 @@ Prometheus/Jaeger/Loki: 未接入
 
 | 模式 | 技术 | 实际状态 |
 |-----|------|---------|
-| **Go → Python AI** | REST HTTP | Go 调用 cogniforge-ai (8086) |
-| **Python AI 内部** | 同进程 | LLM/Agent/Memory/RAG |
+| **Go → Python AI** | REST HTTP | 知识库：Go 调用 cogniforge-ai `/api/rag` (8086) |
+| **Python → Go** | REST HTTP | LLM/embedding：Python 调用 Go `/api/v1/chat/*`、`/api/v1/embeddings` |
+| **浏览器 → Go** | REST / SSE | Playground 聊天直接打 Go，不经过 Python |
 | **异步消息** | Kafka | 未接入 |
 | **服务发现** | Consul/etcd | 未接入 |
 
@@ -561,7 +585,9 @@ Prometheus/Jaeger/Loki: 未接入
 /keys                              POST/GET         API Key 管理
 /keys/:id                          DELETE           删除 Key
 /models                            GET              模型列表
+/chat/completions                  POST             非流式聊天（Python 回调）
 /chat/stream                       POST             流式聊天
+/embeddings                        POST             文本向量（Python RAG 回调）
 /agents                            GET/POST          Agent 列表/创建
 /agents/:id                        GET/PUT/DELETE   Agent CRUD
 /agents/:id/chat                   POST             Agent 对话
@@ -620,7 +646,7 @@ Kafka Topics (规划，未接入):
 
 | 层级 | 存储类型 | 实际状态 |
 |-----|---------|---------|
-| **热数据** | Redis | 已配置，未使用 |
+| **热数据** | Redis | 模型配置两级缓存（`cogniforge:modelcfg:*`） |
 | **温数据** | PostgreSQL | 核心业务数据，实际使用 (GORM) |
 | **冷数据** | S3/对象存储 | 未接入 |
 | **向量数据** | Milvus/Qdrant | 未接入 |
@@ -720,10 +746,10 @@ workflow_nodes, workflow_edges, workflow_executions
 
 ### 8.2 核心原则
 
-> **"Go for serving, Python for AI"**
+> **"Go owns models, Python owns documents"**
 >
-> - Go 后端：API 路由、业务逻辑、工作流编排
-> - Python AI：LLM 调用、Agent 执行、Memory、RAG
+> - Go 后端：API 路由、业务逻辑、工作流编排、**唯一**供应商调用（`ai_providers`）
+> - Python AI：文档解析/分块、pgvector、Agent 工具；LLM/embedding 回调 Go
 > - 前后分离：通过 REST API 通信
 > - 前端使用 Nuxt 3 + Vue 3 + TypeScript
 
@@ -755,14 +781,14 @@ cogniforge-ai/                       # Python AI - AI 能力层
 │       ├── llm.py                  # /api/llm
 │       ├── memory.py               # /api/memory
 │       └── rag.py                  # /api/rag
-├── llm/                            # LLM 提供商
+├── llm/                            # GoGateway（回调 Go，不持有 Key）
 ├── agent/                          # Agent 执行器
 ├── tools/                          # 工具注册
 ├── memory/                         # 记忆管理
 └── services/rag/                   # RAG 服务
     ├── parsers/                    # PDF/DOCX/TXT/MD/HTML
     ├── splitters/                  # 文本分块
-    ├── embedding/                  # OpenAI/Local
+    ├── embedding/                  # Go hub / Local
     └── vector_store/               # pgvector
 
 cogniforge-web/                     # 前端 Nuxt 3

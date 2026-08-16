@@ -11,6 +11,7 @@ import (
 	"cogniforge/internal/httpclient"
 	"cogniforge/internal/knowledge"
 	"cogniforge/internal/middleware"
+	"cogniforge/internal/modelcache"
 	"cogniforge/internal/monitor"
 	"cogniforge/internal/provider"
 	"cogniforge/internal/rbac"
@@ -27,7 +28,8 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 
 	// 初始化各模块 Handler
 	providerRepo := provider.NewRepository(db)
-	providerSvc := provider.NewService(providerRepo)
+	mc := modelcache.NewFromRedis(modelcache.DialRedis(cfg))
+	providerSvc := provider.NewService(providerRepo, mc)
 	providerHandler := provider.NewHandler(providerSvc)
 
 	authHandler := auth.NewAuthHandler()

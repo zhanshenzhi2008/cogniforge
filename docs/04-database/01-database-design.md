@@ -1,5 +1,25 @@
 # CogniForge 数据库设计文档
 
+## [变更记录]
+| 日期 | 版本 | 变更摘要 | 负责人 |
+|------|------|---------|--------|
+| 2026-08-16 | v1.2 | Redis 键统一 `cogniforge:` 前缀；多项目用前缀隔离，不拆 db0/db1 | orjrs |
+| 2026-08-15 | v1.1 | 落地模型配置 Redis 键（当时为 `cf:modelcfg:*`） | orjrs |
+| 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] Redis 键改 cogniforge: 前缀（2026-08-16）
+
+- **变更原因**：多项目共用一台 Redis 时，用项目前缀隔离；不按项目切 `SELECT db1`
+- **包含代码**：Go `internal/modelcache/snapshot.go`；Python `llm/model_config.py`
+- **变更前**：~~`cf:modelcfg:rev` / `cf:modelcfg:snapshot`~~（2026-08-16）
+- **变更后**：`cogniforge:modelcfg:rev` / `cogniforge:modelcfg:snapshot`
+
+## [变更] 模型配置缓存键（2026-08-15）
+
+- **变更原因**：聊天热路径缓存当前启用供应商；Go/Python 共用一份
+- **包含代码**：`internal/modelcache`
+- **变更后**：见 §5.1；~~`model_config:{org_id}:{model_id}` 明文 api_key~~（2026-08-15，不采用）
+
 ## 1. 数据库架构概述
 
 ### 1.1 存储选型
@@ -627,25 +647,27 @@ CREATE INDEX idx_audit_created ON cf_audit_logs(created_at DESC);
 
 ### 5.1 缓存键设计
 
+约定：本项目所有 Redis 键以 `cogniforge:` 开头，格式 `cogniforge:{模块}:{名字}`。  
+多项目共用一台 Redis 时用**不同前缀**隔离（如 `agentinsight:`），继续用 **db0**。不要给每个项目单独 `SELECT 1/2`：Cluster 只支持 db0，`FLUSHDB` 也容易误伤。
+
 ```redis
-# 用户会话
-session:{user_id} -> JSON {token, expires_at}
+# 模型配置（与 Go/Python 本地缓存用 rev 对齐）
+cogniforge:modelcfg:rev -> integer  （配置变更 INCR）
+cogniforge:modelcfg:snapshot -> JSON {
+  rev, id, name, provider, base_url, default_model,
+  extra_headers, encrypted_key,   # encrypted_key 是库内密文，明文只在 Go 内存
+  models: [{id, name}]
+}
 
-# API限流
-rate_limit:{api_key_id}:{minute} -> counter
-rate_limit:{api_key_id}:{hour} -> counter
+~~cf:modelcfg:rev / cf:modelcfg:snapshot~~（2026-08-16）
+~~model_config:{org_id}:{model_id} -> JSON {api_key, settings}~~（2026-08-15）
 
-# 模型配置缓存
-model_config:{org_id}:{model_id} -> JSON {api_key, settings}
-
-# Agent对话缓存
-agent_conv:{agent_id}:{session_id} -> JSON {messages}
-
-# 工作流执行状态
-workflow_exec:{execution_id} -> JSON {status, result}
-
-# Token计数
-token_count:{org_id}:{date} -> counter
+# 规划中（同样加 cogniforge: 前缀后再落地）
+cogniforge:session:{user_id} -> JSON {token, expires_at}
+cogniforge:ratelimit:{api_key_id}:{minute} -> counter
+cogniforge:agent:conv:{agent_id}:{session_id} -> JSON {messages}
+cogniforge:workflow:exec:{execution_id} -> JSON {status, result}
+cogniforge:token:{org_id}:{date} -> counter
 ```
 
 ---
@@ -907,6 +929,6 @@ milvus.insert(
 
 ---
 
-**文档版本**: v1.0  
-**最后更新**: 2026-03-16（pgvector 更新：2026-04-11）  
+**文档版本**: v1.2  
+**最后更新**: 2026-08-16（Redis 键统一 `cogniforge:` 前缀）  
 **维护团队**: CogniForge 数据库团队

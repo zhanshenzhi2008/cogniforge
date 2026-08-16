@@ -77,6 +77,12 @@ func Load() *Config {
 		panic(fmt.Sprintf("failed to unmarshal config: %v", err))
 	}
 
+	if cfg.Redis.Password == "" {
+		if v := os.Getenv("REDIS_PWD"); v != "" {
+			cfg.Redis.Password = v
+		}
+	}
+
 	return &cfg
 }
 

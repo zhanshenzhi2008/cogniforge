@@ -42,6 +42,12 @@ func (s *ChatService) ListModels() *ListModelsResponse {
 
 	add(s.defaultModel())
 	if s.providerSvc != nil {
+		if cached := s.providerSvc.CachedModels(); len(cached) > 0 {
+			for _, m := range cached {
+				add(m.ID)
+			}
+			return &ListModelsResponse{Models: models}
+		}
 		list, err := s.providerSvc.List()
 		if err == nil {
 			for _, p := range list {
@@ -173,14 +179,77 @@ func (s *ChatService) ChatStream(c *gin.Context, req *ChatRequest) error {
 }
 
 func (s *ChatService) aiChatCompletionsURL(base string) string {
+	return s.aiOpenAIPath(base, "chat/completions")
+}
+
+func (s *ChatService) aiEmbeddingsURL(base string) string {
+	return s.aiOpenAIPath(base, "embeddings")
+}
+
+func (s *ChatService) aiOpenAIPath(base, path string) string {
 	base = strings.TrimRight(strings.TrimSpace(base), "/")
 	if base == "" {
-		return "/v1/chat/completions"
+		return "/v1/" + path
 	}
 	if strings.HasSuffix(base, "/v1") {
-		return base + "/chat/completions"
+		return base + "/" + path
 	}
-	return base + "/v1/chat/completions"
+	return base + "/v1/" + path
+}
+
+// Embeddings 用当前启用的 ai_providers 调上游 /v1/embeddings（与聊天同一套密钥/模型配置）
+func (s *ChatService) Embeddings(req *EmbeddingsRequest) (*EmbeddingsResponse, error) {
+	if req.Model == "" {
+		req.Model = s.defaultModel()
+	}
+	if s.providerSvc == nil {
+		return nil, fmt.Errorf("no active AI provider")
+	}
+
+	baseURL, apiKey, extraHeaders, err := s.providerSvc.GetActiveForChat()
+	if err != nil {
+		return nil, fmt.Errorf("no active AI provider: %w", err)
+	}
+
+	providerURL := s.aiEmbeddingsURL(baseURL)
+	slog.Info("calling AI embeddings API", "url", providerURL, "model", req.Model)
+
+	payload := map[string]any{
+		"model": req.Model,
+		"input": req.Input,
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return nil, err
+	}
+
+	httpReq, err := http.NewRequest("POST", providerURL, bytes.NewBuffer(body))
+	if err != nil {
+		return nil, err
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Authorization", "Bearer "+apiKey)
+	for k, v := range extraHeaders {
+		httpReq.Header.Set(k, v)
+	}
+
+	client := &http.Client{Timeout: 60 * time.Second}
+	resp, err := client.Do(httpReq)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("AI provider returned status %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	var embResp EmbeddingsResponse
+	if err := json.NewDecoder(resp.Body).Decode(&embResp); err != nil {
+		return nil, err
+	}
+	return &embResp, nil
 }
 
 func (s *ChatService) buildPayload(req *ChatRequest, stream bool) map[string]any {

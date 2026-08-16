@@ -5,27 +5,130 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
 
 	"cogniforge/internal/crypto"
 	"cogniforge/internal/model"
+	"cogniforge/internal/modelcache"
 )
 
 // Service 业务逻辑层
 type Service struct {
-	repo *Repository
+	repo  *Repository
+	cache *modelcache.Cache
 }
 
-// NewService 创建 Service
-func NewService(repo *Repository) *Service {
-	return &Service{repo: repo}
+// NewService 创建 Service。cache 可为 nil（仅查库）。
+func NewService(repo *Repository, cache *modelcache.Cache) *Service {
+	return &Service{repo: repo, cache: cache}
+}
+
+func (s *Service) refreshCache() {
+	if s.cache == nil {
+		return
+	}
+	s.cache.Invalidate()
+	p, err := s.loadActiveFromDB()
+	if err != nil {
+		return
+	}
+	snap := s.buildSnapshot(p)
+	snap.Rev = s.cache.CurrentRev()
+	s.cache.Put(snap)
+}
+
+func (s *Service) loadActiveFromDB() (*model.AIProvider, error) {
+	if p, err := s.repo.GetDefault(); err == nil && p.IsEnabled {
+		return p, nil
+	}
+	if p, err := s.repo.GetFirstEnabled(); err == nil {
+		return p, nil
+	}
+	return nil, fmt.Errorf("no active provider configured")
+}
+
+func (s *Service) buildSnapshot(active *model.AIProvider) *modelcache.Snapshot {
+	headers := map[string]string{}
+	for k, v := range active.ExtraHeaders {
+		headers[k] = fmt.Sprintf("%v", v)
+	}
+	snap := &modelcache.Snapshot{
+		ID:           active.ID,
+		Name:         active.Name,
+		Provider:     active.Provider,
+		BaseURL:      active.BaseURL,
+		DefaultModel: active.DefaultModel,
+		ExtraHeaders: headers,
+		EncryptedKey: active.APIKey,
+	}
+	if list, err := s.repo.ListAll(); err == nil {
+		seen := map[string]struct{}{}
+		add := func(m string) {
+			m = strings.TrimSpace(m)
+			if m == "" {
+				return
+			}
+			if _, ok := seen[m]; ok {
+				return
+			}
+			seen[m] = struct{}{}
+			snap.Models = append(snap.Models, modelcache.ModelItem{ID: m, Name: m})
+		}
+		add(active.DefaultModel)
+		for _, p := range list {
+			if p.IsEnabled {
+				add(p.DefaultModel)
+			}
+		}
+	}
+	return snap
+}
+
+func snapshotToProvider(snap *modelcache.Snapshot) *model.AIProvider {
+	headers := model.JSONBMap{}
+	for k, v := range snap.ExtraHeaders {
+		headers[k] = v
+	}
+	return &model.AIProvider{
+		ID:           snap.ID,
+		Name:         snap.Name,
+		Provider:     snap.Provider,
+		BaseURL:      snap.BaseURL,
+		APIKey:       snap.EncryptedKey,
+		DefaultModel: snap.DefaultModel,
+		ExtraHeaders: headers,
+		IsEnabled:    true,
+	}
 }
 
 // List 获取所有供应商
 func (s *Service) List() ([]model.AIProvider, error) {
 	return s.repo.ListAll()
+}
+
+// CachedModels 下拉用的模型名（命中缓存则不查库）
+func (s *Service) CachedModels() []modelcache.ModelItem {
+	if s.cache != nil {
+		if snap, ok := s.cache.Get(); ok && len(snap.Models) > 0 {
+			return snap.Models
+		}
+	}
+	p, err := s.GetActive()
+	if err != nil {
+		return nil
+	}
+	if s.cache != nil {
+		if snap, ok := s.cache.Get(); ok {
+			return snap.Models
+		}
+	}
+	if p.DefaultModel == "" {
+		return nil
+	}
+	return []modelcache.ModelItem{{ID: p.DefaultModel, Name: p.DefaultModel}}
 }
 
 // Get 获取单个供应商
@@ -35,7 +138,6 @@ func (s *Service) Get(id string) (*model.AIProvider, error) {
 
 // Create 创建供应商
 func (s *Service) Create(req *CreateProviderRequest) (*model.AIProvider, error) {
-	// 加密存储 API Key
 	encryptedKey, err := crypto.Encrypt(req.APIKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to encrypt api key: %w", err)
@@ -51,7 +153,6 @@ func (s *Service) Create(req *CreateProviderRequest) (*model.AIProvider, error) 
 		Priority:     req.Priority,
 		Status:       "active",
 	}
-	// 自动生成 ID（如果未指定）
 	if p.ID == "" {
 		p.ID = uuid.New().String()
 	}
@@ -63,6 +164,7 @@ func (s *Service) Create(req *CreateProviderRequest) (*model.AIProvider, error) 
 	if err := s.repo.Create(p); err != nil {
 		return nil, err
 	}
+	s.refreshCache()
 	return p, nil
 }
 
@@ -88,7 +190,6 @@ func (s *Service) Update(id string, req *UpdateProviderRequest) (*model.AIProvid
 	if req.DefaultModel != nil {
 		p.DefaultModel = *req.DefaultModel
 	}
-	// 自动生成 ID（如果未指定）
 	if p.ID == "" {
 		p.ID = uuid.New().String()
 	}
@@ -106,12 +207,17 @@ func (s *Service) Update(id string, req *UpdateProviderRequest) (*model.AIProvid
 	if err := s.repo.Update(p); err != nil {
 		return nil, err
 	}
+	s.refreshCache()
 	return p, nil
 }
 
 // Delete 删除供应商
 func (s *Service) Delete(id string) error {
-	return s.repo.Delete(id)
+	if err := s.repo.Delete(id); err != nil {
+		return err
+	}
+	s.refreshCache()
+	return nil
 }
 
 // SetDefault 设为默认
@@ -120,19 +226,30 @@ func (s *Service) SetDefault(id string) error {
 	if err != nil {
 		return fmt.Errorf("provider not found")
 	}
-	return s.repo.SetDefault(id)
+	if err := s.repo.SetDefault(id); err != nil {
+		return err
+	}
+	s.refreshCache()
+	return nil
 }
 
 // GetActive 获取当前生效的供应商配置
-// 优先级：有默认配置 > 第一个启用的配置
 func (s *Service) GetActive() (*model.AIProvider, error) {
-	if p, err := s.repo.GetDefault(); err == nil && p.IsEnabled {
-		return p, nil
+	if s.cache != nil {
+		if snap, ok := s.cache.Get(); ok && snap.ID != "" {
+			return snapshotToProvider(snap), nil
+		}
 	}
-	if p, err := s.repo.GetFirstEnabled(); err == nil {
-		return p, nil
+	p, err := s.loadActiveFromDB()
+	if err != nil {
+		return nil, err
 	}
-	return nil, fmt.Errorf("no active provider configured")
+	if s.cache != nil {
+		snap := s.buildSnapshot(p)
+		snap.Rev = s.cache.CurrentRev()
+		s.cache.Put(snap)
+	}
+	return p, nil
 }
 
 // TestConnection 测试连接
@@ -142,13 +259,11 @@ func (s *Service) TestConnection(id string) (*TestResult, error) {
 		return nil, fmt.Errorf("provider not found")
 	}
 
-	// 解密 API Key
 	apiKey, err := crypto.Decrypt(p.APIKey)
 	if err != nil {
 		return &TestResult{Success: false, Message: "failed to decrypt api key"}, nil
 	}
 
-	// 构建测试请求
 	testURL := p.BaseURL
 	if testURL == "" {
 		testURL = "https://api.openai.com/v1/models"
@@ -190,7 +305,6 @@ func (s *Service) TestConnection(id string) (*TestResult, error) {
 	} else {
 		result.Success = false
 		result.Message = fmt.Sprintf("HTTP %d", resp.StatusCode)
-		// 读取错误体
 		var body bytes.Buffer
 		body.ReadFrom(resp.Body)
 		if body.Len() > 0 {
@@ -203,6 +317,25 @@ func (s *Service) TestConnection(id string) (*TestResult, error) {
 
 // GetActiveForChat 获取 chat 用的配置（供 chat service 调用）
 func (s *Service) GetActiveForChat() (baseURL, apiKey string, headers map[string]string, err error) {
+	if s.cache != nil {
+		if snap, plain, hdrs, ok := s.cache.GetHot(); ok && snap != nil {
+			if plain != "" {
+				return snap.BaseURL, plain, hdrs, nil
+			}
+			if snap.EncryptedKey != "" {
+				decrypted, decErr := crypto.Decrypt(snap.EncryptedKey)
+				if decErr == nil {
+					h := snap.ExtraHeaders
+					if h == nil {
+						h = map[string]string{}
+					}
+					s.cache.PutHot(snap, decrypted, h)
+					return snap.BaseURL, decrypted, h, nil
+				}
+			}
+		}
+	}
+
 	p, err := s.GetActive()
 	if err != nil {
 		return "", "", nil, err
@@ -214,6 +347,11 @@ func (s *Service) GetActiveForChat() (baseURL, apiKey string, headers map[string
 	h := make(map[string]string)
 	for k, v := range p.ExtraHeaders {
 		h[k] = fmt.Sprintf("%v", v)
+	}
+	if s.cache != nil {
+		if snap, ok := s.cache.Get(); ok {
+			s.cache.PutHot(snap, decryptedKey, h)
+		}
 	}
 	return p.BaseURL, decryptedKey, h, nil
 }

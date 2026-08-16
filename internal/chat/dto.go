@@ -67,3 +67,27 @@ type ModelInfo struct {
 type ListModelsResponse struct {
 	Models []ModelInfo `json:"models"`
 }
+
+// EmbeddingsRequest OpenAI 兼容：input 可以是字符串或字符串数组
+type EmbeddingsRequest struct {
+	Model string `json:"model"`
+	Input any    `json:"input" binding:"required"`
+}
+
+type EmbeddingItem struct {
+	Object    string    `json:"object"`
+	Embedding []float64 `json:"embedding"`
+	Index     int       `json:"index"`
+}
+
+type EmbeddingsUsage struct {
+	PromptTokens int `json:"prompt_tokens"`
+	TotalTokens  int `json:"total_tokens"`
+}
+
+type EmbeddingsResponse struct {
+	Object string          `json:"object"`
+	Data   []EmbeddingItem `json:"data"`
+	Model  string          `json:"model"`
+	Usage  EmbeddingsUsage `json:"usage"`
+}

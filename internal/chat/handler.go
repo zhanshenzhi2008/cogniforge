@@ -75,10 +75,32 @@ func (h *ChatHandler) ChatStream(c *gin.Context) {
 	}
 }
 
+// Embeddings 文本向量（Python RAG 回调本接口，不自己拿 Key）
+func (h *ChatHandler) Embeddings(c *gin.Context) {
+	var req EmbeddingsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	if req.Input == nil {
+		response.BadRequest(c, "input 不能为空")
+		return
+	}
+
+	resp, err := h.service.Embeddings(&req)
+	if err != nil {
+		slog.Error("Embeddings failed", "error", err, "model", req.Model)
+		response.FailWithHTTPStatus(c, http.StatusBadGateway, response.CodeAIProviderError, "AI provider error: "+err.Error())
+		return
+	}
+	response.Success(c, resp)
+}
+
 // RegisterRoutes 注册路由
 func (h *ChatHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	rg.GET("/models", h.ListModels)
 	rg.GET("/models/:id", h.GetModel)
 	rg.POST("/chat/completions", h.Chat)
 	rg.POST("/chat/stream", h.ChatStream)
+	rg.POST("/embeddings", h.Embeddings)
 }

@@ -4,6 +4,9 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-08-15 | v1.28 | 模型配置本地+Redis 两级缓存（rev 校验） | orjrs |
+| 2026-08-15 | v1.27 | Python LLM/embedding 回调 Go，模型配置只保留 ai_providers 一套 | orjrs |
+| 2026-08-15 | v1.26 | ~~cogniforge-ai 与 Go 共用 ai_providers 调模型~~（同日改为回调 Go） | orjrs |
 | 2026-08-15 | v1.25 | 模型列表/默认模型改读 ai_providers；移除 AI_* 环境变量 | orjrs |
 | 2026-08-15 | v1.24 | P7：各模块统一 editorial 页面壳（cf-page / 标题英文 / 面板表格） | orjrs |
 | 2026-08-15 | v1.23 | Dashboard 命名 + 导航英文短标签；登录/Play 向示意稿靠拢 | orjrs |
@@ -30,6 +33,18 @@
 | 2026-04-11 | v1.2 | 阶段八监控中心完成（请求日志中间件、日志列表 API、用量统计 API、监控仪表板页面） | orjrs |
 | 2026-04-17 | v1.3 | 阶段九用户管理与个人设置完成（用户CRUD、个人设置、会话管理、RBAC权限系统） | orjrs |
 > 注：任务状态变更直接在下方任务表格中更新即可，无需额外记录。
+
+## [变更] 模型配置两级缓存（2026-08-15）
+
+- **变更原因**：聊天热路径少打 Postgres；多实例配置一致
+- **包含代码**：Go `internal/modelcache`；Python `llm/model_config.py`
+- **一致性**：`cogniforge:modelcfg:rev`，模型页增删改后 INCR
+
+## [变更] Python LLM 回调 Go（2026-08-15）
+
+- **变更原因**：用户要求模型配置只有一套；Python 自己读库等于第二套客户端
+- **包含代码**：Go `POST /api/v1/embeddings`；Python `llm/go_gateway.py`
+- **影响范围**：cogniforge-ai 只配 `COGNIFORGE_API_URL`；Playground 聊天仍直打 Go
 
 ## 总体策略
 

@@ -216,6 +216,16 @@ const workflows = res.data || []
 
 **状态**：🟢 已完成
 
+### 5. DeepSeek 等聊天供应商可能没有 embeddings
+
+**问题描述**：
+
+RAG 默认走 Go `POST /api/v1/embeddings`，上游是当前启用的 `ai_providers`。只开通 DeepSeek Chat 时，供应商往往没有 `/v1/embeddings`，知识库向量化会失败。
+
+**当前方案**：Python `.env` 设 `EMBEDDER_TYPE=local`（需安装 `sentence-transformers`）。聊天仍走模型页那一套。
+
+**后续**：`ai_providers` 可增加独立的 embedding 模型字段，与聊天模型分开。
+
 ---
 
 ## 🔧 技术债务
@@ -281,7 +291,7 @@ var users = map[string]*User{}  // 内存存储
 | 建议 | 说明 | 优先级 |
 |------|------|-------|
 | 添加数据库连接池 | 提高并发性能 | P1 |
-| 实现 Redis 缓存 | 减少数据库压力 | P1 |
+| 实现 Redis 缓存 | 模型配置已落地（`cogniforge:modelcfg:*`）；会话/限流仍待做 | P1 |
 | 添加请求超时 | 防止慢请求占用资源 | P1 |
 | 日志结构化 | 便于日志分析和查询 | P2 |
 
@@ -315,6 +325,7 @@ var users = map[string]*User{}  // 内存存储
 
 ## 📝 更新日志
 
+- **2026-08-15**: LLM 配置只保留「模型」页一套：Python 回调 Go 聊天/向量，不再解密 `ai_providers`
 - **2026-04-09**: 阶段七知识库服务全部完成：文档上传（支持 PDF/TXT/MD/DOCX/HTML）、异步分块处理、基于关键词的语义检索 API、前端检索测试页面
 - **2026-04-06**: 业务 Code 规范重构：响应结构拆分 `code.go`/`response.go`/`model.go`、2xxx 成功/4xxx 系统异常/5xxx 业务异常
 - **2026-04-06**: 知识库服务（阶段七 7.1/7.3）：新增 `KnowledgeBase`/`Document` 模型、知识库 CRUD API、文档列表/删除 API、前端知识库管理页面

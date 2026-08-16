@@ -41,3 +41,16 @@ func TestAIChatCompletionsURL(t *testing.T) {
 	require.Equal(t, "https://api.deepseek.com/v1/chat/completions", s.aiChatCompletionsURL("https://api.deepseek.com/v1"))
 	require.Equal(t, "https://api.deepseek.com/v1/chat/completions", s.aiChatCompletionsURL("https://api.deepseek.com/v1/"))
 }
+
+func TestAIEmbeddingsURL(t *testing.T) {
+	s := NewChatService(nil)
+	require.Equal(t, "https://api.deepseek.com/v1/embeddings", s.aiEmbeddingsURL("https://api.deepseek.com"))
+	require.Equal(t, "https://api.deepseek.com/v1/embeddings", s.aiEmbeddingsURL("https://api.deepseek.com/v1"))
+	require.Equal(t, "https://api.openai.com/v1/embeddings", s.aiEmbeddingsURL("https://api.openai.com/v1/"))
+}
+
+func TestEmbeddings_NoProvider(t *testing.T) {
+	s := NewChatService(nil)
+	_, err := s.Embeddings(&EmbeddingsRequest{Input: "hello"})
+	require.Error(t, err)
+}

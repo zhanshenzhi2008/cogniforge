@@ -1,5 +1,28 @@
 # CogniForge 部署说明
 
+## [变更记录]
+| 日期 | 版本 | 变更摘要 | 负责人 |
+|------|------|---------|--------|
+| 2026-08-15 | v1.28 | 模型配置走 Redis；cogniforge-ai 增加 REDIS_HOST | orjrs |
+| 2026-08-15 | v1.27 | Python LLM 回调 Go；cogniforge-ai 增加 COGNIFORGE_API_URL | orjrs |
+
+## [变更] 模型配置 Redis 缓存（2026-08-15）
+
+- **cogniforge-ai `.env` 需要**：`COGNIFORGE_API_URL`、`PGSQL_*`、`REDIS_HOST`/`REDIS_PORT`/`REDIS_PWD`（与 Go 同一 Redis）
+- Redis 连不上时两边都降级：Go 查库，Python 不带默认模型名（仍回调 Go）
+
+## [变更] Python 只回调 Go 拿模型（2026-08-15）
+
+- **变更原因**：模型配置只保留「模型」页一套；Python 不再解密 `ai_providers`
+- **包含代码**：`cogniforge-ai/docker-compose-ai.yml`、`.env.example`
+- **cogniforge-ai `.env` 需要**：
+  - `COGNIFORGE_API_URL=http://cogniforge:8080`（本地开发用 `http://localhost:8080`）
+  - `PGSQL_*`（pgvector 仍直连数据库）
+- **cogniforge-ai `.env` 请删除**：`ENCRYPTION_KEY`（不再解 LLM Key）、`OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `OPENROUTER_API_KEY` / `DEFAULT_MODEL`
+- **Go `.env` 不要删**：`ENCRYPTION_KEY`（Go 自己解密 `ai_providers`）、`JWT_SECRET`、`PGSQL_*`、`REDIS_*`、`DOMAIN`、`AI_SERVICE_URL`
+
+删完后分别重启 `cogniforge` 与 `cogniforge-ai` 容器。GoLand 本地调试需 Restart Debug 才会加载新的 `/embeddings`。
+
 ## [变更] 删除 Go 后端 LLM 环境变量（2026-08-15）
 
 - **变更原因**：聊天密钥与默认模型已在「模型」页写入 `ai_providers`，`AI_*` 环境变量已从代码移除
@@ -13,7 +36,7 @@
   - `OPENROUTER_TITLE`
   - 若误写在此文件：`OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `OPENROUTER_API_KEY`
 - **不要删**：`ENCRYPTION_KEY`、`JWT_SECRET`、`PGSQL_*`、`REDIS_*`、`DOMAIN`、`AI_SERVICE_URL`（Python 服务地址）
-- **不要从** `/opt/project/cogniforge-ai/.env` **删** `OPENAI_API_KEY`（知识库 embedding 仍可能用）
+- ~~**cogniforge-ai** 同样读 `ai_providers`。需要与 Go 相同的 `ENCRYPTION_KEY`~~（2026-08-15，改为只回调 Go）
 
 删完后重新 `docker compose up -d` 或重启 cogniforge 容器。
 

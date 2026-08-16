@@ -1,6 +1,7 @@
 package chat
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -22,6 +23,10 @@ func NewChatHandler(providerSvc *provider.Service, db *gorm.DB) *ChatHandler {
 		service: NewChatService(providerSvc),
 		conv:    NewConversationService(db),
 	}
+}
+
+func (h *ChatHandler) Service() *ChatService {
+	return h.service
 }
 
 // ListModels 获取模型列表
@@ -49,6 +54,9 @@ func (h *ChatHandler) Chat(c *gin.Context) {
 
 	resp, err := h.service.Chat(&req)
 	if err != nil {
+		if WriteNoActiveProvider(c, err) {
+			return
+		}
 		response.Fail(c, http.StatusBadGateway, "AI provider error: "+err.Error())
 		return
 	}
@@ -68,6 +76,9 @@ func (h *ChatHandler) ChatStream(c *gin.Context) {
 	}
 
 	if err := h.service.ChatStream(c, &req); err != nil {
+		if WriteNoActiveProvider(c, err) {
+			return
+		}
 		slog.Error("ChatStream failed",
 			"error", err,
 			"model", req.Model,
@@ -76,6 +87,14 @@ func (h *ChatHandler) ChatStream(c *gin.Context) {
 		fmt.Fprintf(c.Writer, "data: {\"error\": \"AI provider error: %s\"}\n\n", err.Error())
 		c.Writer.Flush()
 	}
+}
+
+func WriteNoActiveProvider(c *gin.Context, err error) bool {
+	if err == nil || !errors.Is(err, ErrNoActiveProvider) || c.Writer.Written() {
+		return false
+	}
+	response.FailWithHTTPStatus(c, http.StatusServiceUnavailable, response.CodeNoActiveProvider, err.Error())
+	return true
 }
 
 // Embeddings 文本向量（Python RAG 回调本接口，不自己拿 Key）
@@ -92,6 +111,9 @@ func (h *ChatHandler) Embeddings(c *gin.Context) {
 
 	resp, err := h.service.Embeddings(&req)
 	if err != nil {
+		if WriteNoActiveProvider(c, err) {
+			return
+		}
 		slog.Error("Embeddings failed", "error", err, "model", req.Model)
 		response.FailWithHTTPStatus(c, http.StatusBadGateway, response.CodeAIProviderError, "AI provider error: "+err.Error())
 		return

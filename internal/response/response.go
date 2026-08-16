@@ -44,6 +44,7 @@ const (
 	CodeAIRequestTimeout   = 4007 // AI 请求超时
 	CodeAIQuotaExhausted   = 4008 // AI 配额已用尽
 	CodeModelNotSupport    = 4009 // 不支持的模型
+	CodeNoActiveProvider   = 4010 // 未配置默认模型或 API Key
 )
 
 // 5xxx: 业务校验异常（参数、数据、权限等）
@@ -87,6 +88,7 @@ var codeMessages = map[int]string{
 	CodeAIRequestTimeout:   "AI 请求超时",
 	CodeAIQuotaExhausted:   "AI 配额已用尽",
 	CodeModelNotSupport:    "不支持的模型",
+	CodeNoActiveProvider:   "请先到「模型」页填写 API Key，并设置一个默认模型后再对话",
 
 	// 5xxx: 业务校验异常
 	CodeParamInvalid:      "参数无效",

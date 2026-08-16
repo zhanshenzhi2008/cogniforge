@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-08-16 | v1.20 | 未配置默认模型时对话 Toast 提示去「模型」页，不再显示 mock | orjrs |
 | 2026-08-16 | v1.19 | 对话/模型页 DeepSeek 增加 V4，同时保留 chat / reasoner | orjrs |
 | 2026-08-16 | v1.18 | Playground 左侧历史可折叠（桌面顶栏图标；状态记在浏览器） | orjrs |
 | 2026-08-16 | v1.17 | Playground：左侧历史对话；参数改为右上角滑层（桌面也进滑层） | orjrs |
@@ -24,6 +25,12 @@
 | 2026-08-12 | v1.2 | 补充关键屏 UI 示意稿（登录 / 控制台 / Playground / 手机） | orjrs |
 | 2026-08-12 | v1.1 | 补充响应式策略：Web 优先验收，手机端预留兼容但不阻塞主路径 | orjrs |
 | 2026-08-12 | v1.0 | 全新 UI 方向：Vue3 + Nuxt3 + Tailwind4 + shadcn-vue；保留 Vue Flow；接口与 CI/CD 不变 | orjrs |
+
+## [变更] 未配置模型时 Toast 提示（2026-08-16）
+
+- **变更原因**：缺默认模型 / API Key 时，对话区会把 mock 句子当成模型回复
+- **包含代码**：`pages/playground.vue`、`i18n/messages.ts`、`composables/useAgentChat.ts`
+- **变更后**：HTTP 503 / `code=4010` 时 Toast：「请先到「模型」页填写 API Key，并设置一个默认模型后再对话。」不写入助手气泡
 
 ## [变更] DeepSeek V4 模型下拉（2026-08-16）
 

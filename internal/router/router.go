@@ -39,7 +39,7 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 	workflowHandler := workflow.NewWorkflowHandler()
 	pythonClient := knowledge.NewServiceClient(httpclient.NewClient(cfg.RAG.PythonServiceURL))
 	knowledgeHandler := knowledge.NewKnowledgeHandler(pythonClient)
-	agentHandler := agent.NewAgentHandler(providerSvc)
+	agentHandler := agent.NewAgentHandler(providerSvc, chatHandler.Service())
 	monitorHandler := monitor.NewMonitorHandler()
 	rbacHandler := rbac.NewRBACHandler()
 

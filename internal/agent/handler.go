@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
+	"cogniforge/internal/chat"
 	"cogniforge/internal/database"
 	"cogniforge/internal/provider"
 	"cogniforge/internal/response"
@@ -16,12 +17,14 @@ import (
 type AgentHandler struct {
 	service     *AgentService
 	providerSvc *provider.Service
+	chatSvc     *chat.ChatService
 }
 
-func NewAgentHandler(providerSvc *provider.Service) *AgentHandler {
+func NewAgentHandler(providerSvc *provider.Service, chatSvc *chat.ChatService) *AgentHandler {
 	return &AgentHandler{
 		service:     NewAgentService(),
 		providerSvc: providerSvc,
+		chatSvc:     chatSvc,
 	}
 }
 
@@ -173,22 +176,19 @@ func (h *AgentHandler) AgentChat(c *gin.Context) {
 
 	messages := append([]ChatMessage{{Role: "system", Content: systemPrompt}}, req.Messages...)
 
-	// 构建请求
-	chatReq := &ChatRequest{
+	svcReq := toServiceRequest(&ChatRequest{
 		Model:       model,
 		Messages:    messages,
 		Stream:      req.Stream,
 		Temperature: req.Temperature,
 		MaxTokens:   req.MaxTokens,
-	}
+	})
 
 	if req.Stream {
-		c.Header("Content-Type", "text/event-stream")
-		c.Header("Cache-Control", "no-cache")
-		c.Header("Connection", "keep-alive")
-		c.Header("X-Accel-Buffering", "no")
-
-		if err := h.streamChat(c, chatReq); err != nil {
+		if err := h.chatSvc.ChatStream(c, svcReq); err != nil {
+			if chat.WriteNoActiveProvider(c, err) {
+				return
+			}
 			slog.Error("AgentChat stream failed",
 				"error", err,
 				"agent_id", agentID,
@@ -198,8 +198,11 @@ func (h *AgentHandler) AgentChat(c *gin.Context) {
 			c.Writer.Flush()
 		}
 	} else {
-		resp, err := h.callChat(chatReq)
+		resp, err := h.chatSvc.Chat(svcReq)
 		if err != nil {
+			if chat.WriteNoActiveProvider(c, err) {
+				return
+			}
 			response.Fail(c, http.StatusBadGateway, "AI provider error: "+err.Error())
 			return
 		}
@@ -218,17 +221,21 @@ func (h *AgentHandler) defaultModel() string {
 	return ""
 }
 
-func (h *AgentHandler) callChat(req *ChatRequest) (*ChatResponse, error) {
-	// 使用 chat 模块的服务
-	// 这里暂时内联实现，后续可以注入 chat.Service
-	return mockChatResponse(req)
+func toServiceRequest(req *ChatRequest) *chat.ChatRequest {
+	msgs := make([]chat.ChatMessage, len(req.Messages))
+	for i, m := range req.Messages {
+		msgs[i] = chat.ChatMessage{Role: m.Role, Content: m.Content}
+	}
+	return &chat.ChatRequest{
+		Model:       req.Model,
+		Messages:    msgs,
+		Stream:      req.Stream,
+		Temperature: req.Temperature,
+		MaxTokens:   req.MaxTokens,
+	}
 }
 
-func (h *AgentHandler) streamChat(c *gin.Context, req *ChatRequest) error {
-	return mockStreamResponse(c, req)
-}
-
-// ChatMessage 和 ChatRequest 从 chat 模块复用
+// ChatMessage 和 ChatRequest 供本接口绑定 JSON
 type ChatMessage struct {
 	Role    string `json:"role"`
 	Content string `json:"content"`
@@ -240,81 +247,6 @@ type ChatRequest struct {
 	Stream      bool          `json:"stream"`
 	Temperature *float64      `json:"temperature,omitempty"`
 	MaxTokens   *int          `json:"max_tokens,omitempty"`
-}
-
-type ChatResponse struct {
-	ID      string `json:"id"`
-	Object  string `json:"object"`
-	Created int64  `json:"created"`
-	Model   string `json:"model"`
-	Choices []struct {
-		Index        int         `json:"index"`
-		Message      ChatMessage `json:"message"`
-		FinishReason string      `json:"finish_reason"`
-	} `json:"choices"`
-}
-
-func mockChatResponse(req *ChatRequest) (*ChatResponse, error) {
-	lastUserMsg := "hello"
-	for i := len(req.Messages) - 1; i >= 0; i-- {
-		if req.Messages[i].Role == "user" {
-			lastUserMsg = req.Messages[i].Content
-			break
-		}
-	}
-
-	content := fmt.Sprintf("Mock response to: %s (model: %s)", lastUserMsg, req.Model)
-	if len(content) > 500 {
-		content = content[:500]
-	}
-
-	return &ChatResponse{
-		ID:      fmt.Sprintf("chatcmpl-%d", 0),
-		Object:  "chat.completion",
-		Created: 0,
-		Model:   req.Model,
-		Choices: []struct {
-			Index        int         `json:"index"`
-			Message      ChatMessage `json:"message"`
-			FinishReason string      `json:"finish_reason"`
-		}{{Index: 0, Message: ChatMessage{Role: "assistant", Content: content}, FinishReason: "stop"}},
-	}, nil
-}
-
-func mockStreamResponse(c *gin.Context, req *ChatRequest) error {
-	lastUserMsg := "hello"
-	for i := len(req.Messages) - 1; i >= 0; i-- {
-		if req.Messages[i].Role == "user" {
-			lastUserMsg = req.Messages[i].Content
-			break
-		}
-	}
-
-	fullText := fmt.Sprintf("Mock stream response to: %s (model: %s)", lastUserMsg, req.Model)
-	const chunkRunes = 12
-	runes := []rune(fullText)
-	words := make([]string, 0, (len(runes)+chunkRunes-1)/chunkRunes)
-	for i := 0; i < len(runes); i += chunkRunes {
-		end := i + chunkRunes
-		if end > len(runes) {
-			end = len(runes)
-		}
-		words = append(words, string(runes[i:end]))
-	}
-
-	eventID := fmt.Sprintf("chatcmpl-%d", 0)
-	for i, word := range words {
-		finish := ""
-		if i == len(words)-1 {
-			finish = "stop"
-		}
-		fmt.Fprintf(c.Writer, "data: {\"id\":\"%s\",\"object\":\"chat.completion.chunk\",\"created\":0,\"model\":\"%s\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"%s\"},\"finish_reason\":\"%s\"}]}\n\n",
-			eventID, req.Model, word, finish)
-		c.Writer.Flush()
-	}
-	fmt.Fprintf(c.Writer, "data: [DONE]\n\n")
-	c.Writer.Flush()
-	return nil
 }
 
 // RegisterRoutes 注册路由

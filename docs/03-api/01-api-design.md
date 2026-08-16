@@ -4,12 +4,21 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-08-16 | v1.6 | 未配置默认模型时对话返回 4010，不再 mock | orjrs |
 | 2026-08-16 | v1.5 | DeepSeek 下拉增加 V4，同时保留 deepseek-chat / reasoner | orjrs |
 | 2026-08-16 | v1.4 | 新增登录用户聊天历史 CRUD：/api/v1/conversations | orjrs |
 | 2026-08-15 | v1.3 | 新增 POST /api/v1/embeddings；Python RAG 回调 Go，不自己拿 Key | orjrs |
 | 2026-08-15 | v1.2 | GET /v1/models 改为返回已启用供应商的 default_model（不再写死 GPT 列表） | orjrs |
 | 2026-04-09 | v1.1 | 新增文档上传接口、语义检索接口实现说明 | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] 未配置默认模型时返回 4010（2026-08-16）
+
+- **变更原因**：缺 Key / 缺默认模型时接口假装在流式输出 mock 文本
+- **包含代码**：`internal/chat/handler.go`、`internal/chat/service.go`、`internal/response/response.go`
+- **接口**：`POST /api/v1/chat/stream`、`POST /api/v1/chat/completions`、`POST /api/v1/agents/:id/chat`、`POST /api/v1/embeddings`
+- **变更后**：HTTP 503，`code=4010`（`CodeNoActiveProvider`），`message` 为「请先到「模型」页填写 API Key，并设置一个默认模型后再对话」
+- **不再**：把 mock 句子写进 SSE `choices[].delta.content`
 
 ## [变更] DeepSeek 下拉增加 V4（2026-08-16）
 

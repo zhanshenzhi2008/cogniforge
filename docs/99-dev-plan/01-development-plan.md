@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-08-16 | v1.34 | 未配置默认模型/Key 时对话返回友好提示，不再 mock | orjrs |
 | 2026-08-16 | v1.33 | 前端 Docker 钉 pnpm@9，避免 ERR_PNPM_IGNORED_BUILDS | orjrs |
 | 2026-08-16 | v1.32 | CORS 测试对齐 X-Trace-ID 暴露头 | orjrs |
 | 2026-08-16 | v1.31 | 前端 Node 基线改为 22（CI / Dockerfile） | orjrs |
@@ -38,6 +39,13 @@
 | 2026-04-11 | v1.2 | 阶段八监控中心完成（请求日志中间件、日志列表 API、用量统计 API、监控仪表板页面） | orjrs |
 | 2026-04-17 | v1.3 | 阶段九用户管理与个人设置完成（用户CRUD、个人设置、会话管理、RBAC权限系统） | orjrs |
 > 注：任务状态变更直接在下方任务表格中更新即可，无需额外记录。
+
+## [变更] 未配置模型时友好提示（2026-08-16）
+
+- **变更原因**：没填 API Key、没设默认模型时，对话会返回 `Mock stream response...`，用户以为模型在说话
+- **包含代码**：Go `internal/chat`、`internal/agent/handler.go`、`internal/response`；Web `pages/playground.vue`、`i18n/messages.ts`
+- **影响范围**：`POST /api/v1/chat/stream`、`/chat/completions`、`/agents/:id/chat`；智能体对话改为走真实 ChatService
+- **变更前 vs 变更后**：~~SSE 输出 mock 文本~~（2026-08-16）→ HTTP 503，业务码 `4010`，提示去「模型」页填写 Key 并设默认模型
 
 ## [变更] 前端 Docker 钉 pnpm@9（2026-08-16）
 

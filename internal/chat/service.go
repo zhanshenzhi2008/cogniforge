@@ -72,16 +72,32 @@ func (s *ChatService) defaultModel() string {
 	return ""
 }
 
+// activeChatConfig 取当前可用供应商。没有默认模型或 Key 时返回 ErrNoActiveProvider，不再走 mock。
+func (s *ChatService) activeChatConfig() (baseURL, apiKey string, headers map[string]string, err error) {
+	if s.providerSvc == nil {
+		return "", "", nil, ErrNoActiveProvider
+	}
+	baseURL, apiKey, headers, err = s.providerSvc.GetActiveForChat()
+	if err != nil {
+		slog.Warn("chat skipped: no usable AI provider", "error", err)
+		return "", "", nil, ErrNoActiveProvider
+	}
+	if strings.TrimSpace(apiKey) == "" {
+		slog.Warn("chat skipped: active provider has empty API key")
+		return "", "", nil, ErrNoActiveProvider
+	}
+	return baseURL, apiKey, headers, nil
+}
+
 // Chat 非流式对话
 func (s *ChatService) Chat(req *ChatRequest) (*ChatResponse, error) {
 	if req.Model == "" {
 		req.Model = s.defaultModel()
 	}
 
-	baseURL, apiKey, extraHeaders, err := s.providerSvc.GetActiveForChat()
+	baseURL, apiKey, extraHeaders, err := s.activeChatConfig()
 	if err != nil {
-		slog.Info("using mock AI provider (no active provider)")
-		return s.mockChatResponse(req)
+		return nil, err
 	}
 
 	providerURL := s.aiChatCompletionsURL(baseURL)
@@ -125,16 +141,15 @@ func (s *ChatService) ChatStream(c *gin.Context, req *ChatRequest) error {
 		req.Model = s.defaultModel()
 	}
 
+	baseURL, apiKey, extraHeaders, err := s.activeChatConfig()
+	if err != nil {
+		return err
+	}
+
 	c.Header("Content-Type", "text/event-stream")
 	c.Header("Cache-Control", "no-cache")
 	c.Header("Connection", "keep-alive")
 	c.Header("X-Accel-Buffering", "no")
-
-	baseURL, apiKey, extraHeaders, err := s.providerSvc.GetActiveForChat()
-	if err != nil {
-		slog.Info("using mock AI provider (no active provider)")
-		return s.mockStreamResponse(c, req)
-	}
 
 	providerURL := s.aiChatCompletionsURL(baseURL)
 	slog.Info("streaming AI provider API", "url", providerURL, "model", req.Model, "stream", true)
@@ -202,13 +217,9 @@ func (s *ChatService) Embeddings(req *EmbeddingsRequest) (*EmbeddingsResponse, e
 	if req.Model == "" {
 		req.Model = s.defaultModel()
 	}
-	if s.providerSvc == nil {
-		return nil, fmt.Errorf("no active AI provider")
-	}
-
-	baseURL, apiKey, extraHeaders, err := s.providerSvc.GetActiveForChat()
+	baseURL, apiKey, extraHeaders, err := s.activeChatConfig()
 	if err != nil {
-		return nil, fmt.Errorf("no active AI provider: %w", err)
+		return nil, err
 	}
 
 	providerURL := s.aiEmbeddingsURL(baseURL)
@@ -268,81 +279,4 @@ func (s *ChatService) buildPayload(req *ChatRequest, stream bool) map[string]any
 		payload["top_p"] = *req.TopP
 	}
 	return payload
-}
-
-func (s *ChatService) mockChatResponse(req *ChatRequest) (*ChatResponse, error) {
-	lastUserMsg := "hello"
-	for i := len(req.Messages) - 1; i >= 0; i-- {
-		if req.Messages[i].Role == "user" {
-			lastUserMsg = req.Messages[i].Content
-			break
-		}
-	}
-
-	content := fmt.Sprintf("Mock response to: %s (model: %s)", lastUserMsg, req.Model)
-	if len(content) > 500 {
-		content = content[:500]
-	}
-
-	usage := ChatUsage{
-		PromptTokens:     len(lastUserMsg) * 2,
-		CompletionTokens: len(content) / 4,
-		TotalTokens:      len(lastUserMsg)*2 + len(content)/4,
-	}
-
-	return &ChatResponse{
-		ID:      fmt.Sprintf("chatcmpl-%d", time.Now().Unix()),
-		Object:  "chat.completion",
-		Created: time.Now().Unix(),
-		Model:   req.Model,
-		Choices: []ChatChoice{{Index: 0, Message: ChatMessage{Role: "assistant", Content: content}, FinishReason: "stop"}},
-		Usage:   usage,
-	}, nil
-}
-
-func (s *ChatService) mockStreamResponse(c *gin.Context, req *ChatRequest) error {
-	lastUserMsg := "hello"
-	for i := len(req.Messages) - 1; i >= 0; i-- {
-		if req.Messages[i].Role == "user" {
-			lastUserMsg = req.Messages[i].Content
-			break
-		}
-	}
-
-	fullText := fmt.Sprintf("Mock stream response to: %s (model: %s)", lastUserMsg, req.Model)
-	const chunkRunes = 12
-	runes := []rune(fullText)
-	words := make([]string, 0, (len(runes)+chunkRunes-1)/chunkRunes)
-	for i := 0; i < len(runes); i += chunkRunes {
-		end := i + chunkRunes
-		if end > len(runes) {
-			end = len(runes)
-		}
-		words = append(words, string(runes[i:end]))
-	}
-
-	eventID := fmt.Sprintf("chatcmpl-%d", time.Now().Unix())
-	for i, word := range words {
-		finish := ""
-		if i == len(words)-1 {
-			finish = "stop"
-		}
-		event := SSEEvent{
-			ID:      eventID,
-			Object:  "chat.completion.chunk",
-			Created: time.Now().Unix(),
-			Model:   req.Model,
-			Choices: []SSEChoice{{
-				Index:        0,
-				Delta:        map[string]any{"content": word},
-				FinishReason: finish,
-			}},
-		}
-		data, _ := json.Marshal(event)
-		fmt.Fprintf(c.Writer, "data: %s\n\n", string(data))
-		c.Writer.Flush()
-	}
-	fmt.Fprintf(c.Writer, "data: [DONE]\n\n")
-	c.Writer.Flush()
-	return nil
 }

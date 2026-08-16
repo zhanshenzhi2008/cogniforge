@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-08-16 | v4.7 | 未配置默认模型时对话返回 4010，不再 mock | orjrs |
 | 2026-08-16 | v4.6 | 前端 Docker 钉 pnpm@9，避免 ERR_PNPM_IGNORED_BUILDS | orjrs |
 | 2026-08-16 | v4.5 | 前端 Node 基线改为 22（CI / Dockerfile） | orjrs |
 | 2026-08-15 | v4.4 | 模型配置本地+Redis 两级缓存（rev 一致性）；Go 明文 Key 不进 Redis | orjrs |
@@ -14,6 +15,12 @@
 | 2026-04-27 | v3.0 | 后端从 handler 目录重构为业务模块化架构；新增 auth/user/chat/workflow/knowledge/agent 等独立模块，遵循 DTO → Service → Handler 分层模式 | orjrs |
 | 2026-04-04 | v2.0 | 后端架构由 gateway 独立目录收敛为 monolith；删除 go-standards/dev-environment rules；rules 文档变更记录规范 | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] 未配置模型时不再 mock（2026-08-16）
+
+- **变更原因**：缺默认模型或 Key 时聊天接口输出假回复，生产上像模型坏了
+- **包含代码**：`internal/chat`、`internal/agent/handler.go`
+- **变更后**：返回 `4010`；智能体 `/agents/:id/chat` 改为调用真实 `ChatService`（不再内置 mock）
 
 ## [变更] 前端 Docker 钉 pnpm@9（2026-08-16）
 

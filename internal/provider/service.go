@@ -79,8 +79,12 @@ func (s *Service) buildSnapshot(active *model.AIProvider) *modelcache.Snapshot {
 		}
 		add(active.DefaultModel)
 		for _, p := range list {
-			if p.IsEnabled {
-				add(p.DefaultModel)
+			if !p.IsEnabled {
+				continue
+			}
+			add(p.DefaultModel)
+			for _, m := range model.CatalogModels(p.Provider) {
+				add(m)
 			}
 		}
 	}
@@ -125,10 +129,32 @@ func (s *Service) CachedModels() []modelcache.ModelItem {
 			return snap.Models
 		}
 	}
-	if p.DefaultModel == "" {
+	if p.DefaultModel == "" && len(model.CatalogModels(p.Provider)) == 0 {
 		return nil
 	}
-	return []modelcache.ModelItem{{ID: p.DefaultModel, Name: p.DefaultModel}}
+	seen := map[string]struct{}{}
+	out := make([]modelcache.ModelItem, 0, 4)
+	add := func(m string) {
+		m = strings.TrimSpace(m)
+		if m == "" {
+			return
+		}
+		if _, ok := seen[m]; ok {
+			return
+		}
+		seen[m] = struct{}{}
+		out = append(out, modelcache.ModelItem{ID: m, Name: m})
+	}
+	add(p.DefaultModel)
+	for _, m := range model.CatalogModels(p.Provider) {
+		add(m)
+	}
+	return out
+}
+
+// RefreshCache 启动或迁移后重建快照，避免 Redis 里还是旧模型名
+func (s *Service) RefreshCache() {
+	s.refreshCache()
 }
 
 // Get 获取单个供应商

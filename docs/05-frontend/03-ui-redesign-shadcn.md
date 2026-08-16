@@ -4,6 +4,9 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-08-16 | v1.19 | 对话/模型页 DeepSeek 增加 V4，同时保留 chat / reasoner | orjrs |
+| 2026-08-16 | v1.18 | Playground 左侧历史可折叠（桌面顶栏图标；状态记在浏览器） | orjrs |
+| 2026-08-16 | v1.17 | Playground：左侧历史对话；参数改为右上角滑层（桌面也进滑层） | orjrs |
 | 2026-08-15 | v1.16 | Agents/Workflows 模型下拉改为 GET /api/v1/models（数据库配置） | orjrs |
 | 2026-08-15 | v1.15 | P7：共享 editorial chrome（cf-page 等）；各模块标题/面板/表格对齐 Dashboard | orjrs |
 | 2026-08-15 | v1.14 | Console→Dashboard；导航英文短标签；登录/Playground 向示意稿构图靠拢（主题 token 不变） | orjrs |
@@ -21,6 +24,33 @@
 | 2026-08-12 | v1.2 | 补充关键屏 UI 示意稿（登录 / 控制台 / Playground / 手机） | orjrs |
 | 2026-08-12 | v1.1 | 补充响应式策略：Web 优先验收，手机端预留兼容但不阻塞主路径 | orjrs |
 | 2026-08-12 | v1.0 | 全新 UI 方向：Vue3 + Nuxt3 + Tailwind4 + shadcn-vue；保留 Vue Flow；接口与 CI/CD 不变 | orjrs |
+
+## [变更] DeepSeek V4 模型下拉（2026-08-16）
+
+- **变更原因**：要能选 V4，但日常仍用更便宜的 `deepseek-chat`
+- **包含代码**：`pages/models.vue`、`composables/useProviders.ts`；后端 `CatalogModels`
+- **变更后**：DeepSeek 可选 chat / reasoner / v4-flash / v4-pro，**不删**旧选项
+
+## [变更] Playground 历史侧栏可折叠（2026-08-16）
+
+- **变更原因**：历史列表常开会占掉对话宽度
+- **包含代码**：`cogniforge-web/pages/playground.vue`
+- **变更后**：桌面标题左侧图标收起/展开历史；选择会记在浏览器里。手机仍用「历史对话」滑层
+
+## [变更] Playground 历史对话 + 参数挪位（2026-08-16）
+
+- **变更原因**：对话要能找回；左侧再放 Agent/滑条会挤掉历史
+- **包含代码**：`cogniforge-web/pages/playground.vue`、`components/PlaygroundHistoryPanel.vue`、`composables/useConversations.ts`；Go `/api/v1/conversations`
+- **影响范围**：Playground 布局与存档
+
+### 变更前 vs 变更后
+
+- **变更前**：桌面左侧 = Agent/模型/Temperature；消息只在内存，刷新就没了；「参数」只在窄屏出现
+- **变更后**：
+  - 桌面左侧 = 新对话 + 历史列表
+  - Agent / 模型 / 滑条 **一律** 右上角「参数」滑层（桌面、手机相同）
+  - 每轮结束后写入当前用户的 `chat_conversations`
+  - 窄屏左侧隐藏，顶栏多一个「历史对话」滑层
 
 ## [变更] 模型下拉改为数据库配置（2026-08-15）
 
@@ -293,7 +323,7 @@ Nuxt UI：`app.config` / runtime 把 `primary` 绑到 `--cf-accent`。
 | 登录 / 注册 | 完整 | 完整 |
 | 控制台 | 完整 | 完整（单列） |
 | 列表页（Agent/模型/知识库/密钥） | 完整 | 浏览 + 简易新建；复杂筛选可收纳 |
-| Playground | 三栏 | 单栏：对话为主，参数进 Sheet |
+| Playground | 左历史 + 中对话 | 单栏：对话为主；历史/参数都进 Slideover |
 | 工作流画布（Vue Flow） | **完整编辑** | **只读/提示用电脑编辑**（不阻塞 Web 交付） |
 | 监控 / 管理表 | 完整 | 横滑查看；批量操作可隐藏 |
 
@@ -591,13 +621,14 @@ Nuxt UI 的 Header / NavigationMenu / Dashboard / Slideover 开箱即好看、�
 3. **Composer**：`UChatPrompt` + `UChatPromptSubmit` 贴底；`⌘/Ctrl + Enter` 发送；支持停止生成
 4. **消息操作**（hover `actions`）：复制、重新生成
 5. **空态**：品牌问候 + 3 个建议 Chip
-6. **参数**：左侧窄轨 / 顶部模型 `USelectMenu`；高级参数默认折叠
-7. **Token / 延迟**：角落轻量元数据，不做底栏大字报
-8. **流式**：`UChatShimmer`；Markdown 继续现有渲染路径
-9. **适配层**：现有 Playground composable → `mapToUIMessage()`（AI SDK `parts` 形）→ Nuxt UI；**不改后端出参**
-10. **禁止**：等宽 role 标签墙、API Playground 时间戳列、微信式双绿泡
+6. **参数**：右上角「参数」滑层（Agent / 模型 / Temperature / Max Tokens / Top P）；**不再**放左侧窄轨
+7. **历史**：桌面左侧列表，可用顶栏图标折叠；手机顶栏「历史对话」滑层；数据走 `GET/POST/PUT/DELETE /api/v1/conversations`
+8. **Token / 延迟**：角落轻量元数据，不做底栏大字报
+9. **流式**：`UChatShimmer`；Markdown 继续现有渲染路径
+10. **适配层**：现有 Playground composable → `mapToUIMessage()`（AI SDK `parts` 形）→ Nuxt UI；聊天补全出参不变
+11. **禁止**：等宽 role 标签墙、API Playground 时间戳列、微信式双绿泡
 
-手机（P2）：单列仍保持左右分侧；参数进 Slideover。
+手机（P2）：单列仍保持左右分侧；历史与参数都进 Slideover。
 
 ### 5.4 Agent / 模型 / 知识库 / 密钥
 - 列表：优先 **`UTable` + `UPagination` + `UBadge`**

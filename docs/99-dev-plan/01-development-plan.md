@@ -4,6 +4,8 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-08-16 | v1.30 | DeepSeek 下拉增加 V4，保留 chat/reasoner；不删旧选项 | orjrs |
+| 2026-08-16 | v1.29 | Playground 历史对话（chat_conversations）+ 参数改到右上角滑层 | orjrs |
 | 2026-08-15 | v1.28 | 模型配置本地+Redis 两级缓存（rev 校验） | orjrs |
 | 2026-08-15 | v1.27 | Python LLM/embedding 回调 Go，模型配置只保留 ai_providers 一套 | orjrs |
 | 2026-08-15 | v1.26 | ~~cogniforge-ai 与 Go 共用 ai_providers 调模型~~（同日改为回调 Go） | orjrs |
@@ -33,6 +35,18 @@
 | 2026-04-11 | v1.2 | 阶段八监控中心完成（请求日志中间件、日志列表 API、用量统计 API、监控仪表板页面） | orjrs |
 | 2026-04-17 | v1.3 | 阶段九用户管理与个人设置完成（用户CRUD、个人设置、会话管理、RBAC权限系统） | orjrs |
 > 注：任务状态变更直接在下方任务表格中更新即可，无需额外记录。
+
+## [变更] DeepSeek 增加 V4 选项（2026-08-16）
+
+- **变更原因**：要能选 V4，但日常仍用更便宜的 `deepseek-chat`
+- **包含代码**：`internal/model/provider.go`、`internal/provider/service.go`
+- **影响范围**：对话/Agent 模型下拉；默认仍是 chat，V4 只是多出来的选项
+
+## [变更] Playground 历史对话（2026-08-16）
+
+- **变更原因**：对话刷新丢失；参数占掉左侧，没法放历史
+- **包含代码**：Go `internal/chat/conversation*.go`、`internal/model/conversation.go`；Web `pages/playground.vue`、`components/PlaygroundHistoryPanel.vue`
+- **影响范围**：阶段四 4.7；需登录；Go 重启后 AutoMigrate `chat_conversations`
 
 ## [变更] 模型配置两级缓存（2026-08-15）
 
@@ -228,7 +242,7 @@ pnpm test:e2e          # E2E 测试
 | 4.4 | 消息输入组件 | 1天 | ⭐ | 🔴 未开始 | 4.4.1 输入框测试<br>4.4.2 提交事件测试 | 0.5天 |
 | 4.5 | 非流式 API 调用 | 2天 | ⭐⭐⭐ | 🔴 未开始 | 4.5.1 API 调用测试<br>4.5.2 响应解析测试<br>4.5.3 错误处理测试 | 1天 |
 | 4.6 | SSE 流式输出 | 3天 | ⭐⭐⭐⭐ | 🔴 未开始 | 4.6.1 SSE 连接测试<br>4.6.2 流式数据解析测试<br>4.6.3 中断连接测试<br>4.6.4 前端流式渲染测试 | 2天 |
-| 4.7 | 多轮对话 | 2天 | ⭐⭐⭐ | 🔴 未开始 | 4.7.1 对话历史测试<br>4.7.2 上下文传递测试<br>4.7.3 对话列表组件测试 | 1天 |
+| 4.7 | 多轮对话 | 2天 | ⭐⭐⭐ | 🟢 已完成 | 4.7.1 对话历史测试<br>4.7.2 上下文传递测试<br>4.7.3 对话列表组件测试 | 1天 |
 | 4.8 | Markdown 渲染 | 1天 | ⭐⭐ | 🔴 未开始 | 4.8.1 Markdown 解析测试<br>4.8.2 代码高亮测试 | 0.5天 |
 
 **阶段四测试任务详情**:

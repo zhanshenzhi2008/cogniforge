@@ -30,11 +30,12 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 	providerRepo := provider.NewRepository(db)
 	mc := modelcache.NewFromRedis(modelcache.DialRedis(cfg))
 	providerSvc := provider.NewService(providerRepo, mc)
+	providerSvc.RefreshCache()
 	providerHandler := provider.NewHandler(providerSvc)
 
 	authHandler := auth.NewAuthHandler()
 	userHandler := user.NewUserHandler()
-	chatHandler := chat.NewChatHandler(providerSvc)
+	chatHandler := chat.NewChatHandler(providerSvc, db)
 	workflowHandler := workflow.NewWorkflowHandler()
 	pythonClient := knowledge.NewServiceClient(httpclient.NewClient(cfg.RAG.PythonServiceURL))
 	knowledgeHandler := knowledge.NewKnowledgeHandler(pythonClient)
@@ -63,6 +64,9 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 		authenticated := api.Group("")
 		authenticated.Use(middleware.AuthRequired())
 		{
+			// 聊天历史（需登录；与公开的 /chat/stream 分开）
+			chatHandler.RegisterConversationRoutes(authenticated)
+
 			// 用户管理
 			userHandler.RegisterRoutes(authenticated)
 

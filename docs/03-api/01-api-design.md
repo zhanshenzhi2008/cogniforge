@@ -4,10 +4,31 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-08-16 | v1.5 | DeepSeek 下拉增加 V4，同时保留 deepseek-chat / reasoner | orjrs |
+| 2026-08-16 | v1.4 | 新增登录用户聊天历史 CRUD：/api/v1/conversations | orjrs |
 | 2026-08-15 | v1.3 | 新增 POST /api/v1/embeddings；Python RAG 回调 Go，不自己拿 Key | orjrs |
 | 2026-08-15 | v1.2 | GET /v1/models 改为返回已启用供应商的 default_model（不再写死 GPT 列表） | orjrs |
 | 2026-04-09 | v1.1 | 新增文档上传接口、语义检索接口实现说明 | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] DeepSeek 下拉增加 V4（2026-08-16）
+
+- **变更原因**：对话里要能选 V4，但日常仍用更便宜的 `deepseek-chat`
+- **包含代码**：`internal/model/provider.go`、`internal/provider/service.go`；Web 模型页下拉
+- **变更后**：列表为 `deepseek-chat`、`deepseek-reasoner`、`deepseek-v4-flash`、`deepseek-v4-pro`；**不**自动改掉库里的默认模型
+
+~~先前写过「启动时把 chat 迁成 flash」——已撤销，不删旧选项。~~（2026-08-16）
+
+## [变更] Playground 对话历史接口（2026-08-16）
+
+- **变更原因**：对话页需要历史列表；参数不再占左侧。消息按用户落库，刷新后还能打开
+- **包含代码**：`internal/model/conversation.go`、`internal/chat/conversation.go`、`internal/chat/conversation_handler.go`
+- **影响范围**：`GET/POST /api/v1/conversations`、`GET/PUT/DELETE /api/v1/conversations/:id`（需 JWT）
+
+### 变更前 vs 变更后
+
+- **变更前**：只有 `/chat/stream`，消息只在浏览器内存里
+- **变更后**：登录用户可增删改查自己的对话；列表不带 messages，详情才带全文
 
 ## [变更] 新增 Embeddings 内部接口（2026-08-15）
 
@@ -300,7 +321,10 @@ GET /v1/models
     "code": 2000,
     "data": {
       "models": [
-        {"id": "deepseek-chat", "name": "deepseek-chat"}
+        {"id": "deepseek-chat", "name": "deepseek-chat"},
+        {"id": "deepseek-reasoner", "name": "deepseek-reasoner"},
+        {"id": "deepseek-v4-flash", "name": "deepseek-v4-flash"},
+        {"id": "deepseek-v4-pro", "name": "deepseek-v4-pro"}
       ]
     }
   }
@@ -325,6 +349,55 @@ GET /v1/models/{model_id}
     }
   }
 ```
+
+### 3.4 聊天历史（Playground）
+
+```yaml
+接口组: /api/v1/conversations
+认证: JWT（只看得到当前登录用户自己的对话）
+
+GET /api/v1/conversations
+描述: 对话列表（不含 messages，按 updated_at 倒序，最多 100 条）
+响应:
+  {
+    "code": 2000,
+    "data": [
+      {
+        "id": "uuid",
+        "title": "今天天气怎么样",
+        "agent_id": "",
+        "model": "deepseek-chat",
+        "created_at": "2026-08-16T00:00:00Z",
+        "updated_at": "2026-08-16T00:00:00Z"
+      }
+    ]
+  }
+
+POST /api/v1/conversations
+描述: 新建对话。title 为空时用第一条用户消息前 40 字
+请求体:
+  {
+    "title": "可选",
+    "agent_id": "可选，空表示通用对话",
+    "model": "deepseek-chat",
+    "messages": [
+      {"id": "uuid", "role": "user", "content": "你好", "time": "ISO8601"}
+    ]
+  }
+
+GET /api/v1/conversations/{id}
+描述: 对话详情（含 messages）
+响应: { "code": 2000, "data": { "id": "...", "messages": [...], "...": "..." } }
+
+PUT /api/v1/conversations/{id}
+描述: 更新标题 / 模型 / Agent / 消息全文
+请求体: 字段均可选；messages 为整份覆盖，不是增量
+
+DELETE /api/v1/conversations/{id}
+描述: 软删除
+```
+
+~~规划中的 `cf_agent_conversations`（必须挂 Agent）未作为 Playground 历史表落地。~~（2026-08-16）
 
 ---
 

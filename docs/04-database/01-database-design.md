@@ -3,9 +3,21 @@
 ## [变更记录]
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|---------|--------|
+| 2026-08-16 | v1.3 | 落地 chat_conversations（Playground 历史）；~~cf_agent_conversations 未作为对话页存表~~ | orjrs |
 | 2026-08-16 | v1.2 | Redis 键统一 `cogniforge:` 前缀；多项目用前缀隔离，不拆 db0/db1 | orjrs |
 | 2026-08-15 | v1.1 | 落地模型配置 Redis 键（当时为 `cf:modelcfg:*`） | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] Playground 对话历史表（2026-08-16）
+
+- **变更原因**：对话页要按用户保存多段聊天；不能绑死 Agent
+- **包含代码**：`internal/model/conversation.go`；启动时 AutoMigrate
+- **落地表名**：`chat_conversations`（与现网 `agents` / `knowledge_bases` 一样，无 `cf_` 前缀）
+
+### 变更前 vs 变更后
+
+- **变更前**：~~`cf_agent_conversations`（agent_id 必填，仅规划）~~（2026-08-16）
+- **变更后**：`chat_conversations.user_id` 必填，`agent_id` 可空；`messages` JSONB
 
 ## [变更] Redis 键改 cogniforge: 前缀（2026-08-16）
 
@@ -236,6 +248,8 @@ CREATE INDEX idx_agent_status ON cf_agents(status);
 
 #### 2.3.2 Agent对话历史表 (cf_agent_conversations)
 
+~~下表仅为早期规划，Playground 未使用。~~（2026-08-16）实际落地表见 **2.3.3 `chat_conversations`**。
+
 ```sql
 CREATE TABLE cf_agent_conversations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -250,6 +264,30 @@ CREATE TABLE cf_agent_conversations (
 CREATE INDEX idx_conv_agent ON cf_agent_conversations(agent_id);
 CREATE INDEX idx_conv_session ON cf_agent_conversations(session_id);
 ```
+
+#### 2.3.3 聊天历史表 (chat_conversations)
+
+Playground 多段对话。登录用户隔离；`agent_id` 可空（通用对话）。
+
+```sql
+CREATE TABLE chat_conversations (
+    id VARCHAR(64) PRIMARY KEY,
+    user_id VARCHAR(64) NOT NULL,
+    agent_id VARCHAR(64),
+    title VARCHAR(255),
+    model VARCHAR(128),
+    messages JSONB NOT NULL DEFAULT '[]',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    deleted_at TIMESTAMP WITH TIME ZONE
+);
+
+CREATE INDEX idx_chat_conv_user ON chat_conversations(user_id);
+CREATE INDEX idx_chat_conv_agent ON chat_conversations(agent_id);
+CREATE INDEX idx_chat_conv_deleted ON chat_conversations(deleted_at);
+```
+
+`messages` 元素：`{"id","role","content","time"}`。title 缺省取第一条用户消息前 40 字。
 
 ---
 

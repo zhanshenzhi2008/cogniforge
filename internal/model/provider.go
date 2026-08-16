@@ -155,3 +155,20 @@ func InitDefaultProviders(db *gorm.DB) error {
 	}
 	return nil
 }
+
+// RestoreSeededDeepSeekChatDefault 撤销误把系统自带 DeepSeek 默认改成 V4 的操作；自定义供应商不动。
+func RestoreSeededDeepSeekChatDefault(db *gorm.DB) error {
+	return db.Model(&AIProvider{}).
+		Where("id = ? AND default_model IN ?", "deepseek", []string{"deepseek-v4-flash", "deepseek-v4-pro"}).
+		Update("default_model", "deepseek-chat").Error
+}
+
+// CatalogModels 某类供应商在对话下拉里应出现的模型 ID（便宜的排前面）。
+func CatalogModels(provider string) []string {
+	switch provider {
+	case string(ProviderDeepSeek):
+		return []string{"deepseek-chat", "deepseek-reasoner", "deepseek-v4-flash", "deepseek-v4-pro"}
+	default:
+		return nil
+	}
+}

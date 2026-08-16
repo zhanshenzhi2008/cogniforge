@@ -48,6 +48,7 @@ func main() {
 		&model.Role{},
 		&model.RolePermission{},
 		&model.AIProvider{},
+		&model.ChatConversation{},
 	); err != nil {
 		slog.Error("failed to migrate database", "error", err)
 		return
@@ -56,6 +57,9 @@ func main() {
 	// 初始化默认 AI 供应商
 	if err := model.InitDefaultProviders(db); err != nil {
 		slog.Warn("failed to init default AI providers", "error", err)
+	}
+	if err := model.RestoreSeededDeepSeekChatDefault(db); err != nil {
+		slog.Warn("failed to restore DeepSeek chat default", "error", err)
 	}
 
 	// 初始化默认管理员

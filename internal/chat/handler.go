@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 
 	"cogniforge/internal/provider"
 	"cogniforge/internal/response"
@@ -13,11 +14,13 @@ import (
 
 type ChatHandler struct {
 	service *ChatService
+	conv    *ConversationService
 }
 
-func NewChatHandler(providerSvc *provider.Service) *ChatHandler {
+func NewChatHandler(providerSvc *provider.Service, db *gorm.DB) *ChatHandler {
 	return &ChatHandler{
 		service: NewChatService(providerSvc),
+		conv:    NewConversationService(db),
 	}
 }
 

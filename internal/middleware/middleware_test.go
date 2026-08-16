@@ -65,6 +65,7 @@ func TestCors_AllowsRequiredHeaders(t *testing.T) {
 	assert.Contains(t, allowedHeaders, "Content-Type")
 	assert.Contains(t, allowedHeaders, "Accept")
 	assert.Contains(t, allowedHeaders, "Authorization")
+	assert.Contains(t, allowedHeaders, "X-Trace-ID")
 }
 
 func TestCors_ExposesHeaders(t *testing.T) {
@@ -78,7 +79,7 @@ func TestCors_ExposesHeaders(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	assert.Equal(t, "Content-Length", w.Header().Get("Access-Control-Expose-Headers"))
+	assert.Equal(t, "Content-Length, X-Trace-ID", w.Header().Get("Access-Control-Expose-Headers"))
 }
 
 func TestCors_AllowsCredentials(t *testing.T) {

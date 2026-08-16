@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-08-16 | v1.32 | CORS 测试对齐 X-Trace-ID 暴露头 | orjrs |
 | 2026-08-16 | v1.31 | 前端 Node 基线改为 22（CI / Dockerfile） | orjrs |
 | 2026-08-16 | v1.30 | DeepSeek 下拉增加 V4，保留 chat/reasoner；不删旧选项 | orjrs |
 | 2026-08-16 | v1.29 | Playground 历史对话（chat_conversations）+ 参数改到右上角滑层 | orjrs |
@@ -36,6 +37,12 @@
 | 2026-04-11 | v1.2 | 阶段八监控中心完成（请求日志中间件、日志列表 API、用量统计 API、监控仪表板页面） | orjrs |
 | 2026-04-17 | v1.3 | 阶段九用户管理与个人设置完成（用户CRUD、个人设置、会话管理、RBAC权限系统） | orjrs |
 > 注：任务状态变更直接在下方任务表格中更新即可，无需额外记录。
+
+## [变更] CORS 测试对齐 X-Trace-ID（2026-08-16）
+
+- **变更原因**：链路跟踪后 CORS 已暴露 `X-Trace-ID`，测试还只认 `Content-Length`，CI `TestCors_ExposesHeaders` 失败
+- **包含代码**：`internal/middleware/middleware_test.go`
+- **影响范围**：仅测试；中间件行为不变
 
 ## [变更] 前端 Node 基线改为 22（2026-08-16）
 

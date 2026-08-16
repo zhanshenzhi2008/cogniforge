@@ -40,9 +40,10 @@
 ## [变更] 前端 Node 基线改为 22（2026-08-16）
 
 - **变更原因**：GitHub Actions 推荐 Node 22；CI、镜像、文档要一起改，避免下次从旧项目抄到 20
-- **包含代码**：`cogniforge-web` 的 `ci.yml` / `Dockerfile`；文档 `docs/02-architecture/01-technical-architecture.md`
+- **包含代码**：`cogniforge-web` 的 `ci.yml` / `Dockerfile`；三仓 workflow 的 Action major（`checkout@v6` 等）；文档 `docs/02-architecture/01-technical-architecture.md`
 - **影响范围**：仅前端构建；复用 CI 模板时默认也是 22
 - **不改**：`package.json` `engines` 仍是 Node `>=20`、pnpm `>=8`
+- **另**：GitHub 警告 `Node.js 20 is deprecated` 来自 `actions/checkout@v4` 等工具自身运行时，不是 `NODE_VERSION`；已升到 `@v6` / `cache@v5` / `pnpm/action-setup@v6`
 
 ## [变更] DeepSeek 增加 V4 选项（2026-08-16）
 

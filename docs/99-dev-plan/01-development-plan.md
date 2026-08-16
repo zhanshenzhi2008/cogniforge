@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-08-16 | v1.33 | 前端 Docker 钉 pnpm@9，避免 ERR_PNPM_IGNORED_BUILDS | orjrs |
 | 2026-08-16 | v1.32 | CORS 测试对齐 X-Trace-ID 暴露头 | orjrs |
 | 2026-08-16 | v1.31 | 前端 Node 基线改为 22（CI / Dockerfile） | orjrs |
 | 2026-08-16 | v1.30 | DeepSeek 下拉增加 V4，保留 chat/reasoner；不删旧选项 | orjrs |
@@ -37,6 +38,13 @@
 | 2026-04-11 | v1.2 | 阶段八监控中心完成（请求日志中间件、日志列表 API、用量统计 API、监控仪表板页面） | orjrs |
 | 2026-04-17 | v1.3 | 阶段九用户管理与个人设置完成（用户CRUD、个人设置、会话管理、RBAC权限系统） | orjrs |
 > 注：任务状态变更直接在下方任务表格中更新即可，无需额外记录。
+
+## [变更] 前端 Docker 钉 pnpm@9（2026-08-16）
+
+- **变更原因**：CD 构建 web 镜像时 `npm install -g pnpm` 装到最新 10/11，依赖构建脚本被默认拦截，`nuxt prepare` 之后以 `ERR_PNPM_IGNORED_BUILDS` 失败
+- **包含代码**：`cogniforge-web/Dockerfile`（`pnpm@9`，与 CI `pnpm/action-setup` version 9 对齐）
+- **影响范围**：仅前端镜像构建；本机 `pnpm install`、CI 测试 job 不变
+- **拦截包**：`@parcel/watcher`、`esbuild`、`vue-demi`
 
 ## [变更] CORS 测试对齐 X-Trace-ID（2026-08-16）
 

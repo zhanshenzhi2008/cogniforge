@@ -3,8 +3,17 @@
 ## [变更记录]
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|---------|--------|
+| 2026-08-16 | v1.29 | 前端 Docker 钉 pnpm@9，避免 ERR_PNPM_IGNORED_BUILDS | orjrs |
 | 2026-08-15 | v1.28 | 模型配置走 Redis；cogniforge-ai 增加 REDIS_HOST | orjrs |
 | 2026-08-15 | v1.27 | Python LLM 回调 Go；cogniforge-ai 增加 COGNIFORGE_API_URL | orjrs |
+
+## [变更] 前端 Docker 钉 pnpm@9（2026-08-16）
+
+- **变更原因**：`cogniforge-web` CD 构建镜像时无版本安装 pnpm，拿到 10/11 后拦截依赖构建脚本，安装以 `ERR_PNPM_IGNORED_BUILDS` 退出 1
+- **包含代码**：`cogniforge-web/Dockerfile`：`npm install -g pnpm@9 && pnpm install --frozen-lockfile`
+- **影响范围**：仅 web 镜像构建阶段；运行层仍是 Nginx 静态托管
+- **变更前 vs 变更后**：~~`npm install -g pnpm`（最新）~~（2026-08-16）→ `npm install -g pnpm@9`（与 CI `pnpm/action-setup` version 9 一致）
+- **不要**：在 Dockerfile 里再改回无版本 `pnpm`；本机可用 9 或更新，但镜像必须钉 9
 
 ## [变更] 模型配置 Redis 缓存（2026-08-15）
 

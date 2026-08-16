@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-08-16 | v4.6 | 前端 Docker 钉 pnpm@9，避免 ERR_PNPM_IGNORED_BUILDS | orjrs |
 | 2026-08-16 | v4.5 | 前端 Node 基线改为 22（CI / Dockerfile） | orjrs |
 | 2026-08-15 | v4.4 | 模型配置本地+Redis 两级缓存（rev 一致性）；Go 明文 Key 不进 Redis | orjrs |
 | 2026-08-15 | v4.3 | Python 不再读 ai_providers；LLM/embedding 一律回调 Go（单一配置出口） | orjrs |
@@ -13,6 +14,14 @@
 | 2026-04-27 | v3.0 | 后端从 handler 目录重构为业务模块化架构；新增 auth/user/chat/workflow/knowledge/agent 等独立模块，遵循 DTO → Service → Handler 分层模式 | orjrs |
 | 2026-04-04 | v2.0 | 后端架构由 gateway 独立目录收敛为 monolith；删除 go-standards/dev-environment rules；rules 文档变更记录规范 | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] 前端 Docker 钉 pnpm@9（2026-08-16）
+
+- **变更原因**：CD 构建 web 镜像时装了最新 pnpm 10/11，默认拦截依赖构建脚本，`pnpm install` 以 `ERR_PNPM_IGNORED_BUILDS` 失败
+- **包含代码**：`cogniforge-web/Dockerfile`
+- **影响范围**：仅前端镜像构建；CI 本来就是 pnpm 9
+- **变更前 vs 变更后**：~~Dockerfile `npm install -g pnpm`~~（2026-08-16）→ `npm install -g pnpm@9`
+- **拦截包**：`@parcel/watcher`、`esbuild`、`vue-demi`
 
 ## [变更] 前端 Node 基线改为 22（2026-08-16）
 

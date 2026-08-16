@@ -2,9 +2,12 @@ package knowledge
 
 import (
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"testing"
 
+	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -379,8 +382,12 @@ func TestKnowledgeService_Search(t *testing.T) {
 	})
 	require.NoError(t, err)
 
+	gin.SetMode(gin.TestMode)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/", nil)
+
 	// Search empty KB
-	result, err := service.SearchKnowledge(userID, kb.ID, &SearchRequest{
+	result, err := service.SearchKnowledge(c, userID, kb.ID, &SearchRequest{
 		Query: "test query",
 	})
 	require.NoError(t, err)

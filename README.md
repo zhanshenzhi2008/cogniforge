@@ -42,7 +42,7 @@ CogniForge 是一个企业级AI应用开发与运营平台，旨在为开发者�
 | Go | 1.22+ |
 | Java | 21+ |
 | Python | 3.11+ |
-| Node.js | 20+ |
+| Node.js | 22+ |
 | PostgreSQL | 15+ |
 | Redis | 7+ |
 | Docker | 24+ |

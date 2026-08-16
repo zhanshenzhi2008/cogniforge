@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-08-16 | v1.31 | 前端 Node 基线改为 22（CI / Dockerfile） | orjrs |
 | 2026-08-16 | v1.30 | DeepSeek 下拉增加 V4，保留 chat/reasoner；不删旧选项 | orjrs |
 | 2026-08-16 | v1.29 | Playground 历史对话（chat_conversations）+ 参数改到右上角滑层 | orjrs |
 | 2026-08-15 | v1.28 | 模型配置本地+Redis 两级缓存（rev 校验） | orjrs |
@@ -35,6 +36,13 @@
 | 2026-04-11 | v1.2 | 阶段八监控中心完成（请求日志中间件、日志列表 API、用量统计 API、监控仪表板页面） | orjrs |
 | 2026-04-17 | v1.3 | 阶段九用户管理与个人设置完成（用户CRUD、个人设置、会话管理、RBAC权限系统） | orjrs |
 > 注：任务状态变更直接在下方任务表格中更新即可，无需额外记录。
+
+## [变更] 前端 Node 基线改为 22（2026-08-16）
+
+- **变更原因**：GitHub Actions 推荐 Node 22；CI、镜像、文档要一起改，避免下次从旧项目抄到 20
+- **包含代码**：`cogniforge-web` 的 `ci.yml` / `Dockerfile`；文档 `docs/02-architecture/01-technical-architecture.md`
+- **影响范围**：仅前端构建；复用 CI 模板时默认也是 22
+- **不改**：`package.json` `engines` 仍是 Node `>=20`、pnpm `>=8`
 
 ## [变更] DeepSeek 增加 V4 选项（2026-08-16）
 

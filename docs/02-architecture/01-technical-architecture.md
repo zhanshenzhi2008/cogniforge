@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-08-16 | v4.5 | 前端 Node 基线改为 22（CI / Dockerfile） | orjrs |
 | 2026-08-15 | v4.4 | 模型配置本地+Redis 两级缓存（rev 一致性）；Go 明文 Key 不进 Redis | orjrs |
 | 2026-08-15 | v4.3 | Python 不再读 ai_providers；LLM/embedding 一律回调 Go（单一配置出口） | orjrs |
 | 2026-08-15 | v4.2 | ~~cogniforge-ai 直接读 ai_providers 解密 Key~~（同日改为 v4.3 Hub） | orjrs |
@@ -12,6 +13,14 @@
 | 2026-04-27 | v3.0 | 后端从 handler 目录重构为业务模块化架构；新增 auth/user/chat/workflow/knowledge/agent 等独立模块，遵循 DTO → Service → Handler 分层模式 | orjrs |
 | 2026-04-04 | v2.0 | 后端架构由 gateway 独立目录收敛为 monolith；删除 go-standards/dev-environment rules；rules 文档变更记录规范 | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] 前端 Node 基线改为 22（2026-08-16）
+
+- **变更原因**：GitHub Actions 推荐 Node 22；本地/CI/镜像要对齐，避免「本机能过、CI 不过」
+- **包含代码**：`cogniforge-web/.github/workflows/ci.yml`、`cogniforge-web/Dockerfile`
+- **影响范围**：前端构建与 CI；Go / Python 不受影响
+- **变更前 vs 变更后**：~~CI `NODE_VERSION: '20'` / `node:20-alpine`~~（2026-08-16）→ CI `NODE_VERSION: '22'` / `node:22-alpine`
+- **不改**：`package.json` 的 `engines` 仍是 `node >=20`、`pnpm >=8`（22/9 本来就满足）
 
 ## [变更] 模型配置两级缓存（2026-08-15）
 
@@ -826,7 +835,7 @@ cogniforge-web/                     # 前端 Nuxt 3
 ```yaml
 Go: 1.22+
 Python: 3.10+
-Node.js: 20+
+Node.js: 22+
 Nuxt: 3.14+
 Vue: 3.4+
 TypeScript: 5+
@@ -836,6 +845,6 @@ Redis: 7+
 
 ---
 
-**文档版本**: v4.0
-**最后更新**: 2026-05-17
+**文档版本**: v4.5
+**最后更新**: 2026-08-16
 **维护团队**: orjrs

@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-08-18 | v1.21 | 配额：导航加 Usage；Playground 额度条；用量图表页 | orjrs |
 | 2026-08-16 | v1.20 | 未配置默认模型时对话 Toast 提示去「模型」页，不再显示 mock | orjrs |
 | 2026-08-16 | v1.19 | 对话/模型页 DeepSeek 增加 V4，同时保留 chat / reasoner | orjrs |
 | 2026-08-16 | v1.18 | Playground 左侧历史可折叠（桌面顶栏图标；状态记在浏览器） | orjrs |
@@ -25,6 +26,16 @@
 | 2026-08-12 | v1.2 | 补充关键屏 UI 示意稿（登录 / 控制台 / Playground / 手机） | orjrs |
 | 2026-08-12 | v1.1 | 补充响应式策略：Web 优先验收，手机端预留兼容但不阻塞主路径 | orjrs |
 | 2026-08-12 | v1.0 | 全新 UI 方向：Vue3 + Nuxt3 + Tailwind4 + shadcn-vue；保留 Vue Flow；接口与 CI/CD 不变 | orjrs |
+
+## [变更] 用量配额 UI（2026-08-18）
+
+- **变更原因**：Playground 无限刷；用户和管理员都看不见 Token
+- **详细设计**：`docs/01-requirements/02-quota-design.md`（含柱状图 / 饼图 / 排行示意）
+- **导航**：Keys 与 Monitor 之间新增 Usage `/usage`（admin 与 user 都可见）；配额策略 `/admin/quota` 仅 admin
+- **Playground**：输入框上方轻量额度条；用尽禁用发送；文案走 i18n
+- **Dashboard**：加一张「今日剩余条数」卡，点击进 `/usage`
+- **图表**：全站只选一种库（建议 ECharts）；四张图规格见配额文档 §5.3
+- **不改**：Monitor 仍只做 HTTP 日志，不和用量抢页
 
 ## [变更] 未配置模型时 Toast 提示（2026-08-16）
 
@@ -444,7 +455,8 @@ components/
 | 5 | Flows | `workflows` | `/workflows` | admin, user |
 | 6 | Knowledge | `knowledge` | `/knowledge` | admin, user |
 | 7 | Keys | `keys` | `/keys` | admin, user |
-| 8 | Monitor | `monitor` | `/monitor` | **仅 admin** |
+| 8 | Usage | `usage` | `/usage` | admin, user |
+| 9 | Monitor | `monitor` | `/monitor` | **仅 admin** |
 
 激活态规则（保持）：
 - `/` 仅精确匹配 Dashboard
@@ -455,6 +467,7 @@ components/
 | 文案 | 行为 | 可见 |
 |------|------|------|
 | 个人设置 | 跳转 `/settings` | 全部登录用户 |
+| 配额策略 | 跳转 `/admin/quota` | **仅 admin** |
 | 用户管理 | 跳转 `/admin/users` | **仅 admin** |
 | 角色权限 | 跳转 `/admin/roles` | **仅 admin** |
 | 退出登录 | 调现有 logout API → `clearAuth` → `/login` | 全部登录用户 |
@@ -631,6 +644,7 @@ Nuxt UI 的 Header / NavigationMenu / Dashboard / Slideover 开箱即好看、�
 6. **参数**：右上角「参数」滑层（Agent / 模型 / Temperature / Max Tokens / Top P）；**不再**放左侧窄轨
 7. **历史**：桌面左侧列表，可用顶栏图标折叠；手机顶栏「历史对话」滑层；数据走 `GET/POST/PUT/DELETE /api/v1/conversations`
 8. **Token / 延迟**：角落轻量元数据，不做底栏大字报
+8b. **额度条**（2026-08-18）：输入框上方显示今日次数/Token 进度；≥80% 黄灯；用尽禁用发送并 Toast「明天 0 点（北京时间）恢复」
 9. **流式**：`UChatShimmer`；Markdown 继续现有渲染路径
 10. **适配层**：现有 Playground composable → `mapToUIMessage()`（AI SDK `parts` 形）→ Nuxt UI；聊天补全出参不变
 11. **禁止**：等宽 role 标签墙、API Playground 时间戳列、微信式双绿泡
@@ -656,6 +670,14 @@ Nuxt UI 的 Header / NavigationMenu / Dashboard / Slideover 开箱即好看、�
 ### 5.6 监控中心
 - 指标 + **`UTable`** 日志；筛选用 `USelectMenu` / `UInput`
 - 状态码、耗时：mono
+- **不承担** Token 配额图表（那是 `/usage`）
+
+### 5.6b 用量 Usage（2026-08-18）
+- 路由 `/usage`，页面壳 `cf-page`
+- 页头：今日次数、今日 Token、本月 Token 三张 `stat-card` + 两个 `UProgress`
+- 主图：近 7/30 天柱状图；旁侧模型占比饼图
+- admin 可切「全站」并看到 Top 用户表（`UTable`）
+- 图表库全站只留一种，建议 ECharts；组件：`pages/usage.vue`、`composables/useQuota.ts`、`components/QuotaBar.vue`
 
 ### 5.7 设置 / 管理
 - 设置分区：可用 shadcn `Tabs` 或 `UTabs`（全站选一种）
@@ -767,7 +789,7 @@ Mobile 问题记入 backlog，**不阻断** Web 主路径合并。
 - 不改后端 API、不改字段名
 - 不换 Vue Flow 为其它流程图库
 - 不强制升级 Nuxt 4（可另开分支评估）
-- 不重做产品信息架构（**导航模块/路由/角色可见性冻结，见 §4.1**）
+- 不重做产品信息架构（**旧模块/路由/角色可见性冻结，见 §4.1**；2026-08-18 允许**新增** Usage / 配额策略，不删旧项）
 - 不为「更炫」加 3D/粒子/大英雄营销首屏
 - **不做**独立原生 App；手机以响应式 Web 为准
 - **不承诺**手机端完整工作流可视化编排（P2 降级即可）
@@ -778,7 +800,7 @@ Mobile 问题记入 backlog，**不阻断** Web 主路径合并。
 
 ### 9.1 Web 桌面（必须过，否则不算完成）
 1. 打开登录页，第一眼看到的是 **CogniForge** 品牌，而不是普通灰表单。
-2. 登录后顶栏像产品，但**以前的模块都能找到**（控制台、Playground、Agent、模型、工作流、知识库、密钥；admin 另有监控/用户/角色）。
+2. 登录后顶栏像产品，但**以前的模块都能找到**（控制台、Playground、Agent、模型、工作流、知识库、密钥、用量；admin 另有监控/用户/角色/配额策略）。
 3. 点每个导航，进入的还是原来的页面路径。
 4. 原来会用的功能都在，按钮能点，数据还能出来。
 5. 工作流画布还能拖节点、连线、保存（和现在一样）。

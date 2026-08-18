@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-08-18 | v1.7 | 配额接口 /quota/*；聊天须登录；新增业务码 5016 | orjrs |
 | 2026-08-16 | v1.6 | 未配置默认模型时对话返回 4010，不再 mock | orjrs |
 | 2026-08-16 | v1.5 | DeepSeek 下拉增加 V4，同时保留 deepseek-chat / reasoner | orjrs |
 | 2026-08-16 | v1.4 | 新增登录用户聊天历史 CRUD：/api/v1/conversations | orjrs |
@@ -11,6 +12,15 @@
 | 2026-08-15 | v1.2 | GET /v1/models 改为返回已启用供应商的 default_model（不再写死 GPT 列表） | orjrs |
 | 2026-04-09 | v1.1 | 新增文档上传接口、语义检索接口实现说明 | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] 配额与聊天须登录（2026-08-18）
+
+- **变更原因**：`/chat/stream` 目前公开，Playground 可无限刷共用 Key
+- **详细设计**：`docs/01-requirements/02-quota-design.md`
+- **接口**：`GET /api/v1/quota/me`、`GET /api/v1/quota/usage`、`GET/PUT /api/v1/admin/quota/policy`、`PUT /api/v1/admin/quota/users/:id`
+- **行为变更**：浏览器调用 `/chat/stream`、`/chat/completions`、`/agents/:id/chat` 必须 JWT，超限返回 HTTP 429 / `code=5016`
+- **不改**：`/embeddings` 仍供内网 Python 回调，不算用户额度
+- **变更前 vs 变更后**：~~匿名可打对话~~（2026-08-18）→ 未登录 401；额度用尽 5016；上游供应商没钱仍是 4008
 
 ## [变更] 未配置默认模型时返回 4010（2026-08-16）
 
@@ -227,7 +237,9 @@ DELETE /v1/api-keys/{key_id}
 
 POST /v1/chat/completions
 描述: 聊天补全（OpenAI兼容）
-认证: API密钥
+认证: JWT（2026-08-18 起浏览器必须登录；匿名调用返回 401）
+配额: 计入用户额度；用尽 HTTP 429 / code=5016；每分钟过快 code=5014
+注意: Python 内部回调走单独约定，不算 Playground 用户额度，见配额设计文档
 请求体:
   {
     "model": "gpt-4o",
@@ -1049,6 +1061,80 @@ GET /v1/logs/{log_id}
   }
 ```
 
+### 8.3 配额与用量（2026-08-18 设计，待落地）
+
+详细规则见 `docs/01-requirements/02-quota-design.md`。统一包在 `{ code, message, trace_id, data }`。
+
+```yaml
+GET /api/v1/quota/me
+描述: 当前用户剩余额度（Playground / Dashboard 轮询）
+认证: JWT
+响应 data:
+  {
+    "unlimited": false,
+    "day": {
+      "requests_used": 12,
+      "requests_limit": 30,
+      "tokens_used": 32000,
+      "tokens_limit": 100000,
+      "resets_at": "2026-08-19T00:00:00+08:00"
+    },
+    "month": {
+      "tokens_used": 120000,
+      "tokens_limit": 1000000,
+      "resets_at": "2026-09-01T00:00:00+08:00"
+    },
+    "warn": false
+  }
+
+---
+
+GET /api/v1/quota/usage
+描述: 用量序列，供柱状图 / 饼图
+认证: JWT
+参数:
+  - range: 7d | 30d
+  - metric: requests | tokens
+  - user_id: 仅 admin，看指定用户
+  - scope: self | all（all 仅 admin）
+响应 data:
+  {
+    "points": [{ "date": "2026-08-18", "requests": 12, "tokens": 32000 }],
+    "by_model": [{ "model": "deepseek-chat", "tokens": 24000 }],
+    "top_users": [{ "user_id": "...", "name": "...", "tokens": 180000 }]
+  }
+
+---
+
+GET /api/v1/admin/quota/policy
+PUT /api/v1/admin/quota/policy
+描述: 读/改全站默认限额
+认证: JWT + role=admin
+请求体:
+  {
+    "daily_requests": 30,
+    "daily_tokens": 100000,
+    "monthly_tokens": 1000000,
+    "rpm": 8,
+    "admin_unlimited": true
+  }
+
+---
+
+PUT /api/v1/admin/quota/users/:id
+描述: 覆盖某用户限额；字段传 null 表示取消覆盖、回到默认
+认证: JWT + role=admin
+```
+
+超限时对话接口：
+
+| HTTP | code | 含义 |
+|------|------|------|
+| 401 | 5005 | 未登录 |
+| 429 | 5014 | 每分钟过快（不扣每日次数） |
+| 429 | 5016 | 日/月额度用尽（新增 `CodeUserQuotaExceeded`） |
+| 502/503 | 4008 | 上游供应商自己没额度（不是本平台限额） |
+
 ---
 
 ## 9. 用户与组织接口
@@ -1290,18 +1376,30 @@ DELETE /api/v1/settings/sessions/{session_id}
 
 ## 11. 错误码定义
 
+HTTP 层（兼容旧表）：
+
 | 错误码 | 类型 | 描述 |
 |-------|------|------|
 | 400 | invalid_request_error | 请求参数错误 |
 | 401 | authentication_error | 认证失败 |
 | 403 | permission_error | 权限不足 |
 | 404 | not_found_error | 资源不存在 |
-| 429 | rate_limit_error | 请求频率超限 |
+| 429 | rate_limit_error | 请求频率超限 **或** 平台额度用尽 |
 | 500 | server_error | 服务器内部错误 |
 | 503 | service_unavailable | 服务不可用 |
 
+业务码（以 `internal/response` 为准）：
+
+| code | 常量 | 描述 |
+|------|------|------|
+| 4008 | CodeAIQuotaExhausted | 上游 AI 供应商额度用尽 |
+| 4010 | CodeNoActiveProvider | 未配置默认模型或 Key |
+| 5005 | CodeUnauthorized | 未登录 |
+| 5014 | CodeRateLimitExceeded | 每分钟请求过快 |
+| 5016 | CodeUserQuotaExceeded | 本平台用户日/月额度用尽（2026-08-18 新增） |
+
 ---
 
-**文档版本**: v1.0  
-**最后更新**: 2026-03-16  
+**文档版本**: v1.7  
+**最后更新**: 2026-08-18  
 **维护团队**: CogniForge API 团队

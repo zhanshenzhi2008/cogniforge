@@ -49,6 +49,8 @@ func main() {
 		&model.RolePermission{},
 		&model.AIProvider{},
 		&model.ChatConversation{},
+		&model.QuotaPolicy{},
+		&model.LLMUsageEvent{},
 	); err != nil {
 		slog.Error("failed to migrate database", "error", err)
 		return

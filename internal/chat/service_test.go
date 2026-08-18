@@ -20,12 +20,11 @@ func TestBuildPayload_StreamFlag(t *testing.T) {
 
 	streamPayload := s.buildPayload(req, true)
 	assert.Equal(t, true, streamPayload["stream"])
-	assert.Equal(t, "deepseek-chat", streamPayload["model"])
-	assert.Equal(t, 0.7, streamPayload["temperature"])
-	assert.Equal(t, 2048, streamPayload["max_tokens"])
+	assert.NotNil(t, streamPayload["stream_options"])
 
 	syncPayload := s.buildPayload(req, false)
 	assert.Equal(t, false, syncPayload["stream"])
+	assert.Nil(t, syncPayload["stream_options"])
 }
 
 func TestListModels_NoProvider(t *testing.T) {

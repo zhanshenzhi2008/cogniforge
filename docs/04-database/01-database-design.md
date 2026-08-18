@@ -3,10 +3,24 @@
 ## [变更记录]
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|---------|--------|
+| 2026-08-18 | v1.4 | 配额表 quota_policies / llm_usage_events；Redis cogniforge:quota:* | orjrs |
 | 2026-08-16 | v1.3 | 落地 chat_conversations（Playground 历史）；~~cf_agent_conversations 未作为对话页存表~~ | orjrs |
 | 2026-08-16 | v1.2 | Redis 键统一 `cogniforge:` 前缀；多项目用前缀隔离，不拆 db0/db1 | orjrs |
 | 2026-08-15 | v1.1 | 落地模型配置 Redis 键（当时为 `cf:modelcfg:*`） | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] 配额表与 Redis 计数键（2026-08-18）
+
+- **变更原因**：Playground 无限刷共用 Key；现网 `request_logs` 只有 HTTP 次数，不能当额度账本
+- **详细设计**：`docs/01-requirements/02-quota-design.md`
+- **落地表名**：`quota_policies`、`llm_usage_events`（与现网一样无 `cf_` 前缀）
+- **Redis**：`cogniforge:quota:*`，见 §5.1；热路径只认 Redis，明细异步写 Postgres
+- **不采用**：~~把 Token 塞进 request_logs 凑合~~（2026-08-18）；~~Java 计费库表~~（2026-08-18）
+
+### 变更前 vs 变更后
+
+- **变更前**：无用户额度；监控只聚合 HTTP
+- **变更后**：每人每天次数/Token、每月 Token、每分钟 RPM；图表读 `llm_usage_events`
 
 ## [变更] Playground 对话历史表（2026-08-16）
 
@@ -642,6 +656,55 @@ CREATE INDEX idx_usage_org_date ON cf_usage_stats(organization_id, stat_date DES
 CREATE INDEX idx_usage_date ON cf_usage_stats(stat_date DESC);
 ```
 
+### 3.3 配额策略表 (quota_policies) — 2026-08-18 设计，待落地
+
+现网表无 `cf_` 前缀，本表同样不加。`user_id` 为空表示全站默认，有值表示覆盖某用户。同时只允许一行默认策略。
+
+```sql
+CREATE TABLE quota_policies (
+    id VARCHAR(64) PRIMARY KEY,
+    user_id VARCHAR(64),                 -- NULL = 全站默认
+    daily_requests INTEGER NOT NULL DEFAULT 30,
+    daily_tokens BIGINT NOT NULL DEFAULT 100000,
+    monthly_tokens BIGINT NOT NULL DEFAULT 1000000,
+    rpm INTEGER NOT NULL DEFAULT 8,
+    admin_unlimited BOOLEAN NOT NULL DEFAULT TRUE,
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX uq_quota_policies_default ON quota_policies ((1)) WHERE user_id IS NULL;
+CREATE UNIQUE INDEX uq_quota_policies_user ON quota_policies(user_id) WHERE user_id IS NOT NULL;
+```
+
+默认种子：30 条/天、10 万 Token/天、100 万 Token/月、8 RPM、管理员不限额。
+
+### 3.4 模型用量明细表 (llm_usage_events) — 2026-08-18 设计，待落地
+
+每次打模型（成功、失败、被配额拦住）写一行。不要复用 `request_logs`。
+
+```sql
+CREATE TABLE llm_usage_events (
+    id VARCHAR(64) PRIMARY KEY,
+    user_id VARCHAR(64),                 -- 系统 embedding 可空
+    source VARCHAR(32) NOT NULL,         -- playground / agent / workflow / embed
+    model VARCHAR(100),
+    prompt_tokens INTEGER NOT NULL DEFAULT 0,
+    completion_tokens INTEGER NOT NULL DEFAULT 0,
+    total_tokens INTEGER NOT NULL DEFAULT 0,
+    tokens_estimated BOOLEAN NOT NULL DEFAULT FALSE,
+    status VARCHAR(32) NOT NULL,         -- ok / error / quota_blocked
+    latency_ms INTEGER,
+    trace_id VARCHAR(64),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_llm_usage_user_created ON llm_usage_events(user_id, created_at DESC);
+CREATE INDEX idx_llm_usage_created ON llm_usage_events(created_at DESC);
+CREATE INDEX idx_llm_usage_model_created ON llm_usage_events(model, created_at DESC);
+```
+
 ---
 
 ## 4. 审计日志表
@@ -706,6 +769,14 @@ cogniforge:ratelimit:{api_key_id}:{minute} -> counter
 cogniforge:agent:conv:{agent_id}:{session_id} -> JSON {messages}
 cogniforge:workflow:exec:{execution_id} -> JSON {status, result}
 cogniforge:token:{org_id}:{date} -> counter
+
+# 配额计数（2026-08-18 设计，待落地；热路径强制这些名字）
+cogniforge:quota:policy:rev -> integer
+cogniforge:quota:user:{userId}:day:{yyyyMMdd}:req -> integer     # TTL 48h
+cogniforge:quota:user:{userId}:day:{yyyyMMdd}:tokens -> integer  # TTL 48h
+cogniforge:quota:user:{userId}:month:{yyyyMM}:tokens -> integer  # TTL 40d
+cogniforge:quota:rl:{userId}:{yyyyMMddHHmm} -> integer           # TTL 2min
+# 禁止把 API Key 写入上述键
 ```
 
 ---

@@ -135,15 +135,15 @@ func (s *ChatService) Chat(req *ChatRequest) (*ChatResponse, error) {
 	return &chatResp, nil
 }
 
-// ChatStream 流式对话
-func (s *ChatService) ChatStream(c *gin.Context, req *ChatRequest) error {
+// ChatStream 流式对话。返回本次 usage（上游没有则估算）。
+func (s *ChatService) ChatStream(c *gin.Context, req *ChatRequest) (*ChatUsage, error) {
 	if req.Model == "" {
 		req.Model = s.defaultModel()
 	}
 
 	baseURL, apiKey, extraHeaders, err := s.activeChatConfig()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	c.Header("Content-Type", "text/event-stream")
@@ -159,7 +159,7 @@ func (s *ChatService) ChatStream(c *gin.Context, req *ChatRequest) error {
 
 	httpReq, err := http.NewRequestWithContext(c.Request.Context(), "POST", providerURL, bytes.NewBuffer(body))
 	if err != nil {
-		return err
+		return nil, err
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Accept", "text/event-stream")
@@ -171,26 +171,33 @@ func (s *ChatService) ChatStream(c *gin.Context, req *ChatRequest) error {
 	client := &http.Client{Timeout: 120 * time.Second}
 	resp, err := client.Do(httpReq)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("AI provider returned status %d: %s", resp.StatusCode, string(respBody))
+		return nil, fmt.Errorf("AI provider returned status %d: %s", resp.StatusCode, string(respBody))
 	}
 
+	scan := &sseUsageScan{}
 	c.Stream(func(w io.Writer) bool {
 		buf := make([]byte, 4096)
 		n, err := resp.Body.Read(buf)
 		if n > 0 {
-			c.Writer.Write(buf[:n])
+			scan.feed(buf[:n])
+			_, _ = c.Writer.Write(buf[:n])
 			c.Writer.Flush()
 			return true
 		}
 		return err == nil
 	})
-	return nil
+	usage := scan.usage
+	if usage.TotalTokens == 0 {
+		usage = EstimateUsage(req.Messages, scan.text.String())
+		usage.Estimated = true
+	}
+	return &usage, nil
 }
 
 func (s *ChatService) aiChatCompletionsURL(base string) string {
@@ -268,6 +275,9 @@ func (s *ChatService) buildPayload(req *ChatRequest, stream bool) map[string]any
 		"model":    req.Model,
 		"messages": req.Messages,
 		"stream":   stream,
+	}
+	if stream {
+		payload["stream_options"] = map[string]any{"include_usage": true}
 	}
 	if req.Temperature != nil {
 		payload["temperature"] = *req.Temperature

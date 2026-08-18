@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -11,6 +12,7 @@ import (
 	"cogniforge/internal/chat"
 	"cogniforge/internal/database"
 	"cogniforge/internal/provider"
+	"cogniforge/internal/quota"
 	"cogniforge/internal/response"
 )
 
@@ -18,13 +20,15 @@ type AgentHandler struct {
 	service     *AgentService
 	providerSvc *provider.Service
 	chatSvc     *chat.ChatService
+	quota       *quota.Service
 }
 
-func NewAgentHandler(providerSvc *provider.Service, chatSvc *chat.ChatService) *AgentHandler {
+func NewAgentHandler(providerSvc *provider.Service, chatSvc *chat.ChatService, quotaSvc *quota.Service) *AgentHandler {
 	return &AgentHandler{
 		service:     NewAgentService(),
 		providerSvc: providerSvc,
 		chatSvc:     chatSvc,
+		quota:       quotaSvc,
 	}
 }
 
@@ -176,6 +180,14 @@ func (h *AgentHandler) AgentChat(c *gin.Context) {
 
 	messages := append([]ChatMessage{{Role: "system", Content: systemPrompt}}, req.Messages...)
 
+	if h.quota != nil {
+		if err := h.quota.Allow(c.Request.Context(), userID, "agent"); err != nil {
+			quota.WriteError(c, err)
+			return
+		}
+	}
+	started := time.Now()
+
 	svcReq := toServiceRequest(&ChatRequest{
 		Model:       model,
 		Messages:    messages,
@@ -185,10 +197,15 @@ func (h *AgentHandler) AgentChat(c *gin.Context) {
 	})
 
 	if req.Stream {
-		if err := h.chatSvc.ChatStream(c, svcReq); err != nil {
+		usage, err := h.chatSvc.ChatStream(c, svcReq)
+		if err != nil {
+			if h.quota != nil {
+				h.quota.RefundRequest(c.Request.Context(), userID)
+			}
 			if chat.WriteNoActiveProvider(c, err) {
 				return
 			}
+			h.commitAgent(c, userID, model, nil, "error", started)
 			slog.Error("AgentChat stream failed",
 				"error", err,
 				"agent_id", agentID,
@@ -196,18 +213,47 @@ func (h *AgentHandler) AgentChat(c *gin.Context) {
 			)
 			fmt.Fprintf(c.Writer, "data: {\"error\": \"AI provider error: %s\"}\n\n", err.Error())
 			c.Writer.Flush()
+			return
 		}
+		h.commitAgent(c, userID, model, usage, "ok", started)
 	} else {
 		resp, err := h.chatSvc.Chat(svcReq)
 		if err != nil {
+			if h.quota != nil {
+				h.quota.RefundRequest(c.Request.Context(), userID)
+			}
 			if chat.WriteNoActiveProvider(c, err) {
 				return
 			}
+			h.commitAgent(c, userID, model, nil, "error", started)
 			response.Fail(c, http.StatusBadGateway, "AI provider error: "+err.Error())
 			return
 		}
+		u := resp.Usage
+		h.commitAgent(c, userID, model, &u, "ok", started)
 		response.Success(c, resp)
 	}
+}
+
+func (h *AgentHandler) commitAgent(c *gin.Context, userID, model string, usage *chat.ChatUsage, status string, started time.Time) {
+	if h.quota == nil || userID == "" {
+		return
+	}
+	in := quota.CommitInput{
+		UserID:    userID,
+		Source:    "agent",
+		Model:     model,
+		Status:    status,
+		TraceID:   quota.TraceID(c),
+		LatencyMS: time.Since(started).Milliseconds(),
+	}
+	if usage != nil {
+		in.PromptTokens = usage.PromptTokens
+		in.CompletionTokens = usage.CompletionTokens
+		in.TotalTokens = usage.TotalTokens
+		in.Estimated = usage.Estimated
+	}
+	h.quota.Commit(c.Request.Context(), in)
 }
 
 func (h *AgentHandler) defaultModel() string {

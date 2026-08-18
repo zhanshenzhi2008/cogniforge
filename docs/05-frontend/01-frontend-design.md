@@ -1,5 +1,8 @@
 # 知识库 Python 文档处理层技术方案
 
+> **注意（2026-08-18）**：Playground 配额、用量图表、导航 Usage 见  
+> [`docs/01-requirements/02-quota-design.md`](../01-requirements/02-quota-design.md)  
+> 与本文 UI 约定 [`03-ui-redesign-shadcn.md`](./03-ui-redesign-shadcn.md) §5.6b。  
 > **注意（2026-08-16）**：Playground 已改为左侧历史对话、右上角「参数」滑层；接口见 `docs/03-api/01-api-design.md` §3.4。  
 > **注意（2026-08-12）**：产品级前端 UI 重设计请以  
 > [`03-ui-redesign-shadcn.md`](./03-ui-redesign-shadcn.md)  

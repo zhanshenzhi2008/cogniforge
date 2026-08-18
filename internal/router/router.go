@@ -14,6 +14,7 @@ import (
 	"cogniforge/internal/modelcache"
 	"cogniforge/internal/monitor"
 	"cogniforge/internal/provider"
+	"cogniforge/internal/quota"
 	"cogniforge/internal/rbac"
 	"cogniforge/internal/user"
 	"cogniforge/internal/workflow"
@@ -27,19 +28,29 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 	r.GET("/live", liveHandler)
 
 	// 初始化各模块 Handler
+	rdb := modelcache.DialRedis(cfg)
 	providerRepo := provider.NewRepository(db)
-	mc := modelcache.NewFromRedis(modelcache.DialRedis(cfg))
+	mc := modelcache.NewFromRedis(rdb)
 	providerSvc := provider.NewService(providerRepo, mc)
 	providerSvc.RefreshCache()
 	providerHandler := provider.NewHandler(providerSvc)
 
 	authHandler := auth.NewAuthHandler()
 	userHandler := user.NewUserHandler()
-	chatHandler := chat.NewChatHandler(providerSvc, db)
+
+	var quotaStore quota.Store
+	if rdb != nil {
+		quotaStore = quota.NewRedisStore(rdb)
+	}
+	quotaSvc := quota.New(db, quotaStore)
+	quotaSvc.EnsureDefaultPolicy()
+	quotaHandler := quota.NewHandler(quotaSvc)
+
+	chatHandler := chat.NewChatHandler(providerSvc, db, quotaSvc)
 	workflowHandler := workflow.NewWorkflowHandler()
 	pythonClient := knowledge.NewServiceClient(httpclient.NewClient(cfg.RAG.PythonServiceURL))
 	knowledgeHandler := knowledge.NewKnowledgeHandler(pythonClient)
-	agentHandler := agent.NewAgentHandler(providerSvc, chatHandler.Service())
+	agentHandler := agent.NewAgentHandler(providerSvc, chatHandler.Service(), quotaSvc)
 	monitorHandler := monitor.NewMonitorHandler()
 	rbacHandler := rbac.NewRBACHandler()
 
@@ -57,14 +68,18 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 			authKeys.DELETE("/:id", authHandler.DeleteApiKey)
 		}
 
-		// 聊天/模型相关（公开接口）
-		chatHandler.RegisterRoutes(api)
+		// 模型列表 / embeddings 公开；对话 completions 可选登录（Python 回调不带 JWT）
+		chatHandler.RegisterPublicRoutes(api)
+		api.POST("/chat/completions", middleware.AuthOptional(), chatHandler.Chat)
 
 		// 需要认证的路由
 		authenticated := api.Group("")
 		authenticated.Use(middleware.AuthRequired())
 		{
-			// 聊天历史（需登录；与公开的 /chat/stream 分开）
+			authenticated.POST("/chat/stream", chatHandler.ChatStream)
+			quotaHandler.RegisterUserRoutes(authenticated)
+
+			// 聊天历史
 			chatHandler.RegisterConversationRoutes(authenticated)
 
 			// 用户管理
@@ -118,6 +133,7 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 			admin.PATCH("/admin/users/:id/status", userHandler.UpdateUserStatus)
 			admin.POST("/admin/users/:id/roles", rbacHandler.AssignRole)
 			admin.GET("/admin/users/:id/role", rbacHandler.GetUserRole)
+			quotaHandler.RegisterAdminRoutes(admin)
 		}
 	}
 }

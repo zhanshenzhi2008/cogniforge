@@ -64,6 +64,7 @@ const (
 	CodeVerifyCodeInvalid = 5013 // 验证码无效或已过期
 	CodeRateLimitExceeded = 5014 // 请求频率超限
 	CodeRequestTooLarge   = 5015 // 请求数据过大
+	CodeUserQuotaExceeded = 5016 // 本平台用户额度用尽
 )
 
 // =============================================================================
@@ -106,6 +107,7 @@ var codeMessages = map[int]string{
 	CodeVerifyCodeInvalid: "验证码无效或已过期",
 	CodeRateLimitExceeded: "请求频率超限，请稍后重试",
 	CodeRequestTooLarge:   "请求数据过大",
+	CodeUserQuotaExceeded: "今日对话额度已用完，将在明天 0 点（北京时间）恢复",
 }
 
 // GetMessage 根据 code 获取默认消息

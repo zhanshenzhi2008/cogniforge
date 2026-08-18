@@ -29,6 +29,7 @@ CogniForge 是一个企业级AI应用开发与运营平台，旨在为开发者�
 - **🔄 工作流编排** - 可视化拖拽设计复杂AI业务流程
 - **📚 知识库服务** - 企业文档向量化存储与语义检索
 - **📊 监控中心** - 全面的可观测性与成本分析
+- **📈 用量配额** - Playground 按人限额，防止共用 Key 被刷光（设计见 `docs/01-requirements/02-quota-design.md`）
 - **🔒 企业级安全** - RBAC访问控制、数据隔离、审计日志
 
 ---
@@ -133,6 +134,7 @@ RBAC权限管理、数据隔离、审计日志、合规报告。
 
 ### 需求文档 (docs/01-requirements/)
 - [产品需求文档](./docs/01-requirements/01-product-requirements.md) - 完整的产品功能需求
+- [配额与用量设计](./docs/01-requirements/02-quota-design.md) - Playground 限额方案与统计图
 
 ### 技术架构 (docs/02-architecture/)
 - [技术架构设计](./docs/02-architecture/01-technical-architecture.md) - 多语言混合架构设计
@@ -194,6 +196,7 @@ RBAC权限管理、数据隔离、审计日志、合规报告。
 
 ### v1.1 (规划中)
 
+- [ ] Playground 用量配额（登录 + 日/月限额 + 统计图）
 - [ ] 工作流编排可视化编辑器
 - [ ] 知识库服务
 

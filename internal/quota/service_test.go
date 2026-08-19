@@ -130,6 +130,31 @@ func TestMe_WarnAt80Percent(t *testing.T) {
 	assert.Equal(t, int64(8), snap.Day.RequestsUsed)
 }
 
+func TestMe_NewUserGetsDefaultCaps(t *testing.T) {
+	db := testDB(t)
+	seedUser(t, db, "newbie", "user")
+	svc := New(db, NewMemoryStore())
+	svc.EnsureDefaultPolicy()
+
+	snap, err := svc.Me(context.Background(), "newbie")
+	require.NoError(t, err)
+	assert.False(t, snap.Unlimited)
+	assert.Equal(t, DefaultDailyRequests, snap.Day.RequestsLimit)
+	assert.Equal(t, DefaultDailyTokens, snap.Day.TokensLimit)
+	assert.Equal(t, DefaultMonthlyTokens, snap.Month.TokensLimit)
+	assert.Equal(t, int64(0), snap.Day.RequestsUsed)
+}
+
+func TestEnsureDefaultPolicy_Idempotent(t *testing.T) {
+	db := testDB(t)
+	svc := New(db, NewMemoryStore())
+	svc.EnsureDefaultPolicy()
+	svc.EnsureDefaultPolicy()
+	var n int64
+	require.NoError(t, db.Model(&model.QuotaPolicy{}).Where("user_id IS NULL").Count(&n).Error)
+	assert.Equal(t, int64(1), n)
+}
+
 func TestCommit_AddsTokens(t *testing.T) {
 	db := testDB(t)
 	seedUser(t, db, "u6", "user")

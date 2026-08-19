@@ -1,6 +1,7 @@
 package user
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -225,10 +226,10 @@ func (h *UserHandler) ChangePassword(c *gin.Context) {
 
 	err := h.service.ChangePassword(userID.(string), &req)
 	if err != nil {
-		switch err.Error() {
-		case "旧密码错误":
-			response.Fail(c, http.StatusUnauthorized, err.Error())
-		case "新旧密码不能相同":
+		switch {
+		case errors.Is(err, ErrOldPasswordWrong):
+			response.FailWithHTTPStatus(c, http.StatusUnauthorized, response.CodePasswordIncorrect, err.Error())
+		case errors.Is(err, ErrPasswordUnchanged), errors.Is(err, ErrPasswordWeak):
 			response.BadRequest(c, err.Error())
 		default:
 			response.InternalError(c, err.Error())

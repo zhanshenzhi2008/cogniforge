@@ -1,5 +1,6 @@
 # 知识库 Python 文档处理层技术方案
 
+> **注意（2026-08-19）**：按钮能点/不能点见 [`03-ui-redesign-shadcn.md`](./03-ui-redesign-shadcn.md) §2.8。  
 > **注意（2026-08-18）**：Playground 配额、用量图表、导航 Usage 见  
 > [`docs/01-requirements/02-quota-design.md`](../01-requirements/02-quota-design.md)  
 > 与本文 UI 约定 [`03-ui-redesign-shadcn.md`](./03-ui-redesign-shadcn.md) §5.6b。  

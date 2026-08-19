@@ -4,6 +4,10 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-08-19 | v1.40 | Usage 空数据进度条不再滚动 | orjrs |
+| 2026-08-19 | v1.39 | 会话页改走 useApi，避免加载卡死；细权限码/自定义角色后期再排 | orjrs |
+| 2026-08-19 | v1.38 | 修复改密码未带 JWT；补 password 单测与 e2e | orjrs |
+| 2026-08-19 | v1.37 | 按钮实心色 + Playwright e2e（登录/发送/额度用尽） | orjrs |
 | 2026-08-18 | v1.36 | 阶段十二落地：Playground 配额闸门 + 用量页 | orjrs |
 | 2026-08-18 | v1.35 | 阶段十二：Playground 配额 + 用量图表（设计先行） | orjrs |
 | 2026-08-16 | v1.34 | 未配置默认模型/Key 时对话返回友好提示，不再 mock | orjrs |
@@ -41,6 +45,32 @@
 | 2026-04-11 | v1.2 | 阶段八监控中心完成（请求日志中间件、日志列表 API、用量统计 API、监控仪表板页面） | orjrs |
 | 2026-04-17 | v1.3 | 阶段九用户管理与个人设置完成（用户CRUD、个人设置、会话管理、RBAC权限系统） | orjrs |
 > 注：任务状态变更直接在下方任务表格中更新即可，无需额外记录。
+
+## [变更] Usage 空数据进度条（2026-08-19）
+
+- **变更原因**：用量为 0 时卡片进度条仍在滑动，像还在加载
+- **包含代码**：`cogniforge-web/pages/usage.vue`
+- **变更前 vs 变更后**：~~UProgress 把 0 当成不确定进度~~（2026-08-19）→ 静止空槽；趋势 0 不画矮柱
+
+## [变更] 会话页加载卡死 + 细权限后期排期（2026-08-19）
+
+- **变更原因**：Sessions 用裸 `$fetch('/api/v1/settings/sessions')`，不带 JWT、还打到 Nuxt 自己，请求挂起，「其他会话」一直转圈，页面像卡死
+- **包含代码**：`composables/useSessions.ts`、`components/SessionsSection.vue`、`e2e/sessions.spec.ts`
+- **变更前 vs 变更后**：~~Nuxt `$fetch` 无 Token / 错地址~~（2026-08-19）→ `useApi` 打 Go `/api/v1/settings/sessions`；列表强制为数组
+- **不做（后期）**：细权限码接到接口、自定义角色真正挡门。现在仍只用 `admin` / `user`
+
+## [变更] 修复改密码未带 JWT（2026-08-19）
+
+- **变更原因**：设置页改密码用裸 `$fetch`，不走 `useApi`，请求没有 Authorization，本地还打不到 Go
+- **包含代码**：`SecuritySection.vue`；Go ChangePassword 错误码；`internal/user/password_test.go`；`e2e/password.spec.ts`
+- **变更前 vs 变更后**：~~无 Token 的 `$fetch`~~（2026-08-19）→ `useApi().post`；旧密码错 5011；测试覆盖成功/错旧密/弱密/无登录
+
+## [变更] 按钮能点用主题实心色（2026-08-19）
+
+- **变更原因**：浅青绿软底看起来像禁用；禁用又残留绿色
+- **包含代码**：`cogniforge-web` `CfButton` + `main.css`；文档 `03-ui-redesign-shadcn.md` §2.8
+- **测试**：前端 `pnpm test`（按钮映射 + 配额）；`pnpm test:e2e`（登录 / 注册按钮 / 对话发送禁用）；Go `internal/quota` 新用户默认限额 HTTP
+- **变更前 vs 变更后**：~~主按钮 soft 淡底~~（2026-08-19）→ 保存/登录/确认实心主题色；灰 = 不能点
 
 ## [变更] 阶段十二配额落地（2026-08-18）
 
@@ -155,10 +185,11 @@ go test ./... -coverprofile=coverage.out  # 生成覆盖率报告
 
 **测试命令**:
 ```bash
-# 前端
-pnpm test              # 运行单元测试
+# 前端（cogniforge-web）
+pnpm test              # Vitest 单元测试
 pnpm test:watch        # 监听模式
-pnpm test:e2e          # E2E 测试
+pnpm test:e2e          # Playwright：登录/注册按钮、对话发送禁用、额度用尽
+# 首次 e2e：pnpm exec playwright install chromium
 ```
 
 ### 测试覆盖率目标

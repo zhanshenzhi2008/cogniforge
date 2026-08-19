@@ -1,6 +1,7 @@
 package user
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -18,6 +19,12 @@ type UserService struct {
 func NewUserService() *UserService {
 	return &UserService{db: database.DB}
 }
+
+var (
+	ErrOldPasswordWrong  = errors.New("旧密码错误")
+	ErrPasswordUnchanged = errors.New("新旧密码不能相同")
+	ErrPasswordWeak      = errors.New("密码强度不足")
+)
 
 // ListUsers 获取用户列表（管理员）
 func (s *UserService) ListUsers(req *ListUsersRequest) (*ListUsersResponse, error) {
@@ -345,18 +352,18 @@ func (s *UserService) ChangePassword(userID string, req *ChangePasswordRequest) 
 
 	// 验证旧密码
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.OldPassword)); err != nil {
-		return fmt.Errorf("旧密码错误")
+		return ErrOldPasswordWrong
 	}
 
 	// 检查新旧密码是否相同
 	if req.OldPassword == req.NewPassword {
-		return fmt.Errorf("新旧密码不能相同")
+		return ErrPasswordUnchanged
 	}
 
 	// 验证新密码强度
 	isValid, msg := CheckPasswordStrength(req.NewPassword)
 	if !isValid {
-		return fmt.Errorf("%s", msg)
+		return fmt.Errorf("%w: %s", ErrPasswordWeak, msg)
 	}
 
 	// 加密新密码

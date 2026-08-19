@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-08-19 | v1.8 | 改密码请求字段与实现对齐：old_password / new_password；须带 JWT | orjrs |
 | 2026-08-18 | v1.7 | 配额接口 /quota/*；聊天须登录；新增业务码 5016 | orjrs |
 | 2026-08-16 | v1.6 | 未配置默认模型时对话返回 4010，不再 mock | orjrs |
 | 2026-08-16 | v1.5 | DeepSeek 下拉增加 V4，同时保留 deepseek-chat / reasoner | orjrs |
@@ -12,6 +13,13 @@
 | 2026-08-15 | v1.2 | GET /v1/models 改为返回已启用供应商的 default_model（不再写死 GPT 列表） | orjrs |
 | 2026-04-09 | v1.1 | 新增文档上传接口、语义检索接口实现说明 | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] 改密码走 JWT 且字段对齐实现（2026-08-19）
+
+- **变更原因**：前端用裸 `$fetch` 打 `/api/v1/settings/password`，不带 Bearer，本地还会打到 Nuxt 而不是 Go，修改密码必然失败；文档字段 `current_password` 与代码 `old_password` 也不一致
+- **包含代码**：`cogniforge-web/components/SecuritySection.vue`；Go `internal/user` ChangePassword；测试 `internal/user/password_test.go`、`e2e/password.spec.ts`
+- **变更前 vs 变更后**：~~`$fetch` 无 Token；文档 `current_password` + `confirm_password`~~（2026-08-19）→ `useApi().post` 带 JWT；请求体 `old_password` / `new_password`；确认密码只在前端校验
+- **错误码**：旧密码错 → HTTP 401 / 业务码 5011；强度不够或新旧相同 → HTTP 400
 
 ## [变更] 配额与聊天须登录（2026-08-18）
 
@@ -1303,26 +1311,25 @@ POST /api/v1/settings/avatar
 ```yaml
 POST /api/v1/settings/password
 描述: 修改密码
-认证: JWT
+认证: JWT（Authorization: Bearer）
 请求体:
   {
-    "current_password": "旧密码（必填）",
-    "new_password": "新密码（至少8位，含大小写字母和数字）",
-    "confirm_password": "确认密码（必须与new_password一致）"
+    "old_password": "旧密码（必填）",
+    "new_password": "新密码（至少8位，含大小写字母、数字、特殊字符）"
   }
 响应:
   {
     "code": 2000,
-    "message": "密码修改成功，请重新登录"
+    "message": "密码修改成功"
   }
 ```
 
 **验证规则**：
-- 旧密码正确（bcrypt 比对）
-- 新密码长度 ≥ 8
-- 新密码包含大写字母、小写字母、数字
-- 确认密码一致
-- 修改成功后，使当前 Token 失效（强制重新登录）
+- 必须带 JWT；无 Token 返回 401
+- 旧密码正确（bcrypt 比对）；错误返回 HTTP 401、业务码 `5011`
+- 新密码长度 ≥ 8，且含大写、小写、数字、特殊字符；否则 HTTP 400
+- 新旧不能相同；确认密码只在前端校验，不进请求体
+- 前端成功后清本地 Token 并跳转登录；服务端当前不主动作废已签发 JWT
 
 ### 10.4 会话管理
 

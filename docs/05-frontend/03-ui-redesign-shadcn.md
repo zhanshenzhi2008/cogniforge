@@ -4,6 +4,8 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-08-19 | v1.23 | Usage 卡片 0 用量时进度条静止，不再当成加载动画 | orjrs |
+| 2026-08-19 | v1.22 | 按钮语义：能点用主题实心色，不能点才灰色；补 Playwright e2e | orjrs |
 | 2026-08-18 | v1.21 | 配额：导航加 Usage；Playground 额度条；用量图表页 | orjrs |
 | 2026-08-16 | v1.20 | 未配置默认模型时对话 Toast 提示去「模型」页，不再显示 mock | orjrs |
 | 2026-08-16 | v1.19 | 对话/模型页 DeepSeek 增加 V4，同时保留 chat / reasoner | orjrs |
@@ -26,6 +28,20 @@
 | 2026-08-12 | v1.2 | 补充关键屏 UI 示意稿（登录 / 控制台 / Playground / 手机） | orjrs |
 | 2026-08-12 | v1.1 | 补充响应式策略：Web 优先验收，手机端预留兼容但不阻塞主路径 | orjrs |
 | 2026-08-12 | v1.0 | 全新 UI 方向：Vue3 + Nuxt3 + Tailwind4 + shadcn-vue；保留 Vue Flow；接口与 CI/CD 不变 | orjrs |
+
+## [变更] Usage 空用量进度条（2026-08-19）
+
+- **变更原因**：`UProgress` 在值为 0 时会播放不确定进度动画，看起来像还在加载
+- **包含代码**：`cogniforge-web/pages/usage.vue`
+- **变更前 vs 变更后**：~~0 也在滑动的绿条~~（2026-08-19）→ 静止空槽；趋势图当天为 0 不再画一条矮绿柱
+
+## [变更] 按钮能点用主题实心色（2026-08-19）
+
+- **变更原因**：主按钮用浅青绿 `soft` 底，看起来像灰掉不能点；禁用态又残留绿色，像还能点
+- **包含代码**：`cogniforge-web/components/CfButton.vue`、`assets/css/main.css`、`pages/playground.vue`
+- **测试**：`utils/__tests__/cfButtonTone.spec.ts`；Playwright `e2e/login.spec.ts`、`e2e/playground.spec.ts`（`pnpm test:e2e`）
+- **变更前 vs 变更后**：~~全部 soft 淡底~~（2026-08-19）→ 登录/保存/确认实心 `--cf-accent`；取消描边；禁用只灰色
+- **不改**：API、主题切换入口、按钮文案与图标约定
 
 ## [变更] 用量配额 UI（2026-08-18）
 
@@ -346,6 +362,26 @@ Nuxt UI：`app.config` / runtime 把 `primary` 绑到 `--cf-accent`。
 | 监控 / 管理表 | 完整 | 横滑查看；批量操作可隐藏 |
 
 实施顺序仍以 Desktop 验收为准：某一页 Desktop 未过，不开始该页 Mobile 精细打磨。
+
+### 2.8 按钮语义（能点 / 不能点）
+
+浅青绿软底看起来像灰掉，用户分不清能不能点。全站 `CfButton` 与对话发送钮统一如下。色值跟当前主题 `--cf-accent`，不要另做一套高饱和按钮。
+
+| 场景 | tone | 能操作时 | 不能操作时 |
+|------|------|----------|------------|
+| 登录 / 保存 / 确认 / 新建 / 发送 | `primary` | 实心 `--cf-accent`，字用 `--cf-on-accent` | 灰底灰字，不留绿色 |
+| 取消 / 返回 / 重置 | `secondary` | 细边框 + 正文色，浅底 | 同上灰色 |
+| 删除确认 | `danger` | 实心 `--cf-danger`，白字 | 同上灰色 |
+| 表格行图标 | `icon` / `icon-accent` / `icon-danger` | 透明底 + 对应色图标 | 同上灰色 |
+
+规则：
+
+- **灰色只表示不能点**。禁用态禁止再用浅 accent / 半透明主色。
+- **能点的主操作必须是实心主题色**，不要 `soft` 淡底。
+- 圆角 8px，不用全圆胶囊；不要霓虹描边。
+- Playground 发送钮同样走这套：有输入且额度未用尽 = 实心主题色；空输入或额度用尽 = 灰。
+
+包含代码：`cogniforge-web/components/CfButton.vue`、`assets/css/main.css`、`pages/playground.vue`
 
 ---
 

@@ -1,8 +1,10 @@
 package user
 
 import (
+	"crypto/rand"
 	"errors"
 	"fmt"
+	"math/big"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -338,6 +340,77 @@ func (s *UserService) UpdateSettings(userID string, req *UpdateSettingsRequest) 
 	// 返回更新后的设置
 	s.db.Where("id = ?", settings.ID).First(&settings)
 	return &settings, nil
+}
+
+// AdminResetPassword 管理员重置用户密码，返回一次性明文临时密码。
+func (s *UserService) AdminResetPassword(userID string) (string, error) {
+	var user model.User
+	if err := s.db.Where("id = ?", userID).First(&user).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return "", fmt.Errorf("用户不存在")
+		}
+		return "", fmt.Errorf("查询失败")
+	}
+
+	plain, err := generateTempPassword(12)
+	if err != nil {
+		return "", fmt.Errorf("生成临时密码失败")
+	}
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(plain), bcrypt.DefaultCost)
+	if err != nil {
+		return "", fmt.Errorf("密码加密失败")
+	}
+
+	if err := s.db.Model(&user).Updates(map[string]interface{}{
+		"password":   string(hashedPassword),
+		"updated_at": time.Now(),
+	}).Error; err != nil {
+		return "", fmt.Errorf("密码更新失败")
+	}
+
+	return plain, nil
+}
+
+func generateTempPassword(length int) (string, error) {
+	if length < 10 {
+		length = 10
+	}
+	const (
+		upper = "ABCDEFGHJKLMNPQRSTUVWXYZ"
+		lower = "abcdefghijkmnopqrstuvwxyz"
+		digit = "23456789"
+		spec  = "!@#$%&*"
+	)
+	pools := []string{upper, lower, digit, spec}
+	all := upper + lower + digit + spec
+
+	out := make([]byte, length)
+	// 每类至少 1 个，满足强度规则
+	for i, pool := range pools {
+		n, err := rand.Int(rand.Reader, big.NewInt(int64(len(pool))))
+		if err != nil {
+			return "", err
+		}
+		out[i] = pool[n.Int64()]
+	}
+	for i := len(pools); i < length; i++ {
+		n, err := rand.Int(rand.Reader, big.NewInt(int64(len(all))))
+		if err != nil {
+			return "", err
+		}
+		out[i] = all[n.Int64()]
+	}
+	// 打乱顺序
+	for i := len(out) - 1; i > 0; i-- {
+		jBig, err := rand.Int(rand.Reader, big.NewInt(int64(i+1)))
+		if err != nil {
+			return "", err
+		}
+		j := int(jBig.Int64())
+		out[i], out[j] = out[j], out[i]
+	}
+	return string(out), nil
 }
 
 // ChangePassword 修改密码

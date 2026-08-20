@@ -1,5 +1,8 @@
 # 知识库 Python 文档处理层技术方案
 
+> **注意（2026-08-20）**：忘记密码支持 Resend 邮件重置；见 [`03-api/01-api-design.md`](../03-api/01-api-design.md) §9.1.2。  
+> **注意（2026-08-20）**：忘记密码为管理员重置临时密码（无邮件）；见 [`03-api/01-api-design.md`](../03-api/01-api-design.md) §9.1.1。  
+> 注意（2026-08-19）**：背景满屏径向渐变、内容 1200px 居中，见 [`03-ui-redesign-shadcn.md`](./03-ui-redesign-shadcn.md) §2.5。  
 > **注意（2026-08-19）**：按钮能点/不能点见 [`03-ui-redesign-shadcn.md`](./03-ui-redesign-shadcn.md) §2.8。  
 > **注意（2026-08-18）**：Playground 配额、用量图表、导航 Usage 见  
 > [`docs/01-requirements/02-quota-design.md`](../01-requirements/02-quota-design.md)  
@@ -2378,6 +2381,18 @@ export default defineNuxtRouteMiddleware((to, from) => {
 
 ---
 
+## [变更] 渐变氛围壳（2026-08-19）
+
+- **变更原因**：想要 JetBrains 官网那种中间发光、内容浮在背景上，而不是两侧空、卡片像贴纸
+- **包含代码**：`cogniforge-web` 主题 aura、Dashboard 卡片、顶栏
+- **变更前 vs 变更后**：~~铺满窗口~~（2026-08-19）→ 背景满屏渐变 + 内容居中 1200px
+
+## [变更] 控制台铺满窗口（2026-08-19）
+
+- **变更原因**：宽屏左右空白、Dashboard 下两列不等宽
+- **包含代码**：`cogniforge-web` `.cf-page`、顶栏、`pages/index.vue`
+- **变更前 vs 变更后**：~~页面 `max-width: 1400px` / 实现里又是 1120px~~（2026-08-19）→ 铺满窗口；下两列等宽
+
 ## [变更] 控制台首页栅格再对齐（2026-08-12）
 
 ### 变更原因
@@ -2387,7 +2402,7 @@ export default defineNuxtRouteMiddleware((to, from) => {
 - `cogniforge-web/pages/index.vue`
 
 ### 变更后
-- 页面 `max-width: 1400px`，与顶栏 `header-inner` 对齐
+- ~~页面 `max-width: 1400px`，与顶栏 `header-inner` 对齐~~（2026-08-19，改为铺满窗口）
 - 统计卡改 24 栅格：`span="12 960:6"`（小屏 2 列、宽屏 4 列等宽铺满）
 - 下方改为 `span="24 900:10"` / `span="24 900:14"`（约 5:7），窄屏自动整行
 - 快速开始三项在卡片内均分高度，与「最近活动」齐平

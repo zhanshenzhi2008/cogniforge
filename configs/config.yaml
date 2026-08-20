@@ -26,6 +26,17 @@ jwt:
   secret: ${JWT_SECRET:-cogniforge-secret-key}
   expire: 24h
 
+mail:
+  # smtp = QQ/163 等；resend = Resend API（需自有域名）
+  provider: ${MAIL_PROVIDER:-smtp}
+  api_key: ${RESEND_API_KEY:-}
+  from: ${MAIL_FROM:-}
+  public_url: ${APP_PUBLIC_URL:-http://localhost:3000}
+  smtp_host: ${SMTP_HOST:-smtp.qq.com}
+  smtp_port: ${SMTP_PORT:-465}
+  smtp_user: ${SMTP_USER:-}
+  smtp_password: ${SMTP_PASSWORD:-}
+
 log:
   level: ${LOG_LEVEL:-info}
   format: ${LOG_FORMAT:-json}

@@ -1,6 +1,8 @@
 package router
 
 import (
+	"strings"
+
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
@@ -10,6 +12,7 @@ import (
 	"cogniforge/internal/config"
 	"cogniforge/internal/httpclient"
 	"cogniforge/internal/knowledge"
+	"cogniforge/internal/mail"
 	"cogniforge/internal/middleware"
 	"cogniforge/internal/modelcache"
 	"cogniforge/internal/monitor"
@@ -35,7 +38,8 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 	providerSvc.RefreshCache()
 	providerHandler := provider.NewHandler(providerSvc)
 
-	authHandler := auth.NewAuthHandler()
+	authSvc := auth.NewAuthServiceWithDeps(db, rdb, buildMailer(cfg), cfg.Mail.PublicURL)
+	authHandler := auth.NewAuthHandlerWithService(authSvc)
 	userHandler := user.NewUserHandler()
 
 	var quotaStore quota.Store
@@ -131,6 +135,7 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 			admin.PUT("/admin/users/:id", userHandler.UpdateUser)
 			admin.DELETE("/admin/users/:id", userHandler.DeleteUser)
 			admin.PATCH("/admin/users/:id/status", userHandler.UpdateUserStatus)
+			admin.POST("/admin/users/:id/reset-password", userHandler.AdminResetPassword)
 			admin.POST("/admin/users/:id/roles", rbacHandler.AssignRole)
 			admin.GET("/admin/users/:id/role", rbacHandler.GetUserRole)
 			quotaHandler.RegisterAdminRoutes(admin)
@@ -154,4 +159,39 @@ func readyHandler(c *gin.Context) {
 
 func liveHandler(c *gin.Context) {
 	c.JSON(200, gin.H{"status": "alive"})
+}
+
+func buildMailer(cfg *config.Config) mail.Sender {
+	if cfg == nil {
+		return mail.Nop{}
+	}
+	provider := strings.ToLower(strings.TrimSpace(cfg.Mail.Provider))
+	switch provider {
+	case "", "smtp", "qq", "163":
+		s := mail.NewSMTP(
+			cfg.Mail.SMTPHost,
+			cfg.Mail.SMTPPort,
+			cfg.Mail.SMTPUser,
+			cfg.Mail.SMTPPassword,
+			cfg.Mail.From,
+		)
+		if s.Enabled() {
+			return s
+		}
+	case "resend":
+		r := mail.NewResend(cfg.Mail.APIKey, cfg.Mail.From)
+		if r.Enabled() {
+			return r
+		}
+	}
+	// 兜底：哪种配齐用哪种
+	s := mail.NewSMTP(cfg.Mail.SMTPHost, cfg.Mail.SMTPPort, cfg.Mail.SMTPUser, cfg.Mail.SMTPPassword, cfg.Mail.From)
+	if s.Enabled() {
+		return s
+	}
+	r := mail.NewResend(cfg.Mail.APIKey, cfg.Mail.From)
+	if r.Enabled() {
+		return r
+	}
+	return mail.Nop{}
 }

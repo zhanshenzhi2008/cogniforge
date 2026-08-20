@@ -1,6 +1,10 @@
 package auth
 
 import (
+	"errors"
+	"net/http"
+	"strings"
+
 	"github.com/gin-gonic/gin"
 
 	"cogniforge/internal/response"
@@ -14,6 +18,10 @@ func NewAuthHandler() *AuthHandler {
 	return &AuthHandler{
 		service: NewAuthService(),
 	}
+}
+
+func NewAuthHandlerWithService(svc *AuthService) *AuthHandler {
+	return &AuthHandler{service: svc}
 }
 
 func (h *AuthHandler) InitDefaultAdmin() {
@@ -112,6 +120,60 @@ func (h *AuthHandler) DeleteApiKey(c *gin.Context) {
 	response.SuccessWithMessage(c, nil, "API Key 已撤销")
 }
 
+// PasswordResetOptions 查询是否已开通邮件重置
+func (h *AuthHandler) PasswordResetOptions(c *gin.Context) {
+	response.Success(c, h.service.PasswordResetOptions())
+}
+
+// ForgotPassword 发送重置邮件
+func (h *AuthHandler) ForgotPassword(c *gin.Context) {
+	var req ForgotPasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "请输入有效的邮箱地址")
+		return
+	}
+	err := h.service.RequestPasswordReset(c.Request.Context(), req.Email)
+	if err != nil {
+		if errors.Is(err, errMailDisabled) {
+			response.FailWithHTTPStatus(c, http.StatusServiceUnavailable, response.CodeServiceUnavailable, "邮件重置尚未配置，请联系管理员在「用户」页重置密码")
+			return
+		}
+		if strings.Contains(err.Error(), "有效的邮箱") {
+			response.BadRequest(c, err.Error())
+			return
+		}
+		if strings.Contains(err.Error(), "过于频繁") {
+			response.FailWithHTTPStatus(c, http.StatusTooManyRequests, response.CodeRateLimitExceeded, err.Error())
+			return
+		}
+		if strings.Contains(err.Error(), "邮件发送失败") || strings.Contains(err.Error(), "暂时不可用") {
+			response.FailWithHTTPStatus(c, http.StatusBadGateway, response.CodeNetworkError, err.Error())
+			return
+		}
+		response.BadRequest(c, err.Error())
+		return
+	}
+	response.SuccessWithMessage(c, nil, "如果该邮箱已注册，你将收到一封重置邮件（请同时检查垃圾箱）")
+}
+
+// ResetPassword 用邮件令牌设新密码
+func (h *AuthHandler) ResetPassword(c *gin.Context) {
+	var req ResetPasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "请填写完整的重置信息")
+		return
+	}
+	if err := h.service.ResetPasswordWithToken(c.Request.Context(), req.Token, req.NewPassword); err != nil {
+		if strings.Contains(err.Error(), "无效或已过期") {
+			response.FailWithHTTPStatus(c, http.StatusGone, response.CodeVerifyCodeInvalid, err.Error())
+			return
+		}
+		response.BadRequest(c, err.Error())
+		return
+	}
+	response.SuccessWithMessage(c, nil, "密码已重置，请使用新密码登录")
+}
+
 // RegisterRoutes 注册路由
 func (h *AuthHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	auth := rg.Group("/auth")
@@ -120,6 +182,9 @@ func (h *AuthHandler) RegisterRoutes(rg *gin.RouterGroup) {
 		auth.POST("/login", h.Login)
 		auth.POST("/logout", h.Logout)
 		auth.GET("/me", h.GetCurrentUser)
+		auth.GET("/password-reset-options", h.PasswordResetOptions)
+		auth.POST("/forgot-password", h.ForgotPassword)
+		auth.POST("/reset-password", h.ResetPassword)
 		auth.GET("/apikeys", h.ListApiKeys)
 		auth.POST("/apikeys", h.CreateApiKey)
 		auth.DELETE("/apikeys/:id", h.DeleteApiKey)

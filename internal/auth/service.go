@@ -9,20 +9,35 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 
 	"cogniforge/internal/database"
+	"cogniforge/internal/mail"
 	"cogniforge/internal/middleware"
 	"cogniforge/internal/model"
 )
 
 type AuthService struct {
-	db *gorm.DB
+	db        *gorm.DB
+	rdb       *redis.Client
+	mailer    mail.Sender
+	publicURL string
 }
 
 func NewAuthService() *AuthService {
-	return &AuthService{db: database.DB}
+	return &AuthService{db: database.DB, mailer: mail.Nop{}, publicURL: "http://localhost:3000"}
+}
+
+func NewAuthServiceWithDeps(db *gorm.DB, rdb *redis.Client, mailer mail.Sender, publicURL string) *AuthService {
+	if mailer == nil {
+		mailer = mail.Nop{}
+	}
+	if publicURL == "" {
+		publicURL = "http://localhost:3000"
+	}
+	return &AuthService{db: db, rdb: rdb, mailer: mailer, publicURL: publicURL}
 }
 
 // InitDefaultAdmin 初始化默认管理员

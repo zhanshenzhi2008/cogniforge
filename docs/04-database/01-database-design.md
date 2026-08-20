@@ -3,11 +3,18 @@
 ## [变更记录]
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|---------|--------|
+| 2026-08-20 | v1.5 | 密码重置令牌 Redis：cogniforge:pwdreset:* | orjrs |
 | 2026-08-18 | v1.4 | 配额表 quota_policies / llm_usage_events；Redis cogniforge:quota:* | orjrs |
 | 2026-08-16 | v1.3 | 落地 chat_conversations（Playground 历史）；~~cf_agent_conversations 未作为对话页存表~~ | orjrs |
 | 2026-08-16 | v1.2 | Redis 键统一 `cogniforge:` 前缀；多项目用前缀隔离，不拆 db0/db1 | orjrs |
 | 2026-08-15 | v1.1 | 落地模型配置 Redis 键（当时为 `cf:modelcfg:*`） | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] 密码重置 Redis 键（2026-08-20）
+
+- **变更原因**：Resend 邮件重置需要短期令牌，不落库
+- **包含代码**：`internal/auth/password_reset.go`
+- **键**：见 §5.1 `cogniforge:pwdreset:*`
 
 ## [变更] 配额表与 Redis 计数键（2026-08-18）
 
@@ -777,6 +784,11 @@ cogniforge:quota:user:{userId}:day:{yyyyMMdd}:tokens -> integer  # TTL 48h
 cogniforge:quota:user:{userId}:month:{yyyyMM}:tokens -> integer  # TTL 40d
 cogniforge:quota:rl:{userId}:{yyyyMMddHHmm} -> integer           # TTL 2min
 # 禁止把 API Key 写入上述键
+
+# 密码重置（2026-08-20）
+cogniforge:pwdreset:tok:{token} -> userId   # TTL 30m
+cogniforge:pwdreset:uid:{userId} -> token   # TTL 30m，同用户只保留最新令牌
+cogniforge:pwdreset:rl:{email} -> integer   # TTL 15m，同邮箱最多 3 次
 ```
 
 ---

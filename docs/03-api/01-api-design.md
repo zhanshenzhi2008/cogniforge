@@ -4,6 +4,9 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-08-20 | v1.11 | 忘记密码默认 QQ SMTP；Resend 仍可选 | orjrs |
+| 2026-08-20 | v1.10 | Resend 发信 + 忘记密码邮件重置（token 存 Redis） | orjrs |
+| 2026-08-20 | v1.9 | 管理员重置密码 POST /admin/users/:id/reset-password；登录页忘记密码入口 | orjrs |
 | 2026-08-19 | v1.8 | 改密码请求字段与实现对齐：old_password / new_password；须带 JWT | orjrs |
 | 2026-08-18 | v1.7 | 配额接口 /quota/*；聊天须登录；新增业务码 5016 | orjrs |
 | 2026-08-16 | v1.6 | 未配置默认模型时对话返回 4010，不再 mock | orjrs |
@@ -13,6 +16,34 @@
 | 2026-08-15 | v1.2 | GET /v1/models 改为返回已启用供应商的 default_model（不再写死 GPT 列表） | orjrs |
 | 2026-04-09 | v1.1 | 新增文档上传接口、语义检索接口实现说明 | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] QQ SMTP 发信（2026-08-20）
+
+- **变更原因**：用户无自有域名，改用 QQ 邮箱 SMTP（授权码），不依赖 Resend 域名验证
+- **包含代码**：`internal/mail/smtp.go`；`MAIL_PROVIDER=smtp`；`.env.example`
+- **配置**：`SMTP_HOST=smtp.qq.com`、`SMTP_PORT=465`、`SMTP_USER`、`SMTP_PASSWORD`（授权码）、`MAIL_FROM`、`APP_PUBLIC_URL`
+- **变更前 vs 变更后**：~~默认仅 Resend~~（2026-08-20）→ 默认 SMTP（QQ）；Resend 仍可选
+
+## [变更] Resend 邮件重置密码（2026-08-20）
+
+- **变更原因**：要真正「邮箱自己重置」，选用 Resend API
+- **包含代码**：`internal/mail`；`auth` Forgot/Reset；Web `/forgot-password`、`/reset-password`
+- **配置**：`RESEND_API_KEY`、`MAIL_FROM`、`APP_PUBLIC_URL`（见 `.env.example`）  
+  ~~仅 Resend~~（2026-08-20）→ 也可 `MAIL_PROVIDER=smtp` + QQ `SMTP_*`（见 `.env.example`）
+- **接口**：
+  - `GET /api/v1/auth/password-reset-options` → `{ email_enabled, admin_reset }`
+  - `POST /api/v1/auth/forgot-password` `{ email }`
+  - `POST /api/v1/auth/reset-password` `{ token, new_password }`
+- **Redis**：`cogniforge:pwdreset:*`，令牌 30 分钟；同邮箱 15 分钟最多 3 次
+- **变更前 vs 变更后**：~~仅管理员临时密码~~（2026-08-20）→ 配好 Resend 后可邮件自助；未配置时仍走管理员重置
+
+## [变更] 忘记密码（管理员重置临时密码）（2026-08-20）
+
+- **变更原因**：登录页没有忘记密码；尚未接邮件服务，完整「邮箱链接重置」暂不可用
+- **包含代码**：Go `AdminResetPassword`；Web `/forgot-password`、登录入口、用户管理「重置密码」
+- **接口**：`POST /api/v1/admin/users/:id/reset-password`（须管理员 JWT）
+- **变更前 vs 变更后**：~~只能登录后改密码，忘了只能找人改库~~（2026-08-20）→ 管理员一键生成临时密码（响应里只返回一次）；用户登录后到设置改密
+- **后续**：配好发信后再做邮箱自助重置
 
 ## [变更] 改密码走 JWT 且字段对齐实现（2026-08-19）
 
@@ -1173,6 +1204,50 @@ PUT /v1/users/me
 POST /v1/users
 描述: 创建用户（仅管理员）
 认证: JWT
+```
+
+### 9.1.1 管理员重置密码
+
+```yaml
+POST /api/v1/admin/users/:id/reset-password
+描述: 管理员为用户生成临时密码（旧密码立即失效）
+认证: JWT + 管理员
+请求体: 无
+响应:
+  {
+    "code": 2000,
+    "message": "密码已重置，请将临时密码告知用户，并提醒其登录后立即修改",
+    "data": {
+      "temporary_password": "一次性明文临时密码"
+    }
+  }
+```
+
+**说明**：
+- 临时密码满足强度规则（≥8，大小写+数字+特殊字符）
+- 明文只在本次响应返回；前端展示后由管理员口头/安全渠道转交用户
+- 用户登录后应到「设置 → 安全」用旧（临时）密码改成自己的
+
+### 9.1.2 邮件忘记密码（Resend）
+
+```yaml
+GET /api/v1/auth/password-reset-options
+描述: 是否已开通邮件重置（未登录可访问）
+响应:
+  { "email_enabled": true, "admin_reset": true }
+
+POST /api/v1/auth/forgot-password
+描述: 向注册邮箱发送重置链接（30 分钟有效）
+请求体: { "email": "user@example.com" }
+成功提示: 如果该邮箱已注册，你将收到一封重置邮件（请同时检查垃圾箱）
+说明: 邮箱不存在时也返回成功（防枚举）；未配置 Resend 返回 503
+
+POST /api/v1/auth/reset-password
+请求体:
+  {
+    "token": "邮件链接中的 token",
+    "new_password": "新密码（强度同改密规则）"
+  }
 ```
 
 ### 9.2 组织管理

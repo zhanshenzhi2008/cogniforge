@@ -118,6 +118,29 @@ func (h *UserHandler) DeleteUser(c *gin.Context) {
 	response.SuccessWithMessage(c, nil, "用户已删除")
 }
 
+// AdminResetPassword 管理员重置用户密码
+func (h *UserHandler) AdminResetPassword(c *gin.Context) {
+	userID := c.Param("id")
+	if userID == "" {
+		response.BadRequest(c, "用户ID不能为空")
+		return
+	}
+
+	plain, err := h.service.AdminResetPassword(userID)
+	if err != nil {
+		if err.Error() == "用户不存在" {
+			response.NotFound(c, err.Error())
+			return
+		}
+		response.InternalError(c, err.Error())
+		return
+	}
+
+	response.SuccessWithMessage(c, gin.H{
+		"temporary_password": plain,
+	}, "密码已重置，请将临时密码告知用户，并提醒其登录后立即修改")
+}
+
 // UpdateUserStatus 更新用户状态
 func (h *UserHandler) UpdateUserStatus(c *gin.Context) {
 	userID := c.Param("id")

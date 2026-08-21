@@ -27,6 +27,10 @@ func (h *ChatHandler) CreateConversation(c *gin.Context) {
 	}
 	row, err := h.conv.Create(userID, &req)
 	if err != nil {
+		if errors.Is(err, errMessageQueueTooLong) {
+			response.BadRequest(c, err.Error())
+			return
+		}
 		response.InternalError(c, err.Error())
 		return
 	}
@@ -58,6 +62,10 @@ func (h *ChatHandler) UpdateConversation(c *gin.Context) {
 	if err != nil {
 		if errors.Is(err, errConversationNotFound) {
 			response.NotFound(c, err.Error())
+			return
+		}
+		if errors.Is(err, errMessageQueueTooLong) {
+			response.BadRequest(c, err.Error())
 			return
 		}
 		response.InternalError(c, err.Error())

@@ -142,4 +142,40 @@ func TestConversationPinSortsFirst(t *testing.T) {
 	assert.False(t, listed[1].Pinned)
 }
 
+func TestConversationMessageQueue(t *testing.T) {
+	svc := setupConversationService(t)
+	created, err := svc.Create("user-a", &CreateConversationRequest{
+		Title: "q",
+		Messages: []model.ConversationMessage{
+			{ID: "m1", Role: "user", Content: "hi"},
+		},
+	})
+	require.NoError(t, err)
+	require.Empty(t, created.MessageQueue)
+
+	queue := []model.ConversationQueueItem{
+		{ID: "q1", Content: "next", Status: "queued"},
+		{Content: "also", Status: "queued"},
+	}
+	updated, err := svc.Update("user-a", created.ID, &UpdateConversationRequest{MessageQueue: &queue})
+	require.NoError(t, err)
+	require.Len(t, updated.MessageQueue, 2)
+	assert.Equal(t, "q1", updated.MessageQueue[0].ID)
+	assert.NotEmpty(t, updated.MessageQueue[1].ID)
+	assert.Equal(t, 0, updated.MessageQueue[0].Sort)
+	assert.Equal(t, 1, updated.MessageQueue[1].Sort)
+
+	tooMany := make([]model.ConversationQueueItem, 6)
+	for i := range tooMany {
+		tooMany[i] = model.ConversationQueueItem{Content: "x", Status: "queued"}
+	}
+	_, err = svc.Update("user-a", created.ID, &UpdateConversationRequest{MessageQueue: &tooMany})
+	require.ErrorIs(t, err, errMessageQueueTooLong)
+
+	listed, err := svc.List("user-a")
+	require.NoError(t, err)
+	require.Len(t, listed, 1)
+	assert.Equal(t, 2, listed[0].QueueLen)
+}
+
 func strPtr(s string) *string { return &s }

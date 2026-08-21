@@ -135,6 +135,7 @@ RBAC权限管理、数据隔离、审计日志、合规报告。
 ### 需求文档 (docs/01-requirements/)
 - [产品需求文档](./docs/01-requirements/01-product-requirements.md) - 完整的产品功能需求
 - [配额与用量设计](./docs/01-requirements/02-quota-design.md) - Playground 限额方案与统计图
+- [排队与插入](./docs/01-requirements/03-chat-queue-insert.md) - 流式排队 + 插入硬截断
 
 ### 技术架构 (docs/02-architecture/)
 - [技术架构设计](./docs/02-architecture/01-technical-architecture.md) - 多语言混合架构设计

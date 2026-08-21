@@ -14,9 +14,13 @@ import (
 const (
 	maxConversationTitleRunes = 40
 	maxConversationList       = 100
+	maxMessageQueue           = 5
 )
 
-var errConversationNotFound = errors.New("对话不存在")
+var (
+	errConversationNotFound = errors.New("对话不存在")
+	errMessageQueueTooLong  = errors.New("排队最多 5 条")
+)
 
 type ConversationService struct {
 	db *gorm.DB
@@ -32,23 +36,26 @@ type ConversationSummary struct {
 	AgentID   string    `json:"agent_id"`
 	Model     string    `json:"model"`
 	Pinned    bool      `json:"pinned"`
+	QueueLen  int       `json:"queue_len"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
 type CreateConversationRequest struct {
-	Title    string                      `json:"title"`
-	AgentID  string                      `json:"agent_id"`
-	Model    string                      `json:"model"`
-	Messages []model.ConversationMessage `json:"messages"`
+	Title        string                         `json:"title"`
+	AgentID      string                         `json:"agent_id"`
+	Model        string                         `json:"model"`
+	Messages     []model.ConversationMessage    `json:"messages"`
+	MessageQueue []model.ConversationQueueItem  `json:"message_queue"`
 }
 
 type UpdateConversationRequest struct {
-	Title    *string                      `json:"title"`
-	AgentID  *string                      `json:"agent_id"`
-	Model    *string                      `json:"model"`
-	Pinned   *bool                        `json:"pinned"`
-	Messages *[]model.ConversationMessage `json:"messages"`
+	Title        *string                         `json:"title"`
+	AgentID      *string                         `json:"agent_id"`
+	Model        *string                         `json:"model"`
+	Pinned       *bool                           `json:"pinned"`
+	Messages     *[]model.ConversationMessage    `json:"messages"`
+	MessageQueue *[]model.ConversationQueueItem  `json:"message_queue"`
 }
 
 func titleFromMessages(msgs []model.ConversationMessage) string {
@@ -79,15 +86,47 @@ func toSummary(row model.ChatConversation) ConversationSummary {
 		AgentID:   row.AgentID,
 		Model:     row.Model,
 		Pinned:    row.Pinned,
+		QueueLen:  len(row.MessageQueue),
 		CreatedAt: row.CreatedAt,
 		UpdatedAt: row.UpdatedAt,
 	}
 }
 
+func normalizeMessageQueue(items []model.ConversationQueueItem) ([]model.ConversationQueueItem, error) {
+	if items == nil {
+		return []model.ConversationQueueItem{}, nil
+	}
+	if len(items) > maxMessageQueue {
+		return nil, errMessageQueueTooLong
+	}
+	out := make([]model.ConversationQueueItem, 0, len(items))
+	for i, it := range items {
+		status := strings.TrimSpace(it.Status)
+		if status == "" {
+			status = "queued"
+		}
+		if status != "queued" && status != "sending" {
+			status = "queued"
+		}
+		id := strings.TrimSpace(it.ID)
+		if id == "" {
+			id = newID()
+		}
+		out = append(out, model.ConversationQueueItem{
+			ID:      id,
+			Content: it.Content,
+			Images:  it.Images,
+			Status:  status,
+			Sort:    i,
+		})
+	}
+	return out, nil
+}
+
 func (s *ConversationService) List(userID string) ([]ConversationSummary, error) {
 	var rows []model.ChatConversation
 	err := s.db.Where("user_id = ?", userID).
-		Select("id", "user_id", "agent_id", "title", "model", "pinned", "created_at", "updated_at").
+		Select("id", "user_id", "agent_id", "title", "model", "pinned", "message_queue", "created_at", "updated_at").
 		Order("pinned DESC, updated_at DESC").
 		Limit(maxConversationList).
 		Find(&rows).Error
@@ -114,15 +153,20 @@ func (s *ConversationService) Create(userID string, req *CreateConversationReque
 		title = "New chat"
 	}
 	now := time.Now()
+	queue, err := normalizeMessageQueue(req.MessageQueue)
+	if err != nil {
+		return nil, err
+	}
 	row := &model.ChatConversation{
-		ID:        newID(),
-		UserID:    userID,
-		AgentID:   strings.TrimSpace(req.AgentID),
-		Title:     title,
-		Model:     strings.TrimSpace(req.Model),
-		Messages:  msgs,
-		CreatedAt: now,
-		UpdatedAt: now,
+		ID:           newID(),
+		UserID:       userID,
+		AgentID:      strings.TrimSpace(req.AgentID),
+		Title:        title,
+		Model:        strings.TrimSpace(req.Model),
+		Messages:     msgs,
+		MessageQueue: queue,
+		CreatedAt:    now,
+		UpdatedAt:    now,
 	}
 	if err := s.db.Create(row).Error; err != nil {
 		return nil, err
@@ -141,6 +185,9 @@ func (s *ConversationService) Get(userID, id string) (*model.ChatConversation, e
 	}
 	if row.Messages == nil {
 		row.Messages = []model.ConversationMessage{}
+	}
+	if row.MessageQueue == nil {
+		row.MessageQueue = []model.ConversationQueueItem{}
 	}
 	return &row, nil
 }
@@ -175,6 +222,13 @@ func (s *ConversationService) Update(userID, id string, req *UpdateConversationR
 				row.Title = generated
 			}
 		}
+	}
+	if req.MessageQueue != nil {
+		queue, err := normalizeMessageQueue(*req.MessageQueue)
+		if err != nil {
+			return nil, err
+		}
+		row.MessageQueue = queue
 	}
 	row.UpdatedAt = time.Now()
 	if err := s.db.Save(row).Error; err != nil {

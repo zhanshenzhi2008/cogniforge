@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-08-21 | v1.32 | Playground 排队（可编辑删除）+ 插入硬截断 | orjrs |
 | 2026-08-21 | v1.31 | Playground 历史对话支持按标题搜索 | orjrs |
 | 2026-08-21 | v1.30 | Playground 支持上传/粘贴图片发图（多模态 vision） | orjrs |
 | 2026-08-21 | v1.29 | Playground 聊天支持 Markdown/链接图片展示 | orjrs |
@@ -36,6 +37,16 @@
 | 2026-08-12 | v1.2 | 补充关键屏 UI 示意稿（登录 / 控制台 / Playground / 手机） | orjrs |
 | 2026-08-12 | v1.1 | 补充响应式策略：Web 优先验收，手机端预留兼容但不阻塞主路径 | orjrs |
 | 2026-08-12 | v1.0 | 全新 UI 方向：Vue3 + Nuxt3 + Tailwind4 + shadcn-vue；保留 Vue Flow；接口与 CI/CD 不变 | orjrs |
+
+## [变更] Playground 排队 + 插入（2026-08-21）
+
+- **变更原因**：流式中要连问；改中间一问要可控截断
+- **包含代码**：`PlaygroundQueueBar.vue`、`pages/playground.vue`、`useConversations.ts`、`i18n/messages.ts`；需求 `docs/01-requirements/03-chat-queue-insert.md`
+- **变更后**：
+  - 流式中 Enter / 提交 → **加入排队**（最多 5）；队内可点改、删、↑↓；发送中锁定
+  - 用户气泡 hover「在此后插入」→ 确认后 **硬截断**后续消息并发送；同时清空排队
+  - 排队持久化 `message_queue`，刷新不丢
+- **不做（本期）**：‹ › 分支树；分叉新会话；Cmd+Enter 停流并立刻发
 
 ## [变更] Playground 历史搜索（2026-08-21）
 
@@ -749,7 +760,7 @@ Nuxt UI 的 Header / NavigationMenu / Dashboard / Slideover 开箱即好看、�
 4. **消息操作**（hover `actions`）：复制、重新生成
 5. **空态**：品牌问候 + 3 个建议 Chip
 6. **参数**：右上角「参数」滑层（Agent / 模型 / Temperature / Max Tokens / Top P）；**不再**放左侧窄轨
-7. **历史**：桌面左侧列表，可用顶栏图标折叠；手机顶栏「历史对话」滑层；数据走 `GET/POST/PUT/DELETE /api/v1/conversations`；支持 **置顶**（`pinned`，列表上方单独「置顶」段）；支持 **按标题搜索**（本地过滤）
+7. **历史**：桌面左侧列表，可用顶栏图标折叠；手机顶栏「历史对话」滑层；数据走 `GET/POST/PUT/DELETE /api/v1/conversations`；支持 **置顶**（`pinned`，列表上方单独「置顶」段）；支持 **按标题搜索**（本地过滤）；支持 **排队**（`message_queue`）与 **插入截断**
 7b. **图片展示**（2026-08-21）：消息 Markdown 图片与裸图片 URL / base64 渲染为 `<img>`；点击打开原图
 7c. **上传发图**（2026-08-21）：作曲区附图 / 粘贴 / 拖入；OpenAI 兼容多模态 `content` parts；历史存 `images[]`；需 vision 模型
 8. **Token / 延迟**：角落轻量元数据，不做底栏大字报

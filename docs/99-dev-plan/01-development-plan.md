@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-08-21 | v1.50 | Playground 排队 + 插入硬截断（方案 A） | orjrs |
 | 2026-08-21 | v1.49 | Playground 历史对话按标题搜索 | orjrs |
 | 2026-08-21 | v1.48 | Playground 上传/粘贴发图（多模态 vision） | orjrs |
 | 2026-08-21 | v1.47 | Playground 聊天支持图片展示（Markdown / 链接） | orjrs |
@@ -54,6 +55,13 @@
 | 2026-04-11 | v1.2 | 阶段八监控中心完成（请求日志中间件、日志列表 API、用量统计 API、监控仪表板页面） | orjrs |
 | 2026-04-17 | v1.3 | 阶段九用户管理与个人设置完成（用户CRUD、个人设置、会话管理、RBAC权限系统） | orjrs |
 > 注：任务状态变更直接在下方任务表格中更新即可，无需额外记录。
+
+## [变更] Playground 排队 + 插入（2026-08-21）
+
+- **变更原因**：流式连问与改中间一问
+- **包含代码**：Go `message_queue`；Web `PlaygroundQueueBar.vue` / `playground.vue`；需求 `01-requirements/03-chat-queue-insert.md`
+- **影响范围**：conversations API、DB JSONB、跨仓库前端；插入为硬截断 + 确认
+- **变更前 vs 变更后**：~~流式中只能干等 / 无法从中间改问~~（2026-08-21）→ 可排队；可插入并截断后续
 
 ## [变更] Playground 历史搜索（2026-08-21）
 

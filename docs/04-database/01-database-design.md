@@ -3,6 +3,7 @@
 ## [变更记录]
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|---------|--------|
+| 2026-08-21 | v1.8 | chat_conversations 增加 message_queue 排队字段 | orjrs |
 | 2026-08-21 | v1.7 | chat_conversations.messages 支持 images 附图字段 | orjrs |
 | 2026-08-21 | v1.6 | chat_conversations 增加 pinned 置顶字段 | orjrs |
 | 2026-08-20 | v1.5 | 密码重置令牌 Redis：cogniforge:pwdreset:* | orjrs |
@@ -11,6 +12,13 @@
 | 2026-08-16 | v1.2 | Redis 键统一 `cogniforge:` 前缀；多项目用前缀隔离，不拆 db0/db1 | orjrs |
 | 2026-08-15 | v1.1 | 落地模型配置 Redis 键（当时为 `cf:modelcfg:*`） | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] 聊天排队 message_queue（2026-08-21）
+
+- **变更原因**：流式中连问需要持久化排队；插入截断前不能让旧队误发
+- **包含代码**：`internal/model/conversation.go`；`internal/chat/conversation.go`；AutoMigrate
+- **变更后**：`chat_conversations.message_queue`（JSONB，默认 `[]`）；元素 `{id,content,images?,status,sort}`；最多 5 条
+- **列表**：摘要带 `queue_len`（条数），不含队列正文
 
 ## [变更] 聊天历史附图字段（2026-08-21）
 
@@ -319,6 +327,7 @@ CREATE TABLE chat_conversations (
     model VARCHAR(128),
     pinned BOOLEAN NOT NULL DEFAULT FALSE,
     messages JSONB NOT NULL DEFAULT '[]',
+    message_queue JSONB NOT NULL DEFAULT '[]',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     deleted_at TIMESTAMP WITH TIME ZONE
@@ -330,7 +339,9 @@ CREATE INDEX idx_chat_conv_pinned ON chat_conversations(pinned);
 CREATE INDEX idx_chat_conv_deleted ON chat_conversations(deleted_at);
 ```
 
-`messages` 元素：`{"id","role","content","images?","time"}`。`images` 为附图 URL 数组（多为 data URL）。title 缺省取第一条用户消息前 40 字；无文字仅有图时为「图片对话」。列表排序：`pinned DESC, updated_at DESC`。
+`messages` 元素：`{"id","role","content","images?","time"}`。`images` 为附图 URL 数组（多为 data URL）。  
+`message_queue` 元素：`{"id","content","images?","status":"queued|sending","sort"}`，最多 5 条。  
+title 缺省取第一条用户消息前 40 字；无文字仅有图时为「图片对话」。列表排序：`pinned DESC, updated_at DESC`。
 
 ---
 

@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-08-21 | v1.14 | conversations 增加 message_queue / queue_len | orjrs |
 | 2026-08-21 | v1.13 | 聊天 content 支持多模态 parts；历史 messages.images | orjrs |
 | 2026-08-21 | v1.12 | 聊天历史支持 pinned 置顶（PUT conversations） | orjrs |
 | 2026-08-20 | v1.11 | 忘记密码默认 QQ SMTP；Resend 仍可选 | orjrs |
@@ -18,6 +19,16 @@
 | 2026-08-15 | v1.2 | GET /v1/models 改为返回已启用供应商的 default_model（不再写死 GPT 列表） | orjrs |
 | 2026-04-09 | v1.1 | 新增文档上传接口、语义检索接口实现说明 | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] 聊天排队 message_queue（2026-08-21）
+
+- **变更原因**：流式中入队与刷新后恢复；插入截断需一并清空队列
+- **包含代码**：`internal/chat/conversation.go`；需求见 `docs/01-requirements/03-chat-queue-insert.md`
+- **变更后**：
+  - 列表项增加 `queue_len`
+  - 详情 / 创建 / 更新可读可写 `message_queue`（整份覆盖，最多 5 条）
+  - `status`：`queued` | `sending`
+- **错误**：超过 5 条返回 400「排队最多 5 条」
 
 ## [变更] 聊天多模态图片（2026-08-21）
 
@@ -435,7 +446,7 @@ GET /v1/models/{model_id}
 认证: JWT（只看得到当前登录用户自己的对话）
 
 GET /api/v1/conversations
-描述: 对话列表（不含 messages；置顶优先，再按 updated_at 倒序，最多 100 条）
+描述: 对话列表（不含 messages / message_queue 正文；置顶优先，再按 updated_at 倒序，最多 100 条）
 响应:
   {
     "code": 2000,
@@ -446,6 +457,7 @@ GET /api/v1/conversations
         "agent_id": "",
         "model": "deepseek-chat",
         "pinned": true,
+        "queue_len": 2,
         "created_at": "2026-08-16T00:00:00Z",
         "updated_at": "2026-08-16T00:00:00Z"
       }
@@ -453,7 +465,7 @@ GET /api/v1/conversations
   }
 
 POST /api/v1/conversations
-描述: 新建对话。title 为空时用第一条用户消息前 40 字；pinned 默认 false
+描述: 新建对话。title 为空时用第一条用户消息前 40 字；pinned 默认 false；message_queue 默认 []
 请求体:
   {
     "title": "可选",
@@ -461,16 +473,19 @@ POST /api/v1/conversations
     "model": "deepseek-chat",
     "messages": [
       {"id": "uuid", "role": "user", "content": "你好", "time": "ISO8601"}
+    ],
+    "message_queue": [
+      {"id": "uuid", "content": "下一条", "status": "queued", "sort": 0}
     ]
   }
 
 GET /api/v1/conversations/{id}
-描述: 对话详情（含 messages、pinned）
-响应: { "code": 2000, "data": { "id": "...", "pinned": false, "messages": [...], "...": "..." } }
+描述: 对话详情（含 messages、message_queue、pinned）
+响应: { "code": 2000, "data": { "id": "...", "pinned": false, "messages": [...], "message_queue": [...], "...": "..." } }
 
 PUT /api/v1/conversations/{id}
-描述: 更新标题 / 模型 / Agent / 置顶 / 消息全文
-请求体: 字段均可选；messages 为整份覆盖，不是增量；只改置顶时传 `{ "pinned": true|false }`
+描述: 更新标题 / 模型 / Agent / 置顶 / 消息全文 / 排队
+请求体: 字段均可选；messages / message_queue 均为整份覆盖；只改置顶时传 `{ "pinned": true|false }`；只改排队时传 `{ "message_queue": [...] }`（最多 5 条）
 
 DELETE /api/v1/conversations/{id}
 描述: 软删除

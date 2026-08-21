@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-08-21 | v1.46 | Playground 历史对话置顶（pinned） | orjrs |
 | 2026-08-20 | v1.45 | 忘记密码改默认 QQ SMTP（无需自有域名） | orjrs |
 | 2026-08-20 | v1.44 | Resend 邮件重置密码（forgot/reset API + 前端页） | orjrs |
 | 2026-08-20 | v1.43 | 忘记密码：登录入口 + 管理员重置临时密码 | orjrs |
@@ -50,6 +51,13 @@
 | 2026-04-11 | v1.2 | 阶段八监控中心完成（请求日志中间件、日志列表 API、用量统计 API、监控仪表板页面） | orjrs |
 | 2026-04-17 | v1.3 | 阶段九用户管理与个人设置完成（用户CRUD、个人设置、会话管理、RBAC权限系统） | orjrs |
 > 注：任务状态变更直接在下方任务表格中更新即可，无需额外记录。
+
+## [变更] Playground 历史置顶（2026-08-21）
+
+- **变更原因**：常用对话需要固定在历史列表顶部
+- **包含代码**：Go `internal/model/conversation.go`、`internal/chat/conversation*.go`；Web `PlaygroundHistoryPanel.vue`、`playground.vue`、`useConversations.ts`
+- **影响范围**：`chat_conversations.pinned`；列表排序置顶优先；跨仓库前端同步
+- **变更前 vs 变更后**：~~历史仅按更新时间倒序~~（2026-08-21）→ 可 pin/unpin，置顶段单独展示
 
 ## [变更] QQ SMTP 发信（2026-08-20）
 

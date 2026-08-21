@@ -3,12 +3,24 @@
 ## [变更记录]
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|---------|--------|
+| 2026-08-21 | v1.6 | chat_conversations 增加 pinned 置顶字段 | orjrs |
 | 2026-08-20 | v1.5 | 密码重置令牌 Redis：cogniforge:pwdreset:* | orjrs |
 | 2026-08-18 | v1.4 | 配额表 quota_policies / llm_usage_events；Redis cogniforge:quota:* | orjrs |
 | 2026-08-16 | v1.3 | 落地 chat_conversations（Playground 历史）；~~cf_agent_conversations 未作为对话页存表~~ | orjrs |
 | 2026-08-16 | v1.2 | Redis 键统一 `cogniforge:` 前缀；多项目用前缀隔离，不拆 db0/db1 | orjrs |
 | 2026-08-15 | v1.1 | 落地模型配置 Redis 键（当时为 `cf:modelcfg:*`） | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] 聊天历史置顶字段（2026-08-21）
+
+- **变更原因**：Playground 历史需要把常用对话钉在列表顶部
+- **包含代码**：`internal/model/conversation.go`；`internal/chat/conversation.go`；启动 AutoMigrate
+- **变更后**：`chat_conversations.pinned`（bool，默认 false）；列表按 `pinned DESC, updated_at DESC`
+
+### 变更前 vs 变更后
+
+- **变更前**：仅按 `updated_at` 倒序
+- **变更后**：置顶对话始终排在最前；取消置顶后恢复按更新时间排序
 
 ## [变更] 密码重置 Redis 键（2026-08-20）
 
@@ -297,6 +309,7 @@ CREATE TABLE chat_conversations (
     agent_id VARCHAR(64),
     title VARCHAR(255),
     model VARCHAR(128),
+    pinned BOOLEAN NOT NULL DEFAULT FALSE,
     messages JSONB NOT NULL DEFAULT '[]',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -305,10 +318,11 @@ CREATE TABLE chat_conversations (
 
 CREATE INDEX idx_chat_conv_user ON chat_conversations(user_id);
 CREATE INDEX idx_chat_conv_agent ON chat_conversations(agent_id);
+CREATE INDEX idx_chat_conv_pinned ON chat_conversations(pinned);
 CREATE INDEX idx_chat_conv_deleted ON chat_conversations(deleted_at);
 ```
 
-`messages` 元素：`{"id","role","content","time"}`。title 缺省取第一条用户消息前 40 字。
+`messages` 元素：`{"id","role","content","time"}`。title 缺省取第一条用户消息前 40 字。列表排序：`pinned DESC, updated_at DESC`。
 
 ---
 

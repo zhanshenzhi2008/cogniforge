@@ -31,6 +31,7 @@ type ConversationSummary struct {
 	Title     string    `json:"title"`
 	AgentID   string    `json:"agent_id"`
 	Model     string    `json:"model"`
+	Pinned    bool      `json:"pinned"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
@@ -46,6 +47,7 @@ type UpdateConversationRequest struct {
 	Title    *string                      `json:"title"`
 	AgentID  *string                      `json:"agent_id"`
 	Model    *string                      `json:"model"`
+	Pinned   *bool                        `json:"pinned"`
 	Messages *[]model.ConversationMessage `json:"messages"`
 }
 
@@ -73,6 +75,7 @@ func toSummary(row model.ChatConversation) ConversationSummary {
 		Title:     row.Title,
 		AgentID:   row.AgentID,
 		Model:     row.Model,
+		Pinned:    row.Pinned,
 		CreatedAt: row.CreatedAt,
 		UpdatedAt: row.UpdatedAt,
 	}
@@ -81,8 +84,8 @@ func toSummary(row model.ChatConversation) ConversationSummary {
 func (s *ConversationService) List(userID string) ([]ConversationSummary, error) {
 	var rows []model.ChatConversation
 	err := s.db.Where("user_id = ?", userID).
-		Select("id", "user_id", "agent_id", "title", "model", "created_at", "updated_at").
-		Order("updated_at DESC").
+		Select("id", "user_id", "agent_id", "title", "model", "pinned", "created_at", "updated_at").
+		Order("pinned DESC, updated_at DESC").
 		Limit(maxConversationList).
 		Find(&rows).Error
 	if err != nil {
@@ -155,6 +158,9 @@ func (s *ConversationService) Update(userID, id string, req *UpdateConversationR
 	}
 	if req.Model != nil {
 		row.Model = strings.TrimSpace(*req.Model)
+	}
+	if req.Pinned != nil {
+		row.Pinned = *req.Pinned
 	}
 	if req.Messages != nil {
 		row.Messages = *req.Messages

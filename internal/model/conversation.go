@@ -21,6 +21,7 @@ type ChatConversation struct {
 	AgentID   string                `gorm:"type:varchar(64);index" json:"agent_id"`
 	Title     string                `gorm:"type:varchar(255)" json:"title"`
 	Model     string                `gorm:"type:varchar(128)" json:"model"`
+	Pinned    bool                  `gorm:"not null;default:false;index" json:"pinned"`
 	Messages  []ConversationMessage `gorm:"serializer:json;type:jsonb" json:"messages"`
 	CreatedAt time.Time             `json:"created_at"`
 	UpdatedAt time.Time             `json:"updated_at"`

@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-08-21 | v1.12 | 聊天历史支持 pinned 置顶（PUT conversations） | orjrs |
 | 2026-08-20 | v1.11 | 忘记密码默认 QQ SMTP；Resend 仍可选 | orjrs |
 | 2026-08-20 | v1.10 | Resend 发信 + 忘记密码邮件重置（token 存 Redis） | orjrs |
 | 2026-08-20 | v1.9 | 管理员重置密码 POST /admin/users/:id/reset-password；登录页忘记密码入口 | orjrs |
@@ -16,6 +17,13 @@
 | 2026-08-15 | v1.2 | GET /v1/models 改为返回已启用供应商的 default_model（不再写死 GPT 列表） | orjrs |
 | 2026-04-09 | v1.1 | 新增文档上传接口、语义检索接口实现说明 | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] 聊天历史置顶（2026-08-21）
+
+- **变更原因**：常用对话需要固定在历史列表顶部
+- **包含代码**：`internal/model/conversation.go`、`internal/chat/conversation.go`；Web `PlaygroundHistoryPanel` / `useConversations`
+- **影响范围**：`GET/PUT /api/v1/conversations` 增加 `pinned`；列表排序 `pinned DESC, updated_at DESC`
+- **变更前 vs 变更后**：~~仅按 updated_at 倒序~~（2026-08-21）→ 置顶优先
 
 ## [变更] QQ SMTP 发信（2026-08-20）
 
@@ -417,7 +425,7 @@ GET /v1/models/{model_id}
 认证: JWT（只看得到当前登录用户自己的对话）
 
 GET /api/v1/conversations
-描述: 对话列表（不含 messages，按 updated_at 倒序，最多 100 条）
+描述: 对话列表（不含 messages；置顶优先，再按 updated_at 倒序，最多 100 条）
 响应:
   {
     "code": 2000,
@@ -427,6 +435,7 @@ GET /api/v1/conversations
         "title": "今天天气怎么样",
         "agent_id": "",
         "model": "deepseek-chat",
+        "pinned": true,
         "created_at": "2026-08-16T00:00:00Z",
         "updated_at": "2026-08-16T00:00:00Z"
       }
@@ -434,7 +443,7 @@ GET /api/v1/conversations
   }
 
 POST /api/v1/conversations
-描述: 新建对话。title 为空时用第一条用户消息前 40 字
+描述: 新建对话。title 为空时用第一条用户消息前 40 字；pinned 默认 false
 请求体:
   {
     "title": "可选",
@@ -446,12 +455,12 @@ POST /api/v1/conversations
   }
 
 GET /api/v1/conversations/{id}
-描述: 对话详情（含 messages）
-响应: { "code": 2000, "data": { "id": "...", "messages": [...], "...": "..." } }
+描述: 对话详情（含 messages、pinned）
+响应: { "code": 2000, "data": { "id": "...", "pinned": false, "messages": [...], "...": "..." } }
 
 PUT /api/v1/conversations/{id}
-描述: 更新标题 / 模型 / Agent / 消息全文
-请求体: 字段均可选；messages 为整份覆盖，不是增量
+描述: 更新标题 / 模型 / Agent / 置顶 / 消息全文
+请求体: 字段均可选；messages 为整份覆盖，不是增量；只改置顶时传 `{ "pinned": true|false }`
 
 DELETE /api/v1/conversations/{id}
 描述: 软删除

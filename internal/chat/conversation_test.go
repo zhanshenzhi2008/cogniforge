@@ -27,6 +27,7 @@ func TestTitleFromMessages(t *testing.T) {
 	long := stringsRepeat("你", 50)
 	got := titleFromMessages([]model.ConversationMessage{{Role: "user", Content: long}})
 	assert.Equal(t, stringsRepeat("你", 40)+"…", got)
+
 }
 
 func stringsRepeat(s string, n int) string {
@@ -88,6 +89,54 @@ func TestConversationCRUDAndIsolation(t *testing.T) {
 	require.NoError(t, svc.Delete("user-a", created.ID))
 	_, err = svc.Get("user-a", created.ID)
 	require.ErrorIs(t, err, errConversationNotFound)
+}
+
+func TestConversationPinSortsFirst(t *testing.T) {
+	svc := setupConversationService(t)
+
+	older, err := svc.Create("user-a", &CreateConversationRequest{
+		Title: "older",
+		Messages: []model.ConversationMessage{
+			{ID: "m1", Role: "user", Content: "older"},
+		},
+	})
+	require.NoError(t, err)
+
+	newer, err := svc.Create("user-a", &CreateConversationRequest{
+		Title: "newer",
+		Messages: []model.ConversationMessage{
+			{ID: "m2", Role: "user", Content: "newer"},
+		},
+	})
+	require.NoError(t, err)
+
+	listed, err := svc.List("user-a")
+	require.NoError(t, err)
+	require.Len(t, listed, 2)
+	assert.Equal(t, newer.ID, listed[0].ID)
+	assert.False(t, listed[0].Pinned)
+
+	pinned := true
+	_, err = svc.Update("user-a", older.ID, &UpdateConversationRequest{Pinned: &pinned})
+	require.NoError(t, err)
+
+	listed, err = svc.List("user-a")
+	require.NoError(t, err)
+	require.Len(t, listed, 2)
+	assert.Equal(t, older.ID, listed[0].ID)
+	assert.True(t, listed[0].Pinned)
+	assert.Equal(t, newer.ID, listed[1].ID)
+	assert.False(t, listed[1].Pinned)
+
+	unpinned := false
+	_, err = svc.Update("user-a", older.ID, &UpdateConversationRequest{Pinned: &unpinned})
+	require.NoError(t, err)
+
+	listed, err = svc.List("user-a")
+	require.NoError(t, err)
+	require.Len(t, listed, 2)
+	assert.False(t, listed[0].Pinned)
+	assert.False(t, listed[1].Pinned)
 }
 
 func strPtr(s string) *string { return &s }

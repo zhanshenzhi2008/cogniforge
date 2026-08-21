@@ -8,10 +8,11 @@ import (
 
 // ConversationMessage 一条已保存的对话消息（Playground 历史）
 type ConversationMessage struct {
-	ID      string `json:"id"`
-	Role    string `json:"role"`
-	Content string `json:"content"`
-	Time    string `json:"time,omitempty"`
+	ID      string   `json:"id"`
+	Role    string   `json:"role"`
+	Content string   `json:"content"`
+	Images  []string `json:"images,omitempty"` // data URL 或 http(s) 图，用于回显
+	Time    string   `json:"time,omitempty"`
 }
 
 // ChatConversation 用户聊天历史（Playground；不依赖 Agent）

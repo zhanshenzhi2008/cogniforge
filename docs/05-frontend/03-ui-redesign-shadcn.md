@@ -4,6 +4,8 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-08-21 | v1.30 | Playground 支持上传/粘贴图片发图（多模态 vision） | orjrs |
+| 2026-08-21 | v1.29 | Playground 聊天支持 Markdown/链接图片展示 | orjrs |
 | 2026-08-21 | v1.28 | Playground 历史对话置顶（pin / unpin） | orjrs |
 | 2026-08-20 | v1.27 | Resend 邮件忘记密码：发信表单 + 重置密码页 | orjrs |
 | 2026-08-20 | v1.26 | 登录「忘记密码」+ 管理员重置临时密码（无邮件版） | orjrs |
@@ -33,6 +35,26 @@
 | 2026-08-12 | v1.2 | 补充关键屏 UI 示意稿（登录 / 控制台 / Playground / 手机） | orjrs |
 | 2026-08-12 | v1.1 | 补充响应式策略：Web 优先验收，手机端预留兼容但不阻塞主路径 | orjrs |
 | 2026-08-12 | v1.0 | 全新 UI 方向：Vue3 + Nuxt3 + Tailwind4 + shadcn-vue；保留 Vue Flow；接口与 CI/CD 不变 | orjrs |
+
+## [变更] Playground 上传发图 / vision（2026-08-21）
+
+- **变更原因**：用户要能在对话里发图片给识图模型看
+- **包含代码**：`cogniforge-web/pages/playground.vue`、`utils/chatImages.ts`；Go `ChatMessage.Content` 改为透传 string|parts；`ConversationMessage.images`
+- **变更后**：
+  - 输入框旁「添加图片」、可粘贴；最多 4 张，单张 ≤4MB（客户端压缩）
+  - 请求体 OpenAI 兼容 `image_url`；历史 JSON 存 `images`
+  - 气泡展示用户附图；回复里的 Markdown 图仍走既有渲染
+- **注意**：模型本身须支持 vision（如 GPT-4o）；纯文本模型会由上游报错
+
+## [变更] Playground 聊天图片展示（2026-08-21）
+
+- **变更原因**：模型回复里的 Markdown 图片 / 裸图片链接只显示文字，看不到图
+- **包含代码**：`cogniforge-web/utils/chatMarkdown.ts`、`pages/playground.vue`
+- **变更后**：
+  - `![alt](url)` 与裸 `https://…png|jpg|gif|webp`、`data:image/…;base64,…` 渲染为图片
+  - 图片限宽、圆角；点击新标签打开原图
+  - 拒绝 `javascript:` / `svg+xml` 等不安全源
+- **不做（本期）**：用户上传发图、多模态 vision 请求
 
 ## [变更] Playground 历史置顶（2026-08-21）
 
@@ -720,6 +742,8 @@ Nuxt UI 的 Header / NavigationMenu / Dashboard / Slideover 开箱即好看、�
 5. **空态**：品牌问候 + 3 个建议 Chip
 6. **参数**：右上角「参数」滑层（Agent / 模型 / Temperature / Max Tokens / Top P）；**不再**放左侧窄轨
 7. **历史**：桌面左侧列表，可用顶栏图标折叠；手机顶栏「历史对话」滑层；数据走 `GET/POST/PUT/DELETE /api/v1/conversations`；支持 **置顶**（`pinned`，列表上方单独「置顶」段）
+7b. **图片展示**（2026-08-21）：消息 Markdown 图片与裸图片 URL / base64 渲染为 `<img>`；点击打开原图
+7c. **上传发图**（2026-08-21）：作曲区附图 / 粘贴；OpenAI 兼容多模态 `content` parts；历史存 `images[]`；需 vision 模型
 8. **Token / 延迟**：角落轻量元数据，不做底栏大字报
 8b. **额度条**（2026-08-18）：输入框上方显示今日次数/Token 进度；≥80% 黄灯；用尽禁用发送并 Toast「明天 0 点（北京时间）恢复」
 9. **流式**：`UChatShimmer`；Markdown 继续现有渲染路径

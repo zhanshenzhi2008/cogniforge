@@ -58,6 +58,9 @@ func titleFromMessages(msgs []model.ConversationMessage) string {
 		}
 		text := strings.TrimSpace(m.Content)
 		if text == "" {
+			if len(m.Images) > 0 {
+				return "图片对话"
+			}
 			continue
 		}
 		if utf8.RuneCountInString(text) <= maxConversationTitleRunes {

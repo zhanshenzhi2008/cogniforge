@@ -28,6 +28,9 @@ func TestTitleFromMessages(t *testing.T) {
 	got := titleFromMessages([]model.ConversationMessage{{Role: "user", Content: long}})
 	assert.Equal(t, stringsRepeat("你", 40)+"…", got)
 
+	assert.Equal(t, "图片对话", titleFromMessages([]model.ConversationMessage{
+		{Role: "user", Content: "", Images: []string{"data:image/png;base64,xx"}},
+	}))
 }
 
 func stringsRepeat(s string, n int) string {

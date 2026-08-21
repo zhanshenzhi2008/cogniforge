@@ -281,10 +281,10 @@ func toServiceRequest(req *ChatRequest) *chat.ChatRequest {
 	}
 }
 
-// ChatMessage 和 ChatRequest 供本接口绑定 JSON
+// ChatMessage 和 ChatRequest 供本接口绑定 JSON（Content 同 chat：string 或多模态数组）
 type ChatMessage struct {
 	Role    string `json:"role"`
-	Content string `json:"content"`
+	Content any    `json:"content"`
 }
 
 type ChatRequest struct {

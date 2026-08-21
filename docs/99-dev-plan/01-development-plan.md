@@ -4,6 +4,8 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-08-21 | v1.48 | Playground 上传/粘贴发图（多模态 vision） | orjrs |
+| 2026-08-21 | v1.47 | Playground 聊天支持图片展示（Markdown / 链接） | orjrs |
 | 2026-08-21 | v1.46 | Playground 历史对话置顶（pinned） | orjrs |
 | 2026-08-20 | v1.45 | 忘记密码改默认 QQ SMTP（无需自有域名） | orjrs |
 | 2026-08-20 | v1.44 | Resend 邮件重置密码（forgot/reset API + 前端页） | orjrs |
@@ -51,6 +53,21 @@
 | 2026-04-11 | v1.2 | 阶段八监控中心完成（请求日志中间件、日志列表 API、用量统计 API、监控仪表板页面） | orjrs |
 | 2026-04-17 | v1.3 | 阶段九用户管理与个人设置完成（用户CRUD、个人设置、会话管理、RBAC权限系统） | orjrs |
 > 注：任务状态变更直接在下方任务表格中更新即可，无需额外记录。
+
+## [变更] Playground 上传发图（2026-08-21）
+
+- **变更原因**：用户需要把图片发给识图模型
+- **包含代码**：Go `ChatMessage.Content any`；Web `chatImages.ts` / `playground.vue`；历史 `messages.images`
+- **影响范围**：chat/stream、agents/:id/chat、conversations 存档
+- **变更前 vs 变更后**：~~只能发文字~~（2026-08-21）→ 可附图；须选用支持 vision 的模型
+
+## [变更] Playground 聊天图片展示（2026-08-21）
+
+- **变更原因**：回复里的图片链接/Markdown 图看不成图
+- **包含代码**：`cogniforge-web/utils/chatMarkdown.ts`、`pages/playground.vue`
+- **影响范围**：仅前端渲染；API / 存档格式不变
+- **变更前 vs 变更后**：~~图片 URL 当普通文字~~（2026-08-21）→ 渲染为图片并可点开
+- **不做**：上传发图、多模态 vision
 
 ## [变更] Playground 历史置顶（2026-08-21）
 

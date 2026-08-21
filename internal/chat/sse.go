@@ -72,7 +72,7 @@ func jsonInt(v any) int {
 func EstimateUsage(messages []ChatMessage, completion string) ChatUsage {
 	prompt := 0
 	for _, m := range messages {
-		prompt += tokenEstimate(m.Content)
+		prompt += tokenEstimate(contentText(m.Content))
 	}
 	comp := tokenEstimate(completion)
 	return ChatUsage{
@@ -80,6 +80,34 @@ func EstimateUsage(messages []ChatMessage, completion string) ChatUsage {
 		CompletionTokens: comp,
 		TotalTokens:      prompt + comp,
 		Estimated:        true,
+	}
+}
+
+// contentText 从 string 或多模态 parts 抽出可估算文本；图片按约 300 token 计。
+func contentText(content any) string {
+	switch v := content.(type) {
+	case string:
+		return v
+	case []any:
+		var b strings.Builder
+		for _, part := range v {
+			m, ok := part.(map[string]any)
+			if !ok {
+				continue
+			}
+			switch m["type"] {
+			case "text":
+				if t, ok := m["text"].(string); ok {
+					b.WriteString(t)
+				}
+			case "image_url":
+				// 粗估：一张图约 300 tokens（与具体模型无关的兜底）
+				b.WriteString(strings.Repeat("图", 300))
+			}
+		}
+		return b.String()
+	default:
+		return ""
 	}
 }
 

@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-08-21 | v1.13 | 聊天 content 支持多模态 parts；历史 messages.images | orjrs |
 | 2026-08-21 | v1.12 | 聊天历史支持 pinned 置顶（PUT conversations） | orjrs |
 | 2026-08-20 | v1.11 | 忘记密码默认 QQ SMTP；Resend 仍可选 | orjrs |
 | 2026-08-20 | v1.10 | Resend 发信 + 忘记密码邮件重置（token 存 Redis） | orjrs |
@@ -17,6 +18,15 @@
 | 2026-08-15 | v1.2 | GET /v1/models 改为返回已启用供应商的 default_model（不再写死 GPT 列表） | orjrs |
 | 2026-04-09 | v1.1 | 新增文档上传接口、语义检索接口实现说明 | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] 聊天多模态图片（2026-08-21）
+
+- **变更原因**：Playground 要上传图片给 vision 模型
+- **包含代码**：`internal/chat/dto.go`（`Content any` 透传）；`internal/agent/handler.go`；Web `toVisionContent`
+- **接口**：`POST /api/v1/chat/stream`、`/chat/completions`、`/agents/:id/chat` 的 `messages[].content` 可为 string，或
+  `[{ "type":"text","text":"..." }, { "type":"image_url","image_url":{ "url":"data:image/...|https://..." } }]`
+- **历史**：`chat_conversations.messages[].images` 存附图 data URL，供回显；不改表结构（JSONB 内字段）
+- **变更前 vs 变更后**：~~content 仅 string~~（2026-08-21）→ OpenAI 兼容多模态
 
 ## [变更] 聊天历史置顶（2026-08-21）
 

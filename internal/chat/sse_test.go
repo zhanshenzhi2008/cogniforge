@@ -12,6 +12,26 @@ func TestEstimateUsage(t *testing.T) {
 	assert.True(t, u.Estimated)
 }
 
+func TestEstimateUsage_Multimodal(t *testing.T) {
+	u := EstimateUsage([]ChatMessage{{
+		Role: "user",
+		Content: []any{
+			map[string]any{"type": "text", "text": "看图"},
+			map[string]any{"type": "image_url", "image_url": map[string]any{"url": "data:image/png;base64,xx"}},
+		},
+	}}, "ok")
+	assert.Greater(t, u.PromptTokens, 100)
+	assert.True(t, u.Estimated)
+}
+
+func TestContentText(t *testing.T) {
+	assert.Equal(t, "hi", contentText("hi"))
+	assert.Equal(t, "ab", contentText([]any{
+		map[string]any{"type": "text", "text": "a"},
+		map[string]any{"type": "text", "text": "b"},
+	}))
+}
+
 func TestSSEUsageScan(t *testing.T) {
 	s := &sseUsageScan{}
 	s.feed([]byte("data: {\"choices\":[{\"delta\":{\"content\":\"你好\"}}]}\n"))

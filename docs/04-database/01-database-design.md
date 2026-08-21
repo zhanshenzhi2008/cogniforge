@@ -3,6 +3,7 @@
 ## [变更记录]
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|---------|--------|
+| 2026-08-21 | v1.7 | chat_conversations.messages 支持 images 附图字段 | orjrs |
 | 2026-08-21 | v1.6 | chat_conversations 增加 pinned 置顶字段 | orjrs |
 | 2026-08-20 | v1.5 | 密码重置令牌 Redis：cogniforge:pwdreset:* | orjrs |
 | 2026-08-18 | v1.4 | 配额表 quota_policies / llm_usage_events；Redis cogniforge:quota:* | orjrs |
@@ -10,6 +11,13 @@
 | 2026-08-16 | v1.2 | Redis 键统一 `cogniforge:` 前缀；多项目用前缀隔离，不拆 db0/db1 | orjrs |
 | 2026-08-15 | v1.1 | 落地模型配置 Redis 键（当时为 `cf:modelcfg:*`） | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] 聊天历史附图字段（2026-08-21）
+
+- **变更原因**：发图对话要能从历史回显
+- **包含代码**：`internal/model/conversation.go` `ConversationMessage.Images`
+- **变更后**：`messages` JSON 元素可含 `images: string[]`（data URL / http）；无表结构 ALTER（JSONB）
+- **title**：仅图片无文字时标题为「图片对话」
 
 ## [变更] 聊天历史置顶字段（2026-08-21）
 
@@ -322,7 +330,7 @@ CREATE INDEX idx_chat_conv_pinned ON chat_conversations(pinned);
 CREATE INDEX idx_chat_conv_deleted ON chat_conversations(deleted_at);
 ```
 
-`messages` 元素：`{"id","role","content","time"}`。title 缺省取第一条用户消息前 40 字。列表排序：`pinned DESC, updated_at DESC`。
+`messages` 元素：`{"id","role","content","images?","time"}`。`images` 为附图 URL 数组（多为 data URL）。title 缺省取第一条用户消息前 40 字；无文字仅有图时为「图片对话」。列表排序：`pinned DESC, updated_at DESC`。
 
 ---
 

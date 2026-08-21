@@ -2,9 +2,11 @@ package chat
 
 // ============ 请求结构 ============
 
+// ChatMessage OpenAI 兼容。Content 可为 string，或
+// [{type:text|image_url,...}] 多模态数组（透传上游）。
 type ChatMessage struct {
 	Role    string `json:"role"`
-	Content string `json:"content"`
+	Content any    `json:"content"`
 }
 
 type ChatRequest struct {

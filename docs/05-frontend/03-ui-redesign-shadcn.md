@@ -4,6 +4,10 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-08-25 | v1.37 | 模型页用途：对话 / 向量，两套默认 | orjrs |
+| 2026-08-22 | v1.36 | 顶栏改为：控制台 对话 智能体 工作流 知识库 配置；用量/监控进头像 | orjrs |
+| 2026-08-22 | v1.35 | 通用文件附件排到阶段十三（等 RAG 稳） | orjrs |
+| 2026-08-22 | v1.34 | 发送框支持从访达复制文件粘贴（图片） | orjrs |
 | 2026-08-22 | v1.33 | 排队编辑改到发送框；行上「编辑中 ×」取消 | orjrs |
 | 2026-08-21 | v1.32 | Playground 排队（可编辑删除）+ 插入硬截断 | orjrs |
 | 2026-08-21 | v1.31 | Playground 历史对话支持按标题搜索 | orjrs |
@@ -38,6 +42,35 @@
 | 2026-08-12 | v1.2 | 补充关键屏 UI 示意稿（登录 / 控制台 / Playground / 手机） | orjrs |
 | 2026-08-12 | v1.1 | 补充响应式策略：Web 优先验收，手机端预留兼容但不阻塞主路径 | orjrs |
 | 2026-08-12 | v1.0 | 全新 UI 方向：Vue3 + Nuxt3 + Tailwind4 + shadcn-vue；保留 Vue Flow；接口与 CI/CD 不变 | orjrs |
+
+> 注：任务状态变更直接在下方任务表格中更新即可，无需额外记录。
+
+## [变更] 模型页对话/向量用途（2026-08-25）
+
+- **变更原因**：知识库不能用 deepseek-chat 做向量
+- **包含代码**：Web `pages/models.vue`、`useProviders.ts`
+- **变更前 vs 变更后**：~~一颗星统管全部~~（2026-08-25）→ 对话默认（星）与向量默认（数据库图标）分开
+
+## [变更] 顶栏菜单整理（2026-08-22）
+
+- **变更原因**：9 项平铺挤；模型/密钥是配置，用量不是设置
+- **包含代码**：`cogniforge-web/constants/nav.ts`、`layouts/default.vue`、`i18n/messages.ts`
+- **变更后** 顶栏：控制台 · 对话 · 智能体 · 工作流 · 知识库 · **配置 ▾**（模型、密钥）
+- **用量**、**监控**（仅 admin）进头像菜单，不进个人设置页
+- **~~顶栏平铺 Models / Keys / Usage / Monitor~~**（2026-08-22）
+
+## [变更] 通用文件等 RAG 再做（2026-08-22）
+
+- **变更原因**：发送框会遇到 PDF 等，但不能现在硬上
+- **排期**：阶段十三，需求 `docs/01-requirements/04-playground-files-rag.md`
+- **现在**：只图片；**~~发送框通用文件附件~~**（2026-08-22 排到 RAG 就绪后）
+
+## [变更] 发送框粘贴访达文件（2026-08-22）
+
+- **变更原因**：从访达复制图片再粘贴，剪贴板不带 `image/*`，原先进不了发送框
+- **包含代码**：`cogniforge-web/utils/chatImages.ts`、`pages/playground.vue`
+- **变更后**：粘贴 / 拖入同时读 `clipboardData.files` 与 `items`；空 MIME 按扩展名认 JPG/PNG/GIF/WebP；非图片提示只支持这些格式
+- **不做**：PDF / 文档当附件（**阶段十三**，等 RAG 完全可用，见 `04-playground-files-rag.md`）
 
 ## [变更] 排队编辑走发送框（2026-08-22）
 
@@ -566,37 +599,36 @@ components/
 
 ## 4. 信息架构与壳层
 
-### 4.1 路由与导航 IA（冻结，与现网一致）
+### 4.1 路由与导航 IA（2026-08-22 整理）
 
-> 来源：现网 `layouts/default.vue`。UI 重设计**只换组件实现**，不改信息架构。
+> 路由和权限不变，只改顶栏分组。~~2026-08-12 冻结的 9 项平铺~~（2026-08-22）
 
-#### 顶栏主模块（按角色过滤）
+#### 顶栏主模块
 
 | 顺序 | 显示名 | key | 路由 | 可见角色 |
 |------|--------|-----|------|----------|
-| 1 | Dashboard | `dashboard` | `/` | admin, user |
-| 2 | Play | `playground` | `/playground` | admin, user |
-| 3 | Agents | `agents` | `/agents` | admin, user |
-| 4 | Models | `models` | `/models` | admin, user |
-| 5 | Flows | `workflows` | `/workflows` | admin, user |
-| 6 | Knowledge | `knowledge` | `/knowledge` | admin, user |
-| 7 | Keys | `keys` | `/keys` | admin, user |
-| 8 | Usage | `usage` | `/usage` | admin, user |
-| 9 | Monitor | `monitor` | `/monitor` | **仅 admin** |
+| 1 | 控制台 | `dashboard` | `/` | admin, user |
+| 2 | 对话 | `playground` | `/playground` | admin, user |
+| 3 | 智能体 | `agents` | `/agents` | admin, user |
+| 4 | 工作流 | `workflows` | `/workflows` | admin, user |
+| 5 | 知识库 | `knowledge` | `/knowledge` | admin, user |
+| 6 | 配置 ▾ | `config` | （下拉，无独立页） | admin, user |
+| 6a | 模型 | `models` | `/models` | admin, user |
+| 6b | 密钥 | `keys` | `/keys` | admin, user |
 
-激活态规则（保持）：
-- `/` 仅精确匹配 Dashboard
-- 其余：`path === to` 或 `path.startsWith(to + '/')`（如 `/workflows/:id` 仍高亮 Flows）
+激活态：`/models`、`/keys` 时「配置」高亮。`/` 仅精确匹配控制台。
 
-#### 用户下拉菜单（保持）
+#### 用户下拉菜单
 
 | 文案 | 行为 | 可见 |
 |------|------|------|
-| 个人设置 | 跳转 `/settings` | 全部登录用户 |
-| 配额策略 | 跳转 `/admin/quota` | **仅 admin** |
-| 用户管理 | 跳转 `/admin/users` | **仅 admin** |
-| 角色权限 | 跳转 `/admin/roles` | **仅 admin** |
-| 退出登录 | 调现有 logout API → `clearAuth` → `/login` | 全部登录用户 |
+| 个人设置 | `/settings` | 全部登录用户 |
+| 用量 | `/usage` | 全部登录用户 |
+| 监控 | `/monitor` | **仅 admin** |
+| 用户管理 | `/admin/users` | **仅 admin** |
+| 角色权限 | `/admin/roles` | **仅 admin** |
+| 配额策略 | `/admin/quota` | **仅 admin** |
+| 退出登录 | logout API | 全部登录用户 |
 
 #### 认证相关路由（保持）
 

@@ -14,6 +14,20 @@ type ChatRequest struct {
 	Messages []ChatMessage `json:"messages" binding:"required"`
 	Stream   bool          `json:"stream"`
 
+	// 滑动窗口参数（阶段十四 14.1）
+	// MemoryTurns: 窗口轮数，默认 10，范围 1–40。0=禁用服务端裁剪。
+	// MaxInputTokens: Token 预算上限，0=不限。
+	MemoryTurns    int `json:"memory_turns,omitempty"`
+	MaxInputTokens int `json:"max_input_tokens,omitempty"`
+
+	// 阶段十四 14.3：对话 ID，用于加载历史和保存消息
+	ConversationID string `json:"conversation_id,omitempty"`
+
+	// 阶段十四 14.4：是否使用长期记忆（前端可关）
+	UseLongTerm bool   `json:"use_long_term,omitempty"`
+	// AgentID：用于长期记忆 scope 过滤（agent专属记忆 vs 全局记忆）
+	AgentID     string `json:"agent_id,omitempty"`
+
 	Temperature      *float64 `json:"temperature,omitempty"`
 	MaxTokens        *int     `json:"max_tokens,omitempty"`
 	TopP             *float64 `json:"top_p,omitempty"`

@@ -34,6 +34,7 @@ type ChatConversation struct {
 	Pinned       bool                     `gorm:"not null;default:false;index" json:"pinned"`
 	Messages     []ConversationMessage    `gorm:"serializer:json;type:jsonb" json:"messages"`
 	MessageQueue []ConversationQueueItem  `gorm:"serializer:json;type:jsonb" json:"message_queue"`
+	Summary      string                   `gorm:"type:text" json:"summary,omitempty"` // 阶段十四 14.3 滚动摘要
 	CreatedAt    time.Time                `json:"created_at"`
 	UpdatedAt    time.Time                `json:"updated_at"`
 	DeletedAt    gorm.DeletedAt           `gorm:"index" json:"-"`

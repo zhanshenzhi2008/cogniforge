@@ -3,6 +3,7 @@
 ## [变更记录]
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|---------|--------|
+| 2026-09-02 | v1.12 | chat_memories 表（阶段十四 14.4 长期记忆）；字段：id/user_id/agent_id/conversation_id/kind/content/importance/metadata | orjrs |
 | 2026-08-21 | v1.8 | chat_conversations 增加 message_queue 排队字段 | orjrs |
 | 2026-08-21 | v1.7 | chat_conversations.messages 支持 images 附图字段 | orjrs |
 | 2026-08-21 | v1.6 | chat_conversations 增加 pinned 置顶字段 | orjrs |
@@ -12,6 +13,13 @@
 | 2026-08-16 | v1.2 | Redis 键统一 `cogniforge:` 前缀；多项目用前缀隔离，不拆 db0/db1 | orjrs |
 | 2026-08-15 | v1.1 | 落地模型配置 Redis 键（当时为 `cf:modelcfg:*`） | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] ai_providers 对话/向量用途（2026-08-25）
+
+- **变更原因**：知识库向量化不能跟 DeepSeek 聊天共用一条默认
+- **包含代码**：`internal/model/provider.go` AutoMigrate
+- **新增列**：`capabilities`（默认 `chat`）、`embedding_model`、`is_default_embedding`
+- **`is_default`**：仍表示对话默认
 
 ## [变更] 聊天排队 message_queue（2026-08-21）
 
@@ -328,6 +336,7 @@ CREATE TABLE chat_conversations (
     pinned BOOLEAN NOT NULL DEFAULT FALSE,
     messages JSONB NOT NULL DEFAULT '[]',
     message_queue JSONB NOT NULL DEFAULT '[]',
+    summary TEXT,                                    -- 阶段十四 14.3 滚动摘要（窗口外旧消息压缩）
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     deleted_at TIMESTAMP WITH TIME ZONE
@@ -339,9 +348,38 @@ CREATE INDEX idx_chat_conv_pinned ON chat_conversations(pinned);
 CREATE INDEX idx_chat_conv_deleted ON chat_conversations(deleted_at);
 ```
 
-`messages` 元素：`{"id","role","content","images?","time"}`。`images` 为附图 URL 数组（多为 data URL）。  
-`message_queue` 元素：`{"id","content","images?","status":"queued|sending","sort"}`，最多 5 条。  
+`messages` 元素：`{"id","role","content","images?","time"}`。`images` 为附图 URL 数组（多为 data URL）。
+`message_queue` 元素：`{"id","content","images?","status":"queued|sending","sort"}`，最多 5 条。
+`summary`：窗口外消息被裁剪后，由 Python `/api/memory/summarize` 生成摘要，下次对话时作为 `system` 消息注入。
 title 缺省取第一条用户消息前 40 字；无文字仅有图时为「图片对话」。列表排序：`pinned DESC, updated_at DESC`。
+
+---
+
+### 2.3.4 长期记忆表 (chat_memories)
+
+跨对话用户记忆（阶段十四 14.4/14.5）。向量存 Python pgvector collection=`chat_memories`；Go 只管理文本字段。
+
+```sql
+CREATE TABLE chat_memories (
+    id              VARCHAR(64) PRIMARY KEY,
+    user_id         VARCHAR(64) NOT NULL,
+    agent_id        VARCHAR(64),                          -- 空=用户全局；有值=仅该 Agent
+    conversation_id VARCHAR(64),                          -- 来源会话，可空
+    kind            VARCHAR(32) NOT NULL,                -- profile / preference / decision / episode
+    content         TEXT NOT NULL,                        -- ≤80字/条
+    importance      SMALLINT NOT NULL DEFAULT 5,           -- 1-10
+    metadata        JSONB DEFAULT '{}',
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    last_accessed_at TIMESTAMPTZ,
+    deleted_at      TIMESTAMPTZ
+);
+
+CREATE INDEX idx_chat_memories_user ON chat_memories(user_id);
+CREATE INDEX idx_chat_memories_agent ON chat_memories(agent_id);
+```
+
+Kind 白名单：profile（用户画像）/ preference（偏好）/ decision（决策）/ episode（事件）。向量相似度 > 0.9 时更新原文，不堆重复。
 
 ---
 
@@ -802,6 +840,9 @@ cogniforge:modelcfg:snapshot -> JSON {
 
 ~~cf:modelcfg:rev / cf:modelcfg:snapshot~~（2026-08-16）
 ~~model_config:{org_id}:{model_id} -> JSON {api_key, settings}~~（2026-08-15）
+
+# 阶段十四（2026-09-02）
+cogniforge:llm_token:{user_id} -> JWT string  （LLM 临时凭证，TTL 5min，幂等缓存）
 
 # 规划中（同样加 cogniforge: 前缀后再落地）
 cogniforge:session:{user_id} -> JSON {token, expires_at}

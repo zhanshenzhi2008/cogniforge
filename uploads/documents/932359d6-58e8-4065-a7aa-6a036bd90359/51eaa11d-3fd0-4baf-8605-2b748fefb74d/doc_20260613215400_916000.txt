@@ -1,0 +1,12 @@
+环境：正式环境 测试租户tasitingtest
+API url host：https://api-ma.tastien-external.com/v2
+租户：190697
+应用名称：对外用户管理(勿删除）应用Id：cl022e190dd07df30应用密钥：3398ff4bd7797080cb18c0e20bcd6f6d76ae40fe创建时间：2024-07-23 08:39:59
+
+
+环境：正式环境 塔斯汀-MA自动化营销
+API url host：https://api-ma.tastien-external.com/v2
+租户：287563
+应用名称：对外用户管理(勿删除）应用Id：cl002a190dd0a6070应用密钥：ee20679d058050269f09a8ff9c6b29ae7b4e9fd2创建时间：2024-07-23 08:42:43
+
+

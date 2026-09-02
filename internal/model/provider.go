@@ -13,10 +13,13 @@ type AIProvider struct {
 	Provider     string         `gorm:"type:varchar(50);not null;index" json:"provider"` // openai | anthropic | openrouter | azure | gemini | siliconeglow | deepseek
 	BaseURL      string         `gorm:"type:varchar(500)" json:"base_url"`               // API端点
 	APIKey       string         `gorm:"type:varchar(500);not null" json:"api_key"`       // API密钥
-	DefaultModel string         `gorm:"type:varchar(100)" json:"default_model"`          // 默认模型
-	ExtraHeaders JSONBMap       `gorm:"type:jsonb" json:"extra_headers"`                 // 额外请求头（如OpenRouter的HTTP-Referer）
-	IsEnabled    bool           `gorm:"default:false" json:"is_enabled"`                 // 是否启用
-	IsDefault    bool           `gorm:"default:false;index" json:"is_default"`           // 是否默认
+	DefaultModel         string         `gorm:"type:varchar(100)" json:"default_model"`                     // 对话默认模型
+	EmbeddingModel       string         `gorm:"type:varchar(100)" json:"embedding_model"`                   // 向量模型；空则对话模型不当向量用
+	Capabilities         string         `gorm:"type:varchar(64);default:chat" json:"capabilities"`          // chat,embedding
+	ExtraHeaders         JSONBMap       `gorm:"type:jsonb" json:"extra_headers"`                            // 额外请求头（如OpenRouter的HTTP-Referer）
+	IsEnabled            bool           `gorm:"default:false" json:"is_enabled"`                            // 是否启用
+	IsDefault            bool           `gorm:"default:false;index" json:"is_default"`                      // 对话默认
+	IsDefaultEmbedding   bool           `gorm:"default:false;index" json:"is_default_embedding"`            // 向量默认
 	Priority     int            `gorm:"default:0" json:"priority"`                       // 优先级
 	Status       string         `gorm:"type:varchar(20);default:'active'" json:"status"` // active | error | testing
 	LastTestAt   *time.Time     `json:"last_test_at"`                                    // 上次测试时间
@@ -52,10 +55,12 @@ var DefaultProviders = []AIProvider{
 		Provider:     string(ProviderOpenAI),
 		Name:         "OpenAI",
 		BaseURL:      "https://api.openai.com/v1",
-		DefaultModel: "gpt-4o",
-		IsEnabled:    false,
-		IsDefault:    false,
-		Priority:     10,
+		DefaultModel:   "gpt-4o",
+		EmbeddingModel: "text-embedding-3-small",
+		Capabilities:   CapChat + "," + CapEmbedding,
+		IsEnabled:      false,
+		IsDefault:      false,
+		Priority:       10,
 		Status:       "active",
 	},
 	{
@@ -64,6 +69,7 @@ var DefaultProviders = []AIProvider{
 		Name:         "Anthropic",
 		BaseURL:      "https://api.anthropic.com",
 		DefaultModel: "claude-3-5-sonnet-20241022",
+		Capabilities: CapChat,
 		IsEnabled:    false,
 		IsDefault:    false,
 		Priority:     20,
@@ -74,8 +80,10 @@ var DefaultProviders = []AIProvider{
 		Provider:     string(ProviderOpenRouter),
 		Name:         "OpenRouter",
 		BaseURL:      "https://openrouter.ai/api/v1",
-		DefaultModel: "openai/gpt-4o",
-		IsEnabled:    false,
+		DefaultModel:   "openai/gpt-4o",
+		EmbeddingModel: "openai/text-embedding-3-small",
+		Capabilities:   CapChat + "," + CapEmbedding,
+		IsEnabled:      false,
 		IsDefault:    false,
 		Priority:     30,
 		Status:       "active",
@@ -85,8 +93,10 @@ var DefaultProviders = []AIProvider{
 		Provider:     string(ProviderSiliconGlow),
 		Name:         "硅基流动 SiliconGlow",
 		BaseURL:      "https://api.siliconflow.cn/v1",
-		DefaultModel: "Qwen/Qwen2.5-7B-Instruct",
-		IsEnabled:    false,
+		DefaultModel:   "Qwen/Qwen2.5-7B-Instruct",
+		EmbeddingModel: "BAAI/bge-m3",
+		Capabilities:   CapChat + "," + CapEmbedding,
+		IsEnabled:      false,
 		IsDefault:    false,
 		Priority:     40,
 		Status:       "active",
@@ -97,6 +107,7 @@ var DefaultProviders = []AIProvider{
 		Name:         "DeepSeek",
 		BaseURL:      "https://api.deepseek.com/v1",
 		DefaultModel: "deepseek-chat",
+		Capabilities: CapChat,
 		IsEnabled:    false,
 		IsDefault:    false,
 		Priority:     50,
@@ -108,6 +119,7 @@ var DefaultProviders = []AIProvider{
 		Name:         "Groq",
 		BaseURL:      "https://api.groq.com/openai/v1",
 		DefaultModel: "llama-3.3-70b-versatile",
+		Capabilities: CapChat,
 		IsEnabled:    false,
 		IsDefault:    false,
 		Priority:     15,
@@ -119,6 +131,7 @@ var DefaultProviders = []AIProvider{
 		Name:         "Ollama (本地)",
 		BaseURL:      "http://localhost:11434/v1",
 		DefaultModel: "llama3",
+		Capabilities: CapChat,
 		IsEnabled:    false,
 		IsDefault:    false,
 		Priority:     5,
@@ -129,17 +142,22 @@ var DefaultProviders = []AIProvider{
 		Provider:     string(ProviderOpenAI),
 		Name:         "AI Core",
 		BaseURL:      "https://api.xty.app/v1",
-		DefaultModel: "gpt-4o",
-		IsEnabled:    false,
-		IsDefault:    false,
-		Priority:     5,
-		Status:       "active",
+		DefaultModel:   "gpt-4o",
+		EmbeddingModel: "text-embedding-3-small",
+		Capabilities:   CapChat + "," + CapEmbedding,
+		IsEnabled:      false,
+		IsDefault:      false,
+		Priority:       5,
+		Status:         "active",
 	},
 }
 
 // MigrateProviders 迁移 AIProvider 表
 func MigrateProviders(db *gorm.DB) error {
-	return db.AutoMigrate(&AIProvider{})
+	if err := db.AutoMigrate(&AIProvider{}); err != nil {
+		return err
+	}
+	return db.Model(&AIProvider{}).Where("capabilities IS NULL OR capabilities = ?", "").Update("capabilities", CapChat).Error
 }
 
 // InitDefaultProviders 初始化默认供应商记录（如果不存在）

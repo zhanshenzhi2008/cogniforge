@@ -41,13 +41,23 @@ func (s *Service) refreshCache() {
 }
 
 func (s *Service) loadActiveFromDB() (*model.AIProvider, error) {
-	if p, err := s.repo.GetDefault(); err == nil && p.IsEnabled {
+	if p, err := s.repo.GetDefault(); err == nil && p.IsEnabled && model.HasCapability(p.Capabilities, model.CapChat) {
 		return p, nil
 	}
-	if p, err := s.repo.GetFirstEnabled(); err == nil {
+	if p, err := s.repo.GetFirstEnabledFor(model.CapChat); err == nil {
 		return p, nil
 	}
 	return nil, fmt.Errorf("no active provider configured")
+}
+
+func (s *Service) loadEmbeddingFromDB() (*model.AIProvider, error) {
+	if p, err := s.repo.GetDefaultEmbedding(); err == nil && p.IsEnabled && model.HasCapability(p.Capabilities, model.CapEmbedding) {
+		return p, nil
+	}
+	if p, err := s.repo.GetFirstEnabledFor(model.CapEmbedding); err == nil {
+		return p, nil
+	}
+	return nil, fmt.Errorf("no embedding provider configured")
 }
 
 func (s *Service) buildSnapshot(active *model.AIProvider) *modelcache.Snapshot {
@@ -174,8 +184,10 @@ func (s *Service) Create(req *CreateProviderRequest) (*model.AIProvider, error) 
 		Provider:     req.Provider,
 		BaseURL:      req.BaseURL,
 		APIKey:       encryptedKey,
-		DefaultModel: req.DefaultModel,
-		IsEnabled:    req.IsEnabled,
+		DefaultModel:   req.DefaultModel,
+		EmbeddingModel: req.EmbeddingModel,
+		Capabilities:   model.JoinCapabilities(req.Capabilities),
+		IsEnabled:      req.IsEnabled,
 		Priority:     req.Priority,
 		Status:       "active",
 	}
@@ -216,6 +228,12 @@ func (s *Service) Update(id string, req *UpdateProviderRequest) (*model.AIProvid
 	if req.DefaultModel != nil {
 		p.DefaultModel = *req.DefaultModel
 	}
+	if req.EmbeddingModel != nil {
+		p.EmbeddingModel = *req.EmbeddingModel
+	}
+	if req.Capabilities != nil {
+		p.Capabilities = model.JoinCapabilities(req.Capabilities)
+	}
 	if p.ID == "" {
 		p.ID = uuid.New().String()
 	}
@@ -247,13 +265,28 @@ func (s *Service) Delete(id string) error {
 }
 
 // SetDefault 设为默认
-func (s *Service) SetDefault(id string) error {
-	_, err := s.repo.GetByID(id)
+func (s *Service) SetDefault(id string, purpose string) error {
+	p, err := s.repo.GetByID(id)
 	if err != nil {
 		return fmt.Errorf("provider not found")
 	}
-	if err := s.repo.SetDefault(id); err != nil {
-		return err
+	purpose = strings.TrimSpace(strings.ToLower(purpose))
+	if purpose == "" || purpose == model.CapChat {
+		if !model.HasCapability(p.Capabilities, model.CapChat) {
+			return fmt.Errorf("provider has no chat capability")
+		}
+		if err := s.repo.SetDefault(id); err != nil {
+			return err
+		}
+	} else if purpose == model.CapEmbedding {
+		if !model.HasCapability(p.Capabilities, model.CapEmbedding) {
+			return fmt.Errorf("provider has no embedding capability")
+		}
+		if err := s.repo.SetDefaultEmbedding(id); err != nil {
+			return err
+		}
+	} else {
+		return fmt.Errorf("unknown purpose %s", purpose)
 	}
 	s.refreshCache()
 	return nil
@@ -380,4 +413,24 @@ func (s *Service) GetActiveForChat() (baseURL, apiKey string, headers map[string
 		}
 	}
 	return p.BaseURL, decryptedKey, h, nil
+}
+
+func (s *Service) GetActiveForEmbedding() (baseURL, apiKey string, headers map[string]string, modelName string, err error) {
+	p, err := s.loadEmbeddingFromDB()
+	if err != nil {
+		return "", "", nil, "", err
+	}
+	modelName = model.EmbeddingModelName(p)
+	if modelName == "" {
+		return "", "", nil, "", fmt.Errorf("embedding provider has no embedding model")
+	}
+	decryptedKey, err := crypto.Decrypt(p.APIKey)
+	if err != nil {
+		return "", "", nil, "", fmt.Errorf("failed to decrypt api key: %w", err)
+	}
+	h := make(map[string]string)
+	for k, v := range p.ExtraHeaders {
+		h[k] = fmt.Sprintf("%v", v)
+	}
+	return p.BaseURL, decryptedKey, h, modelName, nil
 }

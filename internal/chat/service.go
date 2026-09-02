@@ -12,6 +12,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"cogniforge/internal/model"
 	"cogniforge/internal/provider"
 )
 
@@ -51,7 +52,7 @@ func (s *ChatService) ListModels() *ListModelsResponse {
 		list, err := s.providerSvc.List()
 		if err == nil {
 			for _, p := range list {
-				if p.IsEnabled {
+				if p.IsEnabled && model.HasCapability(p.Capabilities, model.CapChat) {
 					add(p.DefaultModel)
 				}
 			}
@@ -219,14 +220,18 @@ func (s *ChatService) aiOpenAIPath(base, path string) string {
 	return base + "/v1/" + path
 }
 
-// Embeddings 用当前启用的 ai_providers 调上游 /v1/embeddings（与聊天同一套密钥/模型配置）
+// Embeddings 用「向量默认」供应商调上游 /v1/embeddings，不复用对话模型。
 func (s *ChatService) Embeddings(req *EmbeddingsRequest) (*EmbeddingsResponse, error) {
-	if req.Model == "" {
-		req.Model = s.defaultModel()
+	if s.providerSvc == nil {
+		return nil, fmt.Errorf("no embedding provider configured")
 	}
-	baseURL, apiKey, extraHeaders, err := s.activeChatConfig()
+	baseURL, apiKey, extraHeaders, embedModel, err := s.providerSvc.GetActiveForEmbedding()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("no embedding provider: %w", err)
+	}
+	req.Model = embedModel
+	if req.Model == "" {
+		return nil, fmt.Errorf("no embedding model configured")
 	}
 
 	providerURL := s.aiEmbeddingsURL(baseURL)

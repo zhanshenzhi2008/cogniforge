@@ -1,0 +1,77 @@
+---
+description: cogniforge 项目专属规则（叠加在全局规则之上）
+globs:
+alwaysApply: true
+---
+
+# cogniforge 项目专属规则
+
+> 本文件**叠加在全局规则** `~/.cursor/rules/global-coding.mdc` 之上。
+> 全局规则（文档版本号、变更记录格式、Git 提交规范、安全规范）**已自动生效**，无需重复定义。
+
+---
+
+## 1. 项目文档目录
+
+```
+docs/
+├── 01-requirements/      # 需求文档
+├── 02-architecture/      # 架构设计
+├── 03-api/              # API 文档
+├── 04-database/         # 数据库设计
+├── 05-frontend/         # 前端设计
+├── 06-devops/           # DevOps（部署、CI/CD）
+└── 99-dev-plan/         # 开发计划、已知问题
+```
+
+所有改动必须找到对应模块，不存在则新增。
+
+## 2. 代码变更 → 文档映射
+
+| 代码变更类型 | 必须更新的文档 |
+|-------------|--------------|
+| 修改 API 接口 | `docs/03-api/01-api-design.md` |
+| 修改数据库表结构 | `docs/04-database/01-database-design.md` |
+| 修改前端页面/组件 | `docs/05-frontend/01-frontend-design.md` |
+| 修改架构设计 | `docs/02-architecture/01-technical-architecture.md` |
+| 修改项目目录结构 | `docs/99-dev-plan/02-project-structure.md` |
+| 新增功能/模块 | 最相关文档 + `docs/99-dev-plan/01-development-plan.md` |
+| 修改部署/CI/CD | `docs/06-devops/01-deployment.md` |
+
+AI 生成代码后必须主动提示需要更新的文档路径。
+
+## 3. 涉及到的仓库
+
+| 仓库 | 路径 | 文档主目录 |
+|------|------|----------|
+| `cogniforge` | `/opt/project/cogniforge` | 本仓库 `docs/` |
+| `cogniforge-ai` | `/opt/project/cogniforge-ai` | 本仓库 `docs/` |
+| `cogniforge-web` | `/opt/project/cogniforge-web` | 本仓库 `docs/` |
+
+> 三个仓库**各自维护自己的 `docs/`**，跨仓库变更要在两个仓库的 `docs/99-dev-plan/01-development-plan.md` 中同步记录。
+
+## 4. 服务器路径规范（cogniforge 三仓库专用）
+
+| 用途 | 路径 |
+|------|------|
+| 应用代码 | `/opt/project/cogniforge(-ai|-web)/` |
+| 公用数据库 | `/opt/databases/` |
+| Traefik + Portainer | `/opt/docker/` |
+| 部署 compose 文件 | 仓库根目录 `docker-compose.yml`（**已生产化，无 `traefik-docker/` 子目录**） |
+
+## 5. Redis 键命名（强制）
+
+公用 Redis **只用 db0**。多项目用**键前缀**隔离，禁止 `SELECT 1/2`（Cluster 只有 db0；`FLUSHDB` 也容易误伤别的项目）。
+
+| 规则 | 说明 |
+|------|------|
+| 前缀 | 本项目所有键必须以 `cogniforge:` 开头 |
+| 格式 | `cogniforge:{模块}:{名字}`，小写，冒号分层 |
+| 禁止 | `cf:`、无前缀、把明文 API Key 写入 Redis |
+
+已落地（Go / Python 共用，改名必须两边一起改）：
+
+- `cogniforge:modelcfg:rev` — 配置版本，模型页增删改后 INCR
+- `cogniforge:modelcfg:snapshot` — JSON；只存 `encrypted_key`，明文 Key 只留 Go 进程内存
+
+新键先写进 `docs/04-database/01-database-design.md` §5.1，再写代码。

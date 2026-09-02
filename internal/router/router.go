@@ -15,10 +15,12 @@ import (
 	"cogniforge/internal/mail"
 	"cogniforge/internal/middleware"
 	"cogniforge/internal/modelcache"
+	"cogniforge/internal/memory"
 	"cogniforge/internal/monitor"
 	"cogniforge/internal/provider"
 	"cogniforge/internal/quota"
 	"cogniforge/internal/rbac"
+	"cogniforge/internal/token"
 	"cogniforge/internal/user"
 	"cogniforge/internal/workflow"
 )
@@ -51,12 +53,15 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 	quotaHandler := quota.NewHandler(quotaSvc)
 
 	chatHandler := chat.NewChatHandler(providerSvc, db, quotaSvc)
+	memoryHandler := memory.NewMemoryHandler(db)
 	workflowHandler := workflow.NewWorkflowHandler()
 	pythonClient := knowledge.NewServiceClient(httpclient.NewClient(cfg.RAG.PythonServiceURL))
 	knowledgeHandler := knowledge.NewKnowledgeHandler(pythonClient)
 	agentHandler := agent.NewAgentHandler(providerSvc, chatHandler.Service(), quotaSvc)
 	monitorHandler := monitor.NewMonitorHandler()
 	rbacHandler := rbac.NewRBACHandler()
+	tokenSvc := token.NewService(rdb)
+	tokenHandler := token.NewHandler(tokenSvc)
 
 	api := r.Group("/api/v1")
 	{
@@ -82,6 +87,9 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 		{
 			authenticated.POST("/chat/stream", chatHandler.ChatStream)
 			quotaHandler.RegisterUserRoutes(authenticated)
+
+			// LLM 临时凭证（阶段十四：Chat 记忆，Python 直调用）
+			tokenHandler.RegisterRoutes(authenticated)
 
 			// 聊天历史
 			chatHandler.RegisterConversationRoutes(authenticated)
@@ -115,6 +123,9 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 
 			// Agent
 			agentHandler.RegisterRoutes(authenticated)
+
+			// 长期记忆 CRUD（阶段十四 14.5）
+			memoryHandler.RegisterRoutes(authenticated)
 
 			// 监控
 			monitorHandler.RegisterRoutes(authenticated)

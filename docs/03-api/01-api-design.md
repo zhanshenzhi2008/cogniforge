@@ -4,6 +4,9 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-09-02 | v1.21 | 14.5 长期记忆 CRUD：Go POST/GET/DELETE /api/v1/memories；chat_memories 表 + ChatMemory model | orjrs |
+| 2026-09-02 | v1.16 | 新增 LLM 临时凭证接口（阶段十四 14.0）：GET /token/llm、POST /token/validate | orjrs |
+| 2026-08-25 | v1.15 | embeddings 改走向量默认供应商，不再与聊天共用 default_model | orjrs |
 | 2026-08-21 | v1.14 | conversations 增加 message_queue / queue_len | orjrs |
 | 2026-08-21 | v1.13 | 聊天 content 支持多模态 parts；历史 messages.images | orjrs |
 | 2026-08-21 | v1.12 | 聊天历史支持 pinned 置顶（PUT conversations） | orjrs |
@@ -29,6 +32,82 @@
   - 详情 / 创建 / 更新可读可写 `message_queue`（整份覆盖，最多 5 条）
   - `status`：`queued` | `sending`
 - **错误**：超过 5 条返回 400「排队最多 5 条」
+
+## [变更] 服务端滑动窗口（2026-09-02）
+
+- **变更原因**：阶段十四 14.1：Playground / Agent 对话按 `memory_turns` 服务端裁剪，控制 Token 上传量
+- **包含代码**：`internal/memory/`（window.go、window_test.go）；`internal/chat/dto.go`（新增字段）；`internal/chat/handler.go`、`internal/agent/handler.go`
+- **变更前 vs 变更后**：~~前端发多少带多少~~（2026-09-02）→ 服务端按轮数裁剪，本轮 user 永不删除
+
+### 请求字段
+
+`POST /chat/stream`、`/chat/completions`、`/agents/:id/chat` 请求体新增：
+
+```json
+{
+  "messages": [...],
+  "memory_turns": 10,      // 窗口轮数，默认 10，范围 1–40，0=默认
+  "max_input_tokens": 0     // Token 上限，0=不限
+}
+```
+
+### 裁剪规则
+
+1. 过滤空内容消息
+2. 从尾部取最多 `memory_turns × 2` 条（user/assistant 成对，落单 user 保留）
+3. Token 超 `max_input_tokens` → 从最旧一条删，直到进入预算
+4. **本轮 user 消息永不删除**
+
+### Agent 字段生效
+
+`memory_type = off` 时不裁剪；其余按 `memory_turns`（默认 10）裁剪。
+
+## [变更] LLM 临时凭证（2026-09-02）
+
+- **变更原因**：阶段十四 14.0：Python 直调上游 LLM（抽取/摘要），Key 在 Go，凭证授信
+- **包含代码**：`internal/token/`（service.go、handler.go、service_test.go）
+- **存储**：Redis db0，键前缀 `cogniforge:llm_token:`，TTL 5 分钟（幂等缓存）；JWT exp 也为 5 分钟
+- **HMAC key**：复用 `JWT_SECRET`（Go/Python 共用 `.env`）
+- **变更前 vs 变更后**：~~Python 无凭证直调~~（2026-09-02）→ JWT 临时凭证 + Redis 幂等
+
+### GET /api/v1/token/llm
+
+获取 LLM 临时凭证（供 Python 直调上游用）。
+
+**需要认证**（JWT Bearer）。
+
+**响应 200：**
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "expires_in": 300,
+  "scope": "llm_call"
+}
+```
+
+**Redis 幂等**：同一 user_id 5 分钟内多次调用返回相同 token。
+
+### POST /api/v1/token/validate
+
+验证 LLM token（Go 回调 Python 时，Go 侧验证 JWT 签名）。
+
+**请求：**
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+}
+```
+
+**响应 200：**
+```json
+{
+  "valid": true,
+  "user_id": "user-xxx",
+  "scope": "llm_call"
+}
+```
+
+**响应 401：** token 无效 / 过期 / scope 错误
 
 ## [变更] 聊天多模态图片（2026-08-21）
 
@@ -367,11 +446,11 @@ POST /v1/chat/completions (流式)
 接口组: /api/v1/embeddings
 
 POST /api/v1/embeddings
-描述: 生成文本向量。用当前启用的 ai_providers 调上游 /v1/embeddings（与聊天同一套配置）
+描述: 生成文本向量。用「向量默认」供应商调上游 /v1/embeddings（不使用对话默认模型）
 认证: 无（内网 Python RAG 回调；勿对公网暴露 Go 8080）
 请求体:
   {
-    "model": "可选，空则用供应商 default_model",
+    "model": "可忽略；服务端改用该供应商 embedding_model",
     "input": "要向量化的文本，或字符串数组"
   }
 响应（统一信封）:

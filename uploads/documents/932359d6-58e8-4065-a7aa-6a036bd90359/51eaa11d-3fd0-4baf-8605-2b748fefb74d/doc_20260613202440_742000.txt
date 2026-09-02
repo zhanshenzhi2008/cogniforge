@@ -1,0 +1,180 @@
+impala::tst.customer_access_migration
+impala::tst.dp_resource_access_customer
+impala::tst.source
+impala::tst.cpm_data_consent
+impala::tst.level_change_log
+impala::tst.customer_access_log
+impala::tst.point_change_log
+impala::tst.user_submit_source
+impala::tst.customer
+impala::tst.udo_access_control
+impala::tst.general_tag_member
+impala::tst.s2c_employee_customer_relationship
+impala::tst.general_flow_stats
+impala::tst.content_tag_group_map
+impala::tst.udo4
+impala::tst.count_daily_stat
+impala::tst.analysis_dimension_result
+impala::tst.udo3
+impala::tst.udo1
+impala::tst.customer_access
+impala::tst.content_tag_group
+impala::tst.marketing_campaign
+impala::tst.udo20
+impala::tst.flow_stats
+impala::tst.filter_v4_verification_result
+impala::tst.cdp_table_partition
+impala::tst.qrcode_group_map
+impala::tst.user_submit
+impala::tst.source_content
+impala::tst.udo18
+impala::tst.DATABASECHANGELOGLOCK
+impala::tst.channel_send_details
+impala::tst.customer_dept
+impala::tst.wechat_corp_department
+impala::tst.ncode_list
+impala::tst.udo15
+impala::tst.customer_access_control
+impala::tst.customer_attribute
+impala::tst.company_setting
+impala::tst.wecom_group_chat_cust_relation
+impala::tst.wechat_corp_employee
+impala::tst.full_order
+impala::tst.dept
+impala::tst.customer_event
+impala::tst.wecom_group_chat_emp_relation
+impala::tst.nudo_table_meta
+impala::tst.customer_content_tag_detail
+impala::tst.page
+impala::tst.wechat_corp_external_user_relationship
+impala::tst.general_order
+impala::tst.field_value
+impala::tst.content_tag_stat
+impala::tst.content_resource_access_control
+impala::tst.event_group_mapping
+impala::tst.wecom_group_chat
+impala::tst.user
+impala::tst.tags
+impala::tst.s2c_depart_employee_relationship
+impala::tst.form
+impala::tst.udo8
+impala::tst.file_manager
+impala::tst.etl_log
+impala::tst.dp_resource_access_udo
+impala::tst.udo_access_log
+impala::tst.wechat_fans
+impala::tst.folder_content
+impala::tst.DATABASECHANGELOG
+impala::tst.wechat_template_message_result
+impala::tst.customer_identity
+impala::tst.analysis_conversion_result
+impala::tst.list
+impala::tst.analysis_funnel_result
+impala::tst.customer_merge_log
+impala::tst.udo_statistics
+impala::tst.source_sys
+impala::tst.udo5
+impala::tst.udo2
+impala::tst.form_field
+impala::tst.udo13
+impala::tst.udo11
+impala::tst.s2c_employee
+impala::tst.folder
+impala::tst.app_notification_identity
+impala::tst.customer_statistics
+impala::tst.wechat_card
+impala::tst.list_member
+impala::tst.content_tag
+impala::tst.udo_tag
+impala::tst.wechat_corp_external_user
+impala::tst.membership_attr
+impala::tst.udo12
+impala::tst.page_dt
+impala::tst.customer_tag
+impala::tst.nudo1
+impala::tst.udo10
+impala::tst.udo6
+impala::tst.udo7
+impala::tst.udo9
+impala::tst.ab_result_relation
+impala::tst.udo14
+impala::tst.udo16
+impala::tst.udo17
+impala::tst.s2c_department
+impala::tst.udo_access_migration
+impala::tst.udo19
+impala::tst.general_event
+impala::tst.mot_stats
+impala::tst.wechat_corp_employee_department_relationship
+impala::tst.mot_result
+impala::tst.general_list_member
+
+
+
+
+
++----------------+---------+------------------------------+                     
+|   identity_type| count(1)|count(DISTINCT identity_value)|
++----------------+---------+------------------------------+
+|c_douyin_unionid| 19991050|                      19991050|
+|          mobile| 78944715|                      78944715|
+|c_applet_wechat2| 26026496|                      26026496|
+|c_applet_wechat3|      516|                           516|
+|   applet-wechat| 79754299|                      79754299|
+|  wechat-unionid| 87764263|                      87764263|
+|        c_douyin| 19990014|                      19990014|
+|  alipay-account|  5324206|                       5324206|
+|        c_userId|122078122|                     122078122|
+|          wechat|  4213967|                       4213967|
++----------------+---------+------------------------------+
+
+
+
++------------------+-----------+
+| type             | count(*)  |
++------------------+-----------+
+| alipay_account   |   5324199 |
+| applet_wechat    |  28115292 |
+| c_applet_wechat2 |  26026477 |
+| c_douyin         |  19989956 |
+| c_douyin_unionid |  19990995 |
+| c_userId         | 122077900 |
+| mobile           |  78944713 |
+| wechat           |   4213967 |
+| wechat_unionid   |  87764134 |
++------------------+-----------+
+
+
++------------------+-----------+
+| type             | count(*)  |
++------------------+-----------+
+| alipay_account   |   5324199 |
+| applet_wechat    |  28115292 |
+| c_applet_wechat2 |  26026477 |
+| c_applet_wechat3 |       516 |
+| c_douyin         |  19989956 |
+| c_douyin_unionid |  19990995 |
+| c_userId         | 122077900 |
+| mobile           |  78944713 |
+| wechat           |   4213967 |
+| wechat_unionid   |  87764134 |
++------------------+-----------+
+
+/*+_maxwell_ignore_*/update customer_identity/*+_maxwell_ignore_*/ set type='alipay-account' where tenant_id = 287563 and type='alipay_account';
+/*+_maxwell_ignore_*/update customer_identity/*+_maxwell_ignore_*/ set type='applet-wechat' where tenant_id = 287563 and type='applet_wechat';
+
+/*+_maxwell_ignore_*/delete from customer_identity/*+_maxwell_ignore_*/ where tenant_id = 287563 and type='alipay_account';
+/*+_maxwell_ignore_*/delete from customer_identity/*+_maxwell_ignore_*/ where tenant_id = 287563 and type='applet_wechat';
+/*+_maxwell_ignore_*/delete from customer_identity/*+_maxwell_ignore_*/ where tenant_id = 287563 and type='applet_wechat';
+
+/*+_maxwell_ignore_*/update customer_identity/*+_maxwell_ignore_*/ set type='wechat-unionid' where tenant_id = 287563 and type='wechat_unionid' ;
+
+/*+_maxwell_ignore_*/insert into customer_identity/*+_maxwell_ignore_*/ set type='wechat-unionid' where tenant_id = 287563 and type='wechat_unionid' ON DUPLICATE KEY UPDATE tenant_id =?,customer_id=? and type='wechat-unionid' and value='o2Jpu6a___4BWalWSzcm_qj5bH0s';
+
+
+
+
+
+/*+_maxwell_ignore_*/update customer_identity/*+_maxwell_ignore_*/ set type='wechat_unionid' where tenant_id = 287563  and id = '1782879033184017920';
+
+/*+_maxwell_ignore_*/update customer_identity set type='wechat_unionid' where tenant_id = 287563  and id = '1782879033160674636';

@@ -11,6 +11,7 @@ import (
 
 	"cogniforge/internal/chat"
 	"cogniforge/internal/database"
+	"cogniforge/internal/memory"
 	"cogniforge/internal/provider"
 	"cogniforge/internal/quota"
 	"cogniforge/internal/response"
@@ -122,20 +123,17 @@ func (h *AgentHandler) AgentChat(c *gin.Context) {
 	agentID := c.Param("id")
 	userID := c.GetString("user_id")
 
-	var agent struct {
-		ID           string `json:"id"`
-		Model        string `json:"model"`
-		SystemPrompt string `json:"system_prompt"`
-	}
-
-	// 从数据库获取 Agent 信息
 	var dbAgent struct {
 		ID           string
 		UserID       string
 		Model        string
 		SystemPrompt string
+		MemoryType   string
+		MemoryTurns  int
 	}
-	if err := database.DB.Where("id = ? AND user_id = ?", agentID, userID).First(&dbAgent).Error; err != nil {
+	if err := database.DB.Where("id = ? AND user_id = ?", agentID, userID).
+		Select("id, user_id, model, system_prompt, memory_type, memory_turns").
+		First(&dbAgent).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			response.NotFound(c, "Agent 不存在")
 		} else {
@@ -144,16 +142,12 @@ func (h *AgentHandler) AgentChat(c *gin.Context) {
 		return
 	}
 
-	agent.ID = dbAgent.ID
-	agent.Model = dbAgent.Model
-	agent.SystemPrompt = dbAgent.SystemPrompt
-
 	var req struct {
-		Model       string        `json:"model"`
-		Messages    []ChatMessage `json:"messages" binding:"required"`
-		Stream      bool          `json:"stream"`
-		Temperature *float64      `json:"temperature,omitempty"`
-		MaxTokens   *int          `json:"max_tokens,omitempty"`
+		Model       string             `json:"model"`
+		Messages    []chat.ChatMessage `json:"messages" binding:"required"`
+		Stream      bool               `json:"stream"`
+		Temperature *float64           `json:"temperature,omitempty"`
+		MaxTokens   *int              `json:"max_tokens,omitempty"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, "Invalid request: "+err.Error())
@@ -165,20 +159,31 @@ func (h *AgentHandler) AgentChat(c *gin.Context) {
 		return
 	}
 
+	// 服务端滑动窗口裁剪（阶段十四 14.1）
+	if dbAgent.MemoryType != "off" {
+		turns := dbAgent.MemoryTurns
+		if turns <= 0 {
+			turns = 10
+		}
+		windowMsgs := toWindowMessages(req.Messages)
+		windowMsgs = memory.ApplyWindow(windowMsgs, turns, 0)
+		req.Messages = fromWindowMessages(windowMsgs)
+	}
+
 	model := req.Model
 	if model == "" {
-		model = agent.Model
+		model = dbAgent.Model
 	}
 	if model == "" {
 		model = h.defaultModel()
 	}
 
-	systemPrompt := agent.SystemPrompt
+	systemPrompt := dbAgent.SystemPrompt
 	if systemPrompt == "" {
 		systemPrompt = "You are a helpful AI assistant."
 	}
 
-	messages := append([]ChatMessage{{Role: "system", Content: systemPrompt}}, req.Messages...)
+	messages := append([]chat.ChatMessage{{Role: "system", Content: systemPrompt}}, req.Messages...)
 
 	if h.quota != nil {
 		if err := h.quota.Allow(c.Request.Context(), userID, "agent"); err != nil {
@@ -267,32 +272,38 @@ func (h *AgentHandler) defaultModel() string {
 	return ""
 }
 
+type ChatRequest struct {
+	Model       string             `json:"model"`
+	Messages    []chat.ChatMessage `json:"messages"`
+	Stream      bool               `json:"stream"`
+	Temperature *float64           `json:"temperature,omitempty"`
+	MaxTokens   *int              `json:"max_tokens,omitempty"`
+}
+
 func toServiceRequest(req *ChatRequest) *chat.ChatRequest {
-	msgs := make([]chat.ChatMessage, len(req.Messages))
-	for i, m := range req.Messages {
-		msgs[i] = chat.ChatMessage{Role: m.Role, Content: m.Content}
-	}
 	return &chat.ChatRequest{
 		Model:       req.Model,
-		Messages:    msgs,
+		Messages:    req.Messages,
 		Stream:      req.Stream,
 		Temperature: req.Temperature,
 		MaxTokens:   req.MaxTokens,
 	}
 }
 
-// ChatMessage 和 ChatRequest 供本接口绑定 JSON（Content 同 chat：string 或多模态数组）
-type ChatMessage struct {
-	Role    string `json:"role"`
-	Content any    `json:"content"`
+func toWindowMessages(in []chat.ChatMessage) []memory.WindowMessage {
+	out := make([]memory.WindowMessage, len(in))
+	for i, m := range in {
+		out[i] = memory.WindowMessage{Role: m.Role, Content: m.Content}
+	}
+	return out
 }
 
-type ChatRequest struct {
-	Model       string        `json:"model"`
-	Messages    []ChatMessage `json:"messages"`
-	Stream      bool          `json:"stream"`
-	Temperature *float64      `json:"temperature,omitempty"`
-	MaxTokens   *int          `json:"max_tokens,omitempty"`
+func fromWindowMessages(in []memory.WindowMessage) []chat.ChatMessage {
+	out := make([]chat.ChatMessage, len(in))
+	for i, m := range in {
+		out[i] = chat.ChatMessage{Role: m.Role, Content: m.Content}
+	}
+	return out
 }
 
 // RegisterRoutes 注册路由

@@ -76,3 +76,4 @@ API：`GET/PUT /api/v1/conversations/:id` 读写 `message_queue`；列表摘要�
 - 「分叉成新会话」（二期）
 - Cmd+Enter 停止并立刻发送（可很快补）
 - 跨会话全局队列
+- PDF / Word 等非图片文件（**阶段十三**，等 RAG 完全没问题，见 `04-playground-files-rag.md`）

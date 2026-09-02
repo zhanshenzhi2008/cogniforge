@@ -1,6 +1,7 @@
 package chat
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"time"
@@ -246,4 +247,16 @@ func (s *ConversationService) Delete(userID, id string) error {
 		return errConversationNotFound
 	}
 	return nil
+}
+
+// UpdateSummary 追加消息并更新摘要（阶段十四 14.3 滚动摘要）
+func (s *ConversationService) UpdateSummary(ctx context.Context, userID, id string, messages []model.ConversationMessage, summary string) error {
+	return s.db.WithContext(ctx).
+		Model(&model.ChatConversation{}).
+		Where("id = ? AND user_id = ?", id, userID).
+		Updates(map[string]any{
+			"messages":  messages,
+			"summary":   summary,
+			"updated_at": time.Now(),
+		}).Error
 }

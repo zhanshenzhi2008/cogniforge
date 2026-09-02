@@ -224,7 +224,15 @@ RAG 默认走 Go `POST /api/v1/embeddings`，上游是当前启用的 `ai_provid
 
 **当前方案**：Python `.env` 设 `EMBEDDER_TYPE=local`（需安装 `sentence-transformers`）。聊天仍走模型页那一套。
 
-**后续**：`ai_providers` 可增加独立的 embedding 模型字段，与聊天模型分开。
+**状态**：🟢 已落地（2026-08-25）：供应商勾选用途「对话 / 向量」；知识库只用向量默认。DeepSeek 只勾对话即可。
+
+### 6. RAG 分块 overlap 导致死循环（已修复 2026-08-22）
+
+**问题描述**：`RecursiveCharacterSplitter` 用 `start = end - overlap` 推进。最后一块 `end == len(text)` 时 start 不再前进，循环保护会吐出 10 万块，再去调 `/embeddings` 得到 502。
+
+**修复**：`cogniforge-ai/services/rag/splitters/recursive_splitter.py` 保证 `next_start > start`，切完全文即停。
+
+**状态**：🟢 已修复
 
 ---
 

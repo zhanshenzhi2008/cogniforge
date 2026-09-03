@@ -3,6 +3,7 @@
 ## [变更记录]
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|---------|--------|
+| 2026-09-03 | v1.13 | §1.2 命名规范新增 MySQL 字符集/排序规则、索引命名规范（idx_/uk_/fk_ 前缀）、字段缩写规则 | orjrs |
 | 2026-09-02 | v1.12 | chat_memories 表（阶段十四 14.4 长期记忆）；字段：id/user_id/agent_id/conversation_id/kind/content/importance/metadata | orjrs |
 | 2026-08-21 | v1.8 | chat_conversations 增加 message_queue 排队字段 | orjrs |
 | 2026-08-21 | v1.7 | chat_conversations.messages 支持 images 附图字段 | orjrs |
@@ -120,6 +121,64 @@
 -- 更新时间: updated_at
 -- 删除时间: deleted_at (软删除)
 ```
+
+### 1.3 MySQL 规范（若使用 MySQL 8.0+）
+
+#### 1.3.1 字符集与排序规则
+
+| 配置项 | 值 |
+|--------|-----|
+| 字符集（CHARSET） | `utf8mb4` |
+| 排序规则（COLLATE） | `utf8mb4_0900_ai_ci` |
+
+> `utf8mb4_0900_ai_ci`：MySQL 8.0+ 支持，**ai** = accent insensitive（变音符号不敏感），**ci** = case insensitive（大小写不敏感）。优先使用此排序规则。
+
+#### 1.3.2 索引命名规范
+
+| 类型 | 命名格式 | 示例 |
+|------|----------|------|
+| 普通索引 | `idx_{字段1}[_{字段2}[_{字段3}...]]` | `idx_user_id`、`idx_created_at_status` |
+| 唯一索引 | `uk_{字段1}[_{字段2}...]` | `uk_user_email`、`uk_conv_msg_seq` |
+| 外键索引 | `fk_{表名}_{ReferencedTable}` | `fk_message_conversation`、`fk_conv_user` |
+
+#### 1.3.3 字段缩写规则（索引名超 64 字符时使用）
+
+缩写必须**可读、可猜**。常见字段缩写速查：
+
+| 完整字段 | 常用缩写 | 规则说明 |
+|----------|----------|----------|
+| `user_id` | `uid` | 最常用直接用 `uid` |
+| `project_id` | `proj_id` | 保留首尾辅音 |
+| `conversation_id` | `conv_id` / `cnv_id` | 同上 |
+| `message_id` | `msg_id` | 同上 |
+| `provider_id` | `prov_id` | 保留首尾 |
+| `model_id` | `mdl_id` | 同上 |
+| `created_at` | `crt_at` / `ct_at` | 保留关键词 |
+| `updated_at` | `upd_at` / `ut_at` | 同上 |
+| `is_deleted` | `del` | 去掉 `is_` 前缀 |
+| `status` | `st` | 短词不缩写 |
+| `timestamp` | `ts` | 国际通用 |
+| `sequence` | `seq` | 同上 |
+
+**缩写原则**：
+- 缩写后总长度不超过 **64 字符**（MySQL 索引名上限）
+- 优先保留字段的**核心语义**，去掉元音可大幅缩短
+- 常见通用词（`id`、`at`、`ts`）不重复缩写
+- 新缩写需在团队内达成共识，避免歧义
+
+#### 1.3.4 索引名长度处理流程
+
+1. 原始字段拼接 → `idx_field1_field2_field3...`
+2. 若 ≤ 64 字符，直接使用
+3. 若 > 64 字符，按优先级裁剪字段或应用缩写：
+   - 去掉 `id`、`at` 等通用后缀（可推知）
+   - 字段按业务重要性排序，删掉最不重要的字段
+   - 对长字段应用缩写规则
+4. 最终仍超 64 字符时，在文档中说明原因并记录。
+
+#### 1.3.5 PostgreSQL 兼容性说明
+
+本项目后端使用 **GORM（Go）+ PostgreSQL**，但索引命名规范同样适用于 MySQL 迁移场景（见 §1.3.2~1.3.4）。PostgreSQL 实际执行时可省略索引名（自动命名），但代码/文档中仍需遵循此规范以保持跨数据库一致性。
 
 ---
 

@@ -14,6 +14,9 @@ type ChatRequest struct {
 	Messages []ChatMessage `json:"messages" binding:"required"`
 	Stream   bool          `json:"stream"`
 
+	// 阶段十五 15.2：MCP 工具列表（由 MCP Registry 注入）
+	Tools []ToolCallSpec `json:"tools,omitempty"`
+
 	// 滑动窗口参数（阶段十四 14.1）
 	// MemoryTurns: 窗口轮数，默认 10，范围 1–40。0=禁用服务端裁剪。
 	// MaxInputTokens: Token 预算上限，0=不限。
@@ -42,6 +45,8 @@ type ChatChoice struct {
 	Index        int         `json:"index"`
 	Message      ChatMessage `json:"message"`
 	FinishReason string      `json:"finish_reason"`
+	// 阶段十五 15.2：OpenAI tool_calls 字段（不在 Content 里）
+	ToolCalls []map[string]any `json:"tool_calls,omitempty"`
 }
 
 type ChatUsage struct {
@@ -83,6 +88,55 @@ type ModelInfo struct {
 
 type ListModelsResponse struct {
 	Models []ModelInfo `json:"models"`
+}
+
+// ToolCallSpec 工具调用规格（阶段十五 15.2）
+type ToolCallSpec struct {
+	Type        string                 `json:"type"`                 // 固定 "function"
+	Function    ToolFunctionSpec       `json:"function"`
+}
+
+type ToolFunctionSpec struct {
+	Name        string                 `json:"name"`
+	Description string                 `json:"description"`
+	Parameters  map[string]interface{} `json:"parameters"` // JSON Schema
+}
+
+// ToolCall 工具调用请求（上游 LLM 返回）
+type ToolCall struct {
+	ID       string                 `json:"id"`
+	Type     string                 `json:"type"`
+	Function ToolCallFunction       `json:"function"`
+}
+
+type ToolCallFunction struct {
+	Name      string                 `json:"name"`
+	Arguments string                 `json:"arguments"` // JSON string
+}
+
+// ToolResult 工具执行结果
+type ToolResult struct {
+	ToolCallID string `json:"tool_call_id"`
+	Role       string `json:"role"` // "tool"
+	Content    string `json:"content"`
+	IsError    bool   `json:"is_error,omitempty"`
+}
+
+// ToolExecutor 工具执行器接口（阶段十五 15.2）
+type ToolExecutor interface {
+	Execute(call ToolCall) (result string, err error)
+}
+type ToolCallResponse struct {
+	ID       string `json:"id"`
+	Object   string `json:"object"`
+	Created  int64  `json:"created"`
+	Model    string `json:"model"`
+	Choices  []struct {
+		Index        int            `json:"index"`
+		Message      ChatMessage    `json:"message"`
+		FinishReason string         `json:"finish_reason"`
+	} `json:"choices"`
+	Usage ChatUsage `json:"usage"`
 }
 
 // EmbeddingsRequest OpenAI 兼容：input 可以是字符串或字符串数组

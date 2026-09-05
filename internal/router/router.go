@@ -11,8 +11,10 @@ import (
 	"cogniforge/internal/chat"
 	"cogniforge/internal/config"
 	"cogniforge/internal/httpclient"
+	"cogniforge/internal/skillimport"
 	"cogniforge/internal/knowledge"
 	"cogniforge/internal/mail"
+	"cogniforge/internal/mcp"
 	"cogniforge/internal/middleware"
 	"cogniforge/internal/modelcache"
 	"cogniforge/internal/memory"
@@ -20,6 +22,7 @@ import (
 	"cogniforge/internal/provider"
 	"cogniforge/internal/quota"
 	"cogniforge/internal/rbac"
+	"cogniforge/internal/skill"
 	"cogniforge/internal/token"
 	"cogniforge/internal/user"
 	"cogniforge/internal/workflow"
@@ -59,6 +62,9 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 	knowledgeHandler := knowledge.NewKnowledgeHandler(pythonClient)
 	agentHandler := agent.NewAgentHandler(providerSvc, chatHandler.Service(), quotaSvc)
 	monitorHandler := monitor.NewMonitorHandler()
+	mcpHandler := mcp.NewHandler(db)
+	skillHandler := skill.NewHandler(db)
+	importHandler := skillimport.NewHandler(db)
 	rbacHandler := rbac.NewRBACHandler()
 	tokenSvc := token.NewService(rdb)
 	tokenHandler := token.NewHandler(tokenSvc)
@@ -123,6 +129,15 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 
 			// Agent
 			agentHandler.RegisterRoutes(authenticated)
+
+			// MCP Server 管理（阶段十五 15.1）
+			mcpHandler.RegisterRoutes(authenticated)
+
+			// SKILL 管理（阶段十五 15.3）
+			skillHandler.RegisterRoutes(authenticated)
+
+			// SKILL 导入（Markdown / ZIP）
+			importHandler.RegisterRoutes(authenticated)
 
 			// 长期记忆 CRUD（阶段十四 14.5）
 			memoryHandler.RegisterRoutes(authenticated)

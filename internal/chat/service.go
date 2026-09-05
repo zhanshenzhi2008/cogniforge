@@ -136,6 +136,106 @@ func (s *ChatService) Chat(req *ChatRequest) (*ChatResponse, error) {
 	return &chatResp, nil
 }
 
+// ChatWithTools 带工具调用的对话（阶段十五 15.2）
+// 调用循环：发消息 → 检查 tool_calls → 执行工具 → 把结果塞回 → 继续发
+// MaxToolCalls = 5 硬上限，防止无限循环；实际次数由模型自主决定（没有 tool_calls 即停）
+const MaxToolCalls = 5
+
+func (s *ChatService) ChatWithTools(req *ChatRequest, toolExecutor ToolExecutor) (*ChatResponse, error) {
+	if req.Model == "" {
+		req.Model = s.defaultModel()
+	}
+
+	baseURL, apiKey, extraHeaders, err := s.activeChatConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	providerURL := s.aiChatCompletionsURL(baseURL)
+
+	// 动态循环：最多 MaxToolCalls 次，模型说没有 tool_calls 就停
+	for i := 0; i < MaxToolCalls; i++ {
+		payload := s.buildPayload(req, false)
+		body, _ := json.Marshal(payload)
+
+		httpReq, err := http.NewRequest("POST", providerURL, bytes.NewBuffer(body))
+		if err != nil {
+			return nil, err
+		}
+		httpReq.Header.Set("Content-Type", "application/json")
+		httpReq.Header.Set("Authorization", "Bearer "+apiKey)
+		for k, v := range extraHeaders {
+			httpReq.Header.Set(k, v)
+		}
+
+		client := &http.Client{Timeout: 60 * time.Second}
+		resp, err := client.Do(httpReq)
+		if err != nil {
+			return nil, err
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			respBody, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			return nil, fmt.Errorf("AI provider returned status %d: %s", resp.StatusCode, string(respBody))
+		}
+
+		var chatResp ChatResponse
+		if err := json.NewDecoder(resp.Body).Decode(&chatResp); err != nil {
+			resp.Body.Close()
+			return nil, err
+		}
+		resp.Body.Close()
+
+		// 优先提取 tool_use_message_groups（Claude 格式）
+		toolCalls := extractToolCalls(&chatResp)
+		if len(toolCalls) == 0 {
+			// 没有任何工具调用 → 模型决定结束，返回
+			return &chatResp, nil
+		}
+
+		// 执行工具并把结果追加到 messages
+		for _, tc := range toolCalls {
+			result, execErr := toolExecutor.Execute(tc)
+			content := "Error: " + execErr.Error()
+			if execErr == nil {
+				content = result
+			}
+			req.Messages = append(req.Messages, ChatMessage{
+				Role:    "tool",
+				Content: content,
+			})
+		}
+		// 继续下一次循环，把结果发给模型让它决定下一步
+	}
+
+	// 达到 MaxToolCalls 硬上限，不再发请求，直接返回已有结果
+	// 实际应用中建议此时给出警告日志
+	return nil, fmt.Errorf("tool call limit (%d) reached, please reduce tool usage", MaxToolCalls)
+}
+
+// extractToolCalls 从 chat response 中提取 tool_calls
+func extractToolCalls(resp *ChatResponse) []ToolCall {
+	var calls []ToolCall
+	for _, choice := range resp.Choices {
+		for _, tcRaw := range choice.ToolCalls {
+			tc := ToolCall{}
+			if id, ok := tcRaw["id"].(string); ok {
+				tc.ID = id
+			}
+			if t, ok := tcRaw["type"].(string); ok {
+				tc.Type = t
+			}
+			if fn, ok := tcRaw["function"].(map[string]any); ok {
+				tc.Function.Name, _ = fn["name"].(string)
+				tc.Function.Arguments, _ = fn["arguments"].(string)
+			}
+			calls = append(calls, tc)
+		}
+	}
+	return calls
+}
+
 // ChatStream 流式对话。返回本次 usage（上游没有则估算）。
 func (s *ChatService) ChatStream(c *gin.Context, req *ChatRequest) (*ChatUsage, error) {
 	if req.Model == "" {
@@ -292,6 +392,10 @@ func (s *ChatService) buildPayload(req *ChatRequest, stream bool) map[string]any
 	}
 	if req.TopP != nil {
 		payload["top_p"] = *req.TopP
+	}
+	// 阶段十五 15.2：注入 MCP 工具
+	if len(req.Tools) > 0 {
+		payload["tools"] = req.Tools
 	}
 	return payload
 }

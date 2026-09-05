@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-09-05 | v1.22 | 新增 SKILL 外部导入接口（Markdown/ZIP），支持 ZIP 批量导入多个 Skill；参考 Claude Skills SKILL.md 格式；内置 URL 安全校验 | orjrs |
 | 2026-09-02 | v1.21 | 14.5 长期记忆 CRUD：Go POST/GET/DELETE /api/v1/memories；chat_memories 表 + ChatMemory model | orjrs |
 | 2026-09-02 | v1.16 | 新增 LLM 临时凭证接口（阶段十四 14.0）：GET /token/llm、POST /token/validate | orjrs |
 | 2026-08-25 | v1.15 | embeddings 改走向量默认供应商，不再与聊天共用 default_model | orjrs |
@@ -574,7 +575,168 @@ DELETE /api/v1/conversations/{id}
 
 ---
 
-## 4. Agent接口
+## 4. SKILL 管理与导入
+
+### 4.1 SKILL 列表与 CRUD
+
+> 基础 CRUD 接口见 `docs/01-requirements/06-mcp-skill-design.md` §15.3。
+
+```yaml
+接口组: /api/v1/skills
+认证: JWT
+
+GET /api/v1/skills
+描述: 获取 SKILL 列表（内置 + 当前用户创建的）
+响应:
+  {
+    "code": 2000,
+    "data": [Skill, ...]
+  }
+
+POST /api/v1/skills
+描述: 创建自定义 SKILL
+请求体: CreateSkillRequest（见 internal/skill/service.go）
+
+GET /api/v1/skills/:id
+描述: 获取 SKILL 详情
+
+PUT /api/v1/skills/:id
+描述: 更新 SKILL（内置不可改）
+
+DELETE /api/v1/skills/:id
+描述: 删除 SKILL（内置不可删）
+```
+
+### 4.2 SKILL 外部导入（Markdown / ZIP）
+
+> 阶段十五 15.3 扩展：支持导入 Claude Skills 格式的 SKILL.md。
+> 导入后作为用户自定义 SKILL 入库，内置不可修改。
+
+#### 4.2.1 Markdown 文本导入
+
+```yaml
+POST /api/v1/import/skills/markdown
+描述: 导入单个 SKILL.md 文本
+认证: JWT
+Content-Type: application/json
+请求体:
+  {
+    "content": "---\nname: my-skill\ndescription: ...\n---\n\n## Instructions\n..."
+  }
+
+成功响应 201:
+  {
+    "code": 2001,
+    "data": {
+      "skill": { ... },           # 新创建的 Skill
+      "warnings": []                # 非致命警告（如 description 过长）
+    }
+  }
+
+失败响应 400:
+  {
+    "code": 1400,
+    "message": "校验错误描述"
+  }
+```
+
+#### 4.2.2 文件上传导入
+
+```yaml
+POST /api/v1/import/skills/file
+描述: 上传 .md 或 .zip 导入 SKILL
+认证: JWT
+Content-Type: multipart/form-data
+表单字段:
+  - file: SKILL.md 或 skill-name.zip（必填）
+
+ZIP 包结构（支持批量，每个子目录一个 Skill）：
+  skill-pack.zip
+  ├── SKILL.md          # 根目录 → 单个 Skill
+  ├── skill-a/          # 子目录 → 单独一个 Skill
+  │   ├── SKILL.md
+  │   └── references/
+  │       └── doc.md
+  └── skill-b/
+      ├── SKILL.md
+      └── scripts/
+          └── run.sh
+
+批量导入响应（ZIP）：
+  {
+    "code": 2001,
+    "data": {
+      "total": 3,
+      "success": 2,
+      "failed": 1,
+      "results": [
+        { "skill": {...}, "warnings": [] },
+        { "skill": {...}, "warnings": ["description 超过 1536 字符"] },
+        { "errors": ["解析失败: ..."] }
+      ]
+    }
+  }
+```
+
+### 4.3 Claude SKILL.md 格式说明
+
+> 参考 [Claude Skills 开放标准](https://code.claude.com/docs/en/skills.md)，被 Claude Code、Cursor、Codex CLI 等多 agent 支持。
+
+**文件格式：** Markdown + YAML frontmatter
+
+```markdown
+---
+name: skill-name                    # 必需，显示名称
+description: 技能描述（用于 AI 路由） # 必需
+when_to_use: 触发场景描述            # 可选
+allowed-tools:                      # 可选：预批准工具
+  - Bash(gh pr list *)
+  - Read
+  - Write
+arguments: branch message           # 可选：命名参数
+context: fork                      # 可选：fork=隔离子代理
+model: claude-opus-4-5             # 可选：指定模型
+effort: high                        # 可选：思考预算
+version: "1.0.0"                    # 可选
+user-invocable: true               # 可选：是否可手动触发
+disable-model-invocation: false     # 可选：禁止模型自动调用
+paths: "**/*.py"                    # 可选：路径过滤
+---
+## Instructions
+
+你的 AI 技能指令内容...
+支持 Markdown 格式。
+```
+
+**字段映射到 CogniForge Skill：**
+
+| SKILL.md 字段 | → | CogniForge Skill 字段 |
+|---|---|---|
+| `name` | → | `name` |
+| `description` + `when_to_use` | → | `description` |
+| body (Markdown) | → | `instructions` |
+| `allowed-tools` | → | `constraints`（"允许使用: ..."） |
+| `model` | → | `model` |
+| `version` | → | `version` |
+| `context: fork` | → | ⚠️ 警告（子代理未完整实现） |
+
+### 4.4 导入安全校验
+
+| 校验项 | 规则 | 处理 |
+|---|---|---|
+| 协议白名单 | 仅 `https://`；信任域名可 `http://` | 拒绝 |
+| 内网 IP 阻断 | `127.0.0.1`/`localhost`/`10.x`/`192.168.x` 等 | 拒绝 |
+| DNS 反查 | 域名解析到内网 IP → 拒绝 | 拒绝 |
+| 危险协议 | `javascript:`/`data:`/`file:`/`vbscript:` | 拒绝 |
+| 文件大小 | 默认 ≤ 10 MB（`import.max_size_mb` 可配） | 拒绝 |
+| 引用数量 | 正文引用 > 50 个 URL → 警告 | 警告 |
+| ZIP 安全 | 路径穿越（`../`）检测；仅允许 `references/`/`scripts/`/`assets/` 子目录 | 拒绝 |
+| `context: fork` | ⚠️ 提示功能未完整实现 | 警告 |
+| 描述长度 | `description` > 1536 字符 → 警告 | 警告 |
+
+---
+
+## 5. Agent接口
 
 ### 4.1 Agent管理
 
@@ -1595,6 +1757,6 @@ HTTP 层（兼容旧表）：
 
 ---
 
-**文档版本**: v1.7  
-**最后更新**: 2026-08-18  
+**文档版本**: v1.22
+**最后更新**: 2026-09-05
 **维护团队**: CogniForge API 团队

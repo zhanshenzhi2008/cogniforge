@@ -11,18 +11,18 @@ import (
 	"cogniforge/internal/chat"
 	"cogniforge/internal/config"
 	"cogniforge/internal/httpclient"
-	"cogniforge/internal/skillimport"
 	"cogniforge/internal/knowledge"
 	"cogniforge/internal/mail"
 	"cogniforge/internal/mcp"
+	"cogniforge/internal/memory"
 	"cogniforge/internal/middleware"
 	"cogniforge/internal/modelcache"
-	"cogniforge/internal/memory"
 	"cogniforge/internal/monitor"
 	"cogniforge/internal/provider"
 	"cogniforge/internal/quota"
 	"cogniforge/internal/rbac"
 	"cogniforge/internal/skill"
+	"cogniforge/internal/skillimport"
 	"cogniforge/internal/token"
 	"cogniforge/internal/user"
 	"cogniforge/internal/workflow"
@@ -43,7 +43,7 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 	providerSvc.RefreshCache()
 	providerHandler := provider.NewHandler(providerSvc)
 
-	authSvc := auth.NewAuthServiceWithDeps(db, rdb, buildMailer(cfg), cfg.Mail.PublicURL)
+	authSvc := auth.NewAuthServiceWithDeps(db, rdb, buildMailer(cfg))
 	authHandler := auth.NewAuthHandlerWithService(authSvc)
 	userHandler := user.NewUserHandler()
 

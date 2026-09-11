@@ -31,7 +31,6 @@ mail:
   provider: ${MAIL_PROVIDER:-smtp}
   api_key: ${RESEND_API_KEY:-}
   from: ${MAIL_FROM:-}
-  public_url: ${APP_PUBLIC_URL:-http://localhost:3000}
   smtp_host: ${SMTP_HOST:-smtp.qq.com}
   smtp_port: ${SMTP_PORT:-465}
   smtp_user: ${SMTP_USER:-}

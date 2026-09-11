@@ -25,7 +25,6 @@ type MailConfig struct {
 	Provider     string `mapstructure:"provider"`
 	APIKey       string `mapstructure:"api_key"`
 	From         string `mapstructure:"from"`
-	PublicURL    string `mapstructure:"public_url"`
 	SMTPHost     string `mapstructure:"smtp_host"`
 	SMTPPort     int    `mapstructure:"smtp_port"`
 	SMTPUser     string `mapstructure:"smtp_user"`

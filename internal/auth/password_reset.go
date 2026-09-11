@@ -19,9 +19,9 @@ import (
 )
 
 const (
-	pwdResetTTL      = 30 * time.Minute
-	pwdResetRateTTL  = 15 * time.Minute
-	pwdResetRateMax  = 3
+	pwdResetTTL       = 30 * time.Minute
+	pwdResetRateTTL   = 15 * time.Minute
+	pwdResetRateMax   = 3
 	pwdResetTokPrefix = "cogniforge:pwdreset:tok:"
 	pwdResetUIDPrefix = "cogniforge:pwdreset:uid:"
 	pwdResetRLPrefix  = "cogniforge:pwdreset:rl:"
@@ -41,7 +41,7 @@ func (s *AuthService) PasswordResetOptions() PasswordResetOptions {
 }
 
 // RequestPasswordReset 请求重置：无论邮箱是否存在都返回同一提示（防枚举）。
-func (s *AuthService) RequestPasswordReset(ctx context.Context, email string) error {
+func (s *AuthService) RequestPasswordReset(ctx context.Context, email string, publicURL string) error {
 	email = strings.TrimSpace(strings.ToLower(email))
 	if email == "" || !isValidEmail(email) {
 		return fmt.Errorf("请输入有效的邮箱地址")
@@ -76,7 +76,12 @@ func (s *AuthService) RequestPasswordReset(ctx context.Context, email string) er
 		return fmt.Errorf("服务暂时不可用，请稍后再试")
 	}
 
-	link := strings.TrimRight(s.publicURL, "/") + "/reset-password?token=" + token
+	// 优先使用传入的 publicURL，兜底使用配置的默认值
+	baseURL := publicURL
+	if baseURL == "" {
+		baseURL = "http://localhost:3000"
+	}
+	link := strings.TrimRight(baseURL, "/") + "/reset-password?token=" + token
 	html := fmt.Sprintf(`<p>你好，%s：</p>
 <p>请在 30 分钟内点击下面的链接重置 CogniForge 密码：</p>
 <p><a href="%s">%s</a></p>

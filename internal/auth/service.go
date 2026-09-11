@@ -20,24 +20,20 @@ import (
 )
 
 type AuthService struct {
-	db        *gorm.DB
-	rdb       *redis.Client
-	mailer    mail.Sender
-	publicURL string
+	db     *gorm.DB
+	rdb    *redis.Client
+	mailer mail.Sender
 }
 
 func NewAuthService() *AuthService {
-	return &AuthService{db: database.DB, mailer: mail.Nop{}, publicURL: "http://localhost:3000"}
+	return &AuthService{db: database.DB, mailer: mail.Nop{}}
 }
 
-func NewAuthServiceWithDeps(db *gorm.DB, rdb *redis.Client, mailer mail.Sender, publicURL string) *AuthService {
+func NewAuthServiceWithDeps(db *gorm.DB, rdb *redis.Client, mailer mail.Sender) *AuthService {
 	if mailer == nil {
 		mailer = mail.Nop{}
 	}
-	if publicURL == "" {
-		publicURL = "http://localhost:3000"
-	}
-	return &AuthService{db: db, rdb: rdb, mailer: mailer, publicURL: publicURL}
+	return &AuthService{db: db, rdb: rdb, mailer: mailer}
 }
 
 // InitDefaultAdmin 初始化默认管理员

@@ -132,7 +132,11 @@ func (h *AuthHandler) ForgotPassword(c *gin.Context) {
 		response.BadRequest(c, "请输入有效的邮箱地址")
 		return
 	}
-	err := h.service.RequestPasswordReset(c.Request.Context(), req.Email)
+
+	// 动态获取当前请求的 origin，避免依赖静态 APP_PUBLIC_URL
+	publicURL := getRequestOrigin(c)
+
+	err := h.service.RequestPasswordReset(c.Request.Context(), req.Email, publicURL)
 	if err != nil {
 		if errors.Is(err, errMailDisabled) {
 			response.FailWithHTTPStatus(c, http.StatusServiceUnavailable, response.CodeServiceUnavailable, "邮件重置尚未配置，请联系管理员在「用户」页重置密码")
@@ -154,6 +158,36 @@ func (h *AuthHandler) ForgotPassword(c *gin.Context) {
 		return
 	}
 	response.SuccessWithMessage(c, nil, "如果该邮箱已注册，你将收到一封重置邮件（请同时检查垃圾箱）")
+}
+
+// getRequestOrigin 从请求 Header 动态获取 origin
+// 优先级：X-Forwarded-Host > Host > Origin
+func getRequestOrigin(c *gin.Context) string {
+	// 反向代理场景
+	if host := c.GetHeader("X-Forwarded-Host"); host != "" {
+		scheme := c.GetHeader("X-Forwarded-Proto")
+		if scheme == "" {
+			scheme = "https" // 默认 https
+		}
+		return scheme + "://" + host
+	}
+
+	// 直接请求场景
+	if origin := c.GetHeader("Origin"); origin != "" {
+		return origin
+	}
+
+	// Fallback: 使用 Host
+	if host := c.GetHeader("Host"); host != "" {
+		scheme := "http"
+		if c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https" {
+			scheme = "https"
+		}
+		return scheme + "://" + host
+	}
+
+	// 兜底：使用配置的默认值
+	return ""
 }
 
 // ResetPassword 用邮件令牌设新密码

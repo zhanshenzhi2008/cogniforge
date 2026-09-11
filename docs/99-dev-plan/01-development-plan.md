@@ -152,13 +152,13 @@
 
 - **变更原因**：DuckDNS 无法做 Resend 发信域名；改用 QQ 邮箱 SMTP 授权码
 - **包含代码**：`internal/mail/smtp.go`；默认 `MAIL_PROVIDER=smtp`
-- **怎么开**：QQ 邮箱开 SMTP → 授权码写入 `.env` 的 `SMTP_PASSWORD`；`APP_PUBLIC_URL` 可用 DuckDNS
+- **怎么开**：QQ 邮箱开 SMTP → 授权码写入 `.env` 的 `SMTP_PASSWORD`
 
 ## [变更] Resend 邮件重置（2026-08-20）
 
 - **变更原因**：用户选定 Resend 做免费发信
 - **包含代码**：`internal/mail`；auth forgot/reset；Web 忘记/重置页；Redis `cogniforge:pwdreset:*`
-- **配置**：`.env` 中 `RESEND_API_KEY`、`MAIL_FROM`、`APP_PUBLIC_URL`
+- **配置**：`.env` 中 `RESEND_API_KEY`、`MAIL_FROM`
 - **变更前 vs 变更后**：~~仅管理员临时密码~~（2026-08-20）→ 可邮件自助；未配 Key 时前端仍显示管理员指引
 
 ## [变更] 忘记密码（2026-08-20）

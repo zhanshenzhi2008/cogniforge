@@ -130,14 +130,14 @@
 
 - **变更原因**：用户无自有域名，改用 QQ 邮箱 SMTP（授权码），不依赖 Resend 域名验证
 - **包含代码**：`internal/mail/smtp.go`；`MAIL_PROVIDER=smtp`；`.env.example`
-- **配置**：`SMTP_HOST=smtp.qq.com`、`SMTP_PORT=465`、`SMTP_USER`、`SMTP_PASSWORD`（授权码）、`MAIL_FROM`、`APP_PUBLIC_URL`
+- **配置**：`SMTP_HOST=smtp.qq.com`、`SMTP_PORT=465`、`SMTP_USER`、`SMTP_PASSWORD`（授权码）、`MAIL_FROM`
 - **变更前 vs 变更后**：~~默认仅 Resend~~（2026-08-20）→ 默认 SMTP（QQ）；Resend 仍可选
 
 ## [变更] Resend 邮件重置密码（2026-08-20）
 
 - **变更原因**：要真正「邮箱自己重置」，选用 Resend API
 - **包含代码**：`internal/mail`；`auth` Forgot/Reset；Web `/forgot-password`、`/reset-password`
-- **配置**：`RESEND_API_KEY`、`MAIL_FROM`、`APP_PUBLIC_URL`（见 `.env.example`）  
+- **配置**：`RESEND_API_KEY`、`MAIL_FROM`（见 `.env.example`）  
   ~~仅 Resend~~（2026-08-20）→ 也可 `MAIL_PROVIDER=smtp` + QQ `SMTP_*`（见 `.env.example`）
 - **接口**：
   - `GET /api/v1/auth/password-reset-options` → `{ email_enabled, admin_reset }`

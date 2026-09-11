@@ -40,7 +40,7 @@ func setupResetTest(t *testing.T) (*AuthService, *captureMailer, *miniredis.Mini
 	rdb := redis.NewClient(&redis.Options{Addr: mr.Addr()})
 
 	m := &captureMailer{}
-	svc := NewAuthServiceWithDeps(db, rdb, m, "http://localhost:3000")
+	svc := NewAuthServiceWithDeps(db, rdb, m)
 	require.NoError(t, db.Create(&model.User{
 		ID:       "u-reset-1",
 		Email:    "reset@example.com",
@@ -54,7 +54,7 @@ func setupResetTest(t *testing.T) (*AuthService, *captureMailer, *miniredis.Mini
 
 func TestRequestPasswordReset_SendsMail(t *testing.T) {
 	svc, m, _ := setupResetTest(t)
-	require.NoError(t, svc.RequestPasswordReset(context.Background(), "reset@example.com"))
+	require.NoError(t, svc.RequestPasswordReset(context.Background(), "reset@example.com", "http://localhost:3000"))
 	require.Equal(t, 1, m.n)
 	require.Equal(t, "reset@example.com", m.last.To)
 	require.Contains(t, m.last.HTML, "/reset-password?token=")
@@ -62,13 +62,13 @@ func TestRequestPasswordReset_SendsMail(t *testing.T) {
 
 func TestRequestPasswordReset_UnknownEmailSilent(t *testing.T) {
 	svc, m, _ := setupResetTest(t)
-	require.NoError(t, svc.RequestPasswordReset(context.Background(), "nobody@example.com"))
+	require.NoError(t, svc.RequestPasswordReset(context.Background(), "nobody@example.com", "http://localhost:3000"))
 	require.Equal(t, 0, m.n)
 }
 
 func TestResetPasswordWithToken_OK(t *testing.T) {
 	svc, m, mr := setupResetTest(t)
-	require.NoError(t, svc.RequestPasswordReset(context.Background(), "reset@example.com"))
+	require.NoError(t, svc.RequestPasswordReset(context.Background(), "reset@example.com", "http://localhost:3000"))
 	require.Equal(t, 1, m.n)
 
 	// 从 redis 取 token
@@ -87,7 +87,7 @@ func TestResetPasswordWithToken_OK(t *testing.T) {
 }
 
 func TestPasswordResetOptions_RequiresMailAndRedis(t *testing.T) {
-	svc := NewAuthServiceWithDeps(nil, nil, mail.Nop{}, "")
+	svc := NewAuthServiceWithDeps(nil, nil, mail.Nop{})
 	opts := svc.PasswordResetOptions()
 	require.False(t, opts.EmailEnabled)
 	require.True(t, opts.AdminReset)
@@ -97,9 +97,9 @@ func TestRequestPasswordReset_RateLimit(t *testing.T) {
 	svc, _, _ := setupResetTest(t)
 	ctx := context.Background()
 	for i := 0; i < pwdResetRateMax; i++ {
-		require.NoError(t, svc.RequestPasswordReset(ctx, "reset@example.com"))
+		require.NoError(t, svc.RequestPasswordReset(ctx, "reset@example.com", "http://localhost:3000"))
 	}
-	err := svc.RequestPasswordReset(ctx, "reset@example.com")
+	err := svc.RequestPasswordReset(ctx, "reset@example.com", "http://localhost:3000")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "频繁")
 }

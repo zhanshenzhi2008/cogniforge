@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"time"
 )
@@ -13,11 +14,14 @@ import (
 // BuiltInExecutor 内置工具执行器
 type BuiltInExecutor struct {
 	client *http.Client
+	tavily *TavilyClient
 }
 
+// NewBuiltInExecutor 创建内置工具执行器
 func NewBuiltInExecutor() *BuiltInExecutor {
 	return &BuiltInExecutor{
 		client: &http.Client{Timeout: 30 * time.Second},
+		tavily: NewTavilyClient(),
 	}
 }
 
@@ -86,7 +90,7 @@ func (e *BuiltInExecutor) fetchGetPage(args map[string]interface{}) (map[string]
 	}, nil
 }
 
-// webSearch 网络搜索（占位：实际需要 Bing/Google API Key）
+// webSearch 网络搜索（使用 Tavily）
 func (e *BuiltInExecutor) webSearch(args map[string]interface{}) (map[string]interface{}, error) {
 	query, ok := args["query"].(string)
 	if !ok || query == "" {
@@ -97,19 +101,34 @@ func (e *BuiltInExecutor) webSearch(args map[string]interface{}) (map[string]int
 		maxResults = int(mr)
 	}
 
-	// 占位返回：提示用户需要配置搜索 API
+	result, err := e.tavily.Search(context.Background(), query, maxResults)
+	if err != nil {
+		slog.Error("Web search failed", "error", err, "query", query)
+		return map[string]interface{}{
+			"query":   query,
+			"results": []map[string]string{},
+			"total":   0,
+			"status":  "error",
+			"error":   "搜索服务暂时不可用，请稍后重试",
+		}, nil
+	}
+
+	// 转换结果格式
+	results := make([]map[string]string, 0, len(result.Results))
+	for _, r := range result.Results {
+		results = append(results, map[string]string{
+			"title":       r.Title,
+			"url":         r.URL,
+			"description": r.Description,
+		})
+	}
+
 	return map[string]interface{}{
-		"query": query,
-		"results": []map[string]string{
-			{
-				"title":       "搜索功能待配置",
-				"url":         "https://www.bing.com",
-				"description": "请在环境变量中配置 BING_API_KEY 或 GOOGLE_API_KEY 以启用搜索功能",
-			},
-		},
-		"total":     1,
-		"max_result": maxResults,
-		"status":    "placeholder",
+		"query":       query,
+		"results":     results,
+		"total":       result.Total,
+		"max_results": maxResults,
+		"status":      result.Status,
 	}, nil
 }
 
@@ -127,8 +146,8 @@ func (e *BuiltInExecutor) codeExecute(language string, args map[string]interface
 	// 占位返回：提示代码执行需后期沙箱支持
 	return map[string]interface{}{
 		"language": language,
-		"output":  fmt.Sprintf("[沙箱执行占位] 语言: %s, 超时: %ds\n\n代码:\n%s\n\n请部署代码执行沙箱服务后启用此功能", language, timeout, code),
-		"status":  "placeholder",
+		"output":   fmt.Sprintf("[沙箱执行占位] 语言: %s, 超时: %ds\n\n代码:\n%s\n\n请部署代码执行沙箱服务后启用此功能", language, timeout, code),
+		"status":   "placeholder",
 	}, nil
 }
 

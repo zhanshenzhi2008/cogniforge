@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|---------|--------|
+| 2026-09-11 | v1.3 | 内置工具 web_search 接入 Tavily：支持 keyless 模式（无需 API Key）和 API Key 模式（每月 1000 次免费）；移除 BING_API_KEY / GOOGLE_API_KEY 方案 | orjrs |
 | 2026-09-05 | v1.2 | 新增 SKILL 外部导入：支持 Claude Skills 格式 SKILL.md（Markdown 单文件 / ZIP 压缩包）；ZIP 支持批量导入多个 Skill；内置 URL 安全校验（协议白名单、内网 IP 阻断） | orjrs |
 | 2026-09-04 | v1.1 | 修复：工具调用循环改为动态停止（无 tool_calls 即停）；SKILL 结构升级（meta/instructions/references/constraints/examples） | orjrs |
 | 2026-09-04 | v1.0 | 立项：MCP + SKILL，让 Agent 能调用外部工具，可复用技能模板 | orjrs |
@@ -517,7 +518,7 @@ Playground 后期也可以配 MCP Server，用于高级用户调试工具调用�
 ### 第 5 步 — 内置工具实现（约 2 天）
 
 - `fetch` 实现（Go httpclient）
-- `web_search` 实现（Bing API 调用）
+- `web_search` 实现（Tavily API，支持 keyless 模式免费调用）
 - `code_execute` 实现（沙箱容器或 Python exec）
 
 ---

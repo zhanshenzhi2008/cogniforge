@@ -18,7 +18,7 @@ import (
 
 func main() {
 	fmt.Println("🔍 完整流程诊断测试")
-	fmt.Println("====================\n")
+	fmt.Println("====================")
 
 	// 1. 加载配置
 	cfg := config.Load()

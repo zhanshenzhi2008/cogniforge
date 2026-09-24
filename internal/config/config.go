@@ -18,6 +18,17 @@ type Config struct {
 	JWT        JWTConfig
 	Log        LogConfig
 	Encryption EncryptionConfig
+	Mail       MailConfig
+}
+
+type MailConfig struct {
+	Provider     string `mapstructure:"provider"`
+	APIKey       string `mapstructure:"api_key"`
+	From         string `mapstructure:"from"`
+	SMTPHost     string `mapstructure:"smtp_host"`
+	SMTPPort     int    `mapstructure:"smtp_port"`
+	SMTPUser     string `mapstructure:"smtp_user"`
+	SMTPPassword string `mapstructure:"smtp_password"`
 }
 
 type EncryptionConfig struct {

@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-08-18 | v4.8 | 配额闸门做在 Go 热路径；不走 Java 计费空目录 | orjrs |
 | 2026-08-16 | v4.7 | 未配置默认模型时对话返回 4010，不再 mock | orjrs |
 | 2026-08-16 | v4.6 | 前端 Docker 钉 pnpm@9，避免 ERR_PNPM_IGNORED_BUILDS | orjrs |
 | 2026-08-16 | v4.5 | 前端 Node 基线改为 22（CI / Dockerfile） | orjrs |
@@ -15,6 +16,13 @@
 | 2026-04-27 | v3.0 | 后端从 handler 目录重构为业务模块化架构；新增 auth/user/chat/workflow/knowledge/agent 等独立模块，遵循 DTO → Service → Handler 分层模式 | orjrs |
 | 2026-04-04 | v2.0 | 后端架构由 gateway 独立目录收敛为 monolith；删除 go-standards/dev-environment rules；rules 文档变更记录规范 | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] 配额做在 Go 热路径（2026-08-18）
+
+- **变更原因**：Playground 共用 `ai_providers` Key，可被无限刷；Java `services/billing/` 仍是空目录，不能挡热路径
+- **详细设计**：`docs/01-requirements/02-quota-design.md`
+- **变更后**：浏览器对话必须 JWT；Redis 计数（日次数 / 日 Token / 月 Token / RPM）；明细进 `llm_usage_events`；Python 内部 embedding **不算**用户额度
+- **不采用**：~~把配额做成独立 Java 计费服务~~（2026-08-18）
 
 ## [变更] 未配置模型时不再 mock（2026-08-16）
 
@@ -554,6 +562,7 @@ LIMIT $3;
 语言: Java 21 / Spring Boot 3.2
 端口: 8086
 实际状态: 仅目录，未启动
+说明: 配额/用量第一期不走本服务，见 §3.9
 ```
 
 ### 3.7 监控服务 - 未实现
@@ -584,6 +593,25 @@ Prometheus/Jaeger/Loki: 未接入
   - psycopg2 + pgvector
 ```
 
+### 3.9 配额闸门 (Go) - 设计已定，代码未落地
+
+```yaml
+目录: internal/quota/
+语言: Go
+挂载: 现有 API 单体 8080，不是新进程
+详细设计: docs/01-requirements/02-quota-design.md
+热路径: 浏览器对话必须 JWT → Redis 检查 RPM/日次数/日Token/月Token → 再打供应商
+明细: Postgres llm_usage_events（图表原料）
+不算用户额度: Python 回调的 /embeddings
+管理员: role=admin 默认不限额，但仍记用量
+```
+
+```
+浏览器 → Go /chat/stream（JWT + 配额闸门） → 供应商
+Python RAG → Go /embeddings（不走用户配额，记 source=embed）
+用户点智能体 → Go /agents/:id/chat（走用户配额）
+```
+
 ---
 
 ## 4. 服务间通信
@@ -610,9 +638,13 @@ Prometheus/Jaeger/Loki: 未接入
 /keys                              POST/GET         API Key 管理
 /keys/:id                          DELETE           删除 Key
 /models                            GET              模型列表
-/chat/completions                  POST             非流式聊天（Python 回调）
-/chat/stream                       POST             流式聊天
-/embeddings                        POST             文本向量（Python RAG 回调）
+/chat/completions                  POST             非流式聊天（须登录 + 配额；Python 内部回调除外）
+/chat/stream                       POST             流式聊天（须登录 + 配额）
+/embeddings                        POST             文本向量（Python RAG 回调，不算用户配额）
+/quota/me                          GET              当前用户剩余额度
+/quota/usage                       GET              用量序列（图表）
+/admin/quota/policy                GET/PUT          全站默认限额（admin）
+/admin/quota/users/:id             PUT              覆盖某用户限额（admin）
 /agents                            GET/POST          Agent 列表/创建
 /agents/:id                        GET/PUT/DELETE   Agent CRUD
 /agents/:id/chat                   POST             Agent 对话
@@ -671,7 +703,7 @@ Kafka Topics (规划，未接入):
 
 | 层级 | 存储类型 | 实际状态 |
 |-----|---------|---------|
-| **热数据** | Redis | 模型配置两级缓存（`cogniforge:modelcfg:*`） |
+| **热数据** | Redis | 模型配置两级缓存（`cogniforge:modelcfg:*`）；配额计数（`cogniforge:quota:*`，设计见库表文档 §5.1） |
 | **温数据** | PostgreSQL | 核心业务数据，实际使用 (GORM) |
 | **冷数据** | S3/对象存储 | 未接入 |
 | **向量数据** | Milvus/Qdrant | 未接入 |

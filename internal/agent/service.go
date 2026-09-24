@@ -41,6 +41,11 @@ func (s *AgentService) CreateAgent(userID string, req *CreateAgentRequest) (*mod
 		tools = req.Tools
 	}
 
+	// 阶段十五：McpServers 直接覆盖 Tools
+	if req.McpServers != nil {
+		tools = req.McpServers
+	}
+
 	agent := model.Agent{
 		ID:           generateID(),
 		UserID:       userID,
@@ -49,6 +54,7 @@ func (s *AgentService) CreateAgent(userID string, req *CreateAgentRequest) (*mod
 		Model:        req.Model,
 		SystemPrompt: req.SystemPrompt,
 		Tools:        tools,
+		SkillID:      req.SkillID,
 		MemoryType:   "short_term",
 		MemoryTurns:  10,
 		InputFilter:  true,

@@ -4,6 +4,18 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-09-05 | v1.22 | 新增 SKILL 外部导入接口（Markdown/ZIP），支持 ZIP 批量导入多个 Skill；参考 Claude Skills SKILL.md 格式；内置 URL 安全校验 | orjrs |
+| 2026-09-02 | v1.21 | 14.5 长期记忆 CRUD：Go POST/GET/DELETE /api/v1/memories；chat_memories 表 + ChatMemory model | orjrs |
+| 2026-09-02 | v1.16 | 新增 LLM 临时凭证接口（阶段十四 14.0）：GET /token/llm、POST /token/validate | orjrs |
+| 2026-08-25 | v1.15 | embeddings 改走向量默认供应商，不再与聊天共用 default_model | orjrs |
+| 2026-08-21 | v1.14 | conversations 增加 message_queue / queue_len | orjrs |
+| 2026-08-21 | v1.13 | 聊天 content 支持多模态 parts；历史 messages.images | orjrs |
+| 2026-08-21 | v1.12 | 聊天历史支持 pinned 置顶（PUT conversations） | orjrs |
+| 2026-08-20 | v1.11 | 忘记密码默认 QQ SMTP；Resend 仍可选 | orjrs |
+| 2026-08-20 | v1.10 | Resend 发信 + 忘记密码邮件重置（token 存 Redis） | orjrs |
+| 2026-08-20 | v1.9 | 管理员重置密码 POST /admin/users/:id/reset-password；登录页忘记密码入口 | orjrs |
+| 2026-08-19 | v1.8 | 改密码请求字段与实现对齐：old_password / new_password；须带 JWT | orjrs |
+| 2026-08-18 | v1.7 | 配额接口 /quota/*；聊天须登录；新增业务码 5016 | orjrs |
 | 2026-08-16 | v1.6 | 未配置默认模型时对话返回 4010，不再 mock | orjrs |
 | 2026-08-16 | v1.5 | DeepSeek 下拉增加 V4，同时保留 deepseek-chat / reasoner | orjrs |
 | 2026-08-16 | v1.4 | 新增登录用户聊天历史 CRUD：/api/v1/conversations | orjrs |
@@ -11,6 +23,152 @@
 | 2026-08-15 | v1.2 | GET /v1/models 改为返回已启用供应商的 default_model（不再写死 GPT 列表） | orjrs |
 | 2026-04-09 | v1.1 | 新增文档上传接口、语义检索接口实现说明 | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] 聊天排队 message_queue（2026-08-21）
+
+- **变更原因**：流式中入队与刷新后恢复；插入截断需一并清空队列
+- **包含代码**：`internal/chat/conversation.go`；需求见 `docs/01-requirements/03-chat-queue-insert.md`
+- **变更后**：
+  - 列表项增加 `queue_len`
+  - 详情 / 创建 / 更新可读可写 `message_queue`（整份覆盖，最多 5 条）
+  - `status`：`queued` | `sending`
+- **错误**：超过 5 条返回 400「排队最多 5 条」
+
+## [变更] 服务端滑动窗口（2026-09-02）
+
+- **变更原因**：阶段十四 14.1：Playground / Agent 对话按 `memory_turns` 服务端裁剪，控制 Token 上传量
+- **包含代码**：`internal/memory/`（window.go、window_test.go）；`internal/chat/dto.go`（新增字段）；`internal/chat/handler.go`、`internal/agent/handler.go`
+- **变更前 vs 变更后**：~~前端发多少带多少~~（2026-09-02）→ 服务端按轮数裁剪，本轮 user 永不删除
+
+### 请求字段
+
+`POST /chat/stream`、`/chat/completions`、`/agents/:id/chat` 请求体新增：
+
+```json
+{
+  "messages": [...],
+  "memory_turns": 10,      // 窗口轮数，默认 10，范围 1–40，0=默认
+  "max_input_tokens": 0     // Token 上限，0=不限
+}
+```
+
+### 裁剪规则
+
+1. 过滤空内容消息
+2. 从尾部取最多 `memory_turns × 2` 条（user/assistant 成对，落单 user 保留）
+3. Token 超 `max_input_tokens` → 从最旧一条删，直到进入预算
+4. **本轮 user 消息永不删除**
+
+### Agent 字段生效
+
+`memory_type = off` 时不裁剪；其余按 `memory_turns`（默认 10）裁剪。
+
+## [变更] LLM 临时凭证（2026-09-02）
+
+- **变更原因**：阶段十四 14.0：Python 直调上游 LLM（抽取/摘要），Key 在 Go，凭证授信
+- **包含代码**：`internal/token/`（service.go、handler.go、service_test.go）
+- **存储**：Redis db0，键前缀 `cogniforge:llm_token:`，TTL 5 分钟（幂等缓存）；JWT exp 也为 5 分钟
+- **HMAC key**：复用 `JWT_SECRET`（Go/Python 共用 `.env`）
+- **变更前 vs 变更后**：~~Python 无凭证直调~~（2026-09-02）→ JWT 临时凭证 + Redis 幂等
+
+### GET /api/v1/token/llm
+
+获取 LLM 临时凭证（供 Python 直调上游用）。
+
+**需要认证**（JWT Bearer）。
+
+**响应 200：**
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "expires_in": 300,
+  "scope": "llm_call"
+}
+```
+
+**Redis 幂等**：同一 user_id 5 分钟内多次调用返回相同 token。
+
+### POST /api/v1/token/validate
+
+验证 LLM token（Go 回调 Python 时，Go 侧验证 JWT 签名）。
+
+**请求：**
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+}
+```
+
+**响应 200：**
+```json
+{
+  "valid": true,
+  "user_id": "user-xxx",
+  "scope": "llm_call"
+}
+```
+
+**响应 401：** token 无效 / 过期 / scope 错误
+
+## [变更] 聊天多模态图片（2026-08-21）
+
+- **变更原因**：Playground 要上传图片给 vision 模型
+- **包含代码**：`internal/chat/dto.go`（`Content any` 透传）；`internal/agent/handler.go`；Web `toVisionContent`
+- **接口**：`POST /api/v1/chat/stream`、`/chat/completions`、`/agents/:id/chat` 的 `messages[].content` 可为 string，或
+  `[{ "type":"text","text":"..." }, { "type":"image_url","image_url":{ "url":"data:image/...|https://..." } }]`
+- **历史**：`chat_conversations.messages[].images` 存附图 data URL，供回显；不改表结构（JSONB 内字段）
+- **变更前 vs 变更后**：~~content 仅 string~~（2026-08-21）→ OpenAI 兼容多模态
+
+## [变更] 聊天历史置顶（2026-08-21）
+
+- **变更原因**：常用对话需要固定在历史列表顶部
+- **包含代码**：`internal/model/conversation.go`、`internal/chat/conversation.go`；Web `PlaygroundHistoryPanel` / `useConversations`
+- **影响范围**：`GET/PUT /api/v1/conversations` 增加 `pinned`；列表排序 `pinned DESC, updated_at DESC`
+- **变更前 vs 变更后**：~~仅按 updated_at 倒序~~（2026-08-21）→ 置顶优先
+
+## [变更] QQ SMTP 发信（2026-08-20）
+
+- **变更原因**：用户无自有域名，改用 QQ 邮箱 SMTP（授权码），不依赖 Resend 域名验证
+- **包含代码**：`internal/mail/smtp.go`；`MAIL_PROVIDER=smtp`；`.env.example`
+- **配置**：`SMTP_HOST=smtp.qq.com`、`SMTP_PORT=465`、`SMTP_USER`、`SMTP_PASSWORD`（授权码）、`MAIL_FROM`
+- **变更前 vs 变更后**：~~默认仅 Resend~~（2026-08-20）→ 默认 SMTP（QQ）；Resend 仍可选
+
+## [变更] Resend 邮件重置密码（2026-08-20）
+
+- **变更原因**：要真正「邮箱自己重置」，选用 Resend API
+- **包含代码**：`internal/mail`；`auth` Forgot/Reset；Web `/forgot-password`、`/reset-password`
+- **配置**：`RESEND_API_KEY`、`MAIL_FROM`（见 `.env.example`）  
+  ~~仅 Resend~~（2026-08-20）→ 也可 `MAIL_PROVIDER=smtp` + QQ `SMTP_*`（见 `.env.example`）
+- **接口**：
+  - `GET /api/v1/auth/password-reset-options` → `{ email_enabled, admin_reset }`
+  - `POST /api/v1/auth/forgot-password` `{ email }`
+  - `POST /api/v1/auth/reset-password` `{ token, new_password }`
+- **Redis**：`cogniforge:pwdreset:*`，令牌 30 分钟；同邮箱 15 分钟最多 3 次
+- **变更前 vs 变更后**：~~仅管理员临时密码~~（2026-08-20）→ 配好 Resend 后可邮件自助；未配置时仍走管理员重置
+
+## [变更] 忘记密码（管理员重置临时密码）（2026-08-20）
+
+- **变更原因**：登录页没有忘记密码；尚未接邮件服务，完整「邮箱链接重置」暂不可用
+- **包含代码**：Go `AdminResetPassword`；Web `/forgot-password`、登录入口、用户管理「重置密码」
+- **接口**：`POST /api/v1/admin/users/:id/reset-password`（须管理员 JWT）
+- **变更前 vs 变更后**：~~只能登录后改密码，忘了只能找人改库~~（2026-08-20）→ 管理员一键生成临时密码（响应里只返回一次）；用户登录后到设置改密
+- **后续**：配好发信后再做邮箱自助重置
+
+## [变更] 改密码走 JWT 且字段对齐实现（2026-08-19）
+
+- **变更原因**：前端用裸 `$fetch` 打 `/api/v1/settings/password`，不带 Bearer，本地还会打到 Nuxt 而不是 Go，修改密码必然失败；文档字段 `current_password` 与代码 `old_password` 也不一致
+- **包含代码**：`cogniforge-web/components/SecuritySection.vue`；Go `internal/user` ChangePassword；测试 `internal/user/password_test.go`、`e2e/password.spec.ts`
+- **变更前 vs 变更后**：~~`$fetch` 无 Token；文档 `current_password` + `confirm_password`~~（2026-08-19）→ `useApi().post` 带 JWT；请求体 `old_password` / `new_password`；确认密码只在前端校验
+- **错误码**：旧密码错 → HTTP 401 / 业务码 5011；强度不够或新旧相同 → HTTP 400
+
+## [变更] 配额与聊天须登录（2026-08-18）
+
+- **变更原因**：`/chat/stream` 目前公开，Playground 可无限刷共用 Key
+- **详细设计**：`docs/01-requirements/02-quota-design.md`
+- **接口**：`GET /api/v1/quota/me`、`GET /api/v1/quota/usage`、`GET/PUT /api/v1/admin/quota/policy`、`PUT /api/v1/admin/quota/users/:id`
+- **行为变更**：浏览器调用 `/chat/stream`、`/chat/completions`、`/agents/:id/chat` 必须 JWT，超限返回 HTTP 429 / `code=5016`
+- **不改**：`/embeddings` 仍供内网 Python 回调，不算用户额度
+- **变更前 vs 变更后**：~~匿名可打对话~~（2026-08-18）→ 未登录 401；额度用尽 5016；上游供应商没钱仍是 4008
 
 ## [变更] 未配置默认模型时返回 4010（2026-08-16）
 
@@ -227,7 +385,9 @@ DELETE /v1/api-keys/{key_id}
 
 POST /v1/chat/completions
 描述: 聊天补全（OpenAI兼容）
-认证: API密钥
+认证: JWT（2026-08-18 起浏览器必须登录；匿名调用返回 401）
+配额: 计入用户额度；用尽 HTTP 429 / code=5016；每分钟过快 code=5014
+注意: Python 内部回调走单独约定，不算 Playground 用户额度，见配额设计文档
 请求体:
   {
     "model": "gpt-4o",
@@ -287,11 +447,11 @@ POST /v1/chat/completions (流式)
 接口组: /api/v1/embeddings
 
 POST /api/v1/embeddings
-描述: 生成文本向量。用当前启用的 ai_providers 调上游 /v1/embeddings（与聊天同一套配置）
+描述: 生成文本向量。用「向量默认」供应商调上游 /v1/embeddings（不使用对话默认模型）
 认证: 无（内网 Python RAG 回调；勿对公网暴露 Go 8080）
 请求体:
   {
-    "model": "可选，空则用供应商 default_model",
+    "model": "可忽略；服务端改用该供应商 embedding_model",
     "input": "要向量化的文本，或字符串数组"
   }
 响应（统一信封）:
@@ -366,7 +526,7 @@ GET /v1/models/{model_id}
 认证: JWT（只看得到当前登录用户自己的对话）
 
 GET /api/v1/conversations
-描述: 对话列表（不含 messages，按 updated_at 倒序，最多 100 条）
+描述: 对话列表（不含 messages / message_queue 正文；置顶优先，再按 updated_at 倒序，最多 100 条）
 响应:
   {
     "code": 2000,
@@ -376,6 +536,8 @@ GET /api/v1/conversations
         "title": "今天天气怎么样",
         "agent_id": "",
         "model": "deepseek-chat",
+        "pinned": true,
+        "queue_len": 2,
         "created_at": "2026-08-16T00:00:00Z",
         "updated_at": "2026-08-16T00:00:00Z"
       }
@@ -383,7 +545,7 @@ GET /api/v1/conversations
   }
 
 POST /api/v1/conversations
-描述: 新建对话。title 为空时用第一条用户消息前 40 字
+描述: 新建对话。title 为空时用第一条用户消息前 40 字；pinned 默认 false；message_queue 默认 []
 请求体:
   {
     "title": "可选",
@@ -391,16 +553,19 @@ POST /api/v1/conversations
     "model": "deepseek-chat",
     "messages": [
       {"id": "uuid", "role": "user", "content": "你好", "time": "ISO8601"}
+    ],
+    "message_queue": [
+      {"id": "uuid", "content": "下一条", "status": "queued", "sort": 0}
     ]
   }
 
 GET /api/v1/conversations/{id}
-描述: 对话详情（含 messages）
-响应: { "code": 2000, "data": { "id": "...", "messages": [...], "...": "..." } }
+描述: 对话详情（含 messages、message_queue、pinned）
+响应: { "code": 2000, "data": { "id": "...", "pinned": false, "messages": [...], "message_queue": [...], "...": "..." } }
 
 PUT /api/v1/conversations/{id}
-描述: 更新标题 / 模型 / Agent / 消息全文
-请求体: 字段均可选；messages 为整份覆盖，不是增量
+描述: 更新标题 / 模型 / Agent / 置顶 / 消息全文 / 排队
+请求体: 字段均可选；messages / message_queue 均为整份覆盖；只改置顶时传 `{ "pinned": true|false }`；只改排队时传 `{ "message_queue": [...] }`（最多 5 条）
 
 DELETE /api/v1/conversations/{id}
 描述: 软删除
@@ -410,7 +575,168 @@ DELETE /api/v1/conversations/{id}
 
 ---
 
-## 4. Agent接口
+## 4. SKILL 管理与导入
+
+### 4.1 SKILL 列表与 CRUD
+
+> 基础 CRUD 接口见 `docs/01-requirements/06-mcp-skill-design.md` §15.3。
+
+```yaml
+接口组: /api/v1/skills
+认证: JWT
+
+GET /api/v1/skills
+描述: 获取 SKILL 列表（内置 + 当前用户创建的）
+响应:
+  {
+    "code": 2000,
+    "data": [Skill, ...]
+  }
+
+POST /api/v1/skills
+描述: 创建自定义 SKILL
+请求体: CreateSkillRequest（见 internal/skill/service.go）
+
+GET /api/v1/skills/:id
+描述: 获取 SKILL 详情
+
+PUT /api/v1/skills/:id
+描述: 更新 SKILL（内置不可改）
+
+DELETE /api/v1/skills/:id
+描述: 删除 SKILL（内置不可删）
+```
+
+### 4.2 SKILL 外部导入（Markdown / ZIP）
+
+> 阶段十五 15.3 扩展：支持导入 Claude Skills 格式的 SKILL.md。
+> 导入后作为用户自定义 SKILL 入库，内置不可修改。
+
+#### 4.2.1 Markdown 文本导入
+
+```yaml
+POST /api/v1/import/skills/markdown
+描述: 导入单个 SKILL.md 文本
+认证: JWT
+Content-Type: application/json
+请求体:
+  {
+    "content": "---\nname: my-skill\ndescription: ...\n---\n\n## Instructions\n..."
+  }
+
+成功响应 201:
+  {
+    "code": 2001,
+    "data": {
+      "skill": { ... },           # 新创建的 Skill
+      "warnings": []                # 非致命警告（如 description 过长）
+    }
+  }
+
+失败响应 400:
+  {
+    "code": 1400,
+    "message": "校验错误描述"
+  }
+```
+
+#### 4.2.2 文件上传导入
+
+```yaml
+POST /api/v1/import/skills/file
+描述: 上传 .md 或 .zip 导入 SKILL
+认证: JWT
+Content-Type: multipart/form-data
+表单字段:
+  - file: SKILL.md 或 skill-name.zip（必填）
+
+ZIP 包结构（支持批量，每个子目录一个 Skill）：
+  skill-pack.zip
+  ├── SKILL.md          # 根目录 → 单个 Skill
+  ├── skill-a/          # 子目录 → 单独一个 Skill
+  │   ├── SKILL.md
+  │   └── references/
+  │       └── doc.md
+  └── skill-b/
+      ├── SKILL.md
+      └── scripts/
+          └── run.sh
+
+批量导入响应（ZIP）：
+  {
+    "code": 2001,
+    "data": {
+      "total": 3,
+      "success": 2,
+      "failed": 1,
+      "results": [
+        { "skill": {...}, "warnings": [] },
+        { "skill": {...}, "warnings": ["description 超过 1536 字符"] },
+        { "errors": ["解析失败: ..."] }
+      ]
+    }
+  }
+```
+
+### 4.3 Claude SKILL.md 格式说明
+
+> 参考 [Claude Skills 开放标准](https://code.claude.com/docs/en/skills.md)，被 Claude Code、Cursor、Codex CLI 等多 agent 支持。
+
+**文件格式：** Markdown + YAML frontmatter
+
+```markdown
+---
+name: skill-name                    # 必需，显示名称
+description: 技能描述（用于 AI 路由） # 必需
+when_to_use: 触发场景描述            # 可选
+allowed-tools:                      # 可选：预批准工具
+  - Bash(gh pr list *)
+  - Read
+  - Write
+arguments: branch message           # 可选：命名参数
+context: fork                      # 可选：fork=隔离子代理
+model: claude-opus-4-5             # 可选：指定模型
+effort: high                        # 可选：思考预算
+version: "1.0.0"                    # 可选
+user-invocable: true               # 可选：是否可手动触发
+disable-model-invocation: false     # 可选：禁止模型自动调用
+paths: "**/*.py"                    # 可选：路径过滤
+---
+## Instructions
+
+你的 AI 技能指令内容...
+支持 Markdown 格式。
+```
+
+**字段映射到 CogniForge Skill：**
+
+| SKILL.md 字段 | → | CogniForge Skill 字段 |
+|---|---|---|
+| `name` | → | `name` |
+| `description` + `when_to_use` | → | `description` |
+| body (Markdown) | → | `instructions` |
+| `allowed-tools` | → | `constraints`（"允许使用: ..."） |
+| `model` | → | `model` |
+| `version` | → | `version` |
+| `context: fork` | → | ⚠️ 警告（子代理未完整实现） |
+
+### 4.4 导入安全校验
+
+| 校验项 | 规则 | 处理 |
+|---|---|---|
+| 协议白名单 | 仅 `https://`；信任域名可 `http://` | 拒绝 |
+| 内网 IP 阻断 | `127.0.0.1`/`localhost`/`10.x`/`192.168.x` 等 | 拒绝 |
+| DNS 反查 | 域名解析到内网 IP → 拒绝 | 拒绝 |
+| 危险协议 | `javascript:`/`data:`/`file:`/`vbscript:` | 拒绝 |
+| 文件大小 | 默认 ≤ 10 MB（`import.max_size_mb` 可配） | 拒绝 |
+| 引用数量 | 正文引用 > 50 个 URL → 警告 | 警告 |
+| ZIP 安全 | 路径穿越（`../`）检测；仅允许 `references/`/`scripts/`/`assets/` 子目录 | 拒绝 |
+| `context: fork` | ⚠️ 提示功能未完整实现 | 警告 |
+| 描述长度 | `description` > 1536 字符 → 警告 | 警告 |
+
+---
+
+## 5. Agent接口
 
 ### 4.1 Agent管理
 
@@ -1049,6 +1375,80 @@ GET /v1/logs/{log_id}
   }
 ```
 
+### 8.3 配额与用量（2026-08-18 设计，待落地）
+
+详细规则见 `docs/01-requirements/02-quota-design.md`。统一包在 `{ code, message, trace_id, data }`。
+
+```yaml
+GET /api/v1/quota/me
+描述: 当前用户剩余额度（Playground / Dashboard 轮询）
+认证: JWT
+响应 data:
+  {
+    "unlimited": false,
+    "day": {
+      "requests_used": 12,
+      "requests_limit": 30,
+      "tokens_used": 32000,
+      "tokens_limit": 100000,
+      "resets_at": "2026-08-19T00:00:00+08:00"
+    },
+    "month": {
+      "tokens_used": 120000,
+      "tokens_limit": 1000000,
+      "resets_at": "2026-09-01T00:00:00+08:00"
+    },
+    "warn": false
+  }
+
+---
+
+GET /api/v1/quota/usage
+描述: 用量序列，供柱状图 / 饼图
+认证: JWT
+参数:
+  - range: 7d | 30d
+  - metric: requests | tokens
+  - user_id: 仅 admin，看指定用户
+  - scope: self | all（all 仅 admin）
+响应 data:
+  {
+    "points": [{ "date": "2026-08-18", "requests": 12, "tokens": 32000 }],
+    "by_model": [{ "model": "deepseek-chat", "tokens": 24000 }],
+    "top_users": [{ "user_id": "...", "name": "...", "tokens": 180000 }]
+  }
+
+---
+
+GET /api/v1/admin/quota/policy
+PUT /api/v1/admin/quota/policy
+描述: 读/改全站默认限额
+认证: JWT + role=admin
+请求体:
+  {
+    "daily_requests": 30,
+    "daily_tokens": 100000,
+    "monthly_tokens": 1000000,
+    "rpm": 8,
+    "admin_unlimited": true
+  }
+
+---
+
+PUT /api/v1/admin/quota/users/:id
+描述: 覆盖某用户限额；字段传 null 表示取消覆盖、回到默认
+认证: JWT + role=admin
+```
+
+超限时对话接口：
+
+| HTTP | code | 含义 |
+|------|------|------|
+| 401 | 5005 | 未登录 |
+| 429 | 5014 | 每分钟过快（不扣每日次数） |
+| 429 | 5016 | 日/月额度用尽（新增 `CodeUserQuotaExceeded`） |
+| 502/503 | 4008 | 上游供应商自己没额度（不是本平台限额） |
+
 ---
 
 ## 9. 用户与组织接口
@@ -1079,6 +1479,50 @@ PUT /v1/users/me
 POST /v1/users
 描述: 创建用户（仅管理员）
 认证: JWT
+```
+
+### 9.1.1 管理员重置密码
+
+```yaml
+POST /api/v1/admin/users/:id/reset-password
+描述: 管理员为用户生成临时密码（旧密码立即失效）
+认证: JWT + 管理员
+请求体: 无
+响应:
+  {
+    "code": 2000,
+    "message": "密码已重置，请将临时密码告知用户，并提醒其登录后立即修改",
+    "data": {
+      "temporary_password": "一次性明文临时密码"
+    }
+  }
+```
+
+**说明**：
+- 临时密码满足强度规则（≥8，大小写+数字+特殊字符）
+- 明文只在本次响应返回；前端展示后由管理员口头/安全渠道转交用户
+- 用户登录后应到「设置 → 安全」用旧（临时）密码改成自己的
+
+### 9.1.2 邮件忘记密码（Resend）
+
+```yaml
+GET /api/v1/auth/password-reset-options
+描述: 是否已开通邮件重置（未登录可访问）
+响应:
+  { "email_enabled": true, "admin_reset": true }
+
+POST /api/v1/auth/forgot-password
+描述: 向注册邮箱发送重置链接（30 分钟有效）
+请求体: { "email": "user@example.com" }
+成功提示: 如果该邮箱已注册，你将收到一封重置邮件（请同时检查垃圾箱）
+说明: 邮箱不存在时也返回成功（防枚举）；未配置 Resend 返回 503
+
+POST /api/v1/auth/reset-password
+请求体:
+  {
+    "token": "邮件链接中的 token",
+    "new_password": "新密码（强度同改密规则）"
+  }
 ```
 
 ### 9.2 组织管理
@@ -1217,26 +1661,25 @@ POST /api/v1/settings/avatar
 ```yaml
 POST /api/v1/settings/password
 描述: 修改密码
-认证: JWT
+认证: JWT（Authorization: Bearer）
 请求体:
   {
-    "current_password": "旧密码（必填）",
-    "new_password": "新密码（至少8位，含大小写字母和数字）",
-    "confirm_password": "确认密码（必须与new_password一致）"
+    "old_password": "旧密码（必填）",
+    "new_password": "新密码（至少8位，含大小写字母、数字、特殊字符）"
   }
 响应:
   {
     "code": 2000,
-    "message": "密码修改成功，请重新登录"
+    "message": "密码修改成功"
   }
 ```
 
 **验证规则**：
-- 旧密码正确（bcrypt 比对）
-- 新密码长度 ≥ 8
-- 新密码包含大写字母、小写字母、数字
-- 确认密码一致
-- 修改成功后，使当前 Token 失效（强制重新登录）
+- 必须带 JWT；无 Token 返回 401
+- 旧密码正确（bcrypt 比对）；错误返回 HTTP 401、业务码 `5011`
+- 新密码长度 ≥ 8，且含大写、小写、数字、特殊字符；否则 HTTP 400
+- 新旧不能相同；确认密码只在前端校验，不进请求体
+- 前端成功后清本地 Token 并跳转登录；服务端当前不主动作废已签发 JWT
 
 ### 10.4 会话管理
 
@@ -1290,18 +1733,30 @@ DELETE /api/v1/settings/sessions/{session_id}
 
 ## 11. 错误码定义
 
+HTTP 层（兼容旧表）：
+
 | 错误码 | 类型 | 描述 |
 |-------|------|------|
 | 400 | invalid_request_error | 请求参数错误 |
 | 401 | authentication_error | 认证失败 |
 | 403 | permission_error | 权限不足 |
 | 404 | not_found_error | 资源不存在 |
-| 429 | rate_limit_error | 请求频率超限 |
+| 429 | rate_limit_error | 请求频率超限 **或** 平台额度用尽 |
 | 500 | server_error | 服务器内部错误 |
 | 503 | service_unavailable | 服务不可用 |
 
+业务码（以 `internal/response` 为准）：
+
+| code | 常量 | 描述 |
+|------|------|------|
+| 4008 | CodeAIQuotaExhausted | 上游 AI 供应商额度用尽 |
+| 4010 | CodeNoActiveProvider | 未配置默认模型或 Key |
+| 5005 | CodeUnauthorized | 未登录 |
+| 5014 | CodeRateLimitExceeded | 每分钟请求过快 |
+| 5016 | CodeUserQuotaExceeded | 本平台用户日/月额度用尽（2026-08-18 新增） |
+
 ---
 
-**文档版本**: v1.0  
-**最后更新**: 2026-03-16  
+**文档版本**: v1.22
+**最后更新**: 2026-09-05
 **维护团队**: CogniForge API 团队

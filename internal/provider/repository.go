@@ -53,12 +53,30 @@ func (r *Repository) GetDefault() (*model.AIProvider, error) {
 
 // GetFirstEnabled 获取第一个启用的供应商
 func (r *Repository) GetFirstEnabled() (*model.AIProvider, error) {
+	return r.GetFirstEnabledFor(model.CapChat)
+}
+
+func (r *Repository) GetDefaultEmbedding() (*model.AIProvider, error) {
 	var p model.AIProvider
-	err := r.db.Where("is_enabled = ? AND deleted_at IS NULL", true).Order("priority ASC").First(&p).Error
+	err := r.db.Where("is_default_embedding = ? AND deleted_at IS NULL", true).First(&p).Error
 	if err != nil {
 		return nil, err
 	}
 	return &p, nil
+}
+
+func (r *Repository) GetFirstEnabledFor(cap string) (*model.AIProvider, error) {
+	var list []model.AIProvider
+	err := r.db.Where("is_enabled = ? AND deleted_at IS NULL", true).Order("priority ASC").Find(&list).Error
+	if err != nil {
+		return nil, err
+	}
+	for i := range list {
+		if model.HasCapability(list[i].Capabilities, cap) {
+			return &list[i], nil
+		}
+	}
+	return nil, gorm.ErrRecordNotFound
 }
 
 // Create 创建供应商
@@ -87,6 +105,17 @@ func (r *Repository) SetDefault(id string) error {
 		// 再设置新的默认
 		return tx.Model(&model.AIProvider{}).Where("id = ?", id).
 			Updates(map[string]any{"is_default": true}).Error
+	})
+}
+
+func (r *Repository) SetDefaultEmbedding(id string) error {
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&model.AIProvider{}).Where("is_default_embedding = ?", true).
+			Updates(map[string]any{"is_default_embedding": false}).Error; err != nil {
+			return err
+		}
+		return tx.Model(&model.AIProvider{}).Where("id = ?", id).
+			Updates(map[string]any{"is_default_embedding": true}).Error
 	})
 }
 

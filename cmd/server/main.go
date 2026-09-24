@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
 
 	"cogniforge/internal/auth"
 	"cogniforge/internal/config"
@@ -18,6 +19,14 @@ import (
 )
 
 func main() {
+	// 本地补齐 .env：已存在的环境变量（IDEA Run / 系统 / Docker）优先，不被覆盖。
+	for _, p := range []string{".env", "../.env", "../../.env"} {
+		if err := godotenv.Load(p); err == nil {
+			slog.Info("loaded env file", "path", p, "note", "existing env vars win over .env")
+			break
+		}
+	}
+
 	logger.Init()
 
 	gin.SetMode(os.Getenv("GIN_MODE"))
@@ -37,6 +46,9 @@ func main() {
 		&model.UserSession{},
 		&model.ApiKey{},
 		&model.Agent{},
+		&model.McpServer{},
+		&model.AgentMcpServer{},
+		&model.Skill{},
 		&model.Workflow{},
 		&model.WorkflowNode{},
 		&model.WorkflowEdge{},
@@ -49,6 +61,8 @@ func main() {
 		&model.RolePermission{},
 		&model.AIProvider{},
 		&model.ChatConversation{},
+		&model.QuotaPolicy{},
+		&model.LLMUsageEvent{},
 	); err != nil {
 		slog.Error("failed to migrate database", "error", err)
 		return

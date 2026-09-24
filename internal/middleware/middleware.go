@@ -68,7 +68,30 @@ func AuthRequired() gin.HandlerFunc {
 
 		c.Set("user_id", claims.UserID)
 		c.Set("email", claims.Email)
+		c.Next()
+	}
+}
 
+func AuthOptional() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		authHeader := c.GetHeader("Authorization")
+		if authHeader == "" {
+			c.Next()
+			return
+		}
+		parts := strings.Split(authHeader, " ")
+		if len(parts) != 2 || parts[0] != "Bearer" {
+			c.Next()
+			return
+		}
+		claims := &Claims{}
+		token, err := jwt.ParseWithClaims(parts[1], claims, func(token *jwt.Token) (interface{}, error) {
+			return JWTSecret, nil
+		})
+		if err == nil && token.Valid {
+			c.Set("user_id", claims.UserID)
+			c.Set("email", claims.Email)
+		}
 		c.Next()
 	}
 }

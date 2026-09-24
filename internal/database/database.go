@@ -74,5 +74,15 @@ func InitTestDBForPkg() *gorm.DB {
 
 // MigrateTestDB migrates the test database with common models
 func MigrateTestDB(db *gorm.DB) {
-	db.AutoMigrate(&model.User{}, &model.ApiKey{}, &model.UserSession{})
+	db.AutoMigrate(
+		&model.User{},
+		&model.ApiKey{},
+		&model.UserSession{},
+		&model.Agent{},
+		&model.McpServer{},
+		&model.AgentMcpServer{},
+		&model.Skill{},
+		&model.ChatConversation{},
+		&model.ChatMemory{},
+	)
 }

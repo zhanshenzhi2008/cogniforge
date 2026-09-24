@@ -4,6 +4,23 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-08-25 | v1.37 | 模型页用途：对话 / 向量，两套默认 | orjrs |
+| 2026-08-22 | v1.36 | 顶栏改为：控制台 对话 智能体 工作流 知识库 配置；用量/监控进头像 | orjrs |
+| 2026-08-22 | v1.35 | 通用文件附件排到阶段十三（等 RAG 稳） | orjrs |
+| 2026-08-22 | v1.34 | 发送框支持从访达复制文件粘贴（图片） | orjrs |
+| 2026-08-22 | v1.33 | 排队编辑改到发送框；行上「编辑中 ×」取消 | orjrs |
+| 2026-08-21 | v1.32 | Playground 排队（可编辑删除）+ 插入硬截断 | orjrs |
+| 2026-08-21 | v1.31 | Playground 历史对话支持按标题搜索 | orjrs |
+| 2026-08-21 | v1.30 | Playground 支持上传/粘贴图片发图（多模态 vision） | orjrs |
+| 2026-08-21 | v1.29 | Playground 聊天支持 Markdown/链接图片展示 | orjrs |
+| 2026-08-21 | v1.28 | Playground 历史对话置顶（pin / unpin） | orjrs |
+| 2026-08-20 | v1.27 | Resend 邮件忘记密码：发信表单 + 重置密码页 | orjrs |
+| 2026-08-20 | v1.26 | 登录「忘记密码」+ 管理员重置临时密码（无邮件版） | orjrs |
+| 2026-08-19 | v1.25 | 全屏径向渐变背景 + 内容居中；卡片半透明融入，不再像贴上去的白块 | orjrs |
+| 2026-08-19 | v1.24 | ~~控制台铺满窗口~~（同日改为渐变氛围 + 内容居中） | orjrs |
+| 2026-08-19 | v1.23 | Usage 卡片 0 用量时进度条静止，不再当成加载动画 | orjrs |
+| 2026-08-19 | v1.22 | 按钮语义：能点用主题实心色，不能点才灰色；补 Playwright e2e | orjrs |
+| 2026-08-18 | v1.21 | 配额：导航加 Usage；Playground 额度条；用量图表页 | orjrs |
 | 2026-08-16 | v1.20 | 未配置默认模型时对话 Toast 提示去「模型」页，不再显示 mock | orjrs |
 | 2026-08-16 | v1.19 | 对话/模型页 DeepSeek 增加 V4，同时保留 chat / reasoner | orjrs |
 | 2026-08-16 | v1.18 | Playground 左侧历史可折叠（桌面顶栏图标；状态记在浏览器） | orjrs |
@@ -25,6 +42,139 @@
 | 2026-08-12 | v1.2 | 补充关键屏 UI 示意稿（登录 / 控制台 / Playground / 手机） | orjrs |
 | 2026-08-12 | v1.1 | 补充响应式策略：Web 优先验收，手机端预留兼容但不阻塞主路径 | orjrs |
 | 2026-08-12 | v1.0 | 全新 UI 方向：Vue3 + Nuxt3 + Tailwind4 + shadcn-vue；保留 Vue Flow；接口与 CI/CD 不变 | orjrs |
+
+> 注：任务状态变更直接在下方任务表格中更新即可，无需额外记录。
+
+## [变更] 模型页对话/向量用途（2026-08-25）
+
+- **变更原因**：知识库不能用 deepseek-chat 做向量
+- **包含代码**：Web `pages/models.vue`、`useProviders.ts`
+- **变更前 vs 变更后**：~~一颗星统管全部~~（2026-08-25）→ 对话默认（星）与向量默认（数据库图标）分开
+
+## [变更] 顶栏菜单整理（2026-08-22）
+
+- **变更原因**：9 项平铺挤；模型/密钥是配置，用量不是设置
+- **包含代码**：`cogniforge-web/constants/nav.ts`、`layouts/default.vue`、`i18n/messages.ts`
+- **变更后** 顶栏：控制台 · 对话 · 智能体 · 工作流 · 知识库 · **配置 ▾**（模型、密钥）
+- **用量**、**监控**（仅 admin）进头像菜单，不进个人设置页
+- **~~顶栏平铺 Models / Keys / Usage / Monitor~~**（2026-08-22）
+
+## [变更] 通用文件等 RAG 再做（2026-08-22）
+
+- **变更原因**：发送框会遇到 PDF 等，但不能现在硬上
+- **排期**：阶段十三，需求 `docs/01-requirements/04-playground-files-rag.md`
+- **现在**：只图片；**~~发送框通用文件附件~~**（2026-08-22 排到 RAG 就绪后）
+
+## [变更] 发送框粘贴访达文件（2026-08-22）
+
+- **变更原因**：从访达复制图片再粘贴，剪贴板不带 `image/*`，原先进不了发送框
+- **包含代码**：`cogniforge-web/utils/chatImages.ts`、`pages/playground.vue`
+- **变更后**：粘贴 / 拖入同时读 `clipboardData.files` 与 `items`；空 MIME 按扩展名认 JPG/PNG/GIF/WebP；非图片提示只支持这些格式
+- **不做**：PDF / 文档当附件（**阶段十三**，等 RAG 完全可用，见 `04-playground-files-rag.md`）
+
+## [变更] 排队编辑走发送框（2026-08-22）
+
+- **变更原因**：不要点文字/双击弹层；取消也不要做成发送区按钮
+- **包含代码**：`PlaygroundQueueBar.vue`、`pages/playground.vue`
+- **变更后**：铅笔进入编辑；发送框改内容；回车保存回排队；该行「编辑中 ×」取消；正在编辑的条目不自动发出
+- **~~点文字弹出行内编辑框~~**（2026-08-22）
+
+## [变更] Playground 排队 + 插入（2026-08-21）
+
+- **变更原因**：流式中要连问；改中间一问要可控截断
+- **包含代码**：`PlaygroundQueueBar.vue`、`pages/playground.vue`、`useConversations.ts`、`i18n/messages.ts`；需求 `docs/01-requirements/03-chat-queue-insert.md`
+- **变更后**：
+  - 流式中 Enter / 提交 → **加入排队**（最多 5）；队内点**编辑**进发送框改、删、↑↓；发送中锁定
+  - 用户气泡 hover「在此后插入」→ 确认后 **硬截断**后续消息并发送；同时清空排队
+  - 排队持久化 `message_queue`，刷新不丢
+- **不做（本期）**：‹ › 分支树；分叉新会话；Cmd+Enter 停流并立刻发
+
+## [变更] Playground 历史搜索（2026-08-21）
+
+- **变更原因**：历史多了以后不好找
+- **包含代码**：`cogniforge-web/components/PlaygroundHistoryPanel.vue`、`i18n/messages.ts`
+- **变更后**：侧栏/滑层顶部搜索框，按标题本地过滤（含置顶段）；无匹配时提示「没有匹配的对话」
+- **不做（本期）**：服务端全文检索消息正文
+
+## [变更] Playground 上传发图 / vision（2026-08-21）
+
+- **变更原因**：用户要能在对话里发图片给识图模型看
+- **包含代码**：`cogniforge-web/pages/playground.vue`、`utils/chatImages.ts`；Go `ChatMessage.Content` 改为透传 string|parts；`ConversationMessage.images`
+- **变更后**：
+  - 输入框旁「添加图片」、可粘贴 / **拖入**；最多 4 张，单张 ≤4MB（客户端压缩）
+  - 请求体 OpenAI 兼容 `image_url`；历史 JSON 存 `images`
+  - 气泡展示用户附图；回复里的 Markdown 图仍走既有渲染
+- **注意**：模型本身须支持 vision（如 GPT-4o）；纯文本模型会由上游报错
+
+## [变更] Playground 聊天图片展示（2026-08-21）
+
+- **变更原因**：模型回复里的 Markdown 图片 / 裸图片链接只显示文字，看不到图
+- **包含代码**：`cogniforge-web/utils/chatMarkdown.ts`、`pages/playground.vue`
+- **变更后**：
+  - `![alt](url)` 与裸 `https://…png|jpg|gif|webp`、`data:image/…;base64,…` 渲染为图片
+  - 图片限宽、圆角；点击新标签打开原图
+  - 拒绝 `javascript:` / `svg+xml` 等不安全源
+- **不做（本期）**：用户上传发图、多模态 vision 请求
+
+## [变更] Playground 历史置顶（2026-08-21）
+
+- **变更原因**：常用对话要能固定在历史列表顶部，方便反复打开
+- **包含代码**：`cogniforge-web/components/PlaygroundHistoryPanel.vue`、`pages/playground.vue`、`composables/useConversations.ts`、`i18n/messages.ts`；Go `pinned` 字段
+- **变更后**：
+  - 历史侧栏分「置顶」与「历史」两段
+  - 每条可 pin / unpin；置顶项带图钉标记
+  - `PUT /api/v1/conversations/:id` 传 `{ pinned: true|false }`
+
+## [变更] Resend 邮件忘记密码 UI（2026-08-20）
+
+- **变更原因**：开通 Resend 后用户可自助重置
+- **包含代码**：`forgot-password.vue`、`reset-password.vue`、`auth.global.ts`、i18n
+- **变更前 vs 变更后**：~~仅管理员指引~~（2026-08-20）→ 若 `email_enabled` 显示邮箱表单；邮件链接打开 `/reset-password?token=`；未配置时仍显示管理员步骤
+
+## [变更] 忘记密码入口（2026-08-20）
+
+- **变更原因**：登录页缺少忘记密码
+- **包含代码**：`cogniforge-web/pages/login.vue`、`pages/forgot-password.vue`、`pages/admin/users.vue`、`i18n/messages.ts`
+- **变更前 vs 变更后**：~~登录只有注册链接~~（2026-08-20）→ 密码旁「忘记密码？」；说明页引导找管理员；用户管理可一键重置并复制临时密码
+- **不做**：邮箱自助重置（待发信能力）
+
+## [变更] 渐变氛围壳（2026-08-19）
+
+- **变更原因**：宽屏两侧空白看起来像「没收拾完」；卡片白底硬边，和背景是两层皮。参考 JetBrains 官网：背景铺满渐变，内容居中，界面浮在光斑上
+- **包含代码**：`cogniforge-web/assets/css/main.css`、`layouts/default.vue`、`layouts/auth.vue`、`pages/index.vue`
+- **影响范围**：四套主题的 `--cf-bg-aura`；Dashboard 卡片；顶栏半透明
+- **变更前 vs 变更后**：~~铺满窗口拉内容 / 或 1120 窄栏加硬卡片~~（2026-08-19）→ **背景满屏径向渐变**，内容 `max-width: 1200px` 居中；卡片半透明 + 轻光晕，顶栏透出背景
+
+## [变更] 控制台铺满窗口（2026-08-19）
+
+- **变更原因**：Dashboard 限宽 1120px，宽屏左右大块空白；下方两列还不等宽，看起来和上面的额度条对不齐
+- **包含代码**：`cogniforge-web/assets/css/main.css`、`layouts/default.vue`、`pages/index.vue`、`pages/models.vue`
+- **影响范围**：所有 `.cf-page` 列表/管理页 + Dashboard + 顶栏；登录/设置表单仍保持窄栏方便阅读
+- **变更前 vs 变更后**：~~内容 max-width 1120px，顶栏 1200px~~（2026-08-19）→ ~~铺满窗口~~（同日改回居中 + 渐变背景，见上条）
+
+## [变更] Usage 空用量进度条（2026-08-19）
+
+- **变更原因**：`UProgress` 在值为 0 时会播放不确定进度动画，看起来像还在加载
+- **包含代码**：`cogniforge-web/pages/usage.vue`
+- **变更前 vs 变更后**：~~0 也在滑动的绿条~~（2026-08-19）→ 静止空槽；趋势图当天为 0 不再画一条矮绿柱
+
+## [变更] 按钮能点用主题实心色（2026-08-19）
+
+- **变更原因**：主按钮用浅青绿 `soft` 底，看起来像灰掉不能点；禁用态又残留绿色，像还能点
+- **包含代码**：`cogniforge-web/components/CfButton.vue`、`assets/css/main.css`、`pages/playground.vue`
+- **测试**：`utils/__tests__/cfButtonTone.spec.ts`；Playwright `e2e/login.spec.ts`、`e2e/playground.spec.ts`（`pnpm test:e2e`）
+- **变更前 vs 变更后**：~~全部 soft 淡底~~（2026-08-19）→ 登录/保存/确认实心 `--cf-accent`；取消描边；禁用只灰色
+- **不改**：API、主题切换入口、按钮文案与图标约定
+
+## [变更] 用量配额 UI（2026-08-18）
+
+- **变更原因**：Playground 无限刷；用户和管理员都看不见 Token
+- **详细设计**：`docs/01-requirements/02-quota-design.md`（含柱状图 / 饼图 / 排行示意）
+- **导航**：Keys 与 Monitor 之间新增 Usage `/usage`（admin 与 user 都可见）；配额策略 `/admin/quota` 仅 admin
+- **Playground**：输入框上方轻量额度条；用尽禁用发送；文案走 i18n
+- **Dashboard**：加一张「今日剩余条数」卡，点击进 `/usage`
+- **图表**：全站只选一种库（建议 ECharts）；四张图规格见配额文档 §5.3
+- **不改**：Monitor 仍只做 HTTP 日志，不和用量抢页
 
 ## [变更] 未配置模型时 Toast 提示（2026-08-16）
 
@@ -294,7 +444,7 @@ Nuxt UI：`app.config` / runtime 把 `primary` 绑到 `--cf-accent`。
 
 - 圆角：`6px` / `10px`（组件），**不用** `rounded-full` 做主按钮
 - 边框：1px `--cf-line`，靠线条分区，不靠厚卡片阴影
-- 间距：页面水平桌面 `24–32px`、手机 `16px`，内容最大宽 `1280–1400px`
+- 间距：页面水平桌面 `--cf-page-pad` 32px、平板 24px、手机 16px；**背景满屏渐变**，主内容 `--cf-content-max: 1200px` 居中（和顶栏对齐）。登录/注册卡片、设置表单仍可更窄（约 400 / 800px）
 - 卡片：**默认无卡**；仅在「可交互容器」或「需要隔离的编辑区」使用表面块（Glass 主题允许更多半透明面）
 - 背景氛围：由主题 `--cf-bg-aura` 提供，可绚丽；正文区保持清晰
 
@@ -335,6 +485,26 @@ Nuxt UI：`app.config` / runtime 把 `primary` 绑到 `--cf-accent`。
 | 监控 / 管理表 | 完整 | 横滑查看；批量操作可隐藏 |
 
 实施顺序仍以 Desktop 验收为准：某一页 Desktop 未过，不开始该页 Mobile 精细打磨。
+
+### 2.8 按钮语义（能点 / 不能点）
+
+浅青绿软底看起来像灰掉，用户分不清能不能点。全站 `CfButton` 与对话发送钮统一如下。色值跟当前主题 `--cf-accent`，不要另做一套高饱和按钮。
+
+| 场景 | tone | 能操作时 | 不能操作时 |
+|------|------|----------|------------|
+| 登录 / 保存 / 确认 / 新建 / 发送 | `primary` | 实心 `--cf-accent`，字用 `--cf-on-accent` | 灰底灰字，不留绿色 |
+| 取消 / 返回 / 重置 | `secondary` | 细边框 + 正文色，浅底 | 同上灰色 |
+| 删除确认 | `danger` | 实心 `--cf-danger`，白字 | 同上灰色 |
+| 表格行图标 | `icon` / `icon-accent` / `icon-danger` | 透明底 + 对应色图标 | 同上灰色 |
+
+规则：
+
+- **灰色只表示不能点**。禁用态禁止再用浅 accent / 半透明主色。
+- **能点的主操作必须是实心主题色**，不要 `soft` 淡底。
+- 圆角 8px，不用全圆胶囊；不要霓虹描边。
+- Playground 发送钮同样走这套：有输入且额度未用尽 = 实心主题色；空输入或额度用尽 = 灰。
+
+包含代码：`cogniforge-web/components/CfButton.vue`、`assets/css/main.css`、`pages/playground.vue`
 
 ---
 
@@ -429,35 +599,36 @@ components/
 
 ## 4. 信息架构与壳层
 
-### 4.1 路由与导航 IA（冻结，与现网一致）
+### 4.1 路由与导航 IA（2026-08-22 整理）
 
-> 来源：现网 `layouts/default.vue`。UI 重设计**只换组件实现**，不改信息架构。
+> 路由和权限不变，只改顶栏分组。~~2026-08-12 冻结的 9 项平铺~~（2026-08-22）
 
-#### 顶栏主模块（按角色过滤）
+#### 顶栏主模块
 
 | 顺序 | 显示名 | key | 路由 | 可见角色 |
 |------|--------|-----|------|----------|
-| 1 | Dashboard | `dashboard` | `/` | admin, user |
-| 2 | Play | `playground` | `/playground` | admin, user |
-| 3 | Agents | `agents` | `/agents` | admin, user |
-| 4 | Models | `models` | `/models` | admin, user |
-| 5 | Flows | `workflows` | `/workflows` | admin, user |
-| 6 | Knowledge | `knowledge` | `/knowledge` | admin, user |
-| 7 | Keys | `keys` | `/keys` | admin, user |
-| 8 | Monitor | `monitor` | `/monitor` | **仅 admin** |
+| 1 | 控制台 | `dashboard` | `/` | admin, user |
+| 2 | 对话 | `playground` | `/playground` | admin, user |
+| 3 | 智能体 | `agents` | `/agents` | admin, user |
+| 4 | 工作流 | `workflows` | `/workflows` | admin, user |
+| 5 | 知识库 | `knowledge` | `/knowledge` | admin, user |
+| 6 | 配置 ▾ | `config` | （下拉，无独立页） | admin, user |
+| 6a | 模型 | `models` | `/models` | admin, user |
+| 6b | 密钥 | `keys` | `/keys` | admin, user |
 
-激活态规则（保持）：
-- `/` 仅精确匹配 Dashboard
-- 其余：`path === to` 或 `path.startsWith(to + '/')`（如 `/workflows/:id` 仍高亮 Flows）
+激活态：`/models`、`/keys` 时「配置」高亮。`/` 仅精确匹配控制台。
 
-#### 用户下拉菜单（保持）
+#### 用户下拉菜单
 
 | 文案 | 行为 | 可见 |
 |------|------|------|
-| 个人设置 | 跳转 `/settings` | 全部登录用户 |
-| 用户管理 | 跳转 `/admin/users` | **仅 admin** |
-| 角色权限 | 跳转 `/admin/roles` | **仅 admin** |
-| 退出登录 | 调现有 logout API → `clearAuth` → `/login` | 全部登录用户 |
+| 个人设置 | `/settings` | 全部登录用户 |
+| 用量 | `/usage` | 全部登录用户 |
+| 监控 | `/monitor` | **仅 admin** |
+| 用户管理 | `/admin/users` | **仅 admin** |
+| 角色权限 | `/admin/roles` | **仅 admin** |
+| 配额策略 | `/admin/quota` | **仅 admin** |
+| 退出登录 | logout API | 全部登录用户 |
 
 #### 认证相关路由（保持）
 
@@ -629,8 +800,11 @@ Nuxt UI 的 Header / NavigationMenu / Dashboard / Slideover 开箱即好看、�
 4. **消息操作**（hover `actions`）：复制、重新生成
 5. **空态**：品牌问候 + 3 个建议 Chip
 6. **参数**：右上角「参数」滑层（Agent / 模型 / Temperature / Max Tokens / Top P）；**不再**放左侧窄轨
-7. **历史**：桌面左侧列表，可用顶栏图标折叠；手机顶栏「历史对话」滑层；数据走 `GET/POST/PUT/DELETE /api/v1/conversations`
+7. **历史**：桌面左侧列表，可用顶栏图标折叠；手机顶栏「历史对话」滑层；数据走 `GET/POST/PUT/DELETE /api/v1/conversations`；支持 **置顶**（`pinned`，列表上方单独「置顶」段）；支持 **按标题搜索**（本地过滤）；支持 **排队**（`message_queue`）与 **插入截断**
+7b. **图片展示**（2026-08-21）：消息 Markdown 图片与裸图片 URL / base64 渲染为 `<img>`；点击打开原图
+7c. **上传发图**（2026-08-21）：作曲区附图 / 粘贴 / 拖入；OpenAI 兼容多模态 `content` parts；历史存 `images[]`；需 vision 模型
 8. **Token / 延迟**：角落轻量元数据，不做底栏大字报
+8b. **额度条**（2026-08-18）：输入框上方显示今日次数/Token 进度；≥80% 黄灯；用尽禁用发送并 Toast「明天 0 点（北京时间）恢复」
 9. **流式**：`UChatShimmer`；Markdown 继续现有渲染路径
 10. **适配层**：现有 Playground composable → `mapToUIMessage()`（AI SDK `parts` 形）→ Nuxt UI；聊天补全出参不变
 11. **禁止**：等宽 role 标签墙、API Playground 时间戳列、微信式双绿泡
@@ -656,6 +830,14 @@ Nuxt UI 的 Header / NavigationMenu / Dashboard / Slideover 开箱即好看、�
 ### 5.6 监控中心
 - 指标 + **`UTable`** 日志；筛选用 `USelectMenu` / `UInput`
 - 状态码、耗时：mono
+- **不承担** Token 配额图表（那是 `/usage`）
+
+### 5.6b 用量 Usage（2026-08-18）
+- 路由 `/usage`，页面壳 `cf-page`
+- 页头：今日次数、今日 Token、本月 Token 三张 `stat-card` + 两个 `UProgress`
+- 主图：近 7/30 天柱状图；旁侧模型占比饼图
+- admin 可切「全站」并看到 Top 用户表（`UTable`）
+- 图表库全站只留一种，建议 ECharts；组件：`pages/usage.vue`、`composables/useQuota.ts`、`components/QuotaBar.vue`
 
 ### 5.7 设置 / 管理
 - 设置分区：可用 shadcn `Tabs` 或 `UTabs`（全站选一种）
@@ -767,7 +949,7 @@ Mobile 问题记入 backlog，**不阻断** Web 主路径合并。
 - 不改后端 API、不改字段名
 - 不换 Vue Flow 为其它流程图库
 - 不强制升级 Nuxt 4（可另开分支评估）
-- 不重做产品信息架构（**导航模块/路由/角色可见性冻结，见 §4.1**）
+- 不重做产品信息架构（**旧模块/路由/角色可见性冻结，见 §4.1**；2026-08-18 允许**新增** Usage / 配额策略，不删旧项）
 - 不为「更炫」加 3D/粒子/大英雄营销首屏
 - **不做**独立原生 App；手机以响应式 Web 为准
 - **不承诺**手机端完整工作流可视化编排（P2 降级即可）
@@ -778,7 +960,7 @@ Mobile 问题记入 backlog，**不阻断** Web 主路径合并。
 
 ### 9.1 Web 桌面（必须过，否则不算完成）
 1. 打开登录页，第一眼看到的是 **CogniForge** 品牌，而不是普通灰表单。
-2. 登录后顶栏像产品，但**以前的模块都能找到**（控制台、Playground、Agent、模型、工作流、知识库、密钥；admin 另有监控/用户/角色）。
+2. 登录后顶栏像产品，但**以前的模块都能找到**（控制台、Playground、Agent、模型、工作流、知识库、密钥、用量；admin 另有监控/用户/角色/配额策略）。
 3. 点每个导航，进入的还是原来的页面路径。
 4. 原来会用的功能都在，按钮能点，数据还能出来。
 5. 工作流画布还能拖节点、连线、保存（和现在一样）。

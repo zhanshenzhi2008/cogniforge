@@ -1,6 +1,8 @@
 package router
 
 import (
+	"strings"
+
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
@@ -10,11 +12,18 @@ import (
 	"cogniforge/internal/config"
 	"cogniforge/internal/httpclient"
 	"cogniforge/internal/knowledge"
+	"cogniforge/internal/mail"
+	"cogniforge/internal/mcp"
+	"cogniforge/internal/memory"
 	"cogniforge/internal/middleware"
 	"cogniforge/internal/modelcache"
 	"cogniforge/internal/monitor"
 	"cogniforge/internal/provider"
+	"cogniforge/internal/quota"
 	"cogniforge/internal/rbac"
+	"cogniforge/internal/skill"
+	"cogniforge/internal/skillimport"
+	"cogniforge/internal/token"
 	"cogniforge/internal/user"
 	"cogniforge/internal/workflow"
 )
@@ -27,21 +36,38 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 	r.GET("/live", liveHandler)
 
 	// 初始化各模块 Handler
+	rdb := modelcache.DialRedis(cfg)
 	providerRepo := provider.NewRepository(db)
-	mc := modelcache.NewFromRedis(modelcache.DialRedis(cfg))
+	mc := modelcache.NewFromRedis(rdb)
 	providerSvc := provider.NewService(providerRepo, mc)
 	providerSvc.RefreshCache()
 	providerHandler := provider.NewHandler(providerSvc)
 
-	authHandler := auth.NewAuthHandler()
+	authSvc := auth.NewAuthServiceWithDeps(db, rdb, buildMailer(cfg))
+	authHandler := auth.NewAuthHandlerWithService(authSvc)
 	userHandler := user.NewUserHandler()
-	chatHandler := chat.NewChatHandler(providerSvc, db)
+
+	var quotaStore quota.Store
+	if rdb != nil {
+		quotaStore = quota.NewRedisStore(rdb)
+	}
+	quotaSvc := quota.New(db, quotaStore)
+	quotaSvc.EnsureDefaultPolicy()
+	quotaHandler := quota.NewHandler(quotaSvc)
+
+	chatHandler := chat.NewChatHandler(providerSvc, db, quotaSvc)
+	memoryHandler := memory.NewMemoryHandler(db)
 	workflowHandler := workflow.NewWorkflowHandler()
 	pythonClient := knowledge.NewServiceClient(httpclient.NewClient(cfg.RAG.PythonServiceURL))
 	knowledgeHandler := knowledge.NewKnowledgeHandler(pythonClient)
-	agentHandler := agent.NewAgentHandler(providerSvc, chatHandler.Service())
+	agentHandler := agent.NewAgentHandler(providerSvc, chatHandler.Service(), quotaSvc)
 	monitorHandler := monitor.NewMonitorHandler()
+	mcpHandler := mcp.NewHandler(db)
+	skillHandler := skill.NewHandler(db)
+	importHandler := skillimport.NewHandler(db)
 	rbacHandler := rbac.NewRBACHandler()
+	tokenSvc := token.NewService(rdb)
+	tokenHandler := token.NewHandler(tokenSvc)
 
 	api := r.Group("/api/v1")
 	{
@@ -57,14 +83,21 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 			authKeys.DELETE("/:id", authHandler.DeleteApiKey)
 		}
 
-		// 聊天/模型相关（公开接口）
-		chatHandler.RegisterRoutes(api)
+		// 模型列表 / embeddings 公开；对话 completions 可选登录（Python 回调不带 JWT）
+		chatHandler.RegisterPublicRoutes(api)
+		api.POST("/chat/completions", middleware.AuthOptional(), chatHandler.Chat)
 
 		// 需要认证的路由
 		authenticated := api.Group("")
 		authenticated.Use(middleware.AuthRequired())
 		{
-			// 聊天历史（需登录；与公开的 /chat/stream 分开）
+			authenticated.POST("/chat/stream", chatHandler.ChatStream)
+			quotaHandler.RegisterUserRoutes(authenticated)
+
+			// LLM 临时凭证（阶段十四：Chat 记忆，Python 直调用）
+			tokenHandler.RegisterRoutes(authenticated)
+
+			// 聊天历史
 			chatHandler.RegisterConversationRoutes(authenticated)
 
 			// 用户管理
@@ -97,6 +130,18 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 			// Agent
 			agentHandler.RegisterRoutes(authenticated)
 
+			// MCP Server 管理（阶段十五 15.1）
+			mcpHandler.RegisterRoutes(authenticated)
+
+			// SKILL 管理（阶段十五 15.3）
+			skillHandler.RegisterRoutes(authenticated)
+
+			// SKILL 导入（Markdown / ZIP）
+			importHandler.RegisterRoutes(authenticated)
+
+			// 长期记忆 CRUD（阶段十四 14.5）
+			memoryHandler.RegisterRoutes(authenticated)
+
 			// 监控
 			monitorHandler.RegisterRoutes(authenticated)
 		}
@@ -116,8 +161,10 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 			admin.PUT("/admin/users/:id", userHandler.UpdateUser)
 			admin.DELETE("/admin/users/:id", userHandler.DeleteUser)
 			admin.PATCH("/admin/users/:id/status", userHandler.UpdateUserStatus)
+			admin.POST("/admin/users/:id/reset-password", userHandler.AdminResetPassword)
 			admin.POST("/admin/users/:id/roles", rbacHandler.AssignRole)
 			admin.GET("/admin/users/:id/role", rbacHandler.GetUserRole)
+			quotaHandler.RegisterAdminRoutes(admin)
 		}
 	}
 }
@@ -138,4 +185,39 @@ func readyHandler(c *gin.Context) {
 
 func liveHandler(c *gin.Context) {
 	c.JSON(200, gin.H{"status": "alive"})
+}
+
+func buildMailer(cfg *config.Config) mail.Sender {
+	if cfg == nil {
+		return mail.Nop{}
+	}
+	provider := strings.ToLower(strings.TrimSpace(cfg.Mail.Provider))
+	switch provider {
+	case "", "smtp", "qq", "163":
+		s := mail.NewSMTP(
+			cfg.Mail.SMTPHost,
+			cfg.Mail.SMTPPort,
+			cfg.Mail.SMTPUser,
+			cfg.Mail.SMTPPassword,
+			cfg.Mail.From,
+		)
+		if s.Enabled() {
+			return s
+		}
+	case "resend":
+		r := mail.NewResend(cfg.Mail.APIKey, cfg.Mail.From)
+		if r.Enabled() {
+			return r
+		}
+	}
+	// 兜底：哪种配齐用哪种
+	s := mail.NewSMTP(cfg.Mail.SMTPHost, cfg.Mail.SMTPPort, cfg.Mail.SMTPUser, cfg.Mail.SMTPPassword, cfg.Mail.From)
+	if s.Enabled() {
+		return s
+	}
+	r := mail.NewResend(cfg.Mail.APIKey, cfg.Mail.From)
+	if r.Enabled() {
+		return r
+	}
+	return mail.Nop{}
 }

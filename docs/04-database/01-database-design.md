@@ -3,10 +3,68 @@
 ## [变更记录]
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|---------|--------|
+| 2026-09-03 | v1.13 | §1.2 命名规范新增 MySQL 字符集/排序规则、索引命名规范（idx_/uk_/fk_ 前缀）、字段缩写规则 | orjrs |
+| 2026-09-02 | v1.12 | chat_memories 表（阶段十四 14.4 长期记忆）；字段：id/user_id/agent_id/conversation_id/kind/content/importance/metadata | orjrs |
+| 2026-08-21 | v1.8 | chat_conversations 增加 message_queue 排队字段 | orjrs |
+| 2026-08-21 | v1.7 | chat_conversations.messages 支持 images 附图字段 | orjrs |
+| 2026-08-21 | v1.6 | chat_conversations 增加 pinned 置顶字段 | orjrs |
+| 2026-08-20 | v1.5 | 密码重置令牌 Redis：cogniforge:pwdreset:* | orjrs |
+| 2026-08-18 | v1.4 | 配额表 quota_policies / llm_usage_events；Redis cogniforge:quota:* | orjrs |
 | 2026-08-16 | v1.3 | 落地 chat_conversations（Playground 历史）；~~cf_agent_conversations 未作为对话页存表~~ | orjrs |
 | 2026-08-16 | v1.2 | Redis 键统一 `cogniforge:` 前缀；多项目用前缀隔离，不拆 db0/db1 | orjrs |
 | 2026-08-15 | v1.1 | 落地模型配置 Redis 键（当时为 `cf:modelcfg:*`） | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] ai_providers 对话/向量用途（2026-08-25）
+
+- **变更原因**：知识库向量化不能跟 DeepSeek 聊天共用一条默认
+- **包含代码**：`internal/model/provider.go` AutoMigrate
+- **新增列**：`capabilities`（默认 `chat`）、`embedding_model`、`is_default_embedding`
+- **`is_default`**：仍表示对话默认
+
+## [变更] 聊天排队 message_queue（2026-08-21）
+
+- **变更原因**：流式中连问需要持久化排队；插入截断前不能让旧队误发
+- **包含代码**：`internal/model/conversation.go`；`internal/chat/conversation.go`；AutoMigrate
+- **变更后**：`chat_conversations.message_queue`（JSONB，默认 `[]`）；元素 `{id,content,images?,status,sort}`；最多 5 条
+- **列表**：摘要带 `queue_len`（条数），不含队列正文
+
+## [变更] 聊天历史附图字段（2026-08-21）
+
+- **变更原因**：发图对话要能从历史回显
+- **包含代码**：`internal/model/conversation.go` `ConversationMessage.Images`
+- **变更后**：`messages` JSON 元素可含 `images: string[]`（data URL / http）；无表结构 ALTER（JSONB）
+- **title**：仅图片无文字时标题为「图片对话」
+
+## [变更] 聊天历史置顶字段（2026-08-21）
+
+- **变更原因**：Playground 历史需要把常用对话钉在列表顶部
+- **包含代码**：`internal/model/conversation.go`；`internal/chat/conversation.go`；启动 AutoMigrate
+- **变更后**：`chat_conversations.pinned`（bool，默认 false）；列表按 `pinned DESC, updated_at DESC`
+
+### 变更前 vs 变更后
+
+- **变更前**：仅按 `updated_at` 倒序
+- **变更后**：置顶对话始终排在最前；取消置顶后恢复按更新时间排序
+
+## [变更] 密码重置 Redis 键（2026-08-20）
+
+- **变更原因**：Resend 邮件重置需要短期令牌，不落库
+- **包含代码**：`internal/auth/password_reset.go`
+- **键**：见 §5.1 `cogniforge:pwdreset:*`
+
+## [变更] 配额表与 Redis 计数键（2026-08-18）
+
+- **变更原因**：Playground 无限刷共用 Key；现网 `request_logs` 只有 HTTP 次数，不能当额度账本
+- **详细设计**：`docs/01-requirements/02-quota-design.md`
+- **落地表名**：`quota_policies`、`llm_usage_events`（与现网一样无 `cf_` 前缀）
+- **Redis**：`cogniforge:quota:*`，见 §5.1；热路径只认 Redis，明细异步写 Postgres
+- **不采用**：~~把 Token 塞进 request_logs 凑合~~（2026-08-18）；~~Java 计费库表~~（2026-08-18）
+
+### 变更前 vs 变更后
+
+- **变更前**：无用户额度；监控只聚合 HTTP
+- **变更后**：每人每天次数/Token、每月 Token、每分钟 RPM；图表读 `llm_usage_events`
 
 ## [变更] Playground 对话历史表（2026-08-16）
 
@@ -63,6 +121,64 @@
 -- 更新时间: updated_at
 -- 删除时间: deleted_at (软删除)
 ```
+
+### 1.3 MySQL 规范（若使用 MySQL 8.0+）
+
+#### 1.3.1 字符集与排序规则
+
+| 配置项 | 值 |
+|--------|-----|
+| 字符集（CHARSET） | `utf8mb4` |
+| 排序规则（COLLATE） | `utf8mb4_0900_ai_ci` |
+
+> `utf8mb4_0900_ai_ci`：MySQL 8.0+ 支持，**ai** = accent insensitive（变音符号不敏感），**ci** = case insensitive（大小写不敏感）。优先使用此排序规则。
+
+#### 1.3.2 索引命名规范
+
+| 类型 | 命名格式 | 示例 |
+|------|----------|------|
+| 普通索引 | `idx_{字段1}[_{字段2}[_{字段3}...]]` | `idx_user_id`、`idx_created_at_status` |
+| 唯一索引 | `uk_{字段1}[_{字段2}...]` | `uk_user_email`、`uk_conv_msg_seq` |
+| 外键索引 | `fk_{表名}_{ReferencedTable}` | `fk_message_conversation`、`fk_conv_user` |
+
+#### 1.3.3 字段缩写规则（索引名超 64 字符时使用）
+
+缩写必须**可读、可猜**。常见字段缩写速查：
+
+| 完整字段 | 常用缩写 | 规则说明 |
+|----------|----------|----------|
+| `user_id` | `uid` | 最常用直接用 `uid` |
+| `project_id` | `proj_id` | 保留首尾辅音 |
+| `conversation_id` | `conv_id` / `cnv_id` | 同上 |
+| `message_id` | `msg_id` | 同上 |
+| `provider_id` | `prov_id` | 保留首尾 |
+| `model_id` | `mdl_id` | 同上 |
+| `created_at` | `crt_at` / `ct_at` | 保留关键词 |
+| `updated_at` | `upd_at` / `ut_at` | 同上 |
+| `is_deleted` | `del` | 去掉 `is_` 前缀 |
+| `status` | `st` | 短词不缩写 |
+| `timestamp` | `ts` | 国际通用 |
+| `sequence` | `seq` | 同上 |
+
+**缩写原则**：
+- 缩写后总长度不超过 **64 字符**（MySQL 索引名上限）
+- 优先保留字段的**核心语义**，去掉元音可大幅缩短
+- 常见通用词（`id`、`at`、`ts`）不重复缩写
+- 新缩写需在团队内达成共识，避免歧义
+
+#### 1.3.4 索引名长度处理流程
+
+1. 原始字段拼接 → `idx_field1_field2_field3...`
+2. 若 ≤ 64 字符，直接使用
+3. 若 > 64 字符，按优先级裁剪字段或应用缩写：
+   - 去掉 `id`、`at` 等通用后缀（可推知）
+   - 字段按业务重要性排序，删掉最不重要的字段
+   - 对长字段应用缩写规则
+4. 最终仍超 64 字符时，在文档中说明原因并记录。
+
+#### 1.3.5 PostgreSQL 兼容性说明
+
+本项目后端使用 **GORM（Go）+ PostgreSQL**，但索引命名规范同样适用于 MySQL 迁移场景（见 §1.3.2~1.3.4）。PostgreSQL 实际执行时可省略索引名（自动命名），但代码/文档中仍需遵循此规范以保持跨数据库一致性。
 
 ---
 
@@ -276,7 +392,10 @@ CREATE TABLE chat_conversations (
     agent_id VARCHAR(64),
     title VARCHAR(255),
     model VARCHAR(128),
+    pinned BOOLEAN NOT NULL DEFAULT FALSE,
     messages JSONB NOT NULL DEFAULT '[]',
+    message_queue JSONB NOT NULL DEFAULT '[]',
+    summary TEXT,                                    -- 阶段十四 14.3 滚动摘要（窗口外旧消息压缩）
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     deleted_at TIMESTAMP WITH TIME ZONE
@@ -284,10 +403,42 @@ CREATE TABLE chat_conversations (
 
 CREATE INDEX idx_chat_conv_user ON chat_conversations(user_id);
 CREATE INDEX idx_chat_conv_agent ON chat_conversations(agent_id);
+CREATE INDEX idx_chat_conv_pinned ON chat_conversations(pinned);
 CREATE INDEX idx_chat_conv_deleted ON chat_conversations(deleted_at);
 ```
 
-`messages` 元素：`{"id","role","content","time"}`。title 缺省取第一条用户消息前 40 字。
+`messages` 元素：`{"id","role","content","images?","time"}`。`images` 为附图 URL 数组（多为 data URL）。
+`message_queue` 元素：`{"id","content","images?","status":"queued|sending","sort"}`，最多 5 条。
+`summary`：窗口外消息被裁剪后，由 Python `/api/memory/summarize` 生成摘要，下次对话时作为 `system` 消息注入。
+title 缺省取第一条用户消息前 40 字；无文字仅有图时为「图片对话」。列表排序：`pinned DESC, updated_at DESC`。
+
+---
+
+### 2.3.4 长期记忆表 (chat_memories)
+
+跨对话用户记忆（阶段十四 14.4/14.5）。向量存 Python pgvector collection=`chat_memories`；Go 只管理文本字段。
+
+```sql
+CREATE TABLE chat_memories (
+    id              VARCHAR(64) PRIMARY KEY,
+    user_id         VARCHAR(64) NOT NULL,
+    agent_id        VARCHAR(64),                          -- 空=用户全局；有值=仅该 Agent
+    conversation_id VARCHAR(64),                          -- 来源会话，可空
+    kind            VARCHAR(32) NOT NULL,                -- profile / preference / decision / episode
+    content         TEXT NOT NULL,                        -- ≤80字/条
+    importance      SMALLINT NOT NULL DEFAULT 5,           -- 1-10
+    metadata        JSONB DEFAULT '{}',
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    last_accessed_at TIMESTAMPTZ,
+    deleted_at      TIMESTAMPTZ
+);
+
+CREATE INDEX idx_chat_memories_user ON chat_memories(user_id);
+CREATE INDEX idx_chat_memories_agent ON chat_memories(agent_id);
+```
+
+Kind 白名单：profile（用户画像）/ preference（偏好）/ decision（决策）/ episode（事件）。向量相似度 > 0.9 时更新原文，不堆重复。
 
 ---
 
@@ -642,6 +793,55 @@ CREATE INDEX idx_usage_org_date ON cf_usage_stats(organization_id, stat_date DES
 CREATE INDEX idx_usage_date ON cf_usage_stats(stat_date DESC);
 ```
 
+### 3.3 配额策略表 (quota_policies) — 2026-08-18 设计，待落地
+
+现网表无 `cf_` 前缀，本表同样不加。`user_id` 为空表示全站默认，有值表示覆盖某用户。同时只允许一行默认策略。
+
+```sql
+CREATE TABLE quota_policies (
+    id VARCHAR(64) PRIMARY KEY,
+    user_id VARCHAR(64),                 -- NULL = 全站默认
+    daily_requests INTEGER NOT NULL DEFAULT 30,
+    daily_tokens BIGINT NOT NULL DEFAULT 100000,
+    monthly_tokens BIGINT NOT NULL DEFAULT 1000000,
+    rpm INTEGER NOT NULL DEFAULT 8,
+    admin_unlimited BOOLEAN NOT NULL DEFAULT TRUE,
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX uq_quota_policies_default ON quota_policies ((1)) WHERE user_id IS NULL;
+CREATE UNIQUE INDEX uq_quota_policies_user ON quota_policies(user_id) WHERE user_id IS NOT NULL;
+```
+
+默认种子：30 条/天、10 万 Token/天、100 万 Token/月、8 RPM、管理员不限额。
+
+### 3.4 模型用量明细表 (llm_usage_events) — 2026-08-18 设计，待落地
+
+每次打模型（成功、失败、被配额拦住）写一行。不要复用 `request_logs`。
+
+```sql
+CREATE TABLE llm_usage_events (
+    id VARCHAR(64) PRIMARY KEY,
+    user_id VARCHAR(64),                 -- 系统 embedding 可空
+    source VARCHAR(32) NOT NULL,         -- playground / agent / workflow / embed
+    model VARCHAR(100),
+    prompt_tokens INTEGER NOT NULL DEFAULT 0,
+    completion_tokens INTEGER NOT NULL DEFAULT 0,
+    total_tokens INTEGER NOT NULL DEFAULT 0,
+    tokens_estimated BOOLEAN NOT NULL DEFAULT FALSE,
+    status VARCHAR(32) NOT NULL,         -- ok / error / quota_blocked
+    latency_ms INTEGER,
+    trace_id VARCHAR(64),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_llm_usage_user_created ON llm_usage_events(user_id, created_at DESC);
+CREATE INDEX idx_llm_usage_created ON llm_usage_events(created_at DESC);
+CREATE INDEX idx_llm_usage_model_created ON llm_usage_events(model, created_at DESC);
+```
+
 ---
 
 ## 4. 审计日志表
@@ -700,12 +900,28 @@ cogniforge:modelcfg:snapshot -> JSON {
 ~~cf:modelcfg:rev / cf:modelcfg:snapshot~~（2026-08-16）
 ~~model_config:{org_id}:{model_id} -> JSON {api_key, settings}~~（2026-08-15）
 
+# 阶段十四（2026-09-02）
+cogniforge:llm_token:{user_id} -> JWT string  （LLM 临时凭证，TTL 5min，幂等缓存）
+
 # 规划中（同样加 cogniforge: 前缀后再落地）
 cogniforge:session:{user_id} -> JSON {token, expires_at}
 cogniforge:ratelimit:{api_key_id}:{minute} -> counter
 cogniforge:agent:conv:{agent_id}:{session_id} -> JSON {messages}
 cogniforge:workflow:exec:{execution_id} -> JSON {status, result}
 cogniforge:token:{org_id}:{date} -> counter
+
+# 配额计数（2026-08-18 设计，待落地；热路径强制这些名字）
+cogniforge:quota:policy:rev -> integer
+cogniforge:quota:user:{userId}:day:{yyyyMMdd}:req -> integer     # TTL 48h
+cogniforge:quota:user:{userId}:day:{yyyyMMdd}:tokens -> integer  # TTL 48h
+cogniforge:quota:user:{userId}:month:{yyyyMM}:tokens -> integer  # TTL 40d
+cogniforge:quota:rl:{userId}:{yyyyMMddHHmm} -> integer           # TTL 2min
+# 禁止把 API Key 写入上述键
+
+# 密码重置（2026-08-20）
+cogniforge:pwdreset:tok:{token} -> userId   # TTL 30m
+cogniforge:pwdreset:uid:{userId} -> token   # TTL 30m，同用户只保留最新令牌
+cogniforge:pwdreset:rl:{email} -> integer   # TTL 15m，同邮箱最多 3 次
 ```
 
 ---

@@ -4,6 +4,14 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
+# 加载 .env 文件
+if [ -f "$PROJECT_ROOT/.env" ]; then
+  echo "Loading .env file..."
+  set -a
+  source "$PROJECT_ROOT/.env"
+  set +a
+fi
+
 echo "Stopping any existing Cogniforge server..."
 pkill -f "server" 2>/dev/null || true
 sleep 1
@@ -11,4 +19,4 @@ sleep 1
 cd "$PROJECT_ROOT"
 
 echo "Starting Cogniforge server..."
-PORT=8080 POSTGRES_PORT=5433 go run ./cmd/server/main.go
+go run ./cmd/server/main.go

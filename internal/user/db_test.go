@@ -24,6 +24,11 @@ func TestMain(m *testing.M) {
 		&model.Permission{},
 		&model.Role{},
 		&model.RolePermission{},
+		&model.McpServer{},
+		&model.AgentMcpServer{},
+		&model.Skill{},
+		&model.ChatConversation{},
+		&model.ChatMemory{},
 	)
 	os.Exit(m.Run())
 }

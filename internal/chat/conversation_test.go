@@ -27,6 +27,10 @@ func TestTitleFromMessages(t *testing.T) {
 	long := stringsRepeat("你", 50)
 	got := titleFromMessages([]model.ConversationMessage{{Role: "user", Content: long}})
 	assert.Equal(t, stringsRepeat("你", 40)+"…", got)
+
+	assert.Equal(t, "图片对话", titleFromMessages([]model.ConversationMessage{
+		{Role: "user", Content: "", Images: []string{"data:image/png;base64,xx"}},
+	}))
 }
 
 func stringsRepeat(s string, n int) string {
@@ -88,6 +92,90 @@ func TestConversationCRUDAndIsolation(t *testing.T) {
 	require.NoError(t, svc.Delete("user-a", created.ID))
 	_, err = svc.Get("user-a", created.ID)
 	require.ErrorIs(t, err, errConversationNotFound)
+}
+
+func TestConversationPinSortsFirst(t *testing.T) {
+	svc := setupConversationService(t)
+
+	older, err := svc.Create("user-a", &CreateConversationRequest{
+		Title: "older",
+		Messages: []model.ConversationMessage{
+			{ID: "m1", Role: "user", Content: "older"},
+		},
+	})
+	require.NoError(t, err)
+
+	newer, err := svc.Create("user-a", &CreateConversationRequest{
+		Title: "newer",
+		Messages: []model.ConversationMessage{
+			{ID: "m2", Role: "user", Content: "newer"},
+		},
+	})
+	require.NoError(t, err)
+
+	listed, err := svc.List("user-a")
+	require.NoError(t, err)
+	require.Len(t, listed, 2)
+	assert.Equal(t, newer.ID, listed[0].ID)
+	assert.False(t, listed[0].Pinned)
+
+	pinned := true
+	_, err = svc.Update("user-a", older.ID, &UpdateConversationRequest{Pinned: &pinned})
+	require.NoError(t, err)
+
+	listed, err = svc.List("user-a")
+	require.NoError(t, err)
+	require.Len(t, listed, 2)
+	assert.Equal(t, older.ID, listed[0].ID)
+	assert.True(t, listed[0].Pinned)
+	assert.Equal(t, newer.ID, listed[1].ID)
+	assert.False(t, listed[1].Pinned)
+
+	unpinned := false
+	_, err = svc.Update("user-a", older.ID, &UpdateConversationRequest{Pinned: &unpinned})
+	require.NoError(t, err)
+
+	listed, err = svc.List("user-a")
+	require.NoError(t, err)
+	require.Len(t, listed, 2)
+	assert.False(t, listed[0].Pinned)
+	assert.False(t, listed[1].Pinned)
+}
+
+func TestConversationMessageQueue(t *testing.T) {
+	svc := setupConversationService(t)
+	created, err := svc.Create("user-a", &CreateConversationRequest{
+		Title: "q",
+		Messages: []model.ConversationMessage{
+			{ID: "m1", Role: "user", Content: "hi"},
+		},
+	})
+	require.NoError(t, err)
+	require.Empty(t, created.MessageQueue)
+
+	queue := []model.ConversationQueueItem{
+		{ID: "q1", Content: "next", Status: "queued"},
+		{Content: "also", Status: "queued"},
+	}
+	updated, err := svc.Update("user-a", created.ID, &UpdateConversationRequest{MessageQueue: &queue})
+	require.NoError(t, err)
+	require.Len(t, updated.MessageQueue, 2)
+	assert.Equal(t, "q1", updated.MessageQueue[0].ID)
+	assert.NotEmpty(t, updated.MessageQueue[1].ID)
+	assert.Equal(t, 0, updated.MessageQueue[0].Sort)
+	assert.Equal(t, 1, updated.MessageQueue[1].Sort)
+
+	tooMany := make([]model.ConversationQueueItem, 6)
+	for i := range tooMany {
+		tooMany[i] = model.ConversationQueueItem{Content: "x", Status: "queued"}
+	}
+	_, err = svc.Update("user-a", created.ID, &UpdateConversationRequest{MessageQueue: &tooMany})
+	require.ErrorIs(t, err, errMessageQueueTooLong)
+
+	listed, err := svc.List("user-a")
+	require.NoError(t, err)
+	require.Len(t, listed, 1)
+	assert.Equal(t, 2, listed[0].QueueLen)
 }
 
 func strPtr(s string) *string { return &s }

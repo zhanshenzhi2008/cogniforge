@@ -22,6 +22,15 @@ type ApiKeyRequest struct {
 	Name string `json:"name" binding:"required"`
 }
 
+type ForgotPasswordRequest struct {
+	Email string `json:"email" binding:"required"`
+}
+
+type ResetPasswordRequest struct {
+	Token       string `json:"token" binding:"required"`
+	NewPassword string `json:"new_password" binding:"required,min=8"`
+}
+
 // ============ 响应结构 ============
 
 type AuthData struct {

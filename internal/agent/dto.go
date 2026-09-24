@@ -10,6 +10,8 @@ type CreateAgentRequest struct {
 	Model        string   `json:"model" binding:"required"`
 	SystemPrompt string   `json:"system_prompt"`
 	Tools        []string `json:"tools"`
+	SkillID      string   `json:"skill_id"` // 阶段十五：从 SKILL 创建
+	McpServers   []string `json:"mcp_servers"`
 }
 
 type UpdateAgentRequest struct {
@@ -18,6 +20,8 @@ type UpdateAgentRequest struct {
 	Model        string   `json:"model"`
 	SystemPrompt string   `json:"system_prompt"`
 	Tools        []string `json:"tools"`
+	SkillID      string   `json:"skill_id"`
+	McpServers   []string `json:"mcp_servers"`
 	Status       string   `json:"status"`
 }
 

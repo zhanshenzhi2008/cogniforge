@@ -1,0 +1,61 @@
+# ============================================
+# Cogniforge 全局规则（粘贴稿）
+# ============================================
+# 正式生效副本：~/.cursor/rules/global-coding.mdc（alwaysApply）
+# 若还要出现在 Cursor Settings → Rules → User Rules 文本框，把下面全文贴进去。
+# ============================================
+
+## 1. 文档与代码必须同步
+无论后端、前端、架构、数据库，只要代码有变动，必须更新对应文档。
+文档落后于代码视为 Bug，代码变更没有文档更新禁止合并到主分支。
+项目专属映射表（代码→文档路径）在项目级 `.cursor/rules/` 中定义。
+
+## 2. 文档变更记录规范
+
+### 2.1 文档头部变更记录表
+每份文档顶部必须有 `[变更记录]` 表，时间倒序排列：
+```
+## [变更记录]
+| 日期 | 版本 | 变更摘要 | 负责人 |
+|------|------|---------|--------|
+| 2026-07-18 | v1.0 | 初始版本 | orjrs |
+```
+
+### 2.2 正文变更章节
+每次变更在文档顶部 `## [变更] 变更标题（YYYY-MM-DD）`，包含：
+- 变更原因 / 包含代码 / 影响范围
+- 变更前 vs 变更后
+- 关键差异（新增 / 移除 / 修改）
+
+### 2.3 废弃条款用删除线标注
+废弃时用 `~~旧内容~~（变更日期）`，不直接删除。
+
+### 2.4 版本号递增
+- 主版本 +1：破坏性变更 / 重大结构调整
+- 次版本 +1：正常功能变更
+- 补丁 +1：错别字 / 格式修正
+
+## 3. Git 提交规范（Conventional Commits）
+- feat: 新功能 / fix: 修复 / refactor: 重构（无行为变更）/ docs: 文档
+- chore: 任务调整 / style: 格式化 / perf: 性能 / test: 测试
+- AI 生成 commit message 后**只给文本，不执行 `git commit`**，必须开发者本人确认后提交。
+
+## 4. 安全规范
+- 禁止在 `.cursor/` 规则文件、`.mdc` 文件、commit message 中写入真实敏感信息：
+  IP / 域名 / 邮箱 / 密码 / API Key / SSH 私钥 / 数据库连接串
+- 真实配置存放在 GitHub Secrets（远程）或本地 `.env`（git 忽略）
+- 配置文件示例一律用占位符：`cogniforge.example.com`、`change_me_to_xxx`
+
+## 5. 服务器路径规范（Cogniforge 部署约定）
+- 应用代码：`/opt/project/<name>/`（三个仓库分别独立目录）
+- 基础设施：`/opt/docker/`（Traefik + Portainer 已搭好）
+- 公用数据库：`/opt/databases/`（PostgreSQL + Redis）
+- 部署 compose 文件：仓库根目录 `docker-compose.yml`
+- 部署、CI/CD、Traefik 路由等细节：调用 `cogniforge-deploy` skill
+
+## 6. Redis 键命名（多项目共用一台 Redis）
+- 一律用 **db0**，不要按项目切 `SELECT db1/db2`
+- 用项目前缀隔离，格式 `{项目}:{模块}:{名字}`
+- Cogniforge 前缀必须是 `cogniforge:`（禁止 `cf:`、禁止无前缀）
+- 已落地：`cogniforge:modelcfg:rev`、`cogniforge:modelcfg:snapshot`（snapshot 只存加密 Key）
+- 明文 API Key 禁止进 Redis；新键先改 `docs/04-database/01-database-design.md` §5.1 再写代码

@@ -1,6 +1,7 @@
 package user
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -117,6 +118,29 @@ func (h *UserHandler) DeleteUser(c *gin.Context) {
 	response.SuccessWithMessage(c, nil, "用户已删除")
 }
 
+// AdminResetPassword 管理员重置用户密码
+func (h *UserHandler) AdminResetPassword(c *gin.Context) {
+	userID := c.Param("id")
+	if userID == "" {
+		response.BadRequest(c, "用户ID不能为空")
+		return
+	}
+
+	plain, err := h.service.AdminResetPassword(userID)
+	if err != nil {
+		if err.Error() == "用户不存在" {
+			response.NotFound(c, err.Error())
+			return
+		}
+		response.InternalError(c, err.Error())
+		return
+	}
+
+	response.SuccessWithMessage(c, gin.H{
+		"temporary_password": plain,
+	}, "密码已重置，请将临时密码告知用户，并提醒其登录后立即修改")
+}
+
 // UpdateUserStatus 更新用户状态
 func (h *UserHandler) UpdateUserStatus(c *gin.Context) {
 	userID := c.Param("id")
@@ -225,10 +249,10 @@ func (h *UserHandler) ChangePassword(c *gin.Context) {
 
 	err := h.service.ChangePassword(userID.(string), &req)
 	if err != nil {
-		switch err.Error() {
-		case "旧密码错误":
-			response.Fail(c, http.StatusUnauthorized, err.Error())
-		case "新旧密码不能相同":
+		switch {
+		case errors.Is(err, ErrOldPasswordWrong):
+			response.FailWithHTTPStatus(c, http.StatusUnauthorized, response.CodePasswordIncorrect, err.Error())
+		case errors.Is(err, ErrPasswordUnchanged), errors.Is(err, ErrPasswordWeak):
 			response.BadRequest(c, err.Error())
 		default:
 			response.InternalError(c, err.Error())

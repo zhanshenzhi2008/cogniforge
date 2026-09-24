@@ -91,7 +91,9 @@ func (h *Handler) DeleteProvider(c *gin.Context) {
 // SetDefault 设置默认供应商
 func (h *Handler) SetDefault(c *gin.Context) {
 	id := c.Param("id")
-	if err := h.service.SetDefault(id); err != nil {
+	var req SetDefaultRequest
+	_ = c.ShouldBindJSON(&req)
+	if err := h.service.SetDefault(id, req.Purpose); err != nil {
 		response.InternalError(c, err.Error())
 		return
 	}

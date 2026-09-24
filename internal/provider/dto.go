@@ -12,20 +12,28 @@ type CreateProviderRequest struct {
 	Provider     string                 `json:"provider" binding:"required"`
 	BaseURL      string                 `json:"base_url"`
 	APIKey       string                 `json:"api_key" binding:"required"`
-	DefaultModel string                 `json:"default_model"`
-	ExtraHeaders map[string]interface{} `json:"extra_headers"`
-	IsEnabled    bool                   `json:"is_enabled"`
-	Priority     int                    `json:"priority"`
+	DefaultModel   string                 `json:"default_model"`
+	EmbeddingModel string                 `json:"embedding_model"`
+	Capabilities   []string               `json:"capabilities"`
+	ExtraHeaders   map[string]interface{} `json:"extra_headers"`
+	IsEnabled      bool                   `json:"is_enabled"`
+	Priority       int                    `json:"priority"`
 }
 
 type UpdateProviderRequest struct {
-	Name         *string                `json:"name"`
-	BaseURL      *string                `json:"base_url"`
-	APIKey       *string                `json:"api_key"`
-	DefaultModel *string                `json:"default_model"`
-	ExtraHeaders map[string]interface{} `json:"extra_headers"`
-	IsEnabled    *bool                  `json:"is_enabled"`
-	Priority     *int                   `json:"priority"`
+	Name           *string                `json:"name"`
+	BaseURL        *string                `json:"base_url"`
+	APIKey         *string                `json:"api_key"`
+	DefaultModel   *string                `json:"default_model"`
+	EmbeddingModel *string                `json:"embedding_model"`
+	Capabilities   []string               `json:"capabilities"`
+	ExtraHeaders   map[string]interface{} `json:"extra_headers"`
+	IsEnabled      *bool                  `json:"is_enabled"`
+	Priority       *int                   `json:"priority"`
+}
+
+type SetDefaultRequest struct {
+	Purpose string `json:"purpose"` // chat | embedding，空则对话
 }
 
 // ===================== 响应结构 =====================
@@ -35,11 +43,14 @@ type ProviderResponse struct {
 	Name         string                 `json:"name"`
 	Provider     string                 `json:"provider"`
 	BaseURL      string                 `json:"base_url"`
-	DefaultModel string                 `json:"default_model"`
-	ExtraHeaders map[string]interface{} `json:"extra_headers"`
-	IsEnabled    bool                   `json:"is_enabled"`
-	IsDefault    bool                   `json:"is_default"`
-	Priority     int                    `json:"priority"`
+	DefaultModel       string                 `json:"default_model"`
+	EmbeddingModel     string                 `json:"embedding_model"`
+	Capabilities       []string               `json:"capabilities"`
+	ExtraHeaders       map[string]interface{} `json:"extra_headers"`
+	IsEnabled          bool                   `json:"is_enabled"`
+	IsDefault          bool                   `json:"is_default"`
+	IsDefaultEmbedding bool                   `json:"is_default_embedding"`
+	Priority           int                    `json:"priority"`
 	Status       string                 `json:"status"`
 	LastTestAt   *string                `json:"last_test_at"`
 	LastError    string                 `json:"last_error,omitempty"`
@@ -63,11 +74,14 @@ func toResponse(p *model.AIProvider) ProviderResponse {
 		Name:         p.Name,
 		Provider:     p.Provider,
 		BaseURL:      p.BaseURL,
-		DefaultModel: p.DefaultModel,
-		ExtraHeaders: p.ExtraHeaders,
-		IsEnabled:    p.IsEnabled,
-		IsDefault:    p.IsDefault,
-		Priority:     p.Priority,
+		DefaultModel:       p.DefaultModel,
+		EmbeddingModel:     p.EmbeddingModel,
+		Capabilities:       model.SplitCapabilities(p.Capabilities),
+		ExtraHeaders:       p.ExtraHeaders,
+		IsEnabled:          p.IsEnabled,
+		IsDefault:          p.IsDefault,
+		IsDefaultEmbedding: p.IsDefaultEmbedding,
+		Priority:           p.Priority,
 		Status:       p.Status,
 		LastError:    p.LastError,
 		CreatedAt:    p.CreatedAt.Format("2006-01-02T15:04:05Z"),

@@ -117,7 +117,8 @@ type Agent struct {
 	Description  string         `gorm:"type:text" json:"description"`
 	Model        string         `gorm:"type:varchar(100)" json:"model"`
 	SystemPrompt string         `gorm:"type:text" json:"system_prompt"`
-	Tools        JSONBArray     `gorm:"type:jsonb" json:"tools"`
+	Tools        JSONBArray     `gorm:"type:jsonb" json:"tools"`                        // 直接配置的 MCP Server ID 列表
+	SkillID      string         `gorm:"type:varchar(64)" json:"skill_id"`               // 阶段十五：从 SKILL 创建
 	MemoryType   string         `gorm:"type:varchar(50)" json:"memory_type"`
 	MemoryTurns  int            `gorm:"default:10" json:"memory_turns"`
 	InputFilter  bool           `gorm:"default:true" json:"input_filter"`

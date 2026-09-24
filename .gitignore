@@ -33,6 +33,7 @@ server
 .env.*.local
 
 # IDE - JetBrains
+.idea/
 .idea/workspace.xml
 .idea/tasks.xml
 .idea/usage.statistics.xml
@@ -54,6 +55,9 @@ vendor/
 # Build output
 bin/
 tmp/
+
+# Data files (user uploads)
+uploads/
 
 # Go workspace file
 go.work

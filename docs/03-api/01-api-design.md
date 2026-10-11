@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-10-11 | v1.24 | 阶段十三 13.2：chat/stream 按 rag_kb_ids/会话/附件所属 KB 做 Top-K 检索注入 system（失败降级） | orjrs |
 | 2026-10-11 | v1.23 | 阶段十三 13.1：ChatRequest.attachments / rag_kb_ids；conversations.rag_knowledge_base_ids；messages[].attachments | orjrs |
 | 2026-09-05 | v1.22 | 新增 SKILL 外部导入接口（Markdown/ZIP），支持 ZIP 批量导入多个 Skill；参考 Claude Skills SKILL.md 格式；内置 URL 安全校验 | orjrs |
 | 2026-09-02 | v1.21 | 14.5 长期记忆 CRUD：Go POST/GET/DELETE /api/v1/memories；chat_memories 表 + ChatMemory model | orjrs |
@@ -110,6 +111,16 @@
 ```
 
 **响应 401：** token 无效 / 过期 / scope 错误
+
+## [变更] 阶段十三 13.2：chat/stream RAG 注入（2026-10-11）
+
+- **变更原因**：对话时召回知识库片段，避免把整份文件塞进模型
+- **包含代码**：`internal/chat/rag.go`、`internal/chat/handler.go`、`knowledge.SearchByUser`
+- **接口**：`POST /api/v1/chat/stream`
+  - KB 来源：`rag_kb_ids` ∪ 会话 `rag_knowledge_base_ids` ∪ `attachments[].id` 所属知识库
+  - 用最新 user 消息作 query；默认 `top_k=3`、`min_score=0.5`；命中片段以 system「知识库参考」注入
+  - 单库检索失败仅告警跳过，对话不中断
+- **变更前 vs 变更后**：~~仅接收字段、不检索~~（2026-10-11）→ 流式对话前检索并注入
 
 ## [变更] 阶段十三 13.1：聊天附件与 RAG KB 字段（2026-10-11）
 

@@ -4,8 +4,16 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|---------|--------|
+| 2026-10-11 | v1.3 | 13.2 落地：ChatStream Top-K 检索 + 知识库参考 system 注入；失败降级 | orjrs |
 | 2026-10-11 | v1.2 | 13.1 落地：ChatRequest.attachments/rag_kb_ids；ConversationMessage.attachments；ChatConversation.rag_knowledge_base_ids | orjrs |
 | 2026-09-05 | v1.1 | 详细设计：发送框文件、RAG 注入、会话关联 | orjrs |
+
+## [变更] 13.2 RAG 检索注入落地（2026-10-11）
+
+- **变更原因**：门槛第 4 项「对话时召回知识库」本期实现
+- **包含代码**：`internal/chat/rag.go`、`handler.go` ChatStream；`knowledge.SearchByUser` / `ResolveKBIDsForDocuments`
+- **变更前 vs 变更后**：~~字段就绪无检索~~（2026-10-11）→ stream 前检索注入；检索失败不阻断对话
+- **关键差异**：默认 top_k=3、min_score=0.5；配置项与前端上传 UI 仍待 13.3/13.5
 
 ## [变更] 13.1 Attachments DTO 落地（2026-10-11）
 
@@ -23,7 +31,7 @@
 | 1 | 知识库上传→解析→向量稳定 | ✅ | 上传 PDF，重复 reprocess 成功 |
 | 2 | Embedding 与聊天分开 | ✅ | DeepSeek Chat 单独开，向量不挂 |
 | 3 | 向量语义检索 | ✅ | `POST /kb/:id/search` 返回片段+分数 |
-| 4 | 对话时召回知识库 | ❌ | **本期完成** |
+| 4 | 对话时召回知识库 | ✅ | ChatStream 注入「知识库参考」system |
 | 5 | Embedding 不算额度 | ✅ | 走独立 `/embeddings`，不计 quota |
 
 ---

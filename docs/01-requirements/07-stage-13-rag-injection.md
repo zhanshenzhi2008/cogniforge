@@ -4,10 +4,18 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|---------|--------|
+| 2026-10-11 | v1.5 | 13.5：RAG_TOP_K / MIN_SCORE / MAX_TOKENS + 请求体与前端滑条 | orjrs |
 | 2026-10-11 | v1.4 | 13.3/13.4：Playground 文件上传 + 气泡附件芯片（cogniforge-web） | orjrs |
 | 2026-10-11 | v1.3 | 13.2 落地：ChatStream Top-K 检索 + 知识库参考 system 注入；失败降级 | orjrs |
 | 2026-10-11 | v1.2 | 13.1 落地：ChatRequest.attachments/rag_kb_ids；ConversationMessage.attachments；ChatConversation.rag_knowledge_base_ids | orjrs |
 | 2026-09-05 | v1.1 | 详细设计：发送框文件、RAG 注入、会话关联 | orjrs |
+
+## [变更] 13.5 RAG Top-K 配置落地（2026-10-11）
+
+- **变更原因**：检索片段数与阈值需可调
+- **包含代码**：`configs/config.yaml`、`chat.SetRAGDefaults`、`ChatRequest.rag_top_k/rag_min_score`；Web 参数面板滑条
+- **变更前 vs 变更后**：~~常量写死~~（2026-10-11）→ 环境默认 + 请求覆盖 + 前端可调
+- **关键差异**：`RAG_MAX_TOKENS` 按 rune/4 粗估截断注入片段总量
 
 ## [变更] 13.3/13.4 前端附件上传与气泡展示（2026-10-11）
 

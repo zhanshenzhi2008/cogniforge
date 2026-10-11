@@ -55,6 +55,8 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 	quotaSvc.EnsureDefaultPolicy()
 	quotaHandler := quota.NewHandler(quotaSvc)
 
+	chat.SetPythonURL(cfg.RAG.PythonServiceURL)
+	chat.SetRAGDefaults(cfg.RAG.TopK, cfg.RAG.MinScore, cfg.RAG.MaxTokens)
 	chatHandler := chat.NewChatHandler(providerSvc, db, quotaSvc)
 	memoryHandler := memory.NewMemoryHandler(db)
 	workflowHandler := workflow.NewWorkflowHandler()

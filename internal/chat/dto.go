@@ -43,6 +43,9 @@ type ChatRequest struct {
 	// 阶段十三：文件附件 + RAG 知识库 ID（检索注入在 13.2）
 	Attachments         []MessageAttachment `json:"attachments,omitempty"`
 	RAGKnowledgeBaseIDs []string            `json:"rag_kb_ids,omitempty"`
+	// 阶段十三 13.5：覆盖服务端默认 Top-K / 最低分（0 或不传则用配置默认）
+	RAGTopK     *int     `json:"rag_top_k,omitempty"`
+	RAGMinScore *float64 `json:"rag_min_score,omitempty"`
 
 	Temperature      *float64 `json:"temperature,omitempty"`
 	MaxTokens        *int     `json:"max_tokens,omitempty"`

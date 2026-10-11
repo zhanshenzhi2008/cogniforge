@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-10-11 | v1.25 | 阶段十三 13.5：chat/stream 支持 rag_top_k / rag_min_score（覆盖服务端 RAG_* 默认） | orjrs |
 | 2026-10-11 | v1.24 | 阶段十三 13.2：chat/stream 按 rag_kb_ids/会话/附件所属 KB 做 Top-K 检索注入 system（失败降级） | orjrs |
 | 2026-10-11 | v1.23 | 阶段十三 13.1：ChatRequest.attachments / rag_kb_ids；conversations.rag_knowledge_base_ids；messages[].attachments | orjrs |
 | 2026-09-05 | v1.22 | 新增 SKILL 外部导入接口（Markdown/ZIP），支持 ZIP 批量导入多个 Skill；参考 Claude Skills SKILL.md 格式；内置 URL 安全校验 | orjrs |
@@ -111,6 +112,13 @@
 ```
 
 **响应 401：** token 无效 / 过期 / scope 错误
+
+## [变更] 阶段十三 13.5：RAG Top-K / min_score（2026-10-11）
+
+- **变更原因**：检索深度需可配；服务端默认 + 单次请求覆盖
+- **包含代码**：`RAG_TOP_K` / `RAG_MIN_SCORE` / `RAG_MAX_TOKENS`；`ChatRequest.rag_top_k` / `rag_min_score`
+- **接口**：`POST /api/v1/chat/stream` 可选 `rag_top_k`（1–20）、`rag_min_score`（0–1）；不传用环境默认
+- **变更前 vs 变更后**：~~写死 3 / 0.5~~（2026-10-11）→ 可配置；片段总长受 `RAG_MAX_TOKENS` 粗估截断
 
 ## [变更] 阶段十三 13.2：chat/stream RAG 注入（2026-10-11）
 

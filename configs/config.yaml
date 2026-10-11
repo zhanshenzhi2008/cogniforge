@@ -21,6 +21,9 @@ encryption:
 
 rag:
   python_service_url: ${RAG_PYTHON_URL:-http://localhost:8086}
+  top_k: ${RAG_TOP_K:-3}
+  min_score: ${RAG_MIN_SCORE:-0.5}
+  max_tokens: ${RAG_MAX_TOKENS:-2000}
 
 jwt:
   secret: ${JWT_SECRET:-cogniforge-secret-key}

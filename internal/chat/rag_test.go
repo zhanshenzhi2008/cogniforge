@@ -3,6 +3,7 @@ package chat
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -63,9 +64,35 @@ func TestRetrieveRAGFragments_DegradeOnError(t *testing.T) {
 			},
 		},
 	}
-	frags := retrieveRAGFragments(context.Background(), m, "u1", []string{"kb-bad", "kb-ok"}, "退货")
+	frags := retrieveRAGFragments(context.Background(), m, "u1", []string{"kb-bad", "kb-ok"}, "退货", RAGOptions{TopK: 3, MinScore: 0.5, MaxTokens: 2000})
 	require.Len(t, frags, 1)
 	assert.Contains(t, frags[0], "hello")
+}
+
+func TestResolveRAGOptions_RequestOverrides(t *testing.T) {
+	SetRAGDefaults(3, 0.5, 2000)
+	topK := 7
+	score := 0.8
+	opt := resolveRAGOptions(&ChatRequest{RAGTopK: &topK, RAGMinScore: &score})
+	assert.Equal(t, 7, opt.TopK)
+	assert.InDelta(t, 0.8, opt.MinScore, 1e-9)
+	assert.Equal(t, 2000, opt.MaxTokens)
+}
+
+func TestRetrieveRAGFragments_RespectsTopKBudget(t *testing.T) {
+	m := &mockRAGSearcher{
+		results: map[string]*knowledge.SearchResponse{
+			"kb": {
+				Results: []knowledge.SearchResult{
+					{DocumentName: "a", Content: strings.Repeat("字", 40)},
+					{DocumentName: "b", Content: strings.Repeat("字", 40)},
+				},
+			},
+		},
+	}
+	// ~10 tokens per frag; budget 12 → only first fragment kept after first fills
+	frags := retrieveRAGFragments(context.Background(), m, "u1", []string{"kb"}, "q", RAGOptions{TopK: 5, MinScore: 0.1, MaxTokens: 12})
+	require.Len(t, frags, 1)
 }
 
 func TestResolveRAGKnowledgeBaseIDs(t *testing.T) {

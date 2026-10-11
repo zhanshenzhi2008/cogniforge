@@ -5,15 +5,43 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"unicode/utf8"
 
 	"cogniforge/internal/knowledge"
 )
 
 const (
-	ragDefaultTopK     = 3
-	ragDefaultMinScore = 0.5
-	ragMaxFragments    = 12
+	ragFallbackTopK     = 3
+	ragFallbackMinScore = 0.5
+	ragFallbackMaxTok   = 2000
+	ragMaxFragments     = 12
 )
+
+// RAGOptions 单次检索参数（请求体优先，否则服务端默认）
+type RAGOptions struct {
+	TopK      int
+	MinScore  float64
+	MaxTokens int
+}
+
+var ragDefaults = RAGOptions{
+	TopK:      ragFallbackTopK,
+	MinScore:  ragFallbackMinScore,
+	MaxTokens: ragFallbackMaxTok,
+}
+
+// SetRAGDefaults 从配置注入默认 Top-K / min_score / 片段 token 预算（阶段十三 13.5）
+func SetRAGDefaults(topK int, minScore float64, maxTokens int) {
+	if topK > 0 {
+		ragDefaults.TopK = topK
+	}
+	if minScore > 0 {
+		ragDefaults.MinScore = minScore
+	}
+	if maxTokens > 0 {
+		ragDefaults.MaxTokens = maxTokens
+	}
+}
 
 // RAGSearcher Chat 侧检索接口（便于单测 mock）
 type RAGSearcher interface {
@@ -63,17 +91,58 @@ func buildRAGSystemPrompt(fragments []string) string {
 	return sb.String()
 }
 
+func resolveRAGOptions(req *ChatRequest) RAGOptions {
+	opt := ragDefaults
+	if req != nil {
+		if req.RAGTopK != nil && *req.RAGTopK > 0 {
+			opt.TopK = *req.RAGTopK
+		}
+		if req.RAGMinScore != nil && *req.RAGMinScore > 0 {
+			opt.MinScore = *req.RAGMinScore
+		}
+	}
+	if opt.TopK < 1 {
+		opt.TopK = ragFallbackTopK
+	}
+	if opt.TopK > 20 {
+		opt.TopK = 20
+	}
+	if opt.MinScore <= 0 {
+		opt.MinScore = ragFallbackMinScore
+	}
+	if opt.MinScore > 1 {
+		opt.MinScore = 1
+	}
+	if opt.MaxTokens <= 0 {
+		opt.MaxTokens = ragFallbackMaxTok
+	}
+	return opt
+}
+
+// approxTokens 粗估 token（按 rune/4，与前端 tokenCount 一致）
+func approxTokens(s string) int {
+	n := utf8.RuneCountInString(s)
+	if n <= 0 {
+		return 0
+	}
+	return (n + 3) / 4
+}
+
 // retrieveRAGFragments 对多个知识库做 Top-K 检索；失败降级为空，不阻断对话
-func retrieveRAGFragments(ctx context.Context, searcher RAGSearcher, userID string, kbIDs []string, query string) []string {
+func retrieveRAGFragments(ctx context.Context, searcher RAGSearcher, userID string, kbIDs []string, query string, opts RAGOptions) []string {
 	if searcher == nil || userID == "" || query == "" || len(kbIDs) == 0 {
 		return nil
 	}
+	if opts.TopK <= 0 {
+		opts = resolveRAGOptions(nil)
+	}
 	var fragments []string
+	usedTokens := 0
 	for _, kbID := range kbIDs {
 		resp, err := searcher.SearchByUser(ctx, userID, kbID, &knowledge.SearchRequest{
 			Query:    query,
-			TopK:     ragDefaultTopK,
-			MinScore: ragDefaultMinScore,
+			TopK:     opts.TopK,
+			MinScore: opts.MinScore,
 		})
 		if err != nil {
 			slog.Warn("RAG 检索失败，降级跳过", "kb_id", kbID, "error", err)
@@ -84,7 +153,13 @@ func retrieveRAGFragments(ctx context.Context, searcher RAGSearcher, userID stri
 			if label == "" {
 				label = kbID
 			}
-			fragments = append(fragments, fmt.Sprintf("[%s] %s", label, r.Content))
+			frag := fmt.Sprintf("[%s] %s", label, r.Content)
+			cost := approxTokens(frag)
+			if opts.MaxTokens > 0 && usedTokens+cost > opts.MaxTokens && len(fragments) > 0 {
+				return fragments
+			}
+			fragments = append(fragments, frag)
+			usedTokens += cost
 			if len(fragments) >= ragMaxFragments {
 				return fragments
 			}

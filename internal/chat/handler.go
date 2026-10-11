@@ -182,7 +182,8 @@ func (h *ChatHandler) ChatStream(c *gin.Context) {
 	ragBlocks := []string{}
 	kbIDs := resolveRAGKnowledgeBaseIDs(c.Request.Context(), h.rag, userID, &req, convRagKBIDs)
 	if len(kbIDs) > 0 && lastUserContent != "" {
-		ragBlocks = retrieveRAGFragments(c.Request.Context(), h.rag, userID, kbIDs, lastUserContent)
+		ragOpts := resolveRAGOptions(&req)
+		ragBlocks = retrieveRAGFragments(c.Request.Context(), h.rag, userID, kbIDs, lastUserContent, ragOpts)
 	}
 
 	// 组装完整 messages：[摘要?] + [长期记忆] + [RAG] + [历史] + [本轮]

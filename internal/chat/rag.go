@@ -181,3 +181,33 @@ func resolveRAGKnowledgeBaseIDs(ctx context.Context, searcher RAGSearcher, userI
 	}
 	return ids
 }
+
+// InjectRAGSystemIfNeeded 供 Agent / Chat 共用：检索后在首批 system 之后插入「知识库参考」。
+// 无 KB、无命中或检索失败时原样返回 messages（降级）。
+func InjectRAGSystemIfNeeded(ctx context.Context, searcher RAGSearcher, userID string, req *ChatRequest, convKBIDs []string, messages []ChatMessage) []ChatMessage {
+	if searcher == nil || req == nil || userID == "" || len(messages) == 0 {
+		return messages
+	}
+	kbIDs := resolveRAGKnowledgeBaseIDs(ctx, searcher, userID, req, convKBIDs)
+	query := lastUserQuery(req.Messages)
+	if query == "" {
+		query = lastUserQuery(messages)
+	}
+	if len(kbIDs) == 0 || query == "" {
+		return messages
+	}
+	frags := retrieveRAGFragments(ctx, searcher, userID, kbIDs, query, resolveRAGOptions(req))
+	prompt := buildRAGSystemPrompt(frags)
+	if prompt == "" {
+		return messages
+	}
+	insertAt := 0
+	for insertAt < len(messages) && messages[insertAt].Role == "system" {
+		insertAt++
+	}
+	out := make([]ChatMessage, 0, len(messages)+1)
+	out = append(out, messages[:insertAt]...)
+	out = append(out, ChatMessage{Role: "system", Content: prompt})
+	out = append(out, messages[insertAt:]...)
+	return out
+}

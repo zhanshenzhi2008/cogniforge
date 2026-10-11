@@ -164,3 +164,24 @@ func TestStage13_E2E_DegradeKeepsUserTurn(t *testing.T) {
 	require.Len(t, msgs, 1)
 	assert.Equal(t, "user", msgs[0].Role)
 }
+
+func TestInjectRAGSystemIfNeeded_AfterAgentSystem(t *testing.T) {
+	m := &mockRAGSearcher{
+		results: map[string]*knowledge.SearchResponse{
+			"kb1": {Results: []knowledge.SearchResult{{DocumentName: "a.pdf", Content: "片段X"}}},
+		},
+	}
+	req := &ChatRequest{
+		Messages:            []ChatMessage{{Role: "user", Content: "问"}},
+		RAGKnowledgeBaseIDs: []string{"kb1"},
+	}
+	base := []ChatMessage{
+		{Role: "system", Content: "You are agent"},
+		{Role: "user", Content: "问"},
+	}
+	out := InjectRAGSystemIfNeeded(context.Background(), m, "u1", req, nil, base)
+	require.Len(t, out, 3)
+	assert.Equal(t, "You are agent", out[0].Content)
+	assert.Contains(t, out[1].Content, "片段X")
+	assert.Equal(t, "user", out[2].Role)
+}

@@ -11,6 +11,7 @@ import (
 
 	"cogniforge/internal/chat"
 	"cogniforge/internal/database"
+	"cogniforge/internal/knowledge"
 	"cogniforge/internal/mcp"
 	"cogniforge/internal/memory"
 	agentmodel "cogniforge/internal/model"
@@ -31,7 +32,8 @@ type AgentHandler struct {
 	chatSvc     *chat.ChatService
 	quota       *quota.Service
 	mcpRegistry *mcp.Registry
-	skillSvc   *skill.Service
+	skillSvc    *skill.Service
+	rag         chat.RAGSearcher
 }
 
 func NewAgentHandler(providerSvc *provider.Service, chatSvc *chat.ChatService, quotaSvc *quota.Service) *AgentHandler {
@@ -41,12 +43,17 @@ func NewAgentHandler(providerSvc *provider.Service, chatSvc *chat.ChatService, q
 		chatSvc:     chatSvc,
 		quota:       quotaSvc,
 		mcpRegistry: nil,
-		skillSvc:   skill.NewService(database.DB),
+		skillSvc:    skill.NewService(database.DB),
 	}
 }
 
 func (h *AgentHandler) SetMCPRegistry(reg *mcp.Registry) {
 	h.mcpRegistry = reg
+}
+
+// SetKnowledgeService 注入知识库检索（阶段十三：Agent 对话也可带附件做 RAG）
+func (h *AgentHandler) SetKnowledgeService(s *knowledge.KnowledgeService) {
+	h.rag = s
 }
 
 func (h *AgentHandler) ListAgents(c *gin.Context) {
@@ -150,11 +157,15 @@ func (h *AgentHandler) AgentChat(c *gin.Context) {
 	}
 
 	var req struct {
-		Model       string             `json:"model"`
-		Messages    []chat.ChatMessage `json:"messages" binding:"required"`
-		Stream      bool               `json:"stream"`
-		Temperature *float64           `json:"temperature,omitempty"`
-		MaxTokens   *int              `json:"max_tokens,omitempty"`
+		Model               string                  `json:"model"`
+		Messages            []chat.ChatMessage      `json:"messages" binding:"required"`
+		Stream              bool                    `json:"stream"`
+		Temperature         *float64                `json:"temperature,omitempty"`
+		MaxTokens           *int                    `json:"max_tokens,omitempty"`
+		Attachments         []chat.MessageAttachment `json:"attachments,omitempty"`
+		RAGKnowledgeBaseIDs []string                `json:"rag_kb_ids,omitempty"`
+		RAGTopK             *int                    `json:"rag_top_k,omitempty"`
+		RAGMinScore         *float64                `json:"rag_min_score,omitempty"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, "Invalid request: "+err.Error())
@@ -199,6 +210,15 @@ func (h *AgentHandler) AgentChat(c *gin.Context) {
 	}
 	messages := append([]chat.ChatMessage{{Role: "system", Content: systemPrompt}}, req.Messages...)
 
+	ragReq := &chat.ChatRequest{
+		Messages:            req.Messages,
+		Attachments:         req.Attachments,
+		RAGKnowledgeBaseIDs: req.RAGKnowledgeBaseIDs,
+		RAGTopK:             req.RAGTopK,
+		RAGMinScore:         req.RAGMinScore,
+	}
+	messages = chat.InjectRAGSystemIfNeeded(c.Request.Context(), h.rag, userID, ragReq, nil, messages)
+
 	if h.quota != nil {
 		if err := h.quota.Allow(c.Request.Context(), userID, "agent"); err != nil {
 			quota.WriteError(c, err)
@@ -208,11 +228,15 @@ func (h *AgentHandler) AgentChat(c *gin.Context) {
 	started := time.Now()
 
 	svcReq := &chat.ChatRequest{
-		Model:       model,
-		Messages:    messages,
-		Stream:      req.Stream,
-		Temperature: req.Temperature,
-		MaxTokens:   req.MaxTokens,
+		Model:               model,
+		Messages:            messages,
+		Stream:              req.Stream,
+		Temperature:         req.Temperature,
+		MaxTokens:           req.MaxTokens,
+		Attachments:         req.Attachments,
+		RAGKnowledgeBaseIDs: req.RAGKnowledgeBaseIDs,
+		RAGTopK:             req.RAGTopK,
+		RAGMinScore:         req.RAGMinScore,
 	}
 
 	// 阶段十五 15.2：注入 MCP 工具

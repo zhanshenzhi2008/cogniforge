@@ -65,6 +65,7 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 	chatHandler.SetKnowledgeService(knowledgeSvc)
 	knowledgeHandler := knowledge.NewKnowledgeHandler(pythonClient)
 	agentHandler := agent.NewAgentHandler(providerSvc, chatHandler.Service(), quotaSvc)
+	agentHandler.SetKnowledgeService(knowledgeSvc)
 	monitorHandler := monitor.NewMonitorHandler()
 	mcpHandler := mcp.NewHandler(db)
 	skillHandler := skill.NewHandler(db)

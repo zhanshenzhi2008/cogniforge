@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-10-12 | v1.26 | Agent 对话 POST /agents/:id/chat 支持 attachments / rag_kb_ids / rag_top_k / rag_min_score | orjrs |
 | 2026-10-11 | v1.25 | 阶段十三 13.5：chat/stream 支持 rag_top_k / rag_min_score（覆盖服务端 RAG_* 默认） | orjrs |
 | 2026-10-11 | v1.24 | 阶段十三 13.2：chat/stream 按 rag_kb_ids/会话/附件所属 KB 做 Top-K 检索注入 system（失败降级） | orjrs |
 | 2026-10-11 | v1.23 | 阶段十三 13.1：ChatRequest.attachments / rag_kb_ids；conversations.rag_knowledge_base_ids；messages[].attachments | orjrs |
@@ -112,6 +113,13 @@
 ```
 
 **响应 401：** token 无效 / 过期 / scope 错误
+
+## [变更] Agent 对话 RAG 字段（2026-10-12）
+
+- **变更原因**：选 Agent 时前端仍发 attachments，后端需同样检索注入
+- **包含代码**：`internal/agent/handler.go`；`chat.InjectRAGSystemIfNeeded`
+- **接口**：`POST /api/v1/agents/:id/chat` 可选 `attachments`、`rag_kb_ids`、`rag_top_k`、`rag_min_score`（行为同 chat/stream）
+- **变更前 vs 变更后**：~~忽略附件字段~~（2026-10-12）→ Agent system 后注入知识库参考
 
 ## [变更] 阶段十三 13.5：RAG Top-K / min_score（2026-10-11）
 

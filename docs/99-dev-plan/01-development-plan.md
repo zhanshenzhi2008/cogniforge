@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-10-12 | v1.74 | Agent 对话接入 RAG 注入（与 Playground stream 共用 InjectRAGSystemIfNeeded） | orjrs |
 | 2026-10-11 | v1.73 | 阶段十三收官：13.6 端到端链路单测（附件→检索→注入 + 降级） | orjrs |
 | 2026-10-11 | v1.72 | 阶段十五 15.5：code_execute 本地子进程沙箱（python/node/go，超时截断） | orjrs |
 | 2026-10-11 | v1.71 | 阶段十三 13.5：RAG_TOP_K / MIN_SCORE 配置 + 请求体/前端参数覆盖 | orjrs |
@@ -72,6 +73,13 @@
 | 2026-04-11 | v1.2 | 阶段八监控中心完成（请求日志中间件、日志列表 API、用量统计 API、监控仪表板页面） | orjrs |
 | 2026-04-17 | v1.3 | 阶段九用户管理与个人设置完成（用户CRUD、个人设置、会话管理、RBAC权限系统） | orjrs |
 > 注：任务状态变更直接在下方任务表格中更新即可，无需额外记录。
+
+## [变更] Agent 对话 RAG 注入（2026-10-12）
+
+- **变更原因**：Playground 选 Agent 时走 `/agents/:id/chat`，此前不读 attachments / 不做检索
+- **包含代码**：`chat.InjectRAGSystemIfNeeded`；`internal/agent/handler.go`；`router` 注入 KnowledgeService
+- **变更前 vs 变更后**：~~仅 playground stream 有 RAG~~（2026-10-12）→ Agent 聊天同样支持附件与 `rag_kb_ids`
+- **影响范围**：`POST /api/v1/agents/:id/chat`
 
 ## [变更] 阶段十三 13.6 端到端链路验收（2026-10-11）
 
@@ -1210,10 +1218,14 @@ composables/
 - [x] 配额设计文档（2026-08-18，`docs/01-requirements/02-quota-design.md`）
 - [x] 落地阶段十二代码（Go `internal/quota` + Web `/usage`）
 - [x] 文档同步（2026-09-04：阶段一～八代码已落地，补全开发计划文档）
-- [ ] 更新技术架构文档（补充用户管理、角色权限表）
-- [ ] 创建 UserSettings、Permission 等 GORM 模型
-- [ ] 规划 Milvus 部署方案（Docker Compose）
-- [ ] 准备 Python 开发环境（FastAPI + 解析库）
+- [x] 阶段十三 Playground 文件 + RAG（2026-10-11）
+- [x] 阶段十五内置工具 fetch / web_search / code_execute（2026-10-11）
+- [x] Agent 对话 RAG 注入（2026-10-12）
+- [ ] 更新技术架构文档（补充用户管理、角色权限表）— 文档债
+- [x] ~~创建 UserSettings、Permission 等 GORM 模型~~（已有 user/rbac 模型）
+- [ ] 规划 Milvus 部署方案（可选；现网用 pgvector）
+- [x] ~~准备 Python 开发环境~~（cogniforge-ai FastAPI 已落地）
+- [ ] 生产环境人工验收：PDF 附件问答；可选 code_execute 容器强隔离
 
 ---
 ---
@@ -1229,4 +1241,4 @@ composables/
 
 ---
 
-**下一阶段**：阶段十三 / 十五核心项已落地。优先：生产环境人工验收阶段十三 PDF 问答；可选加固 `code_execute` 容器隔离；文档债见「后续待办」。
+**下一阶段**：核心开发项已齐。优先人工验收 PDF 问答与 Agent+附件；可选：`code_execute` Docker 隔离、技术架构文档补全、排队消息带附件。

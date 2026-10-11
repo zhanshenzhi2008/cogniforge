@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-10-11 | v1.72 | 阶段十五 15.5：code_execute 本地子进程沙箱（python/node/go，超时截断） | orjrs |
 | 2026-10-11 | v1.71 | 阶段十三 13.5：RAG_TOP_K / MIN_SCORE 配置 + 请求体/前端参数覆盖 | orjrs |
 | 2026-10-11 | v1.70 | 阶段十三 13.3：Playground 发送框文件上传（KB upload + attachments[]） | orjrs |
 | 2026-10-11 | v1.69 | 阶段十三 13.2：ChatStream RAG Top-K 检索 + System Prompt 注入（失败降级） | orjrs |
@@ -70,6 +71,13 @@
 | 2026-04-11 | v1.2 | 阶段八监控中心完成（请求日志中间件、日志列表 API、用量统计 API、监控仪表板页面） | orjrs |
 | 2026-04-17 | v1.3 | 阶段九用户管理与个人设置完成（用户CRUD、个人设置、会话管理、RBAC权限系统） | orjrs |
 > 注：任务状态变更直接在下方任务表格中更新即可，无需额外记录。
+
+## [变更] 阶段十五 15.5 code_execute 沙箱（2026-10-11）
+
+- **变更原因**：内置工具 `code_execute_*` 此前为占位，无法真正跑代码
+- **包含代码**：`internal/mcp/code_execute.go`（python3/node/go 子进程 + 超时 + 输出截断 + 精简环境变量）
+- **变更前 vs 变更后**：~~placeholder 文案~~（2026-10-11）→ 本地沙箱执行；`CODE_EXECUTE_DISABLED=1` 可关
+- **影响范围**：MCP 内置工具；非 Docker 网络隔离，生产若需强隔离后续再换容器
 
 ## [变更] 阶段十三 13.5 RAG Top-K 配置（2026-10-11）
 
@@ -986,7 +994,7 @@ pnpm test:e2e          # Playwright：登录/注册按钮、对话发送禁用�
 | 15.2 | MCP 客户端 + ChatService 集成 | 2天 | ⭐⭐⭐ | ✅ 完成 | 15.2.1 HTTP Client<br>15.2.2 工具调用循环（MaxToolCalls=5）<br>15.2.3 超时降级 | 1天 |
 | 15.3 | SKILL 模型 + Service | 1天 | ⭐⭐ | ✅ 完成 | 15.3.1 Skill CRUD<br>15.3.2 Agent 绑定 SKILL | 0.5天 |
 | 15.4 | 前端 MCP Server 管理页 | 1天 | ⭐⭐ | ✅ 完成 | 15.4.1 列表/创建/编辑/删除<br>15.4.2 Agent 表单集成 SKILL 选择器 | 1天 |
-| 15.5 | 内置工具实现 | 2天 | ⭐⭐⭐ | 🟡 部分占位 | 15.5.1 fetch（网页抓取）<br>15.5.2 web_search（搜索）<br>15.5.3 code_execute（沙箱） | 1天 |
+| 15.5 | 内置工具实现 | 2天 | ⭐⭐⭐ | ✅ | 15.5.1 fetch（网页抓取）<br>15.5.2 web_search（搜索）<br>15.5.3 code_execute（本地沙箱） | 1天 |
 
 **验收（给非技术同学）**：
 

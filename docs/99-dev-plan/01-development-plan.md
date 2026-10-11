@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-10-12 | v1.75 | 排队消息支持 attachments（入队/出队/编辑/持久化） | orjrs |
 | 2026-10-12 | v1.74 | Agent 对话接入 RAG 注入（与 Playground stream 共用 InjectRAGSystemIfNeeded） | orjrs |
 | 2026-10-11 | v1.73 | 阶段十三收官：13.6 端到端链路单测（附件→检索→注入 + 降级） | orjrs |
 | 2026-10-11 | v1.72 | 阶段十五 15.5：code_execute 本地子进程沙箱（python/node/go，超时截断） | orjrs |
@@ -73,6 +74,13 @@
 | 2026-04-11 | v1.2 | 阶段八监控中心完成（请求日志中间件、日志列表 API、用量统计 API、监控仪表板页面） | orjrs |
 | 2026-04-17 | v1.3 | 阶段九用户管理与个人设置完成（用户CRUD、个人设置、会话管理、RBAC权限系统） | orjrs |
 > 注：任务状态变更直接在下方任务表格中更新即可，无需额外记录。
+
+## [变更] 排队消息带附件（2026-10-12）
+
+- **变更原因**：流式中入队此前拒绝文件；阶段十三后应支持
+- **包含代码**：`ConversationQueueItem.Attachments`；Web `enqueueFromComposer` / `drainQueueIfNeeded` / `PlaygroundQueueBar`
+- **变更前 vs 变更后**：~~排队禁文件~~（2026-10-12）→ 排队可带已上传 `attachments`，出队照常 RAG
+- **影响范围**：Playground 排队；上传中仍不可入队
 
 ## [变更] Agent 对话 RAG 注入（2026-10-12）
 
@@ -1225,6 +1233,7 @@ composables/
 - [x] ~~创建 UserSettings、Permission 等 GORM 模型~~（已有 user/rbac 模型）
 - [ ] 规划 Milvus 部署方案（可选；现网用 pgvector）
 - [x] ~~准备 Python 开发环境~~（cogniforge-ai FastAPI 已落地）
+- [x] 排队消息带附件（2026-10-12）
 - [ ] 生产环境人工验收：PDF 附件问答；可选 code_execute 容器强隔离
 
 ---
@@ -1241,4 +1250,4 @@ composables/
 
 ---
 
-**下一阶段**：核心开发项已齐。优先人工验收 PDF 问答与 Agent+附件；可选：`code_execute` Docker 隔离、技术架构文档补全、排队消息带附件。
+**下一阶段**：核心开发项已齐。优先人工验收 PDF 问答与 Agent+附件；可选：`code_execute` Docker 隔离、技术架构文档补全、Agent 流式响应对齐 playground。

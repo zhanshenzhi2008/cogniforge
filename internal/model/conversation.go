@@ -27,11 +27,12 @@ type ConversationMessage struct {
 
 // ConversationQueueItem 待发送排队（流式中 Enter 入队）
 type ConversationQueueItem struct {
-	ID      string   `json:"id"`
-	Content string   `json:"content"`
-	Images  []string `json:"images,omitempty"`
-	Status  string   `json:"status"` // queued | sending
-	Sort    int      `json:"sort"`
+	ID          string              `json:"id"`
+	Content     string              `json:"content"`
+	Images      []string            `json:"images,omitempty"`
+	Attachments []MessageAttachment `json:"attachments,omitempty"` // 阶段十三：排队也可带文件
+	Status      string              `json:"status"`                // queued | sending
+	Sort        int                 `json:"sort"`
 }
 
 // ChatConversation 用户聊天历史（Playground；不依赖 Agent）

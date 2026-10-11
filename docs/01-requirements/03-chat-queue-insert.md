@@ -4,8 +4,15 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|---------|--------|
+| 2026-10-12 | v1.2 | 排队条目支持 attachments（文件引用，与阶段十三对齐） | orjrs |
 | 2026-08-22 | v1.1 | 编辑改到发送框；行上「编辑中 ×」取消，无弹层 | orjrs |
 | 2026-08-21 | v1.0 | 锁定：排队（Enter 入队、可编辑删除）+ 插入硬截断确认（方案 A） | orjrs |
+
+## [变更] 排队支持文件附件（2026-10-12）
+
+- **变更原因**：阶段十三落地后，流式中入队也应能带 PDF 等已上传文档引用
+- **变更后**：`message_queue[].attachments`；出队发送时带回 `attachments[]` 做 RAG
+- **~~一期不做 PDF 排队~~**（2026-10-12）
 
 ## [变更] 排队编辑改到发送框（2026-08-22）
 
@@ -63,7 +70,16 @@
 `message_queue` JSONB 元素：
 
 ```json
-{ "id": "uuid", "content": "...", "images": [], "status": "queued", "sort": 0 }
+{
+  "id": "uuid",
+  "content": "...",
+  "images": [],
+  "attachments": [
+    { "id": "doc-id", "name": "manual.pdf", "file_type": "pdf", "status": "completed" }
+  ],
+  "status": "queued",
+  "sort": 0
+}
 ```
 
 API：`GET/PUT /api/v1/conversations/:id` 读写 `message_queue`；列表摘要可不带队列正文。
@@ -76,4 +92,4 @@ API：`GET/PUT /api/v1/conversations/:id` 读写 `message_queue`；列表摘要�
 - 「分叉成新会话」（二期）
 - Cmd+Enter 停止并立刻发送（可很快补）
 - 跨会话全局队列
-- PDF / Word 等非图片文件（**阶段十三**，等 RAG 完全没问题，见 `04-playground-files-rag.md`）
+- ~~PDF / Word 等非图片文件~~（2026-10-12：排队已支持 `attachments`，见阶段十三）

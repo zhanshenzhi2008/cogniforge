@@ -116,11 +116,12 @@ func normalizeMessageQueue(items []model.ConversationQueueItem) ([]model.Convers
 			id = newID()
 		}
 		out = append(out, model.ConversationQueueItem{
-			ID:      id,
-			Content: it.Content,
-			Images:  it.Images,
-			Status:  status,
-			Sort:    i,
+			ID:          id,
+			Content:     it.Content,
+			Images:      it.Images,
+			Attachments: it.Attachments,
+			Status:      status,
+			Sort:        i,
 		})
 	}
 	return out, nil

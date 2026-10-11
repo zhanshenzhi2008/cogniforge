@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-10-12 | v1.27 | conversations.message_queue 支持 attachments | orjrs |
 | 2026-10-12 | v1.26 | Agent 对话 POST /agents/:id/chat 支持 attachments / rag_kb_ids / rag_top_k / rag_min_score | orjrs |
 | 2026-10-11 | v1.25 | 阶段十三 13.5：chat/stream 支持 rag_top_k / rag_min_score（覆盖服务端 RAG_* 默认） | orjrs |
 | 2026-10-11 | v1.24 | 阶段十三 13.2：chat/stream 按 rag_kb_ids/会话/附件所属 KB 做 Top-K 检索注入 system（失败降级） | orjrs |
@@ -113,6 +114,13 @@
 ```
 
 **响应 401：** token 无效 / 过期 / scope 错误
+
+## [变更] message_queue 支持 attachments（2026-10-12）
+
+- **变更原因**：流式入队消息需携带已上传文件引用
+- **包含代码**：`ConversationQueueItem.attachments`；Web 排队 UI
+- **接口**：`GET/PUT /api/v1/conversations` 的 `message_queue[]` 可选 `attachments`（结构同 messages）
+- **变更前 vs 变更后**：~~排队仅文字/图片~~（2026-10-12）→ 可带文件附件
 
 ## [变更] Agent 对话 RAG 字段（2026-10-12）
 

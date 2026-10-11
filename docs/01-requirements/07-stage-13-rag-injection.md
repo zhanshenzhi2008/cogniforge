@@ -4,7 +4,15 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|---------|--------|
+| 2026-10-11 | v1.2 | 13.1 落地：ChatRequest.attachments/rag_kb_ids；ConversationMessage.attachments；ChatConversation.rag_knowledge_base_ids | orjrs |
 | 2026-09-05 | v1.1 | 详细设计：发送框文件、RAG 注入、会话关联 | orjrs |
+
+## [变更] 13.1 Attachments DTO 落地（2026-10-11）
+
+- **变更原因**：开工实现数据模型与请求字段，检索注入留待 13.2
+- **包含代码**：`internal/chat/dto.go`、`internal/model/conversation.go`、`internal/chat/conversation.go`、`internal/chat/attachment_test.go`
+- **变更前 vs 变更后**：~~仅设计文档~~（2026-10-11）→ Go DTO/模型/会话 CRUD 已支持附件与 KB 绑定字段
+- **关键差异**：新增序列化单测；尚无 ChatService RAG 检索调用
 
 ---
 

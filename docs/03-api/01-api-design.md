@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-10-11 | v1.23 | 阶段十三 13.1：ChatRequest.attachments / rag_kb_ids；conversations.rag_knowledge_base_ids；messages[].attachments | orjrs |
 | 2026-09-05 | v1.22 | 新增 SKILL 外部导入接口（Markdown/ZIP），支持 ZIP 批量导入多个 Skill；参考 Claude Skills SKILL.md 格式；内置 URL 安全校验 | orjrs |
 | 2026-09-02 | v1.21 | 14.5 长期记忆 CRUD：Go POST/GET/DELETE /api/v1/memories；chat_memories 表 + ChatMemory model | orjrs |
 | 2026-09-02 | v1.16 | 新增 LLM 临时凭证接口（阶段十四 14.0）：GET /token/llm、POST /token/validate | orjrs |
@@ -109,6 +110,15 @@
 ```
 
 **响应 401：** token 无效 / 过期 / scope 错误
+
+## [变更] 阶段十三 13.1：聊天附件与 RAG KB 字段（2026-10-11）
+
+- **变更原因**：文件走知识库检索注入，请求体与会话需携带附件引用和绑定知识库
+- **包含代码**：`internal/chat/dto.go`；`internal/model/conversation.go`；`internal/chat/conversation.go`
+- **接口**：
+  - `POST /api/v1/chat/stream|completions` 可选 `attachments[]`、`rag_kb_ids[]`（检索注入见 13.2）
+  - `POST/PUT /api/v1/conversations` 可选 `rag_knowledge_base_ids[]`；`messages[].attachments`
+- **变更前 vs 变更后**：~~仅多模态 images~~（2026-10-11）→ 增加文件附件引用与会话级 KB 绑定字段（尚未执行检索）
 
 ## [变更] 聊天多模态图片（2026-08-21）
 
@@ -552,20 +562,29 @@ POST /api/v1/conversations
     "agent_id": "可选，空表示通用对话",
     "model": "deepseek-chat",
     "messages": [
-      {"id": "uuid", "role": "user", "content": "你好", "time": "ISO8601"}
+      {
+        "id": "uuid",
+        "role": "user",
+        "content": "你好",
+        "time": "ISO8601",
+        "attachments": [
+          {"id": "doc-id", "name": "manual.pdf", "file_type": "pdf", "status": "completed", "chunk_count": 12}
+        ]
+      }
     ],
     "message_queue": [
       {"id": "uuid", "content": "下一条", "status": "queued", "sort": 0}
-    ]
+    ],
+    "rag_knowledge_base_ids": ["kb-uuid"]
   }
 
 GET /api/v1/conversations/{id}
-描述: 对话详情（含 messages、message_queue、pinned）
-响应: { "code": 2000, "data": { "id": "...", "pinned": false, "messages": [...], "message_queue": [...], "...": "..." } }
+描述: 对话详情（含 messages、message_queue、pinned、rag_knowledge_base_ids）
+响应: { "code": 2000, "data": { "id": "...", "pinned": false, "rag_knowledge_base_ids": [], "messages": [...], "message_queue": [...], "...": "..." } }
 
 PUT /api/v1/conversations/{id}
-描述: 更新标题 / 模型 / Agent / 置顶 / 消息全文 / 排队
-请求体: 字段均可选；messages / message_queue 均为整份覆盖；只改置顶时传 `{ "pinned": true|false }`；只改排队时传 `{ "message_queue": [...] }`（最多 5 条）
+描述: 更新标题 / 模型 / Agent / 置顶 / 消息全文 / 排队 / 绑定知识库
+请求体: 字段均可选；messages / message_queue / rag_knowledge_base_ids 均为整份覆盖；只改置顶时传 `{ "pinned": true|false }`；只改排队时传 `{ "message_queue": [...] }`（最多 5 条）
 
 DELETE /api/v1/conversations/{id}
 描述: 软删除

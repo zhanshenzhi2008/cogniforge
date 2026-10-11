@@ -43,20 +43,22 @@ type ConversationSummary struct {
 }
 
 type CreateConversationRequest struct {
-	Title        string                         `json:"title"`
-	AgentID      string                         `json:"agent_id"`
-	Model        string                         `json:"model"`
-	Messages     []model.ConversationMessage    `json:"messages"`
-	MessageQueue []model.ConversationQueueItem  `json:"message_queue"`
+	Title               string                        `json:"title"`
+	AgentID             string                        `json:"agent_id"`
+	Model               string                        `json:"model"`
+	Messages            []model.ConversationMessage   `json:"messages"`
+	MessageQueue        []model.ConversationQueueItem `json:"message_queue"`
+	RAGKnowledgeBaseIDs []string                      `json:"rag_knowledge_base_ids"`
 }
 
 type UpdateConversationRequest struct {
-	Title        *string                         `json:"title"`
-	AgentID      *string                         `json:"agent_id"`
-	Model        *string                         `json:"model"`
-	Pinned       *bool                           `json:"pinned"`
-	Messages     *[]model.ConversationMessage    `json:"messages"`
-	MessageQueue *[]model.ConversationQueueItem  `json:"message_queue"`
+	Title               *string                        `json:"title"`
+	AgentID             *string                        `json:"agent_id"`
+	Model               *string                        `json:"model"`
+	Pinned              *bool                          `json:"pinned"`
+	Messages            *[]model.ConversationMessage   `json:"messages"`
+	MessageQueue        *[]model.ConversationQueueItem `json:"message_queue"`
+	RAGKnowledgeBaseIDs *[]string                      `json:"rag_knowledge_base_ids"`
 }
 
 func titleFromMessages(msgs []model.ConversationMessage) string {
@@ -158,16 +160,21 @@ func (s *ConversationService) Create(userID string, req *CreateConversationReque
 	if err != nil {
 		return nil, err
 	}
+	ragIDs := model.JSONBArray{}
+	if len(req.RAGKnowledgeBaseIDs) > 0 {
+		ragIDs = model.JSONBArray(req.RAGKnowledgeBaseIDs)
+	}
 	row := &model.ChatConversation{
-		ID:           newID(),
-		UserID:       userID,
-		AgentID:      strings.TrimSpace(req.AgentID),
-		Title:        title,
-		Model:        strings.TrimSpace(req.Model),
-		Messages:     msgs,
-		MessageQueue: queue,
-		CreatedAt:    now,
-		UpdatedAt:    now,
+		ID:                  newID(),
+		UserID:              userID,
+		AgentID:             strings.TrimSpace(req.AgentID),
+		Title:               title,
+		Model:               strings.TrimSpace(req.Model),
+		Messages:            msgs,
+		MessageQueue:        queue,
+		RAGKnowledgeBaseIDs: ragIDs,
+		CreatedAt:           now,
+		UpdatedAt:           now,
 	}
 	if err := s.db.Create(row).Error; err != nil {
 		return nil, err
@@ -230,6 +237,12 @@ func (s *ConversationService) Update(userID, id string, req *UpdateConversationR
 			return nil, err
 		}
 		row.MessageQueue = queue
+	}
+	if req.RAGKnowledgeBaseIDs != nil {
+		row.RAGKnowledgeBaseIDs = model.JSONBArray(*req.RAGKnowledgeBaseIDs)
+		if row.RAGKnowledgeBaseIDs == nil {
+			row.RAGKnowledgeBaseIDs = model.JSONBArray{}
+		}
 	}
 	row.UpdatedAt = time.Now()
 	if err := s.db.Save(row).Error; err != nil {

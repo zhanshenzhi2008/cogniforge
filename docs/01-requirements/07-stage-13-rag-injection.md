@@ -4,9 +4,17 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|---------|--------|
+| 2026-10-11 | v1.4 | 13.3/13.4：Playground 文件上传 + 气泡附件芯片（cogniforge-web） | orjrs |
 | 2026-10-11 | v1.3 | 13.2 落地：ChatStream Top-K 检索 + 知识库参考 system 注入；失败降级 | orjrs |
 | 2026-10-11 | v1.2 | 13.1 落地：ChatRequest.attachments/rag_kb_ids；ConversationMessage.attachments；ChatConversation.rag_knowledge_base_ids | orjrs |
 | 2026-09-05 | v1.1 | 详细设计：发送框文件、RAG 注入、会话关联 | orjrs |
+
+## [变更] 13.3/13.4 前端附件上传与气泡展示（2026-10-11）
+
+- **变更原因**：发送框需支持 PDF 等文件走知识库，而非 vision 图片通道
+- **包含代码**（cogniforge-web）：`playground.vue`、`utils/chatAttachments.ts`、会话 `attachments` 类型
+- **变更前 vs 变更后**：~~仅图片~~（2026-10-11）→ 回形针上传 / 粘贴拖入文档 → `uploadDoc` → 发送 `attachments[]`；气泡显示文件名芯片
+- **关键差异**：默认写入首个知识库或自动创建 `Playground`；排队消息暂不带文件
 
 ## [变更] 13.2 RAG 检索注入落地（2026-10-11）
 

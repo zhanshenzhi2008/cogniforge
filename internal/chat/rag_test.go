@@ -114,3 +114,53 @@ func TestBuildFullMessages_WithRAG(t *testing.T) {
 	assert.Contains(t, msgs[0].Content, "片段内容")
 	assert.Equal(t, "user", msgs[1].Role)
 }
+
+// TestStage13_E2E_AttachmentToInjectedSystem 13.6：附件 → 解析 KB → 检索 → 注入 system（不依赖实机 PDF）
+func TestStage13_E2E_AttachmentToInjectedSystem(t *testing.T) {
+	m := &mockRAGSearcher{
+		docKB: map[string]string{"doc-manual": "kb-play"},
+		results: map[string]*knowledge.SearchResponse{
+			"kb-play": {
+				Results: []knowledge.SearchResult{
+					{DocumentName: "产品说明书.pdf", Content: "退货政策：自购买日起 7 天内可退"},
+				},
+			},
+		},
+	}
+	req := &ChatRequest{
+		Messages:    []ChatMessage{{Role: "user", Content: "退货几天？"}},
+		Attachments: []MessageAttachment{{ID: "doc-manual", Name: "产品说明书.pdf", FileType: "pdf"}},
+	}
+	kbIDs := resolveRAGKnowledgeBaseIDs(context.Background(), m, "u1", req, nil)
+	require.Equal(t, []string{"kb-play"}, kbIDs)
+
+	query := lastUserQuery(req.Messages)
+	frags := retrieveRAGFragments(context.Background(), m, "u1", kbIDs, query, resolveRAGOptions(req))
+	require.NotEmpty(t, frags)
+	assert.Contains(t, frags[0], "7 天")
+
+	msgs := buildFullMessages("", nil, frags, nil, req.Messages)
+	require.GreaterOrEqual(t, len(msgs), 2)
+	assert.Equal(t, "system", msgs[0].Role)
+	assert.Contains(t, msgs[0].Content, "知识库参考")
+	assert.Contains(t, msgs[0].Content, "7 天")
+	assert.Equal(t, "user", msgs[len(msgs)-1].Role)
+	assert.Equal(t, "退货几天？", msgs[len(msgs)-1].Content)
+}
+
+// TestStage13_E2E_DegradeKeepsUserTurn 13.6：检索全失败时仍只保留用户轮次，不注入空 RAG
+func TestStage13_E2E_DegradeKeepsUserTurn(t *testing.T) {
+	m := &mockRAGSearcher{
+		errs: map[string]error{"kb-x": errors.New("rag down")},
+	}
+	req := &ChatRequest{
+		Messages:            []ChatMessage{{Role: "user", Content: "你好"}},
+		RAGKnowledgeBaseIDs: []string{"kb-x"},
+	}
+	kbIDs := resolveRAGKnowledgeBaseIDs(context.Background(), m, "u1", req, nil)
+	frags := retrieveRAGFragments(context.Background(), m, "u1", kbIDs, lastUserQuery(req.Messages), resolveRAGOptions(req))
+	assert.Empty(t, frags)
+	msgs := buildFullMessages("", nil, frags, nil, req.Messages)
+	require.Len(t, msgs, 1)
+	assert.Equal(t, "user", msgs[0].Role)
+}

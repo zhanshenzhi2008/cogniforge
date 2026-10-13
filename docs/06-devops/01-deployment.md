@@ -3,9 +3,18 @@
 ## [变更记录]
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|---------|--------|
+| 2026-10-14 | v1.30 | compose 各服务加 mem_limit + cpus（小机防 OOM/CPU 打满） | orjrs |
 | 2026-08-16 | v1.29 | 前端 Docker 钉 pnpm@9，避免 ERR_PNPM_IGNORED_BUILDS | orjrs |
 | 2026-08-15 | v1.28 | 模型配置走 Redis；cogniforge-ai 增加 REDIS_HOST | orjrs |
 | 2026-08-15 | v1.27 | Python LLM 回调 Go；cogniforge-ai 增加 COGNIFORGE_API_URL | orjrs |
+
+## [变更] compose 内存 / CPU 硬顶（2026-10-14）
+
+- **变更原因**：同机多项目（尤其 Java）曾把 4G 小机打满导致登录卡死
+- **包含代码**：`docker-compose.yml`（Go 后端）；`cogniforge-web/docker-compose-web.yml`、`cogniforge-ai/docker-compose-ai.yml` 同步
+- **约定**：每个服务写 `mem_limit` + `cpus`；Go/Python/Nginx **不需要** Dockerfile 堆参数（仅 Java 用 `JAVA_OPTS` MaxRAMPercentage）
+- **默认**：cogniforge `256m`/`0.5`；web `128m`/`0.25`；ai `512m`/`1.0`
+- **服务器须人工**（CD 不覆盖 compose）：对齐仓库后 `docker compose up -d --force-recreate`，用 `docker stats` 看 LIMIT
 
 ## [变更] 前端 Docker 钉 pnpm@9（2026-08-16）
 

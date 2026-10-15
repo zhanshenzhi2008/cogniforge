@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-10-15 | v4.9 | MCP Registry 注入 Chat/Agent；Playground 可选 mcp_servers | orjrs |
 | 2026-08-18 | v4.8 | 配额闸门做在 Go 热路径；不走 Java 计费空目录 | orjrs |
 | 2026-08-16 | v4.7 | 未配置默认模型时对话返回 4010，不再 mock | orjrs |
 | 2026-08-16 | v4.6 | 前端 Docker 钉 pnpm@9，避免 ERR_PNPM_IGNORED_BUILDS | orjrs |
@@ -16,6 +17,13 @@
 | 2026-04-27 | v3.0 | 后端从 handler 目录重构为业务模块化架构；新增 auth/user/chat/workflow/knowledge/agent 等独立模块，遵循 DTO → Service → Handler 分层模式 | orjrs |
 | 2026-04-04 | v2.0 | 后端架构由 gateway 独立目录收敛为 monolith；删除 go-standards/dev-environment rules；rules 文档变更记录规范 | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] MCP Registry 注入对话热路径（2026-10-15）
+
+- **变更原因**：内置工具（web_search/fetch/code_execute）此前 Registry 未注入 Handler，勾选无效
+- **包含代码**：`internal/router` → `chatHandler.SetMCPRegistry` / `agentHandler.SetMCPRegistry`；`chat.InjectMCPTools`；`POST /chat/stream` 可选 `mcp_servers`
+- **变更后**：无 Agent 的 Playground 默认可开网络搜索；选 Agent 时走 Agent.tools；有工具时先 `ChatWithTools` 再 SSE
+- **详细设计**：`docs/01-requirements/06-mcp-skill-design.md`
 
 ## [变更] 配额做在 Go 热路径（2026-08-18）
 

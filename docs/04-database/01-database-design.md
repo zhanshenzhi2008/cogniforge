@@ -3,6 +3,7 @@
 ## [变更记录]
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|---------|--------|
+| 2026-10-15 | v1.17 | 提示词表 prompts / prompt_versions；eval_runs 增 model、system_prompt | orjrs |
 | 2026-10-15 | v1.16 | 评估体系表 eval_suites / eval_cases / eval_runs / eval_results | orjrs |
 | 2026-10-12 | v1.15 | message_queue 元素支持 attachments（排队带文件） | orjrs |
 | 2026-10-11 | v1.14 | 阶段十三 13.1：chat_conversations.rag_knowledge_base_ids；messages[].attachments | orjrs |
@@ -17,6 +18,16 @@
 | 2026-08-16 | v1.2 | Redis 键统一 `cogniforge:` 前缀；多项目用前缀隔离，不拆 db0/db1 | orjrs |
 | 2026-08-15 | v1.1 | 落地模型配置 Redis 键（当时为 `cf:modelcfg:*`） | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] 提示词表 + eval_runs 扩展（2026-10-15）
+
+- **变更原因**：阶段十七提示词工程；评估需记录实际 system / 聊天模型
+- **包含代码**：`internal/model/prompt.go`；`internal/model/eval.go`；`cmd/server` AutoMigrate
+- **新增表**：
+  - `prompts`（user_id, name, description, current_version_id）
+  - `prompt_versions`（prompt_id, user_id, version, content, changelog）
+- **变更列**：`eval_runs` 增加 `model`、`system_prompt`；`target_type` 可取值 `prompt`
+- **索引**：`idx_prompts_user_id`、`idx_prompt_versions_prompt_id`、`idx_prompt_versions_user_id`
 
 ## [变更] 评估体系四表（2026-10-15）
 

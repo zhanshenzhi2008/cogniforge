@@ -68,6 +68,8 @@ func main() {
 		&model.EvalCase{},
 		&model.EvalRun{},
 		&model.EvalResult{},
+		&model.Prompt{},
+		&model.PromptVersion{},
 	); err != nil {
 		slog.Error("failed to migrate database", "error", err)
 		return

@@ -88,5 +88,7 @@ func MigrateTestDB(db *gorm.DB) {
 		&model.EvalCase{},
 		&model.EvalRun{},
 		&model.EvalResult{},
+		&model.Prompt{},
+		&model.PromptVersion{},
 	)
 }

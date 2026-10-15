@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-10-15 | v1.82 | 阶段十七：提示词工程 CRUD + /prompts；评估 target=prompt / system_prompt | orjrs |
 | 2026-10-15 | v1.81 | 评估模块单测+e2e 全绿；JSONB Valuer；Run 支持选 agent | orjrs |
 | 2026-10-15 | v1.80 | 阶段十六立项并落地骨架：设计评估体系（Suite/Case/Run + 前端 /evals） | orjrs |
 | 2026-10-15 | v1.79 | code_execute/web_search 文档纠偏 + 部署开关说明 | orjrs |
@@ -80,6 +81,14 @@
 | 2026-04-11 | v1.2 | 阶段八监控中心完成（请求日志中间件、日志列表 API、用量统计 API、监控仪表板页面） | orjrs |
 | 2026-04-17 | v1.3 | 阶段九用户管理与个人设置完成（用户CRUD、个人设置、会话管理、RBAC权限系统） | orjrs |
 > 注：任务状态变更直接在下方任务表格中更新即可，无需额外记录。
+
+## [变更] 阶段十七：提示词工程一期（2026-10-15）
+
+- **变更原因**：评估要对比多版 system prompt；提示词应作为可版本化资产
+- **详细设计**：`docs/01-requirements/09-prompt-engineering-design.md`
+- **包含代码**：`internal/model/prompt.go`、`internal/prompt/*`；评估 Run 扩展；Web `/prompts` + `/evals` 表单
+- **变更前 vs 变更后**：~~提示词只在 Agent 字段~~（2026-10-15）→ 提示词库 + 版本 + 评估联动
+- **跨仓库**：cogniforge-web `pages/prompts.vue`、`composables/usePrompts.ts`、`pages/evals.vue`、nav/i18n
 
 ## [变更] 阶段十六：设计评估体系立项并落地骨架（2026-10-15）
 
@@ -1086,6 +1095,32 @@ pnpm test:e2e          # Playwright：登录/注册按钮、对话发送禁用�
 **代码落地**（2026-10-15）：
 - Go: `internal/model/eval.go`、`internal/eval/{dto,judge,service,handler}.go`；`cmd/server` AutoMigrate；router 注册
 - Web: `pages/evals.vue`、`composables/useEvals.ts`、`constants/nav.ts`、`i18n/messages.ts`
+
+---
+
+### 阶段十七：提示词工程（约 0.5–1 周）⭐
+
+**推荐理由**：评估「考试」需要可管理的「人设/提示词」考生；版本对比是提示词迭代的基本功。  
+**详细设计**：`docs/01-requirements/09-prompt-engineering-design.md`
+
+| 序号 | 功能点 | 预计时间 | 难度 | 状态 | 测试项 | 测试时间 |
+|-----|-------|---------|------|------|-------|---------|
+| 17.1 | Prompt / Version 表 + CRUD | 1天 | ⭐⭐ | ✅ 完成 | 17.1.1 建删改查<br>17.1.2 用户隔离 | 0.5天 |
+| 17.2 | 评估 Run：system_prompt + target=prompt | 0.5天 | ⭐⭐ | ✅ 完成 | 17.2.1 版本正文<br>17.2.2 覆盖生效 | 0.5天 |
+| 17.3 | 前端 `/prompts` | 1天 | ⭐⭐ | ✅ 完成 | 17.3.1 建词发版 | 0.5天 |
+| 17.4 | 评估页选 prompt / 临时 system | 0.5天 | ⭐ | ✅ 完成 | 17.4.1 表单可跑 | 0.5天 |
+| 17.5 | 变量 `{{var}}`、从 Skill/Agent 导入 | 2天 | ⭐⭐⭐ | 🔴 未开始 | — | — |
+| 17.6 | 双版本并排对比 UI | 1.5天 | ⭐⭐ | 🔴 未开始 | — | — |
+
+**验收（给非技术同学）**：
+
+- 配置 → 提示词：新建并发布新版本；评估里用版本或临时 system prompt 跑同一套题
+
+**不在本期**：提示词市场、自动优化（APE）、多轮模板编排器
+
+**代码落地**（2026-10-15）：
+- Go: `internal/model/prompt.go`、`internal/prompt/{dto,service,handler}.go`；`cmd/server` AutoMigrate；router 注册
+- Web: `pages/prompts.vue`、`composables/usePrompts.ts`；`pages/evals.vue` 扩展；nav/i18n
 
 ---
 

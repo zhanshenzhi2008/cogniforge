@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-10-15 | v1.30 | 提示词 /api/v1/prompts/*；评估 Run 支持 prompt + system_prompt | orjrs |
 | 2026-10-15 | v1.29 | 评估体系 /api/v1/evals/*（suites/cases/runs） | orjrs |
 | 2026-10-15 | v1.28 | chat/stream 可选 mcp_servers[]：注入内置工具并跑工具循环后 SSE 返回 | orjrs |
 | 2026-10-12 | v1.27 | conversations.message_queue 支持 attachments | orjrs |
@@ -30,6 +31,15 @@
 | 2026-08-15 | v1.2 | GET /v1/models 改为返回已启用供应商的 default_model（不再写死 GPT 列表） | orjrs |
 | 2026-04-09 | v1.1 | 新增文档上传接口、语义检索接口实现说明 | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] 提示词工程 API + 评估联动（2026-10-15）
+
+- **变更原因**：阶段十七；评估要能考不同 system prompt 版本
+- **接口组**：`/api/v1/prompts`（JWT）
+  - `GET/POST /prompts`；`GET/PUT/DELETE /prompts/:id`
+  - `GET/POST /prompts/:id/versions`；`GET /prompts/versions/:id`
+- **评估扩展**：`POST /evals/suites/:id/runs` 增加 `target_type=prompt`（`target_id`=version_id，必填 `model`）与可选 `system_prompt` 覆盖
+- **详细设计**：`docs/01-requirements/09-prompt-engineering-design.md`
 
 ## [变更] 评估体系 API（2026-10-15）
 

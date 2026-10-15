@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-10-15 | v1.38 | 配置下增加「提示词」/prompts；评估页支持 prompt 目标 | orjrs |
 | 2026-08-25 | v1.37 | 模型页用途：对话 / 向量，两套默认 | orjrs |
 | 2026-08-22 | v1.36 | 顶栏改为：控制台 对话 智能体 工作流 知识库 配置；用量/监控进头像 | orjrs |
 | 2026-08-22 | v1.35 | 通用文件附件排到阶段十三（等 RAG 稳） | orjrs |
@@ -599,9 +600,15 @@ components/
 
 ## 4. 信息架构与壳层
 
-### 4.1 路由与导航 IA（2026-08-22 整理）
+### 4.1 路由与导航 IA（2026-08-22 整理；2026-10-15 增补提示词/评估）
 
 > 路由和权限不变，只改顶栏分组。~~2026-08-12 冻结的 9 项平铺~~（2026-08-22）
+
+## [变更] 配置菜单：提示词 + 评估联动（2026-10-15）
+
+- **变更原因**：阶段十七提示词工程；评估页要能选 prompt / 临时 system
+- **包含代码**：`cogniforge-web` `constants/nav.ts`、`pages/prompts.vue`、`pages/evals.vue`、`i18n/messages.ts`
+- **变更前 vs 变更后**：~~配置无提示词入口~~（2026-10-15）→ `/prompts`；`/evals` 运行可选 model|agent|prompt + system_prompt
 
 #### 顶栏主模块
 
@@ -615,8 +622,11 @@ components/
 | 6 | 配置 ▾ | `config` | （下拉，无独立页） | admin, user |
 | 6a | 模型 | `models` | `/models` | admin, user |
 | 6b | 密钥 | `keys` | `/keys` | admin, user |
+| 6c | MCP | `mcp` | `/mcp` | admin, user |
+| 6d | 提示词 | `prompts` | `/prompts` | admin, user |
+| 6e | 评估 | `evals` | `/evals` | admin, user |
 
-激活态：`/models`、`/keys` 时「配置」高亮。`/` 仅精确匹配控制台。
+激活态：`/models`、`/keys`、`/mcp`、`/prompts`、`/evals` 时「配置」高亮。`/` 仅精确匹配控制台。
 
 #### 用户下拉菜单
 

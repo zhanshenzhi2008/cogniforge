@@ -4,8 +4,16 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|---------|--------|
+| 2026-10-15 | v1.2 | Run 支持 target=prompt + system_prompt 覆盖；联动提示词工程 | orjrs |
 | 2026-10-15 | v1.1 | 单测覆盖 Suite/Case/Run/Judge；JSONB Valuer 修 SQLite；Web e2e | orjrs |
 | 2026-10-15 | v1.0 | 立项：模型/智能体评测集 + 运行 + 打分；对齐 FT-020 | orjrs |
+
+## [变更] 提示词目标 + system_prompt（2026-10-15）
+
+- **变更原因**：同一套题要对比不同 system prompt；临时实验不必改 Agent
+- **关系**：提示词资产见 `docs/01-requirements/09-prompt-engineering-design.md`
+- **包含代码**：`internal/eval/{dto,service}.go`；`EvalRun.model` / `system_prompt`；Web `/evals` 运行表单
+- **变更前 vs 变更后**：~~仅 model|agent~~（2026-10-15）→ 支持 `prompt`（version_id + model）与请求体 `system_prompt` 覆盖
 
 ## [变更] 单测 + e2e（2026-10-15）
 
@@ -69,8 +77,10 @@ eval_cases
 
 eval_runs
   id, suite_id, user_id
-  target_type: model | agent
-  target_id     -- model 名 或 agent_id
+  target_type: model | agent | prompt
+  target_id     -- model 名 / agent_id / prompt_version_id
+  model         -- target=prompt 时的聊天模型；其它目标可作覆盖记录
+  system_prompt -- 本次实际使用的 system（便于回看）
   status: pending | running | completed | failed
   pass_count, fail_count, skip_count
   score float       -- 加权通过率 0–1
@@ -99,7 +109,7 @@ eval_results
 | GET/PUT/DELETE | `/api/v1/evals/suites/:id` | 详情 / 更新 / 删除（级联用例） |
 | GET/POST | `/api/v1/evals/suites/:id/cases` | 用例列表 / 新增 |
 | PUT/DELETE | `/api/v1/evals/cases/:id` | 更新 / 删除用例 |
-| POST | `/api/v1/evals/suites/:id/runs` | 发起运行 `{ target_type, target_id }` |
+| POST | `/api/v1/evals/suites/:id/runs` | 发起运行 `{ target_type, target_id, model?, system_prompt? }` |
 | GET | `/api/v1/evals/runs` | 运行列表（可按 suite 过滤） |
 | GET | `/api/v1/evals/runs/:id` | 运行详情 + results |
 
@@ -112,9 +122,13 @@ eval_results
 ```
 POST runs
   → status=running
+  → 解析 system / model：
+       target=model  → target_id 即模型名；默认 system
+       target=agent  → 读 Agent system_prompt + model（暂不跑 MCP 工具循环，二期对齐）
+       target=prompt → target_id=prompt_version_id；必填 model；system=版本正文
+       若请求带 system_prompt → 覆盖以上 system（临时实验）
   → for each case:
-       target=model → ChatService.Chat(system+user)
-       target=agent → 读 Agent system_prompt + Chat（暂不跑 MCP 工具循环，二期对齐）
+       ChatService.Chat(system+user)
        judge contains/exact → pass/fail
   → 汇总 score = Σ(weight×pass) / Σ(weight)
   → status=completed
@@ -139,7 +153,8 @@ POST runs
 | 16.1 | 数据模型 + Suite/Case CRUD API | 本期 |
 | 16.2 | Run：模型同步评测 + contains/exact | 本期 |
 | 16.3 | 前端评估页 | 本期 |
-| 16.4 | Agent 目标 + 工具题（需 MCP） | 二期 |
+| 16.4 | Agent 目标 + 工具题（需 MCP） | 部分：agent ✅；MCP 用例二期 |
+| 16.4b | Prompt 目标 + system_prompt 覆盖 | 本期（联动阶段十七） |
 | 16.5 | llm_judge 裁判模型 | 二期 |
 | 16.6 | 异步队列 + 进度 SSE | 二期 |
 

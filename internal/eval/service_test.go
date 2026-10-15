@@ -21,6 +21,8 @@ func setupEvalDB(t *testing.T) *gorm.DB {
 		&model.EvalRun{},
 		&model.EvalResult{},
 		&model.Agent{},
+		&model.Prompt{},
+		&model.PromptVersion{},
 	))
 	return db
 }
@@ -169,6 +171,61 @@ func TestCreateAndExecuteRun_AgentMissing(t *testing.T) {
 		TargetID:   "no-such-agent",
 	})
 	require.Error(t, err)
+}
+
+func TestCreateAndExecuteRun_SystemPromptOverride(t *testing.T) {
+	db := setupEvalDB(t)
+	svc := NewService(db, nil)
+	suite, err := svc.CreateSuite("u1", &CreateSuiteRequest{Name: "S"})
+	require.NoError(t, err)
+	_, err = svc.CreateCase("u1", suite.ID, &CreateCaseRequest{Input: "hi", Expected: "x"})
+	require.NoError(t, err)
+
+	run, _, err := svc.CreateAndExecuteRun("u1", suite.ID, &CreateRunRequest{
+		TargetType:   model.EvalTargetModel,
+		TargetID:     "deepseek-chat",
+		SystemPrompt: "你是严格裁判",
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "你是严格裁判", run.SystemPrompt)
+	assert.Equal(t, "deepseek-chat", run.Model)
+}
+
+func TestCreateAndExecuteRun_PromptVersion(t *testing.T) {
+	db := setupEvalDB(t)
+	svc := NewService(db, nil)
+	ver := &model.PromptVersion{
+		ID:       "pv1",
+		PromptID: "p1",
+		UserID:   "u1",
+		Version:  1,
+		Content:  "提示词正文 A",
+	}
+	require.NoError(t, db.Create(&model.Prompt{
+		ID: "p1", UserID: "u1", Name: "N", CurrentVersionID: "pv1",
+	}).Error)
+	require.NoError(t, db.Create(ver).Error)
+
+	suite, err := svc.CreateSuite("u1", &CreateSuiteRequest{Name: "S"})
+	require.NoError(t, err)
+	_, err = svc.CreateCase("u1", suite.ID, &CreateCaseRequest{Input: "q", Expected: "a"})
+	require.NoError(t, err)
+
+	_, _, err = svc.CreateAndExecuteRun("u1", suite.ID, &CreateRunRequest{
+		TargetType: model.EvalTargetPrompt,
+		TargetID:   "pv1",
+	})
+	require.Error(t, err) // missing model
+
+	run, _, err := svc.CreateAndExecuteRun("u1", suite.ID, &CreateRunRequest{
+		TargetType: model.EvalTargetPrompt,
+		TargetID:   "pv1",
+		Model:      "deepseek-chat",
+	})
+	require.NoError(t, err)
+	assert.Equal(t, model.EvalTargetPrompt, run.TargetType)
+	assert.Equal(t, "提示词正文 A", run.SystemPrompt)
+	assert.Equal(t, "deepseek-chat", run.Model)
 }
 
 func TestCreateAndExecuteRun_AgentExists_UsesAgentModel(t *testing.T) {

@@ -4,8 +4,15 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|---------|--------|
+| 2026-10-15 | v1.2 | 新增 `internal/prompt/`；Web `/prompts`（跨仓 cogniforge-web） | orjrs |
 | 2026-08-18 | v1.1 | 配额落在 Go `internal/quota/`，不启用 Java billing 空目录 | orjrs |
 | 2026-03-16 | v1.0 | 初始规划 | orjrs |
+
+## [变更] 提示词模块目录（2026-10-15）
+
+- **变更原因**：阶段十七提示词工程
+- **变更后**：Go `internal/prompt/` + `internal/model/prompt.go`；前端独立仓 `cogniforge-web/pages/prompts.vue`
+- **关系**：评估仍在 `internal/eval/`，通过 `target_type=prompt` 引用版本
 
 ## [变更] 配额目录（2026-08-18）
 

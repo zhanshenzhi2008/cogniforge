@@ -228,11 +228,14 @@ func (s *Service) CreateAndExecuteRun(userID, suiteID string, req *CreateRunRequ
 		return nil, nil, err
 	}
 	tt := req.TargetType
-	if tt != model.EvalTargetModel && tt != model.EvalTargetAgent {
+	if tt != model.EvalTargetModel && tt != model.EvalTargetAgent && tt != model.EvalTargetPrompt {
 		return nil, nil, fmt.Errorf("不支持的 target_type: %s", tt)
 	}
 	if strings.TrimSpace(req.TargetID) == "" {
 		return nil, nil, errors.New("target_id 不能为空")
+	}
+	if tt == model.EvalTargetPrompt && strings.TrimSpace(req.Model) == "" {
+		return nil, nil, errors.New("target_type=prompt 时必须传 model")
 	}
 	cases, err := s.ListCases(userID, suiteID)
 	if err != nil {
@@ -245,22 +248,8 @@ func (s *Service) CreateAndExecuteRun(userID, suiteID string, req *CreateRunRequ
 		return nil, nil, errors.New("一期单次最多 50 条用例")
 	}
 
-	now := time.Now()
-	run := &model.EvalRun{
-		ID:         uuid.New().String(),
-		SuiteID:    suiteID,
-		UserID:     userID,
-		TargetType: tt,
-		TargetID:   strings.TrimSpace(req.TargetID),
-		Status:     model.EvalRunRunning,
-		StartedAt:  &now,
-	}
-	if err := s.db.Create(run).Error; err != nil {
-		return nil, nil, err
-	}
-
 	systemPrompt := "You are a helpful assistant for evaluation. Answer concisely."
-	modelName := run.TargetID
+	modelName := strings.TrimSpace(req.TargetID)
 	if tt == model.EvalTargetAgent {
 		var ag struct {
 			Model        string
@@ -268,10 +257,9 @@ func (s *Service) CreateAndExecuteRun(userID, suiteID string, req *CreateRunRequ
 		}
 		if err := s.db.Table("agents").
 			Select("model, system_prompt").
-			Where("id = ? AND user_id = ?", run.TargetID, userID).
+			Where("id = ? AND user_id = ?", strings.TrimSpace(req.TargetID), userID).
 			Take(&ag).Error; err != nil {
-			s.failRun(run, "Agent 不存在")
-			return run, nil, errors.New("Agent 不存在")
+			return nil, nil, errors.New("Agent 不存在")
 		}
 		if ag.Model != "" {
 			modelName = ag.Model
@@ -279,6 +267,37 @@ func (s *Service) CreateAndExecuteRun(userID, suiteID string, req *CreateRunRequ
 		if ag.SystemPrompt != "" {
 			systemPrompt = ag.SystemPrompt
 		}
+	}
+	if tt == model.EvalTargetPrompt {
+		var ver model.PromptVersion
+		if err := s.db.Where("id = ? AND user_id = ?", strings.TrimSpace(req.TargetID), userID).
+			First(&ver).Error; err != nil {
+			return nil, nil, errors.New("提示词版本不存在")
+		}
+		systemPrompt = ver.Content
+		modelName = strings.TrimSpace(req.Model)
+	}
+	if strings.TrimSpace(req.Model) != "" && tt != model.EvalTargetPrompt {
+		modelName = strings.TrimSpace(req.Model)
+	}
+	if override := strings.TrimSpace(req.SystemPrompt); override != "" {
+		systemPrompt = override
+	}
+
+	now := time.Now()
+	run := &model.EvalRun{
+		ID:           uuid.New().String(),
+		SuiteID:      suiteID,
+		UserID:       userID,
+		TargetType:   tt,
+		TargetID:     strings.TrimSpace(req.TargetID),
+		Model:        modelName,
+		SystemPrompt: systemPrompt,
+		Status:       model.EvalRunRunning,
+		StartedAt:    &now,
+	}
+	if err := s.db.Create(run).Error; err != nil {
+		return nil, nil, err
 	}
 
 	results := make([]model.EvalResult, 0, len(cases))

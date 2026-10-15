@@ -15,8 +15,9 @@ const (
 	EvalJudgeExact    = "exact"
 	EvalJudgeLLM      = "llm_judge"
 
-	EvalTargetModel = "model"
-	EvalTargetAgent = "agent"
+	EvalTargetModel  = "model"
+	EvalTargetAgent  = "agent"
+	EvalTargetPrompt = "prompt" // 提示词版本 id；需配合 CreateRunRequest.Model
 
 	EvalRunPending   = "pending"
 	EvalRunRunning   = "running"
@@ -68,6 +69,8 @@ type EvalRun struct {
 	UserID       string         `gorm:"type:varchar(64);not null;index:idx_eval_runs_user_id" json:"user_id"`
 	TargetType   string         `gorm:"type:varchar(32);not null" json:"target_type"`
 	TargetID     string         `gorm:"type:varchar(255);not null" json:"target_id"`
+	Model        string         `gorm:"type:varchar(100)" json:"model,omitempty"`          // target=prompt 时使用的聊天模型
+	SystemPrompt string         `gorm:"type:text" json:"system_prompt,omitempty"`          // 实际使用的 system（便于回看）
 	Status       string         `gorm:"type:varchar(32);not null;default:pending" json:"status"`
 	PassCount    int            `json:"pass_count"`
 	FailCount    int            `json:"fail_count"`

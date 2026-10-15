@@ -19,6 +19,7 @@ import (
 	"cogniforge/internal/middleware"
 	"cogniforge/internal/modelcache"
 	"cogniforge/internal/monitor"
+	"cogniforge/internal/prompt"
 	"cogniforge/internal/provider"
 	"cogniforge/internal/quota"
 	"cogniforge/internal/rbac"
@@ -74,6 +75,7 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 	agentHandler.SetMCPRegistry(mcpHandler.Registry())
 	skillHandler := skill.NewHandler(db)
 	evalHandler := eval.NewHandler(db, chatHandler.Service())
+	promptHandler := prompt.NewHandler(db)
 	importHandler := skillimport.NewHandler(db)
 	rbacHandler := rbac.NewRBACHandler()
 	tokenSvc := token.NewService(rdb)
@@ -151,6 +153,9 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 
 			// 设计评估体系（阶段十六）
 			evalHandler.RegisterRoutes(authenticated)
+
+			// 提示词工程（阶段十七）
+			promptHandler.RegisterRoutes(authenticated)
 
 			// 长期记忆 CRUD（阶段十四 14.5）
 			memoryHandler.RegisterRoutes(authenticated)

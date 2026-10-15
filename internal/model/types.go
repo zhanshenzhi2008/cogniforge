@@ -1,11 +1,12 @@
 package model
 
 import (
+	"database/sql/driver"
 	"encoding/json"
 	"fmt"
 )
 
-// JSONBArray JSONB 数组类型
+// JSONBArray JSONB 数组类型（Postgres JSONB / SQLite TEXT 均走 Valuer）
 type JSONBArray []string
 
 func (j *JSONBArray) Scan(value any) error {
@@ -15,14 +16,18 @@ func (j *JSONBArray) Scan(value any) error {
 	}
 	bytes, ok := value.([]byte)
 	if !ok {
-		return fmt.Errorf("failed to scan JSONBArray: not a byte slice")
+		if s, ok := value.(string); ok {
+			bytes = []byte(s)
+		} else {
+			return fmt.Errorf("failed to scan JSONBArray: not a byte slice")
+		}
 	}
 	return json.Unmarshal(bytes, j)
 }
 
-func (j JSONBArray) Value() (any, error) {
+func (j JSONBArray) Value() (driver.Value, error) {
 	if j == nil {
-		return "[]", nil
+		return []byte("[]"), nil
 	}
 	return json.Marshal(j)
 }
@@ -37,14 +42,18 @@ func (j *JSONBMap) Scan(value any) error {
 	}
 	bytes, ok := value.([]byte)
 	if !ok {
-		return fmt.Errorf("failed to scan JSONBMap: not a byte slice")
+		if s, ok := value.(string); ok {
+			bytes = []byte(s)
+		} else {
+			return fmt.Errorf("failed to scan JSONBMap: not a byte slice")
+		}
 	}
 	return json.Unmarshal(bytes, j)
 }
 
-func (j JSONBMap) Value() (any, error) {
+func (j JSONBMap) Value() (driver.Value, error) {
 	if j == nil {
-		return "{}", nil
+		return []byte("{}"), nil
 	}
 	return json.Marshal(j)
 }

@@ -4,7 +4,14 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|---------|--------|
+| 2026-10-15 | v1.1 | 单测覆盖 Suite/Case/Run/Judge；JSONB Valuer 修 SQLite；Web e2e | orjrs |
 | 2026-10-15 | v1.0 | 立项：模型/智能体评测集 + 运行 + 打分；对齐 FT-020 | orjrs |
+
+## [变更] 单测 + e2e（2026-10-15）
+
+- **变更原因**：评估模块要可回归；SQLite 下 JSONBMap Valuer 未满足 `driver.Valuer` 导致 Case 插入失败
+- **包含代码**：`internal/eval/service_test.go`、`judge_test.go`；`internal/model/types.go`；Web `e2e/evals.spec.ts`
+- **变更前 vs 变更后**：~~无自动化测试~~（2026-10-15）→ Go `go test ./internal/eval` 绿；Playwright 建集→加题→跑分绿
 
 ## [变更] 立项（2026-10-15）
 

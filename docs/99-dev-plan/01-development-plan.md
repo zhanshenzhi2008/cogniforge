@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-10-15 | v1.80 | 阶段十六立项并落地骨架：设计评估体系（Suite/Case/Run + 前端 /evals） | orjrs |
 | 2026-10-15 | v1.79 | code_execute/web_search 文档纠偏 + 部署开关说明 | orjrs |
 | 2026-10-15 | v1.78 | InjectMCPTools 单测 + 技术架构文档补 MCP 注入说明 | orjrs |
 | 2026-10-15 | v1.77 | Playground 可选 mcp_servers + 注入 MCP Registry（修复从未 SetMCPRegistry） | orjrs |
@@ -78,6 +79,14 @@
 | 2026-04-11 | v1.2 | 阶段八监控中心完成（请求日志中间件、日志列表 API、用量统计 API、监控仪表板页面） | orjrs |
 | 2026-04-17 | v1.3 | 阶段九用户管理与个人设置完成（用户CRUD、个人设置、会话管理、RBAC权限系统） | orjrs |
 > 注：任务状态变更直接在下方任务表格中更新即可，无需额外记录。
+
+## [变更] 阶段十六：设计评估体系立项并落地骨架（2026-10-15）
+
+- **变更原因**：产品 FT-020 模型评估；需要可重复的质量考试卷，而不只靠人工点对话
+- **详细设计**：`docs/01-requirements/08-eval-system-design.md`
+- **包含代码**：`internal/model/eval.go`、`internal/eval/*`；Web `pages/evals.vue`、`composables/useEvals.ts`
+- **变更前 vs 变更后**：~~无评估模块~~（2026-10-15）→ 评测集/用例 CRUD + 同步跑模型 contains/exact 打分 + 配置菜单入口
+- **跨仓库**：cogniforge-web `/evals`
 
 ## [变更] Playground MCP + Registry 注入（2026-10-15）
 
@@ -1053,6 +1062,32 @@ pnpm test:e2e          # Playwright：登录/注册按钮、对话发送禁用�
 
 ---
 
+### 阶段十六：设计评估体系（约 1 周）⭐
+
+**推荐理由**：对齐 FT-020；用「评测集 + 运行」量化模型/Agent 质量，支持回归。  
+**详细设计**：`docs/01-requirements/08-eval-system-design.md`
+
+| 序号 | 功能点 | 预计时间 | 难度 | 状态 | 测试项 | 测试时间 |
+|-----|-------|---------|------|------|-------|---------|
+| 16.1 | 数据模型 + Suite/Case CRUD | 1天 | ⭐⭐ | ✅ 完成 | 16.1.1 建删改查<br>16.1.2 用户隔离 | 0.5天 |
+| 16.2 | Run：模型同步评测 + contains/exact | 2天 | ⭐⭐⭐ | ✅ 完成 | 16.2.1 关键词命中<br>16.2.2 exact<br>16.2.3 llm_judge 跳过 | 1天 |
+| 16.3 | 前端 `/evals` 页 | 1.5天 | ⭐⭐ | ✅ 完成 | 16.3.1 建集加题<br>16.3.2 跑模型看明细 | 0.5天 |
+| 16.4 | Agent 目标 + 工具题 | 2天 | ⭐⭐⭐ | 🔴 未开始 | 16.4.1 target=agent<br>16.4.2 带 MCP 用例 | 1天 |
+| 16.5 | llm_judge 裁判模型 | 2天 | ⭐⭐⭐⭐ | 🔴 未开始 | 16.5.1 0–1 分<br>16.5.2 失败降级 | 1天 |
+| 16.6 | 异步队列 + 进度 | 2天 | ⭐⭐⭐ | 🔴 未开始 | 16.6.1 长卷不超时<br>16.6.2 SSE 进度 | 1天 |
+
+**验收（给非技术同学）**：
+
+- 配置 → 评估：新建评测集，加 2 道「包含关键词」题，对默认模型点运行，能看到通过/失败和原话
+
+**不在本期**：微调数据集联动、公开榜、A/B 自动选模
+
+**代码落地**（2026-10-15）：
+- Go: `internal/model/eval.go`、`internal/eval/{dto,judge,service,handler}.go`；`cmd/server` AutoMigrate；router 注册
+- Web: `pages/evals.vue`、`composables/useEvals.ts`、`constants/nav.ts`、`i18n/messages.ts`
+
+---
+
 ## 测试执行流程
 
 每个功能开发完成后，必须完成以下测试步骤才能标记为完成：
@@ -1269,4 +1304,4 @@ composables/
 
 ---
 
-**下一阶段**：MCP 流式/Playground/Registry 注入已修。优先人工验收：无 Agent 查天气、Agent+web_search、PDF 附件问答。可选：`code_execute` Docker 隔离、技术架构文档补全。
+**下一阶段**：阶段十六 16.1–16.3 已落地。优先人工验收评估页；继续 16.4 Agent 目标 / 16.5 llm_judge。另：PDF 附件问答人工验收、`code_execute` Docker 隔离（可选）。

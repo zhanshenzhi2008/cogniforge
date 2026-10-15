@@ -63,6 +63,11 @@ func main() {
 		&model.ChatConversation{},
 		&model.QuotaPolicy{},
 		&model.LLMUsageEvent{},
+		&model.ChatMemory{},
+		&model.EvalSuite{},
+		&model.EvalCase{},
+		&model.EvalRun{},
+		&model.EvalResult{},
 	); err != nil {
 		slog.Error("failed to migrate database", "error", err)
 		return

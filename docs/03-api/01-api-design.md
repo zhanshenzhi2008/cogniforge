@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-10-15 | v1.29 | 评估体系 /api/v1/evals/*（suites/cases/runs） | orjrs |
 | 2026-10-15 | v1.28 | chat/stream 可选 mcp_servers[]：注入内置工具并跑工具循环后 SSE 返回 | orjrs |
 | 2026-10-12 | v1.27 | conversations.message_queue 支持 attachments | orjrs |
 | 2026-10-12 | v1.26 | Agent 对话 POST /agents/:id/chat 支持 attachments / rag_kb_ids / rag_top_k / rag_min_score | orjrs |
@@ -29,6 +30,16 @@
 | 2026-08-15 | v1.2 | GET /v1/models 改为返回已启用供应商的 default_model（不再写死 GPT 列表） | orjrs |
 | 2026-04-09 | v1.1 | 新增文档上传接口、语义检索接口实现说明 | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] 评估体系 API（2026-10-15）
+
+- **变更原因**：阶段十六；FT-020 模型评估
+- **接口组**：`/api/v1/evals`（JWT）
+  - `GET/POST /suites`；`GET/PUT/DELETE /suites/:id`
+  - `GET/POST /suites/:id/cases`；`PUT/DELETE /cases/:id`
+  - `POST /suites/:id/runs`（同步跑完返回 run+results）；`GET /runs`、`GET /runs/:id`
+- **打分**：`contains` / `exact`；`llm_judge` 一期 skip
+- **详细设计**：`docs/01-requirements/08-eval-system-design.md`
 
 ## [变更] chat/stream 可选 mcp_servers（2026-10-15）
 

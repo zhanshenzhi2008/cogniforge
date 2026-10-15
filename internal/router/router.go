@@ -10,6 +10,7 @@ import (
 	"cogniforge/internal/auth"
 	"cogniforge/internal/chat"
 	"cogniforge/internal/config"
+	"cogniforge/internal/eval"
 	"cogniforge/internal/httpclient"
 	"cogniforge/internal/knowledge"
 	"cogniforge/internal/mail"
@@ -72,6 +73,7 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 	chatHandler.SetMCPRegistry(mcpHandler.Registry())
 	agentHandler.SetMCPRegistry(mcpHandler.Registry())
 	skillHandler := skill.NewHandler(db)
+	evalHandler := eval.NewHandler(db, chatHandler.Service())
 	importHandler := skillimport.NewHandler(db)
 	rbacHandler := rbac.NewRBACHandler()
 	tokenSvc := token.NewService(rdb)
@@ -146,6 +148,9 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 
 			// SKILL 导入（Markdown / ZIP）
 			importHandler.RegisterRoutes(authenticated)
+
+			// 设计评估体系（阶段十六）
+			evalHandler.RegisterRoutes(authenticated)
 
 			// 长期记忆 CRUD（阶段十四 14.5）
 			memoryHandler.RegisterRoutes(authenticated)

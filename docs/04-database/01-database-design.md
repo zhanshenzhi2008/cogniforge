@@ -3,6 +3,7 @@
 ## [变更记录]
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|---------|--------|
+| 2026-10-15 | v1.16 | 评估体系表 eval_suites / eval_cases / eval_runs / eval_results | orjrs |
 | 2026-10-12 | v1.15 | message_queue 元素支持 attachments（排队带文件） | orjrs |
 | 2026-10-11 | v1.14 | 阶段十三 13.1：chat_conversations.rag_knowledge_base_ids；messages[].attachments | orjrs |
 | 2026-09-03 | v1.13 | §1.2 命名规范新增 MySQL 字符集/排序规则、索引命名规范（idx_/uk_/fk_ 前缀）、字段缩写规则 | orjrs |
@@ -16,6 +17,17 @@
 | 2026-08-16 | v1.2 | Redis 键统一 `cogniforge:` 前缀；多项目用前缀隔离，不拆 db0/db1 | orjrs |
 | 2026-08-15 | v1.1 | 落地模型配置 Redis 键（当时为 `cf:modelcfg:*`） | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] 评估体系四表（2026-10-15）
+
+- **变更原因**：阶段十六评测集/用例/运行/结果
+- **包含代码**：`internal/model/eval.go`；`cmd/server` AutoMigrate
+- **新增表**：
+  - `eval_suites`（user_id, name, description）
+  - `eval_cases`（suite_id, input, expected, judge_type, judge_config, weight, sort_order）
+  - `eval_runs`（suite_id, target_type, target_id, status, pass/fail/skip, score）
+  - `eval_results`（run_id, case_id, status, actual_output, latency_ms, detail）
+- **索引**：`idx_eval_suites_user_id`、`idx_eval_cases_suite_id`、`idx_eval_runs_suite_id`、`idx_eval_results_run_id`
 
 ## [变更] message_queue 支持 attachments（2026-10-12）
 

@@ -1247,7 +1247,7 @@ composables/
 - [x] 阶段十三 Playground 文件 + RAG（2026-10-11）
 - [x] 阶段十五内置工具 fetch / web_search / code_execute（2026-10-11）
 - [x] Agent 对话 RAG 注入（2026-10-12）
-- [ ] 更新技术架构文档（补充用户管理、角色权限表）— 文档债
+- [x] 更新技术架构文档（MCP Registry 注入热路径，2026-10-15；用户管理/RBAC 表仍可后续补）
 - [x] ~~创建 UserSettings、Permission 等 GORM 模型~~（已有 user/rbac 模型）
 - [ ] 规划 Milvus 部署方案（可选；现网用 pgvector）
 - [x] ~~准备 Python 开发环境~~（cogniforge-ai FastAPI 已落地）

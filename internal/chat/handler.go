@@ -15,6 +15,7 @@ import (
 	"gorm.io/gorm"
 
 	"cogniforge/internal/knowledge"
+	"cogniforge/internal/mcp"
 	"cogniforge/internal/memory"
 	"cogniforge/internal/model"
 	"cogniforge/internal/provider"
@@ -28,10 +29,11 @@ var pythonServiceURL string
 // SetPythonURL sets the Python service URL (called from router setup).
 func SetPythonURL(url string) { pythonServiceURL = strings.TrimRight(url, "/") }
 type ChatHandler struct {
-	service *ChatService
-	conv    *ConversationService
-	quota   *quota.Service
-	rag     RAGSearcher
+	service     *ChatService
+	conv        *ConversationService
+	quota       *quota.Service
+	rag         RAGSearcher
+	mcpRegistry *mcp.Registry
 }
 
 func NewChatHandler(providerSvc *provider.Service, db *gorm.DB, quotaSvc *quota.Service) *ChatHandler {
@@ -204,7 +206,32 @@ func (h *ChatHandler) ChatStream(c *gin.Context) {
 	}
 	started := time.Now()
 
-	// --- 调用 LLM ---
+	// Playground 可选 MCP：有 mcp_servers 时先工具循环，再 SSE 最终回复
+	InjectMCPTools(&req, h.mcpRegistry, req.McpServers)
+	if len(req.Tools) > 0 {
+		chatResp, err := h.service.ChatWithTools(&req, NewMCPToolExecutor(h.mcpRegistry))
+		if err != nil {
+			h.refund(c)
+			if WriteNoActiveProvider(c, err) {
+				return
+			}
+			h.commit(c, "playground", req.Model, nil, "error", started)
+			slog.Error("ChatWithTools failed",
+				"error", err, "model", req.Model, "messages_count", len(req.Messages),
+			)
+			fmt.Fprintf(c.Writer, "data: {\"error\": \"AI provider error: %s\"}\n\n", err.Error())
+			c.Writer.Flush()
+			return
+		}
+		usage := chatResp.Usage
+		h.commit(c, "playground", req.Model, &usage, "ok", started)
+		WriteResponseSSE(c, chatResp)
+		go h.saveConversationAsync(userID, req.ConversationID, req.Model,
+			existingMsgs, existingSummary, trimmedMsgs, fullMsgs)
+		return
+	}
+
+	// --- 调用 LLM（纯流式） ---
 	usage, err := h.service.ChatStream(c, &req)
 	if err != nil {
 		h.refund(c)

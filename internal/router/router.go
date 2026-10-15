@@ -68,6 +68,9 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 	agentHandler.SetKnowledgeService(knowledgeSvc)
 	monitorHandler := monitor.NewMonitorHandler()
 	mcpHandler := mcp.NewHandler(db)
+	// 关键：Registry 必须注入，否则 Agent/Playground 勾选工具也不会生效
+	chatHandler.SetMCPRegistry(mcpHandler.Registry())
+	agentHandler.SetMCPRegistry(mcpHandler.Registry())
 	skillHandler := skill.NewHandler(db)
 	importHandler := skillimport.NewHandler(db)
 	rbacHandler := rbac.NewRBACHandler()

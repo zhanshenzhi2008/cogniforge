@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-10-15 | v1.77 | Playground 可选 mcp_servers + 注入 MCP Registry（修复从未 SetMCPRegistry） | orjrs |
 | 2026-10-15 | v1.76 | 修复 Agent 流式跳过 MCP 工具循环（查天气等实时问答失效） | orjrs |
 | 2026-10-12 | v1.75 | 排队消息支持 attachments（入队/出队/编辑/持久化） | orjrs |
 | 2026-10-12 | v1.74 | Agent 对话接入 RAG 注入（与 Playground stream 共用 InjectRAGSystemIfNeeded） | orjrs |
@@ -75,6 +76,13 @@
 | 2026-04-11 | v1.2 | 阶段八监控中心完成（请求日志中间件、日志列表 API、用量统计 API、监控仪表板页面） | orjrs |
 | 2026-04-17 | v1.3 | 阶段九用户管理与个人设置完成（用户CRUD、个人设置、会话管理、RBAC权限系统） | orjrs |
 > 注：任务状态变更直接在下方任务表格中更新即可，无需额外记录。
+
+## [变更] Playground MCP + Registry 注入（2026-10-15）
+
+- **变更原因**：`agentHandler.SetMCPRegistry` 从未在 router 调用，Agent 勾选工具也不生效；Playground 无 Agent 时无法查天气等实时信息
+- **包含代码**：`router` 注入 Registry；`chat.InjectMCPTools` / `ChatStream` 支持 `mcp_servers`；Web 默认开「网络搜索」
+- **变更前 vs 变更后**：~~Registry 未注入 + Playground 无 MCP~~（2026-10-15）→ 两端可用；无 Agent 时默认 `web_search`
+- **跨仓库**：cogniforge-web `PlaygroundConfigPanel` / `playground.vue`
 
 ## [变更] Agent 流式 MCP 工具循环修复（2026-10-15）
 
@@ -1259,4 +1267,4 @@ composables/
 
 ---
 
-**下一阶段**：核心开发项已齐。优先人工验收 PDF 问答与 Agent+附件；可选：`code_execute` Docker 隔离、技术架构文档补全、Agent 流式响应对齐 playground。
+**下一阶段**：MCP 流式/Playground/Registry 注入已修。优先人工验收：无 Agent 查天气、Agent+web_search、PDF 附件问答。可选：`code_execute` Docker 隔离、技术架构文档补全。

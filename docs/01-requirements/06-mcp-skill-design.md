@@ -4,12 +4,20 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|---------|--------|
+| 2026-10-15 | v1.6 | Playground 支持 mcp_servers；router 注入 MCP Registry（此前从未注入导致工具全失效） | orjrs |
 | 2026-10-15 | v1.5 | 修复 Agent 流式对话跳过工具循环；正确解析 message.tool_calls；按 Agent 勾选 Server 注入工具 | orjrs |
 | 2026-10-11 | v1.4 | 15.5 code_execute：本地子进程沙箱执行 python/node/go（超时/输出截断/`CODE_EXECUTE_DISABLED`） | orjrs |
 | 2026-09-11 | v1.3 | 内置工具 web_search 接入 Tavily：支持 keyless 模式（无需 API Key）和 API Key 模式（每月 1000 次免费）；移除 BING_API_KEY / GOOGLE_API_KEY 方案 | orjrs |
 | 2026-09-05 | v1.2 | 新增 SKILL 外部导入：支持 Claude Skills 格式 SKILL.md（Markdown 单文件 / ZIP 压缩包）；ZIP 支持批量导入多个 Skill；内置 URL 安全校验（协议白名单、内网 IP 阻断） | orjrs |
 | 2026-09-04 | v1.1 | 修复：工具调用循环改为动态停止（无 tool_calls 即停）；SKILL 结构升级（meta/instructions/references/constraints/examples） | orjrs |
 | 2026-09-04 | v1.0 | 立项：MCP + SKILL，让 Agent 能调用外部工具，可复用技能模板 | orjrs |
+
+## [变更] Playground MCP + Registry 注入（2026-10-15）
+
+- **变更原因**：云端测试发现勾选工具仍无效——`SetMCPRegistry` 未在 router 调用；且「不做 Playground MCP」导致无 Agent 会话无法实时搜索
+- **包含代码**：`internal/router/router.go`、`internal/chat/{mcp_tools,handler,dto}.go`；Web 开关默认开 `web_search`
+- **变更前 vs 变更后**：~~Registry 悬空；Playground 无工具~~（2026-10-15）→ 注入生效；`POST /chat/stream` 可带 `mcp_servers`
+- **使用说明**：对话页无智能体时默认开「网络搜索」；选 Agent 则走 Agent.tools
 
 ## [变更] Agent 流式也能走工具循环（2026-10-15）
 

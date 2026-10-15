@@ -28,6 +28,8 @@ type ChatRequest struct {
 
 	// 阶段十五 15.2：MCP 工具列表（由 MCP Registry 注入）
 	Tools []ToolCallSpec `json:"tools,omitempty"`
+	// Playground 可选：传入 MCP Server ID（如 web_search），服务端注入 tools 并跑工具循环
+	McpServers []string `json:"mcp_servers,omitempty"`
 
 	// 滑动窗口参数（阶段十四 14.1）
 	// MemoryTurns: 窗口轮数，默认 10，范围 1–40。0=禁用服务端裁剪。

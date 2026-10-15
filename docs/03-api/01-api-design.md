@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-10-15 | v1.28 | chat/stream 可选 mcp_servers[]：注入内置工具并跑工具循环后 SSE 返回 | orjrs |
 | 2026-10-12 | v1.27 | conversations.message_queue 支持 attachments | orjrs |
 | 2026-10-12 | v1.26 | Agent 对话 POST /agents/:id/chat 支持 attachments / rag_kb_ids / rag_top_k / rag_min_score | orjrs |
 | 2026-10-11 | v1.25 | 阶段十三 13.5：chat/stream 支持 rag_top_k / rag_min_score（覆盖服务端 RAG_* 默认） | orjrs |
@@ -28,6 +29,13 @@
 | 2026-08-15 | v1.2 | GET /v1/models 改为返回已启用供应商的 default_model（不再写死 GPT 列表） | orjrs |
 | 2026-04-09 | v1.1 | 新增文档上传接口、语义检索接口实现说明 | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] chat/stream 可选 mcp_servers（2026-10-15）
+
+- **变更原因**：无 Agent 的 Playground 也需要实时搜索（天气等）
+- **接口**：`POST /api/v1/chat/stream` 可选 `mcp_servers: ["web_search"]`（内置还可 `fetch` / `code_execute`）
+- **行为**：有工具时服务端跑 `ChatWithTools`，再以 SSE 推送最终 assistant 文本；无工具则保持原流式
+- **注意**：须登录；工具次数上限 MaxToolCalls=5
 
 ## [变更] 聊天排队 message_queue（2026-08-21）
 

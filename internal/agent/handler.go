@@ -1,8 +1,6 @@
 package agent
 
 import (
-	"encoding/json"
-	"fmt"
 	"net/http"
 	"time"
 
@@ -239,25 +237,13 @@ func (h *AgentHandler) AgentChat(c *gin.Context) {
 		RAGMinScore:         req.RAGMinScore,
 	}
 
-	// 阶段十五 15.2：按 Agent 勾选的 MCP Server 注入工具（不是全量 Registry）
-	if h.mcpRegistry != nil && len(dbAgent.Tools) > 0 {
-		for _, toolDef := range h.mcpRegistry.GetToolsForAgent([]string(dbAgent.Tools)) {
-			svcReq.Tools = append(svcReq.Tools, chat.ToolCallSpec{
-				Type: "function",
-				Function: chat.ToolFunctionSpec{
-					Name:        toolDef.Name,
-					Description: toolDef.Description,
-					Parameters:  toolDef.InputSchema,
-				},
-			})
-		}
-	}
+	// 阶段十五 15.2：按 Agent 勾选的 MCP Server 注入工具
+	chat.InjectMCPTools(svcReq, h.mcpRegistry, []string(dbAgent.Tools))
 	hasTools := len(svcReq.Tools) > 0
 
 	// 有工具时必须走工具循环（Playground 默认 stream=true，以前被 !stream 条件跳过）
 	if hasTools {
-		executor := buildToolExecutor(h.mcpRegistry)
-		chatResp, err := h.chatSvc.ChatWithTools(svcReq, executor)
+		chatResp, err := h.chatSvc.ChatWithTools(svcReq, chat.NewMCPToolExecutor(h.mcpRegistry))
 		if err != nil {
 			if h.quota != nil {
 				h.quota.RefundRequest(c.Request.Context(), userID)
@@ -271,7 +257,7 @@ func (h *AgentHandler) AgentChat(c *gin.Context) {
 		}
 		h.commitAgent(c, userID, model, &chatResp.Usage, "ok", started)
 		if req.Stream {
-			writeChatResponseSSE(c, chatResp)
+			chat.WriteResponseSSE(c, chatResp)
 			return
 		}
 		response.Success(c, chatResp)
@@ -309,41 +295,6 @@ func (h *AgentHandler) AgentChat(c *gin.Context) {
 	}
 	h.commitAgent(c, userID, model, &resp.Usage, "ok", started)
 	response.Success(c, resp)
-}
-
-// writeChatResponseSSE 把非流式最终回复写成 OpenAI 兼容 SSE，供 Playground 前端消费。
-func writeChatResponseSSE(c *gin.Context, resp *chat.ChatResponse) {
-	c.Header("Content-Type", "text/event-stream")
-	c.Header("Cache-Control", "no-cache")
-	c.Header("Connection", "keep-alive")
-	c.Header("X-Accel-Buffering", "no")
-
-	content := ""
-	if len(resp.Choices) > 0 {
-		if s, ok := resp.Choices[0].Message.Content.(string); ok {
-			content = s
-		}
-	}
-	evt := map[string]any{
-		"id":      resp.ID,
-		"object":  "chat.completion.chunk",
-		"created": resp.Created,
-		"model":   resp.Model,
-		"choices": []map[string]any{
-			{
-				"index": 0,
-				"delta": map[string]any{
-					"role":    "assistant",
-					"content": content,
-				},
-				"finish_reason": "stop",
-			},
-		},
-	}
-	b, _ := json.Marshal(evt)
-	_, _ = c.Writer.Write([]byte("data: " + string(b) + "\n\n"))
-	_, _ = c.Writer.Write([]byte("data: [DONE]\n\n"))
-	c.Writer.Flush()
 }
 
 func (h *AgentHandler) commitAgent(c *gin.Context, userID, modelName string, usage *chat.ChatUsage, status string, started time.Time) {
@@ -392,44 +343,6 @@ func fromWindowMessages(in []memory.WindowMessage) []chat.ChatMessage {
 		out[i] = chat.ChatMessage{Role: m.Role, Content: m.Content}
 	}
 	return out
-}
-
-func buildToolExecutor(registry *mcp.Registry) *mcpToolExecutor {
-	return &mcpToolExecutor{registry: registry, executor: mcp.NewBuiltInExecutor()}
-}
-
-type mcpToolExecutor struct {
-	registry  *mcp.Registry
-	executor *mcp.BuiltInExecutor
-}
-
-func (e *mcpToolExecutor) Execute(call chat.ToolCall) (string, error) {
-	toolDef := e.registry.GetBuiltInTool(call.Function.Name)
-	if toolDef == nil {
-		return "", fmt.Errorf("unknown tool: %s", call.Function.Name)
-	}
-	var args map[string]interface{}
-	if call.Function.Arguments != "" {
-		_ = json.Unmarshal([]byte(call.Function.Arguments), &args)
-	}
-	if toolDef.ServerType == "built-in" {
-		result, err := e.executor.Execute(toolDef.Name, args)
-		if err != nil {
-			return "", err
-		}
-		b, _ := json.Marshal(result)
-		return string(b), nil
-	}
-	srv := e.registry.GetServer(toolDef.ServerID)
-	if srv == nil || srv.URL == "" {
-		return "", fmt.Errorf("MCP server not available: %s", toolDef.ServerID)
-	}
-	result, err := e.executor.CallHTTPClient(srv.URL, srv.AuthHeader, toolDef.Name, args)
-	if err != nil {
-		return "", err
-	}
-	b, _ := json.Marshal(result)
-	return string(b), nil
 }
 
 func (h *AgentHandler) RegisterRoutes(rg *gin.RouterGroup) {

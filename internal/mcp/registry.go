@@ -182,16 +182,19 @@ func (r *Registry) GetAllTools() []ToolDefinition {
 	return out
 }
 
-// GetToolsForAgent 获取 Agent 绑定的所有工具
+// GetToolsForAgent 获取 Agent 绑定的所有工具（按 MCP Server ID 过滤）
 func (r *Registry) GetToolsForAgent(serverIDs []string) []ToolDefinition {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	seen := make(map[string]bool)
 	var out []ToolDefinition
 	for _, sid := range serverIDs {
-		// 内置工具直接注册
+		if sid == "" {
+			continue
+		}
+		prefix := sid + ":"
 		for key, t := range r.tools {
-			if len(key) > len(sid) && key[:len(sid)] == sid {
+			if len(key) >= len(prefix) && key[:len(prefix)] == prefix {
 				if !seen[key] {
 					seen[key] = true
 					out = append(out, t)
@@ -202,14 +205,15 @@ func (r *Registry) GetToolsForAgent(serverIDs []string) []ToolDefinition {
 	return out
 }
 
-// GetBuiltInTool 获取内置工具定义
+// GetBuiltInTool 获取内置工具定义。
+// id 可为 registry key（web_search:search）或函数名（web_search_search）。
 func (r *Registry) GetBuiltInTool(id string) *ToolDefinition {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	// id 格式：serverID:toolName
 	for key, t := range r.tools {
-		if key == id {
-			return &t
+		if key == id || t.Name == id {
+			cp := t
+			return &cp
 		}
 	}
 	return nil

@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-10-15 | v1.76 | 修复 Agent 流式跳过 MCP 工具循环（查天气等实时问答失效） | orjrs |
 | 2026-10-12 | v1.75 | 排队消息支持 attachments（入队/出队/编辑/持久化） | orjrs |
 | 2026-10-12 | v1.74 | Agent 对话接入 RAG 注入（与 Playground stream 共用 InjectRAGSystemIfNeeded） | orjrs |
 | 2026-10-11 | v1.73 | 阶段十三收官：13.6 端到端链路单测（附件→检索→注入 + 降级） | orjrs |
@@ -74,6 +75,14 @@
 | 2026-04-11 | v1.2 | 阶段八监控中心完成（请求日志中间件、日志列表 API、用量统计 API、监控仪表板页面） | orjrs |
 | 2026-04-17 | v1.3 | 阶段九用户管理与个人设置完成（用户CRUD、个人设置、会话管理、RBAC权限系统） | orjrs |
 > 注：任务状态变更直接在下方任务表格中更新即可，无需额外记录。
+
+## [变更] Agent 流式 MCP 工具循环修复（2026-10-15）
+
+- **变更原因**：对话页默认 `stream=true`，工具循环被跳过；查天气等实时问题模型只能说「不支持」
+- **包含代码**：`internal/agent/handler.go`、`internal/chat/{dto,service}.go`、`internal/mcp/registry.go`；Web `playground.vue`（兼容 `data.choices`）
+- **变更前 vs 变更后**：~~流式不跑工具~~（2026-10-15）→ 有工具先 `ChatWithTools` 再 SSE 最终回复；按 Agent 勾选 Server 注入
+- **影响范围**：`POST /api/v1/agents/:id/chat`；普通 Playground（不选 Agent）仍无 MCP
+- **跨仓库**：cogniforge-web 同步解析 Agent JSON 响应
 
 ## [变更] 排队消息带附件（2026-10-12）
 

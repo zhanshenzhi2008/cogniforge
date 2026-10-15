@@ -4,11 +4,19 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|---------|--------|
+| 2026-10-15 | v1.5 | 修复 Agent 流式对话跳过工具循环；正确解析 message.tool_calls；按 Agent 勾选 Server 注入工具 | orjrs |
 | 2026-10-11 | v1.4 | 15.5 code_execute：本地子进程沙箱执行 python/node/go（超时/输出截断/`CODE_EXECUTE_DISABLED`） | orjrs |
 | 2026-09-11 | v1.3 | 内置工具 web_search 接入 Tavily：支持 keyless 模式（无需 API Key）和 API Key 模式（每月 1000 次免费）；移除 BING_API_KEY / GOOGLE_API_KEY 方案 | orjrs |
 | 2026-09-05 | v1.2 | 新增 SKILL 外部导入：支持 Claude Skills 格式 SKILL.md（Markdown 单文件 / ZIP 压缩包）；ZIP 支持批量导入多个 Skill；内置 URL 安全校验（协议白名单、内网 IP 阻断） | orjrs |
 | 2026-09-04 | v1.1 | 修复：工具调用循环改为动态停止（无 tool_calls 即停）；SKILL 结构升级（meta/instructions/references/constraints/examples） | orjrs |
 | 2026-09-04 | v1.0 | 立项：MCP + SKILL，让 Agent 能调用外部工具，可复用技能模板 | orjrs |
+
+## [变更] Agent 流式也能走工具循环（2026-10-15）
+
+- **变更原因**：Playground / Agent 聊天默认 `stream=true`，旧逻辑 `hasTools && !stream` 导致永远不跑 `ChatWithTools`；模型没有实时工具，查天气等请求只能回答「不支持」。另：`tool_calls` 未从 `message` 解析、工具查找只认 registry key、注入了全量工具而非 Agent 勾选项。
+- **包含代码**：`internal/agent/handler.go`、`internal/chat/{dto,service}.go`、`internal/mcp/registry.go`
+- **变更前 vs 变更后**：~~流式 Agent 对话不执行 MCP~~（2026-10-15）→ 有工具时先工具循环，再把最终回复写成 SSE；无工具时走 `ChatStream`
+- **使用说明**：普通 Playground（不选 Agent）仍无 MCP（一期范围）；查天气需选中绑定了 `web_search`（或「研究助手」SKILL）的 Agent
 
 ## [变更] 15.5 code_execute 本地沙箱（2026-10-11）
 

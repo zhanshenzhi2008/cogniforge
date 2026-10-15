@@ -5,8 +5,11 @@ package chat
 // ChatMessage OpenAI 兼容。Content 可为 string，或
 // [{type:text|image_url,...}] 多模态数组（透传上游）。
 type ChatMessage struct {
-	Role    string `json:"role"`
-	Content any    `json:"content"`
+	Role       string           `json:"role"`
+	Content    any              `json:"content"`
+	Name       string           `json:"name,omitempty"`
+	ToolCalls  []map[string]any `json:"tool_calls,omitempty"`
+	ToolCallID string           `json:"tool_call_id,omitempty"`
 }
 
 // MessageAttachment 阶段十三：消息附件（知识库文档引用，非图片）

@@ -187,14 +187,23 @@ func (s *ChatService) ChatWithTools(req *ChatRequest, toolExecutor ToolExecutor)
 		}
 		resp.Body.Close()
 
-		// 优先提取 tool_use_message_groups（Claude 格式）
 		toolCalls := extractToolCalls(&chatResp)
 		if len(toolCalls) == 0 {
 			// 没有任何工具调用 → 模型决定结束，返回
 			return &chatResp, nil
 		}
 
-		// 执行工具并把结果追加到 messages
+		// OpenAI 协议：先追加带 tool_calls 的 assistant 消息，再追加各 tool 结果
+		asst := ChatMessage{Role: "assistant", Content: nil}
+		if len(chatResp.Choices) > 0 {
+			asst.Content = chatResp.Choices[0].Message.Content
+			asst.ToolCalls = chatResp.Choices[0].Message.ToolCalls
+			if len(asst.ToolCalls) == 0 {
+				asst.ToolCalls = chatResp.Choices[0].ToolCalls
+			}
+		}
+		req.Messages = append(req.Messages, asst)
+
 		for _, tc := range toolCalls {
 			result, execErr := toolExecutor.Execute(tc)
 			content := "Error: " + execErr.Error()
@@ -202,8 +211,9 @@ func (s *ChatService) ChatWithTools(req *ChatRequest, toolExecutor ToolExecutor)
 				content = result
 			}
 			req.Messages = append(req.Messages, ChatMessage{
-				Role:    "tool",
-				Content: content,
+				Role:       "tool",
+				ToolCallID: tc.ID,
+				Content:    content,
 			})
 		}
 		// 继续下一次循环，把结果发给模型让它决定下一步
@@ -214,11 +224,15 @@ func (s *ChatService) ChatWithTools(req *ChatRequest, toolExecutor ToolExecutor)
 	return nil, fmt.Errorf("tool call limit (%d) reached, please reduce tool usage", MaxToolCalls)
 }
 
-// extractToolCalls 从 chat response 中提取 tool_calls
+// extractToolCalls 从 chat response 中提取 tool_calls（优先 message.tool_calls，兼容 choice 顶层）
 func extractToolCalls(resp *ChatResponse) []ToolCall {
 	var calls []ToolCall
 	for _, choice := range resp.Choices {
-		for _, tcRaw := range choice.ToolCalls {
+		rawList := choice.Message.ToolCalls
+		if len(rawList) == 0 {
+			rawList = choice.ToolCalls
+		}
+		for _, tcRaw := range rawList {
 			tc := ToolCall{}
 			if id, ok := tcRaw["id"].(string); ok {
 				tc.ID = id
@@ -228,9 +242,19 @@ func extractToolCalls(resp *ChatResponse) []ToolCall {
 			}
 			if fn, ok := tcRaw["function"].(map[string]any); ok {
 				tc.Function.Name, _ = fn["name"].(string)
-				tc.Function.Arguments, _ = fn["arguments"].(string)
+				switch args := fn["arguments"].(type) {
+				case string:
+					tc.Function.Arguments = args
+				default:
+					if args != nil {
+						b, _ := json.Marshal(args)
+						tc.Function.Arguments = string(b)
+					}
+				}
 			}
-			calls = append(calls, tc)
+			if tc.Function.Name != "" {
+				calls = append(calls, tc)
+			}
 		}
 	}
 	return calls

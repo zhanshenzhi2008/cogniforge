@@ -239,10 +239,9 @@ func (h *AgentHandler) AgentChat(c *gin.Context) {
 		RAGMinScore:         req.RAGMinScore,
 	}
 
-	// 阶段十五 15.2：注入 MCP 工具
-	var hasTools bool
+	// 阶段十五 15.2：按 Agent 勾选的 MCP Server 注入工具（不是全量 Registry）
 	if h.mcpRegistry != nil && len(dbAgent.Tools) > 0 {
-		for _, toolDef := range h.mcpRegistry.GetAllTools() {
+		for _, toolDef := range h.mcpRegistry.GetToolsForAgent([]string(dbAgent.Tools)) {
 			svcReq.Tools = append(svcReq.Tools, chat.ToolCallSpec{
 				Type: "function",
 				Function: chat.ToolFunctionSpec{
@@ -252,19 +251,51 @@ func (h *AgentHandler) AgentChat(c *gin.Context) {
 				},
 			})
 		}
-		hasTools = len(svcReq.Tools) > 0
 	}
+	hasTools := len(svcReq.Tools) > 0
 
-	var resp any
-	var err error
-
-	if hasTools && !req.Stream {
+	// 有工具时必须走工具循环（Playground 默认 stream=true，以前被 !stream 条件跳过）
+	if hasTools {
 		executor := buildToolExecutor(h.mcpRegistry)
-		resp, err = h.chatSvc.ChatWithTools(svcReq, executor)
-	} else {
-		resp, err = h.chatSvc.Chat(svcReq)
+		chatResp, err := h.chatSvc.ChatWithTools(svcReq, executor)
+		if err != nil {
+			if h.quota != nil {
+				h.quota.RefundRequest(c.Request.Context(), userID)
+			}
+			if chat.WriteNoActiveProvider(c, err) {
+				return
+			}
+			h.commitAgent(c, userID, model, nil, "error", started)
+			response.Fail(c, http.StatusBadGateway, "AI provider error: "+err.Error())
+			return
+		}
+		h.commitAgent(c, userID, model, &chatResp.Usage, "ok", started)
+		if req.Stream {
+			writeChatResponseSSE(c, chatResp)
+			return
+		}
+		response.Success(c, chatResp)
+		return
 	}
 
+	if req.Stream {
+		usage, err := h.chatSvc.ChatStream(c, svcReq)
+		if err != nil {
+			if h.quota != nil {
+				h.quota.RefundRequest(c.Request.Context(), userID)
+			}
+			if chat.WriteNoActiveProvider(c, err) {
+				return
+			}
+			h.commitAgent(c, userID, model, nil, "error", started)
+			response.Fail(c, http.StatusBadGateway, "AI provider error: "+err.Error())
+			return
+		}
+		h.commitAgent(c, userID, model, usage, "ok", started)
+		return
+	}
+
+	resp, err := h.chatSvc.Chat(svcReq)
 	if err != nil {
 		if h.quota != nil {
 			h.quota.RefundRequest(c.Request.Context(), userID)
@@ -276,11 +307,43 @@ func (h *AgentHandler) AgentChat(c *gin.Context) {
 		response.Fail(c, http.StatusBadGateway, "AI provider error: "+err.Error())
 		return
 	}
-
-	if chatResp, ok := resp.(*chat.ChatResponse); ok {
-		h.commitAgent(c, userID, model, &chatResp.Usage, "ok", started)
-	}
+	h.commitAgent(c, userID, model, &resp.Usage, "ok", started)
 	response.Success(c, resp)
+}
+
+// writeChatResponseSSE 把非流式最终回复写成 OpenAI 兼容 SSE，供 Playground 前端消费。
+func writeChatResponseSSE(c *gin.Context, resp *chat.ChatResponse) {
+	c.Header("Content-Type", "text/event-stream")
+	c.Header("Cache-Control", "no-cache")
+	c.Header("Connection", "keep-alive")
+	c.Header("X-Accel-Buffering", "no")
+
+	content := ""
+	if len(resp.Choices) > 0 {
+		if s, ok := resp.Choices[0].Message.Content.(string); ok {
+			content = s
+		}
+	}
+	evt := map[string]any{
+		"id":      resp.ID,
+		"object":  "chat.completion.chunk",
+		"created": resp.Created,
+		"model":   resp.Model,
+		"choices": []map[string]any{
+			{
+				"index": 0,
+				"delta": map[string]any{
+					"role":    "assistant",
+					"content": content,
+				},
+				"finish_reason": "stop",
+			},
+		},
+	}
+	b, _ := json.Marshal(evt)
+	_, _ = c.Writer.Write([]byte("data: " + string(b) + "\n\n"))
+	_, _ = c.Writer.Write([]byte("data: [DONE]\n\n"))
+	c.Writer.Flush()
 }
 
 func (h *AgentHandler) commitAgent(c *gin.Context, userID, modelName string, usage *chat.ChatUsage, status string, started time.Time) {

@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-10-15 | v1.31 | 评估 llm_judge：裁判模型 0–1 分，失败降级 skip | orjrs |
 | 2026-10-15 | v1.30 | 提示词 /api/v1/prompts/*；评估 Run 支持 prompt + system_prompt | orjrs |
 | 2026-10-15 | v1.29 | 评估体系 /api/v1/evals/*（suites/cases/runs） | orjrs |
 | 2026-10-15 | v1.28 | chat/stream 可选 mcp_servers[]：注入内置工具并跑工具循环后 SSE 返回 | orjrs |
@@ -31,6 +32,13 @@
 | 2026-08-15 | v1.2 | GET /v1/models 改为返回已启用供应商的 default_model（不再写死 GPT 列表） | orjrs |
 | 2026-04-09 | v1.1 | 新增文档上传接口、语义检索接口实现说明 | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] 评估 llm_judge（2026-10-15）
+
+- **变更原因**：16.5 开放式打分
+- **行为**：用例 `judge_type=llm_judge` 时，答题后另调裁判模型；期望字段作评分标准；`judge_config.model` / `threshold`（默认 0.6）可选
+- **降级**：裁判调用或解析失败 → 该题 `skip`，不失败整卷
+- **详细设计**：`docs/01-requirements/08-eval-system-design.md`
 
 ## [变更] 提示词工程 API + 评估联动（2026-10-15）
 

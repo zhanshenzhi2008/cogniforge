@@ -4,10 +4,18 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|---------|--------|
+| 2026-10-15 | v1.4 | 16.5：llm_judge 裁判模型 0–1 分，失败降级 skip | orjrs |
 | 2026-10-15 | v1.3 | 16.4.2：target=agent 注入 Agent.tools 并走 ChatWithTools | orjrs |
 | 2026-10-15 | v1.2 | Run 支持 target=prompt + system_prompt 覆盖；联动提示词工程 | orjrs |
 | 2026-10-15 | v1.1 | 单测覆盖 Suite/Case/Run/Judge；JSONB Valuer 修 SQLite；Web e2e | orjrs |
 | 2026-10-15 | v1.0 | 立项：模型/智能体评测集 + 运行 + 打分；对齐 FT-020 | orjrs |
+
+## [变更] llm_judge 裁判打分（2026-10-15）
+
+- **变更原因**：16.5；开放式题目需要模型裁判，而不是关键词
+- **包含代码**：`internal/eval/llm_judge.go`；运行循环调用 `judgeWithLLM`
+- **变更前 vs 变更后**：~~llm_judge 一律 skip~~（2026-10-15）→ 调裁判模型解析 `{"score":0–1}`；调用/解析失败则 **降级 skip**
+- **配置**：`judge_config.model`（可选，默认用本轮聊天模型）；`judge_config.threshold`（默认 0.6，≥ 则 pass）
 
 ## [变更] Agent 评估走 MCP 工具循环（2026-10-15）
 
@@ -61,9 +69,9 @@
 |------|------|------|
 | `contains` | 回答里包含期望关键词（逗号分隔任一命中即过，可配置需全部） | 事实问答、工具是否提到某点 |
 | `exact` | 去空白后完全相等 | 短答案、枚举 |
-| `llm_judge` | 二期：用裁判模型打 0–1 分 | 开放式质量 |
+| `llm_judge` | 用裁判模型打 0–1 分（≥ threshold 通过） | 开放式质量 |
 
-一期 **只实现 contains / exact**；`llm_judge` 存库可写，运行时返回 `skipped`。
+~~一期只实现 contains / exact；llm_judge 运行时 skip~~（2026-10-15）→ **contains / exact / llm_judge** 均可用；裁判失败降级 skip。
 
 ---
 
@@ -163,7 +171,7 @@ POST runs
 | 16.3 | 前端评估页 | 本期 |
 | 16.4 | Agent 目标 + 工具题（需 MCP） | ✅ target=agent + ChatWithTools（按 Agent.tools） |
 | 16.4b | Prompt 目标 + system_prompt 覆盖 | 本期（联动阶段十七） |
-| 16.5 | llm_judge 裁判模型 | 二期 |
+| 16.5 | llm_judge 裁判模型 | ✅ 完成（失败降级 skip） |
 | 16.6 | 异步队列 + 进度 SSE | 二期 |
 
 **不在本期**：微调数据集复用、与 fine-tune 联动、跨用户共享公开榜、A/B 自动选模。

@@ -328,6 +328,16 @@ func (s *Service) CreateAndExecuteRun(userID, suiteID string, req *CreateRunRequ
 			detail = map[string]interface{}{"error": callErr.Error()}
 			actual = ""
 			failN++
+		} else if c.JudgeType == model.EvalJudgeLLM {
+			status, score, detail = s.judgeWithLLM(&c, c.Input, actual, modelName)
+			switch status {
+			case model.EvalResultPass:
+				passN++
+			case model.EvalResultSkip:
+				skipN++
+			default:
+				failN++
+			}
 		} else {
 			status, score, detail = Judge(&c, actual)
 			switch status {

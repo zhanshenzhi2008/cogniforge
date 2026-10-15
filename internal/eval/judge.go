@@ -22,8 +22,9 @@ func Judge(c *model.EvalCase, actual string) (status string, score float64, deta
 		return model.EvalResultFail, 0, detail
 
 	case model.EvalJudgeLLM:
+		// 同步 Judge 无 ChatService；运行路径请走 Service.judgeWithLLM
 		detail["mode"] = "llm_judge"
-		detail["reason"] = "一期未实现，已跳过"
+		detail["reason"] = "需通过评估运行调用裁判模型"
 		return model.EvalResultSkip, 0, detail
 
 	default: // contains

@@ -75,6 +75,7 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 	agentHandler.SetMCPRegistry(mcpHandler.Registry())
 	skillHandler := skill.NewHandler(db)
 	evalHandler := eval.NewHandler(db, chatHandler.Service())
+	evalHandler.SetMCPRegistry(mcpHandler.Registry())
 	promptHandler := prompt.NewHandler(db)
 	importHandler := skillimport.NewHandler(db)
 	rbacHandler := rbac.NewRBACHandler()

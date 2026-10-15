@@ -10,16 +10,23 @@ import (
 	"gorm.io/gorm"
 
 	"cogniforge/internal/chat"
+	"cogniforge/internal/mcp"
 	"cogniforge/internal/model"
 )
 
 type Service struct {
 	db      *gorm.DB
 	chatSvc *chat.ChatService
+	mcpReg  *mcp.Registry
 }
 
 func NewService(db *gorm.DB, chatSvc *chat.ChatService) *Service {
 	return &Service{db: db, chatSvc: chatSvc}
+}
+
+// SetMCPRegistry 注入 MCP Registry，使 target=agent 时可跑工具循环
+func (s *Service) SetMCPRegistry(reg *mcp.Registry) {
+	s.mcpReg = reg
 }
 
 func (s *Service) ListSuites(userID string) ([]model.EvalSuite, error) {
@@ -250,13 +257,15 @@ func (s *Service) CreateAndExecuteRun(userID, suiteID string, req *CreateRunRequ
 
 	systemPrompt := "You are a helpful assistant for evaluation. Answer concisely."
 	modelName := strings.TrimSpace(req.TargetID)
+	var toolServerIDs []string
 	if tt == model.EvalTargetAgent {
 		var ag struct {
 			Model        string
 			SystemPrompt string
+			Tools        model.JSONBArray
 		}
 		if err := s.db.Table("agents").
-			Select("model, system_prompt").
+			Select("model, system_prompt, tools").
 			Where("id = ? AND user_id = ?", strings.TrimSpace(req.TargetID), userID).
 			Take(&ag).Error; err != nil {
 			return nil, nil, errors.New("Agent 不存在")
@@ -267,6 +276,7 @@ func (s *Service) CreateAndExecuteRun(userID, suiteID string, req *CreateRunRequ
 		if ag.SystemPrompt != "" {
 			systemPrompt = ag.SystemPrompt
 		}
+		toolServerIDs = []string(ag.Tools)
 	}
 	if tt == model.EvalTargetPrompt {
 		var ver model.PromptVersion
@@ -306,7 +316,7 @@ func (s *Service) CreateAndExecuteRun(userID, suiteID string, req *CreateRunRequ
 
 	for _, c := range cases {
 		start := time.Now()
-		actual, callErr := s.callModel(modelName, systemPrompt, c.Input)
+		actual, callErr := s.callCase(modelName, systemPrompt, c.Input, toolServerIDs)
 		latency := time.Since(start).Milliseconds()
 
 		var status string
@@ -367,21 +377,31 @@ func (s *Service) CreateAndExecuteRun(userID, suiteID string, req *CreateRunRequ
 	return run, results, nil
 }
 
-func (s *Service) callModel(modelName, systemPrompt, userInput string) (string, error) {
+func (s *Service) callCase(modelName, systemPrompt, userInput string, toolServerIDs []string) (string, error) {
 	if s.chatSvc == nil {
 		return "", errors.New("ChatService 未配置")
 	}
-	resp, err := s.chatSvc.Chat(&chat.ChatRequest{
+	req := &chat.ChatRequest{
 		Model: modelName,
 		Messages: []chat.ChatMessage{
 			{Role: "system", Content: systemPrompt},
 			{Role: "user", Content: userInput},
 		},
-	})
+	}
+	chat.InjectMCPTools(req, s.mcpReg, toolServerIDs)
+	var (
+		resp *chat.ChatResponse
+		err  error
+	)
+	if len(req.Tools) > 0 {
+		resp, err = s.chatSvc.ChatWithTools(req, chat.NewMCPToolExecutor(s.mcpReg))
+	} else {
+		resp, err = s.chatSvc.Chat(req)
+	}
 	if err != nil {
 		return "", err
 	}
-	if len(resp.Choices) == 0 {
+	if resp == nil || len(resp.Choices) == 0 {
 		return "", errors.New("模型无返回")
 	}
 	switch v := resp.Choices[0].Message.Content.(type) {

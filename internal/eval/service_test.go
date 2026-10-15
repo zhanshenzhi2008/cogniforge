@@ -8,6 +8,8 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
+	"cogniforge/internal/chat"
+	"cogniforge/internal/mcp"
 	"cogniforge/internal/model"
 )
 
@@ -251,7 +253,52 @@ func TestCreateAndExecuteRun_AgentExists_UsesAgentModel(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, model.EvalTargetAgent, run.TargetType)
 	assert.Equal(t, "ag1", run.TargetID)
+	assert.Equal(t, "be short", run.SystemPrompt)
+	assert.Equal(t, "agent-model", run.Model)
 	assert.Equal(t, model.EvalRunCompleted, run.Status)
 	require.Len(t, results, 1)
 	assert.Equal(t, model.EvalResultError, results[0].Status) // no ChatService
+}
+
+func TestCreateAndExecuteRun_AgentWithTools_LoadsMCPServers(t *testing.T) {
+	db := setupEvalDB(t)
+	svc := NewService(db, nil)
+	require.NoError(t, db.Create(&model.Agent{
+		ID:           "ag-tools",
+		UserID:       "u1",
+		Name:         "SearchBot",
+		Model:        "m1",
+		SystemPrompt: "use tools",
+		Tools:        model.JSONBArray{"web_search"},
+	}).Error)
+
+	suite, err := svc.CreateSuite("u1", &CreateSuiteRequest{Name: "S"})
+	require.NoError(t, err)
+	_, err = svc.CreateCase("u1", suite.ID, &CreateCaseRequest{
+		Input:    "北京天气",
+		Expected: "天气",
+	})
+	require.NoError(t, err)
+
+	run, results, err := svc.CreateAndExecuteRun("u1", suite.ID, &CreateRunRequest{
+		TargetType: model.EvalTargetAgent,
+		TargetID:   "ag-tools",
+	})
+	require.NoError(t, err)
+	assert.Equal(t, model.EvalRunCompleted, run.Status)
+	require.Len(t, results, 1)
+	// 无 ChatService 时仍 error；有 Registry+Chat 时会走 ChatWithTools（本测只保证 Agent.tools 可读不炸）
+	assert.Equal(t, model.EvalResultError, results[0].Status)
+}
+
+func TestCallCase_InjectsToolsWhenRegistrySet(t *testing.T) {
+	db := setupEvalDB(t)
+	svc := NewService(db, nil)
+	reg := mcp.NewRegistry()
+	svc.SetMCPRegistry(reg)
+
+	req := &chat.ChatRequest{Model: "m", Messages: []chat.ChatMessage{{Role: "user", Content: "q"}}}
+	chat.InjectMCPTools(req, svc.mcpReg, []string{"web_search"})
+	require.NotEmpty(t, req.Tools)
+	assert.Equal(t, "web_search_search", req.Tools[0].Function.Name)
 }

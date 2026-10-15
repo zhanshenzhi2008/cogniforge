@@ -5,6 +5,7 @@ import (
 	"gorm.io/gorm"
 
 	"cogniforge/internal/chat"
+	"cogniforge/internal/mcp"
 	"cogniforge/internal/response"
 )
 
@@ -14,6 +15,11 @@ type Handler struct {
 
 func NewHandler(db *gorm.DB, chatSvc *chat.ChatService) *Handler {
 	return &Handler{svc: NewService(db, chatSvc)}
+}
+
+// SetMCPRegistry 评估跑 Agent 时注入工具（与 Agent 聊天同源 Registry）
+func (h *Handler) SetMCPRegistry(reg *mcp.Registry) {
+	h.svc.SetMCPRegistry(reg)
 }
 
 func (h *Handler) ListSuites(c *gin.Context) {

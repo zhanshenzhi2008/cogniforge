@@ -4,9 +4,17 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|---------|--------|
+| 2026-10-15 | v1.3 | 16.4.2：target=agent 注入 Agent.tools 并走 ChatWithTools | orjrs |
 | 2026-10-15 | v1.2 | Run 支持 target=prompt + system_prompt 覆盖；联动提示词工程 | orjrs |
 | 2026-10-15 | v1.1 | 单测覆盖 Suite/Case/Run/Judge；JSONB Valuer 修 SQLite；Web e2e | orjrs |
 | 2026-10-15 | v1.0 | 立项：模型/智能体评测集 + 运行 + 打分；对齐 FT-020 | orjrs |
+
+## [变更] Agent 评估走 MCP 工具循环（2026-10-15）
+
+- **变更原因**：16.4.2；Agent 考工具题时不能只当普通 Chat
+- **包含代码**：`internal/eval/service.go`（`callCase` + InjectMCPTools）；`handler.SetMCPRegistry`；router 注入
+- **变更前 vs 变更后**：~~agent 仅 system+Chat~~（2026-10-15）→ 读取 `agents.tools`，有工具则 `ChatWithTools`
+- **限制**：仍同步整卷；不跑 RAG；与 Agent 页勾选的 MCP Server 列表一致
 
 ## [变更] 提示词目标 + system_prompt（2026-10-15）
 
@@ -153,7 +161,7 @@ POST runs
 | 16.1 | 数据模型 + Suite/Case CRUD API | 本期 |
 | 16.2 | Run：模型同步评测 + contains/exact | 本期 |
 | 16.3 | 前端评估页 | 本期 |
-| 16.4 | Agent 目标 + 工具题（需 MCP） | 部分：agent ✅；MCP 用例二期 |
+| 16.4 | Agent 目标 + 工具题（需 MCP） | ✅ target=agent + ChatWithTools（按 Agent.tools） |
 | 16.4b | Prompt 目标 + system_prompt 覆盖 | 本期（联动阶段十七） |
 | 16.5 | llm_judge 裁判模型 | 二期 |
 | 16.6 | 异步队列 + 进度 SSE | 二期 |

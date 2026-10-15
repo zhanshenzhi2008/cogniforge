@@ -4,6 +4,11 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-10-12 | v1.27 | conversations.message_queue 支持 attachments | orjrs |
+| 2026-10-12 | v1.26 | Agent 对话 POST /agents/:id/chat 支持 attachments / rag_kb_ids / rag_top_k / rag_min_score | orjrs |
+| 2026-10-11 | v1.25 | 阶段十三 13.5：chat/stream 支持 rag_top_k / rag_min_score（覆盖服务端 RAG_* 默认） | orjrs |
+| 2026-10-11 | v1.24 | 阶段十三 13.2：chat/stream 按 rag_kb_ids/会话/附件所属 KB 做 Top-K 检索注入 system（失败降级） | orjrs |
+| 2026-10-11 | v1.23 | 阶段十三 13.1：ChatRequest.attachments / rag_kb_ids；conversations.rag_knowledge_base_ids；messages[].attachments | orjrs |
 | 2026-09-05 | v1.22 | 新增 SKILL 外部导入接口（Markdown/ZIP），支持 ZIP 批量导入多个 Skill；参考 Claude Skills SKILL.md 格式；内置 URL 安全校验 | orjrs |
 | 2026-09-02 | v1.21 | 14.5 长期记忆 CRUD：Go POST/GET/DELETE /api/v1/memories；chat_memories 表 + ChatMemory model | orjrs |
 | 2026-09-02 | v1.16 | 新增 LLM 临时凭证接口（阶段十四 14.0）：GET /token/llm、POST /token/validate | orjrs |
@@ -109,6 +114,46 @@
 ```
 
 **响应 401：** token 无效 / 过期 / scope 错误
+
+## [变更] message_queue 支持 attachments（2026-10-12）
+
+- **变更原因**：流式入队消息需携带已上传文件引用
+- **包含代码**：`ConversationQueueItem.attachments`；Web 排队 UI
+- **接口**：`GET/PUT /api/v1/conversations` 的 `message_queue[]` 可选 `attachments`（结构同 messages）
+- **变更前 vs 变更后**：~~排队仅文字/图片~~（2026-10-12）→ 可带文件附件
+
+## [变更] Agent 对话 RAG 字段（2026-10-12）
+
+- **变更原因**：选 Agent 时前端仍发 attachments，后端需同样检索注入
+- **包含代码**：`internal/agent/handler.go`；`chat.InjectRAGSystemIfNeeded`
+- **接口**：`POST /api/v1/agents/:id/chat` 可选 `attachments`、`rag_kb_ids`、`rag_top_k`、`rag_min_score`（行为同 chat/stream）
+- **变更前 vs 变更后**：~~忽略附件字段~~（2026-10-12）→ Agent system 后注入知识库参考
+
+## [变更] 阶段十三 13.5：RAG Top-K / min_score（2026-10-11）
+
+- **变更原因**：检索深度需可配；服务端默认 + 单次请求覆盖
+- **包含代码**：`RAG_TOP_K` / `RAG_MIN_SCORE` / `RAG_MAX_TOKENS`；`ChatRequest.rag_top_k` / `rag_min_score`
+- **接口**：`POST /api/v1/chat/stream` 可选 `rag_top_k`（1–20）、`rag_min_score`（0–1）；不传用环境默认
+- **变更前 vs 变更后**：~~写死 3 / 0.5~~（2026-10-11）→ 可配置；片段总长受 `RAG_MAX_TOKENS` 粗估截断
+
+## [变更] 阶段十三 13.2：chat/stream RAG 注入（2026-10-11）
+
+- **变更原因**：对话时召回知识库片段，避免把整份文件塞进模型
+- **包含代码**：`internal/chat/rag.go`、`internal/chat/handler.go`、`knowledge.SearchByUser`
+- **接口**：`POST /api/v1/chat/stream`
+  - KB 来源：`rag_kb_ids` ∪ 会话 `rag_knowledge_base_ids` ∪ `attachments[].id` 所属知识库
+  - 用最新 user 消息作 query；默认 `top_k=3`、`min_score=0.5`；命中片段以 system「知识库参考」注入
+  - 单库检索失败仅告警跳过，对话不中断
+- **变更前 vs 变更后**：~~仅接收字段、不检索~~（2026-10-11）→ 流式对话前检索并注入
+
+## [变更] 阶段十三 13.1：聊天附件与 RAG KB 字段（2026-10-11）
+
+- **变更原因**：文件走知识库检索注入，请求体与会话需携带附件引用和绑定知识库
+- **包含代码**：`internal/chat/dto.go`；`internal/model/conversation.go`；`internal/chat/conversation.go`
+- **接口**：
+  - `POST /api/v1/chat/stream|completions` 可选 `attachments[]`、`rag_kb_ids[]`（检索注入见 13.2）
+  - `POST/PUT /api/v1/conversations` 可选 `rag_knowledge_base_ids[]`；`messages[].attachments`
+- **变更前 vs 变更后**：~~仅多模态 images~~（2026-10-11）→ 增加文件附件引用与会话级 KB 绑定字段（尚未执行检索）
 
 ## [变更] 聊天多模态图片（2026-08-21）
 
@@ -552,20 +597,29 @@ POST /api/v1/conversations
     "agent_id": "可选，空表示通用对话",
     "model": "deepseek-chat",
     "messages": [
-      {"id": "uuid", "role": "user", "content": "你好", "time": "ISO8601"}
+      {
+        "id": "uuid",
+        "role": "user",
+        "content": "你好",
+        "time": "ISO8601",
+        "attachments": [
+          {"id": "doc-id", "name": "manual.pdf", "file_type": "pdf", "status": "completed", "chunk_count": 12}
+        ]
+      }
     ],
     "message_queue": [
       {"id": "uuid", "content": "下一条", "status": "queued", "sort": 0}
-    ]
+    ],
+    "rag_knowledge_base_ids": ["kb-uuid"]
   }
 
 GET /api/v1/conversations/{id}
-描述: 对话详情（含 messages、message_queue、pinned）
-响应: { "code": 2000, "data": { "id": "...", "pinned": false, "messages": [...], "message_queue": [...], "...": "..." } }
+描述: 对话详情（含 messages、message_queue、pinned、rag_knowledge_base_ids）
+响应: { "code": 2000, "data": { "id": "...", "pinned": false, "rag_knowledge_base_ids": [], "messages": [...], "message_queue": [...], "...": "..." } }
 
 PUT /api/v1/conversations/{id}
-描述: 更新标题 / 模型 / Agent / 置顶 / 消息全文 / 排队
-请求体: 字段均可选；messages / message_queue 均为整份覆盖；只改置顶时传 `{ "pinned": true|false }`；只改排队时传 `{ "message_queue": [...] }`（最多 5 条）
+描述: 更新标题 / 模型 / Agent / 置顶 / 消息全文 / 排队 / 绑定知识库
+请求体: 字段均可选；messages / message_queue / rag_knowledge_base_ids 均为整份覆盖；只改置顶时传 `{ "pinned": true|false }`；只改排队时传 `{ "message_queue": [...] }`（最多 5 条）
 
 DELETE /api/v1/conversations/{id}
 描述: 软删除

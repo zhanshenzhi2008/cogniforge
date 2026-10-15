@@ -12,6 +12,9 @@ services:
     image: ghcr.io/${IMAGE_NAMESPACE:-zhanshenzhi2008}/cogniforge/cogniforge:latest
     container_name: cogniforge
     restart: unless-stopped
+    mem_limit: ${APP_MEM_LIMIT:-256m}
+    mem_reservation: ${APP_MEM_RESERVATION:-128m}
+    cpus: ${APP_CPUS:-0.5}
     expose:
       - "8080"
     # 本项目的全部非公开配置都来自同级 .env；不要提交该文件。

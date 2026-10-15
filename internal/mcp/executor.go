@@ -132,25 +132,6 @@ func (e *BuiltInExecutor) webSearch(args map[string]interface{}) (map[string]int
 	}, nil
 }
 
-// codeExecute 代码执行（占位：沙箱容器后期实现）
-func (e *BuiltInExecutor) codeExecute(language string, args map[string]interface{}) (map[string]interface{}, error) {
-	code, ok := args["code"].(string)
-	if !ok || code == "" {
-		return nil, fmt.Errorf("code 参数必填")
-	}
-	timeout := 30
-	if t, ok := args["timeout"].(float64); ok {
-		timeout = int(t)
-	}
-
-	// 占位返回：提示代码执行需后期沙箱支持
-	return map[string]interface{}{
-		"language": language,
-		"output":   fmt.Sprintf("[沙箱执行占位] 语言: %s, 超时: %ds\n\n代码:\n%s\n\n请部署代码执行沙箱服务后启用此功能", language, timeout, code),
-		"status":   "placeholder",
-	}, nil
-}
-
 // CallHTTPClient 调用 HTTP MCP Server
 func (e *BuiltInExecutor) CallHTTPClient(url, authHeader string, toolName string, args map[string]interface{}) (map[string]interface{}, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)

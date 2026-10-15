@@ -14,6 +14,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
+	"cogniforge/internal/knowledge"
 	"cogniforge/internal/memory"
 	"cogniforge/internal/model"
 	"cogniforge/internal/provider"
@@ -30,6 +31,7 @@ type ChatHandler struct {
 	service *ChatService
 	conv    *ConversationService
 	quota   *quota.Service
+	rag     RAGSearcher
 }
 
 func NewChatHandler(providerSvc *provider.Service, db *gorm.DB, quotaSvc *quota.Service) *ChatHandler {
@@ -38,6 +40,16 @@ func NewChatHandler(providerSvc *provider.Service, db *gorm.DB, quotaSvc *quota.
 		conv:    NewConversationService(db),
 		quota:   quotaSvc,
 	}
+}
+
+// SetRAGSearcher 注入知识库检索（阶段十三 13.2）
+func (h *ChatHandler) SetRAGSearcher(s RAGSearcher) {
+	h.rag = s
+}
+
+// SetKnowledgeService 便捷注入 KnowledgeService
+func (h *ChatHandler) SetKnowledgeService(s *knowledge.KnowledgeService) {
+	h.rag = s
 }
 
 func (h *ChatHandler) Service() *ChatService {
@@ -147,34 +159,35 @@ func (h *ChatHandler) ChatStream(c *gin.Context) {
 	userID := c.GetString("user_id")
 
 	// --- 阶段十四 14.3：加载历史 + 摘要注入 ---
-	// 从 conversation 加载历史
 	var existingMsgs []model.ConversationMessage
 	var existingSummary string
+	var convRagKBIDs []string
 	if req.ConversationID != "" && userID != "" {
 		if conv, err := h.conv.Get(userID, req.ConversationID); err == nil {
 			existingMsgs = conv.Messages
 			existingSummary = conv.Summary
+			convRagKBIDs = []string(conv.RAGKnowledgeBaseIDs)
 		}
 	}
+
+	lastUserContent := lastUserQuery(req.Messages)
 
 	// --- 阶段十四 14.4：长期记忆检索 ---
 	longTermBlocks := []string{}
-	if req.UseLongTerm && userID != "" {
-		// 取最后一条 user 消息内容作为检索 query
-		var lastUserContent string
-		for i := len(req.Messages) - 1; i >= 0; i-- {
-			if req.Messages[i].Role == "user" {
-				lastUserContent = toStringContent(req.Messages[i].Content)
-				break
-			}
-		}
-		if lastUserContent != "" {
-			longTermBlocks = h.searchLongTermMemory(c.Request.Context(), userID, lastUserContent, req.AgentID)
-		}
+	if req.UseLongTerm && userID != "" && lastUserContent != "" {
+		longTermBlocks = h.searchLongTermMemory(c.Request.Context(), userID, lastUserContent, req.AgentID)
 	}
 
-	// 组装完整 messages：[摘要?] + [长期记忆] + [历史] + [本轮]
-	fullMsgs := buildFullMessages(existingSummary, longTermBlocks, existingMsgs, req.Messages)
+	// --- 阶段十三 13.2：RAG 检索注入（失败降级） ---
+	ragBlocks := []string{}
+	kbIDs := resolveRAGKnowledgeBaseIDs(c.Request.Context(), h.rag, userID, &req, convRagKBIDs)
+	if len(kbIDs) > 0 && lastUserContent != "" {
+		ragOpts := resolveRAGOptions(&req)
+		ragBlocks = retrieveRAGFragments(c.Request.Context(), h.rag, userID, kbIDs, lastUserContent, ragOpts)
+	}
+
+	// 组装完整 messages：[摘要?] + [长期记忆] + [RAG] + [历史] + [本轮]
+	fullMsgs := buildFullMessages(existingSummary, longTermBlocks, ragBlocks, existingMsgs, req.Messages)
 
 	// --- 阶段十四 14.1：服务端滑动窗口裁剪 ---
 	turns := req.MemoryTurns
@@ -272,17 +285,15 @@ func fromWindowMessages(in []memory.WindowMessage) []ChatMessage {
 	return out
 }
 
-// buildFullMessages 组装完整 messages：[摘要?] + [长期记忆] + [历史] + [本轮]
-func buildFullMessages(summary string, longTermBlocks []string, history []model.ConversationMessage, current []ChatMessage) []ChatMessage {
+// buildFullMessages 组装完整 messages：[摘要?] + [长期记忆] + [RAG?] + [历史] + [本轮]
+func buildFullMessages(summary string, longTermBlocks, ragBlocks []string, history []model.ConversationMessage, current []ChatMessage) []ChatMessage {
 	var msgs []ChatMessage
-	// [0] 摘要 system 消息
 	if summary != "" {
 		msgs = append(msgs, ChatMessage{
 			Role:    "system",
 			Content: "【对话摘要】" + summary,
 		})
 	}
-	// [1] 长期记忆块
 	if len(longTermBlocks) > 0 {
 		var b strings.Builder
 		b.WriteString("【你的笔记本】以下是你之前记录的重要信息，回答时可参考（但不要复述）：\n")
@@ -291,11 +302,12 @@ func buildFullMessages(summary string, longTermBlocks []string, history []model.
 		}
 		msgs = append(msgs, ChatMessage{Role: "system", Content: b.String()})
 	}
-	// [2] 历史消息
+	if ragPrompt := buildRAGSystemPrompt(ragBlocks); ragPrompt != "" {
+		msgs = append(msgs, ChatMessage{Role: "system", Content: ragPrompt})
+	}
 	for _, m := range history {
 		msgs = append(msgs, ChatMessage{Role: m.Role, Content: m.Content})
 	}
-	// [3] 本轮消息
 	for _, m := range current {
 		msgs = append(msgs, m)
 	}

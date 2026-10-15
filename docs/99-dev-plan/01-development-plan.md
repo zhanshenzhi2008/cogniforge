@@ -4,6 +4,14 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-10-12 | v1.75 | 排队消息支持 attachments（入队/出队/编辑/持久化） | orjrs |
+| 2026-10-12 | v1.74 | Agent 对话接入 RAG 注入（与 Playground stream 共用 InjectRAGSystemIfNeeded） | orjrs |
+| 2026-10-11 | v1.73 | 阶段十三收官：13.6 端到端链路单测（附件→检索→注入 + 降级） | orjrs |
+| 2026-10-11 | v1.72 | 阶段十五 15.5：code_execute 本地子进程沙箱（python/node/go，超时截断） | orjrs |
+| 2026-10-11 | v1.71 | 阶段十三 13.5：RAG_TOP_K / MIN_SCORE 配置 + 请求体/前端参数覆盖 | orjrs |
+| 2026-10-11 | v1.70 | 阶段十三 13.3：Playground 发送框文件上传（KB upload + attachments[]） | orjrs |
+| 2026-10-11 | v1.69 | 阶段十三 13.2：ChatStream RAG Top-K 检索 + System Prompt 注入（失败降级） | orjrs |
+| 2026-10-11 | v1.68 | 阶段十三 13.1 完成：Attachments DTO + 会话 rag_knowledge_base_ids | orjrs |
 | 2026-09-05 | v1.67 | 阶段十三立项：RAG 文件注入详细设计 + 开工门槛验收 | orjrs |
 | 2026-09-04 | v1.64 | 阶段十五立项：MCP + SKILL（设计文档 + 排期） | orjrs |
 | 2026-09-04 | v1.63 | 文档同步：阶段一～八代码已落地，补全进度（认证/监控/工作流等） | orjrs |
@@ -66,6 +74,62 @@
 | 2026-04-11 | v1.2 | 阶段八监控中心完成（请求日志中间件、日志列表 API、用量统计 API、监控仪表板页面） | orjrs |
 | 2026-04-17 | v1.3 | 阶段九用户管理与个人设置完成（用户CRUD、个人设置、会话管理、RBAC权限系统） | orjrs |
 > 注：任务状态变更直接在下方任务表格中更新即可，无需额外记录。
+
+## [变更] 排队消息带附件（2026-10-12）
+
+- **变更原因**：流式中入队此前拒绝文件；阶段十三后应支持
+- **包含代码**：`ConversationQueueItem.Attachments`；Web `enqueueFromComposer` / `drainQueueIfNeeded` / `PlaygroundQueueBar`
+- **变更前 vs 变更后**：~~排队禁文件~~（2026-10-12）→ 排队可带已上传 `attachments`，出队照常 RAG
+- **影响范围**：Playground 排队；上传中仍不可入队
+
+## [变更] Agent 对话 RAG 注入（2026-10-12）
+
+- **变更原因**：Playground 选 Agent 时走 `/agents/:id/chat`，此前不读 attachments / 不做检索
+- **包含代码**：`chat.InjectRAGSystemIfNeeded`；`internal/agent/handler.go`；`router` 注入 KnowledgeService
+- **变更前 vs 变更后**：~~仅 playground stream 有 RAG~~（2026-10-12）→ Agent 聊天同样支持附件与 `rag_kb_ids`
+- **影响范围**：`POST /api/v1/agents/:id/chat`
+
+## [变更] 阶段十三 13.6 端到端链路验收（2026-10-11）
+
+- **变更原因**：阶段十三代码已齐，补自动化联调覆盖关键路径
+- **包含代码**：`internal/chat/rag_test.go`（`TestStage13_E2E_*`）
+- **变更前 vs 变更后**：~~13.6 🔴~~（2026-10-11）→ 13.6 ✅；人工 PDF 验收清单仍见需求文档 §10
+- **影响范围**：阶段十三全部子项完成；下一优先级见文末「下一阶段」
+
+## [变更] 阶段十五 15.5 code_execute 沙箱（2026-10-11）
+
+- **变更原因**：内置工具 `code_execute_*` 此前为占位，无法真正跑代码
+- **包含代码**：`internal/mcp/code_execute.go`（python3/node/go 子进程 + 超时 + 输出截断 + 精简环境变量）
+- **变更前 vs 变更后**：~~placeholder 文案~~（2026-10-11）→ 本地沙箱执行；`CODE_EXECUTE_DISABLED=1` 可关
+- **影响范围**：MCP 内置工具；非 Docker 网络隔离，生产若需强隔离后续再换容器
+
+## [变更] 阶段十三 13.5 RAG Top-K 配置（2026-10-11）
+
+- **变更原因**：检索片段数与最低分需可调，默认走环境变量，对话页可覆盖
+- **包含代码**：`configs/config.yaml`、`internal/config`、`internal/chat/rag.go`、`dto.go`；Web `PlaygroundConfigPanel` / `params.rag_*`
+- **变更前 vs 变更后**：~~写死 top_k=3 / min_score=0.5~~（2026-10-11）→ `RAG_TOP_K` / `RAG_MIN_SCORE` / `RAG_MAX_TOKENS` + 请求体 `rag_top_k` / `rag_min_score`
+- **影响范围**：chat/stream；下一步 13.6 端到端联调
+
+## [变更] 阶段十三 13.3 前端附件上传（2026-10-11）
+
+- **变更原因**：发送框需粘贴/拖入/选择 PDF 等文件，上传知识库后随消息带 `attachments[]`
+- **包含代码**（cogniforge-web）：`pages/playground.vue`、`utils/chatAttachments.ts`、`composables/useConversations.ts`、`i18n/messages.ts`
+- **变更前 vs 变更后**：~~13.3 🔴~~（2026-10-11）→ 13.3 ✅；无 KB 时自动创建 `Playground` 知识库
+- **影响范围**：Web Playground；排队消息暂不支持文件；气泡附件芯片已一并展示（覆盖 13.4 基础）
+
+## [变更] 阶段十三 13.2 RAG 检索注入（2026-10-11）
+
+- **变更原因**：对话时按 `rag_kb_ids` / 会话绑定 / 附件所属知识库做 Top-K 检索并注入 system
+- **包含代码**：`internal/chat/rag.go`、`internal/chat/handler.go`、`internal/knowledge/service.go`（`SearchByUser`）、`internal/router/router.go`
+- **变更前 vs 变更后**：~~13.2 🔴~~（2026-10-11）→ 13.2 ✅；检索失败仅跳过该 KB，对话继续
+- **影响范围**：`POST /api/v1/chat/stream`；默认 top_k=3、min_score=0.5；前端附件 UI 仍待 13.3
+
+## [变更] 阶段十三 13.1 Attachments DTO（2026-10-11）
+
+- **变更原因**：门槛已满足，开工阶段十三；先落地请求/会话字段，再接检索
+- **包含代码**：`internal/chat/dto.go`、`internal/model/conversation.go`、`internal/chat/conversation.go`、`internal/chat/attachment_test.go`
+- **变更前 vs 变更后**：~~13.0/13.1 🔴~~（2026-10-11）→ 13.0/13.1 ✅；下一步 13.2 ChatService RAG 检索注入
+- **影响范围**：Go chat DTO + conversations 表字段；前端上传 UI 仍待 13.3
 
 ## [变更] 阶段十四 Chat 记忆方案（2026-08-27）
 
@@ -888,18 +952,18 @@ pnpm test:e2e          # Playwright：登录/注册按钮、对话发送禁用�
 | 1 | 知识库上传→解析→向量稳定 | ✅ |
 | 2 | Embedding 与聊天模型分开 | ✅ |
 | 3 | 向量语义检索（返回片段+分数） | ✅ |
-| 4 | 对话时召回知识库片段 | 🔴 本期完成 |
+| 4 | 对话时召回知识库片段 | ✅ |
 | 5 | Embedding 不算用户额度 | ✅ |
 
 | 序号 | 功能点 | 预计时间 | 难度 | 状态 | 测试项 | 测试时间 |
 |-----|-------|---------|------|------|-------|---------|
-| 13.0 | RAG 门槛验收 | 1天 | ⭐⭐ | 🔴 | 13.0.1 上传到可检索闭环 | 0.5天 |
-| 13.1 | ChatMessage + Attachments DTO | 0.5天 | ⭐ | 🔴 | 13.1.1 attachments 序列化 | 0.25天 |
-| 13.2 | ChatService RAG 检索集成 | 2天 | ⭐⭐⭐ | 🔴 | 13.2.1 Top-K 检索<br>13.2.2 System Prompt 组装 | 1天 |
-| 13.3 | 前端发送框附件上传 | 1.5天 | ⭐⭐ | 🔴 | 13.3.1 粘贴/拖入/选择<br>13.3.2 上传进度 | 0.5天 |
-| 13.4 | 前端消息气泡附件展示 | 0.5天 | ⭐ | 🔴 | 13.4.1 图标+文件名<br>13.4.2 状态徽章 | 0.25天 |
-| 13.5 | RAG Top-K 配置 | 0.5天 | ⭐ | 🔴 | 13.5.1 top_k/min_score 配置 | 0.25天 |
-| 13.6 | 端到端联调测试 | 1天 | ⭐⭐ | 🔴 | 13.6.1 PDF 检索问答 | 0.5天 |
+| 13.0 | RAG 门槛验收 | 1天 | ⭐⭐ | ✅ | 13.0.1 上传到可检索闭环 | 0.5天 |
+| 13.1 | ChatMessage + Attachments DTO | 0.5天 | ⭐ | ✅ | 13.1.1 attachments 序列化 | 0.25天 |
+| 13.2 | ChatService RAG 检索集成 | 2天 | ⭐⭐⭐ | ✅ | 13.2.1 Top-K 检索<br>13.2.2 System Prompt 组装 | 1天 |
+| 13.3 | 前端发送框附件上传 | 1.5天 | ⭐⭐ | ✅ | 13.3.1 粘贴/拖入/选择<br>13.3.2 上传进度 | 0.5天 |
+| 13.4 | 前端消息气泡附件展示 | 0.5天 | ⭐ | ✅ | 13.4.1 图标+文件名<br>13.4.2 状态徽章 | 0.25天 |
+| 13.5 | RAG Top-K 配置 | 0.5天 | ⭐ | ✅ | 13.5.1 top_k/min_score 配置 | 0.25天 |
+| 13.6 | 端到端联调测试 | 1天 | ⭐⭐ | ✅ | 13.6.1 PDF 检索问答（链路单测 + 人工清单） | 0.5天 |
 
 **验收（给非技术同学）**：
 
@@ -954,7 +1018,7 @@ pnpm test:e2e          # Playwright：登录/注册按钮、对话发送禁用�
 | 15.2 | MCP 客户端 + ChatService 集成 | 2天 | ⭐⭐⭐ | ✅ 完成 | 15.2.1 HTTP Client<br>15.2.2 工具调用循环（MaxToolCalls=5）<br>15.2.3 超时降级 | 1天 |
 | 15.3 | SKILL 模型 + Service | 1天 | ⭐⭐ | ✅ 完成 | 15.3.1 Skill CRUD<br>15.3.2 Agent 绑定 SKILL | 0.5天 |
 | 15.4 | 前端 MCP Server 管理页 | 1天 | ⭐⭐ | ✅ 完成 | 15.4.1 列表/创建/编辑/删除<br>15.4.2 Agent 表单集成 SKILL 选择器 | 1天 |
-| 15.5 | 内置工具实现 | 2天 | ⭐⭐⭐ | 🟡 部分占位 | 15.5.1 fetch（网页抓取）<br>15.5.2 web_search（搜索）<br>15.5.3 code_execute（沙箱） | 1天 |
+| 15.5 | 内置工具实现 | 2天 | ⭐⭐⭐ | ✅ | 15.5.1 fetch（网页抓取）<br>15.5.2 web_search（搜索）<br>15.5.3 code_execute（本地沙箱） | 1天 |
 
 **验收（给非技术同学）**：
 
@@ -1079,7 +1143,7 @@ composables/
 | 阶段九：用户管理与个人设置 | 15天 | 8天 | 3周 |
 | 阶段十：工作流引擎完善 | 11天 | 6天 | 2.5周 |
 | 阶段十二：Playground 配额 | 9天 | 3.5天 | 1.5周 |
-| 阶段十三：发送框文件+RAG | 后期，门槛见该阶段 | — | — |
+| 阶段十三：发送框文件+RAG | ✅ 13.0–13.6 完成 | — | — |
 | 阶段十四：Chat 记忆 | 12.5天 | 5.5天 | 约 2.5周 |
 | **总计** | **约18周** | **约9周** | **约 6.5 个月** |
 ## 📅 近3个月详细迭代计划（基于当前进度）
@@ -1162,10 +1226,15 @@ composables/
 - [x] 配额设计文档（2026-08-18，`docs/01-requirements/02-quota-design.md`）
 - [x] 落地阶段十二代码（Go `internal/quota` + Web `/usage`）
 - [x] 文档同步（2026-09-04：阶段一～八代码已落地，补全开发计划文档）
-- [ ] 更新技术架构文档（补充用户管理、角色权限表）
-- [ ] 创建 UserSettings、Permission 等 GORM 模型
-- [ ] 规划 Milvus 部署方案（Docker Compose）
-- [ ] 准备 Python 开发环境（FastAPI + 解析库）
+- [x] 阶段十三 Playground 文件 + RAG（2026-10-11）
+- [x] 阶段十五内置工具 fetch / web_search / code_execute（2026-10-11）
+- [x] Agent 对话 RAG 注入（2026-10-12）
+- [ ] 更新技术架构文档（补充用户管理、角色权限表）— 文档债
+- [x] ~~创建 UserSettings、Permission 等 GORM 模型~~（已有 user/rbac 模型）
+- [ ] 规划 Milvus 部署方案（可选；现网用 pgvector）
+- [x] ~~准备 Python 开发环境~~（cogniforge-ai FastAPI 已落地）
+- [x] 排队消息带附件（2026-10-12）
+- [ ] 生产环境人工验收：PDF 附件问答；可选 code_execute 容器强隔离
 
 ---
 ---
@@ -1181,4 +1250,4 @@ composables/
 
 ---
 
-**下一阶段**：阶段十三（RAG 文件注入），等待阶段七知识库检索稳定后开工
+**下一阶段**：核心开发项已齐。优先人工验收 PDF 问答与 Agent+附件；可选：`code_execute` Docker 隔离、技术架构文档补全、Agent 流式响应对齐 playground。

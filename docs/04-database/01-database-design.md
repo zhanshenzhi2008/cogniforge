@@ -3,6 +3,8 @@
 ## [变更记录]
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|---------|--------|
+| 2026-10-12 | v1.15 | message_queue 元素支持 attachments（排队带文件） | orjrs |
+| 2026-10-11 | v1.14 | 阶段十三 13.1：chat_conversations.rag_knowledge_base_ids；messages[].attachments | orjrs |
 | 2026-09-03 | v1.13 | §1.2 命名规范新增 MySQL 字符集/排序规则、索引命名规范（idx_/uk_/fk_ 前缀）、字段缩写规则 | orjrs |
 | 2026-09-02 | v1.12 | chat_memories 表（阶段十四 14.4 长期记忆）；字段：id/user_id/agent_id/conversation_id/kind/content/importance/metadata | orjrs |
 | 2026-08-21 | v1.8 | chat_conversations 增加 message_queue 排队字段 | orjrs |
@@ -14,6 +16,20 @@
 | 2026-08-16 | v1.2 | Redis 键统一 `cogniforge:` 前缀；多项目用前缀隔离，不拆 db0/db1 | orjrs |
 | 2026-08-15 | v1.1 | 落地模型配置 Redis 键（当时为 `cf:modelcfg:*`） | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] message_queue 支持 attachments（2026-10-12）
+
+- **变更原因**：流式中入队的消息也要能带 PDF 等文件引用
+- **包含代码**：`ConversationQueueItem.Attachments`；Web 排队入队/出队/编辑
+- **变更前 vs 变更后**：~~排队仅 content/images~~（2026-10-12）→ `message_queue[].attachments` 可选
+- **关键差异**：无表 ALTER（JSONB 内字段）
+
+## [变更] 阶段十三 13.1：会话 RAG 知识库 + 消息附件（2026-10-11）
+
+- **变更原因**：Playground 文件走知识库检索，需会话绑定 KB、消息挂附件引用
+- **包含代码**：`internal/model/conversation.go`；`internal/chat/dto.go`；`internal/chat/conversation.go`；AutoMigrate
+- **变更前 vs 变更后**：~~仅 images / message_queue~~（2026-10-11）→ 增加列 `rag_knowledge_base_ids`（JSONB 字符串数组）；`messages[]` 可含 `attachments`
+- **关键差异**：新增列 `rag_knowledge_base_ids`；JSONB 内新增 `attachments` 元素字段
 
 ## [变更] ai_providers 对话/向量用途（2026-08-25）
 
@@ -396,6 +412,7 @@ CREATE TABLE chat_conversations (
     messages JSONB NOT NULL DEFAULT '[]',
     message_queue JSONB NOT NULL DEFAULT '[]',
     summary TEXT,                                    -- 阶段十四 14.3 滚动摘要（窗口外旧消息压缩）
+    rag_knowledge_base_ids JSONB DEFAULT '[]',       -- 阶段十三：会话绑定的 RAG 知识库 ID 列表
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     deleted_at TIMESTAMP WITH TIME ZONE
@@ -407,8 +424,9 @@ CREATE INDEX idx_chat_conv_pinned ON chat_conversations(pinned);
 CREATE INDEX idx_chat_conv_deleted ON chat_conversations(deleted_at);
 ```
 
-`messages` 元素：`{"id","role","content","images?","time"}`。`images` 为附图 URL 数组（多为 data URL）。
-`message_queue` 元素：`{"id","content","images?","status":"queued|sending","sort"}`，最多 5 条。
+`messages` 元素：`{"id","role","content","images?","attachments?","time"}`。`images` 为附图 URL 数组（多为 data URL）；`attachments` 为文件引用 `{"id","name","file_type","status?","chunk_count?"}`。
+`message_queue` 元素：`{"id","content","images?","attachments?","status":"queued|sending","sort"}`，最多 5 条；`attachments` 同 messages 文件引用结构。
+`rag_knowledge_base_ids`：会话关联的知识库 ID 字符串数组，聊天时按此列表做 RAG 检索（13.2）。
 `summary`：窗口外消息被裁剪后，由 Python `/api/memory/summarize` 生成摘要，下次对话时作为 `system` 消息注入。
 title 缺省取第一条用户消息前 40 字；无文字仅有图时为「图片对话」。列表排序：`pinned DESC, updated_at DESC`。
 

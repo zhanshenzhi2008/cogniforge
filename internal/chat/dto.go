@@ -9,6 +9,15 @@ type ChatMessage struct {
 	Content any    `json:"content"`
 }
 
+// MessageAttachment 阶段十三：消息附件（知识库文档引用，非图片）
+type MessageAttachment struct {
+	ID         string `json:"id"`                    // 文档 ID
+	Name       string `json:"name"`                  // 文件名
+	FileType   string `json:"file_type"`             // pdf/docx/txt/md/html
+	Status     string `json:"status,omitempty"`      // pending/processing/completed/failed
+	ChunkCount int    `json:"chunk_count,omitempty"` // 成功后填充
+}
+
 type ChatRequest struct {
 	Model    string        `json:"model"`
 	Messages []ChatMessage `json:"messages" binding:"required"`
@@ -30,6 +39,13 @@ type ChatRequest struct {
 	UseLongTerm bool   `json:"use_long_term,omitempty"`
 	// AgentID：用于长期记忆 scope 过滤（agent专属记忆 vs 全局记忆）
 	AgentID     string `json:"agent_id,omitempty"`
+
+	// 阶段十三：文件附件 + RAG 知识库 ID（检索注入在 13.2）
+	Attachments         []MessageAttachment `json:"attachments,omitempty"`
+	RAGKnowledgeBaseIDs []string            `json:"rag_kb_ids,omitempty"`
+	// 阶段十三 13.5：覆盖服务端默认 Top-K / 最低分（0 或不传则用配置默认）
+	RAGTopK     *int     `json:"rag_top_k,omitempty"`
+	RAGMinScore *float64 `json:"rag_min_score,omitempty"`
 
 	Temperature      *float64 `json:"temperature,omitempty"`
 	MaxTokens        *int     `json:"max_tokens,omitempty"`

@@ -4,7 +4,47 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|---------|--------|
+| 2026-10-11 | v1.6 | 13.6：端到端链路单测收官；阶段十三子项全部 ✅ | orjrs |
+| 2026-10-11 | v1.5 | 13.5：RAG_TOP_K / MIN_SCORE / MAX_TOKENS + 请求体与前端滑条 | orjrs |
+| 2026-10-11 | v1.4 | 13.3/13.4：Playground 文件上传 + 气泡附件芯片（cogniforge-web） | orjrs |
+| 2026-10-11 | v1.3 | 13.2 落地：ChatStream Top-K 检索 + 知识库参考 system 注入；失败降级 | orjrs |
+| 2026-10-11 | v1.2 | 13.1 落地：ChatRequest.attachments/rag_kb_ids；ConversationMessage.attachments；ChatConversation.rag_knowledge_base_ids | orjrs |
 | 2026-09-05 | v1.1 | 详细设计：发送框文件、RAG 注入、会话关联 | orjrs |
+
+## [变更] 13.6 端到端链路单测（2026-10-11）
+
+- **变更原因**：收官阶段十三，覆盖附件→KB→检索→system 注入与全失败降级
+- **包含代码**：`internal/chat/rag_test.go` `TestStage13_E2E_*`
+- **变更前 vs 变更后**：~~13.6 未测~~（2026-10-11）→ 自动化链路通过；人工 PDF 验收仍按 §10
+- **关键差异**：不替代实机上传 PDF 的观感验收
+
+## [变更] 13.5 RAG Top-K 配置落地（2026-10-11）
+
+- **变更原因**：检索片段数与阈值需可调
+- **包含代码**：`configs/config.yaml`、`chat.SetRAGDefaults`、`ChatRequest.rag_top_k/rag_min_score`；Web 参数面板滑条
+- **变更前 vs 变更后**：~~常量写死~~（2026-10-11）→ 环境默认 + 请求覆盖 + 前端可调
+- **关键差异**：`RAG_MAX_TOKENS` 按 rune/4 粗估截断注入片段总量
+
+## [变更] 13.3/13.4 前端附件上传与气泡展示（2026-10-11）
+
+- **变更原因**：发送框需支持 PDF 等文件走知识库，而非 vision 图片通道
+- **包含代码**（cogniforge-web）：`playground.vue`、`utils/chatAttachments.ts`、会话 `attachments` 类型
+- **变更前 vs 变更后**：~~仅图片~~（2026-10-11）→ 回形针上传 / 粘贴拖入文档 → `uploadDoc` → 发送 `attachments[]`；气泡显示文件名芯片
+- **关键差异**：默认写入首个知识库或自动创建 `Playground`；排队消息暂不带文件
+
+## [变更] 13.2 RAG 检索注入落地（2026-10-11）
+
+- **变更原因**：门槛第 4 项「对话时召回知识库」本期实现
+- **包含代码**：`internal/chat/rag.go`、`handler.go` ChatStream；`knowledge.SearchByUser` / `ResolveKBIDsForDocuments`
+- **变更前 vs 变更后**：~~字段就绪无检索~~（2026-10-11）→ stream 前检索注入；检索失败不阻断对话
+- **关键差异**：默认 top_k=3、min_score=0.5；配置项与前端上传 UI 仍待 13.3/13.5
+
+## [变更] 13.1 Attachments DTO 落地（2026-10-11）
+
+- **变更原因**：开工实现数据模型与请求字段，检索注入留待 13.2
+- **包含代码**：`internal/chat/dto.go`、`internal/model/conversation.go`、`internal/chat/conversation.go`、`internal/chat/attachment_test.go`
+- **变更前 vs 变更后**：~~仅设计文档~~（2026-10-11）→ Go DTO/模型/会话 CRUD 已支持附件与 KB 绑定字段
+- **关键差异**：新增序列化单测；尚无 ChatService RAG 检索调用
 
 ---
 
@@ -15,7 +55,7 @@
 | 1 | 知识库上传→解析→向量稳定 | ✅ | 上传 PDF，重复 reprocess 成功 |
 | 2 | Embedding 与聊天分开 | ✅ | DeepSeek Chat 单独开，向量不挂 |
 | 3 | 向量语义检索 | ✅ | `POST /kb/:id/search` 返回片段+分数 |
-| 4 | 对话时召回知识库 | ❌ | **本期完成** |
+| 4 | 对话时召回知识库 | ✅ | ChatStream 注入「知识库参考」system |
 | 5 | Embedding 不算额度 | ✅ | 走独立 `/embeddings`，不计 quota |
 
 ---
@@ -286,13 +326,13 @@ pages/playground.vue
 
 | 序号 | 功能点 | 预计 | 难度 | 状态 | 说明 |
 |-----|-------|------|------|------|------|
-| 13.0 | RAG 门槛验收 | 1天 | ⭐⭐ | 🔴 | 本期第一步 |
-| 13.1 | ChatMessage + Attachments DTO | 0.5天 | ⭐ | 🔴 | 数据模型变更 |
-| 13.2 | ChatService RAG 检索集成 | 2天 | ⭐⭐⭐ | 🔴 | 核心逻辑 |
-| 13.3 | 前端发送框附件上传 | 1.5天 | ⭐⭐ | 🔴 | 复用 KB 上传 |
-| 13.4 | 前端消息气泡附件展示 | 0.5天 | ⭐ | 🔴 | 图标+文件名 |
-| 13.5 | RAG Top-K 配置 | 0.5天 | ⭐ | 🔴 | 可配置片段数 |
-| 13.6 | 端到端联调测试 | 1天 | ⭐⭐ | 🔴 | 全文验收 |
+| 13.0 | RAG 门槛验收 | 1天 | ⭐⭐ | ✅ | 本期第一步 |
+| 13.1 | ChatMessage + Attachments DTO | 0.5天 | ⭐ | ✅ | 数据模型变更 |
+| 13.2 | ChatService RAG 检索集成 | 2天 | ⭐⭐⭐ | ✅ | 核心逻辑 |
+| 13.3 | 前端发送框附件上传 | 1.5天 | ⭐⭐ | ✅ | 复用 KB 上传 |
+| 13.4 | 前端消息气泡附件展示 | 0.5天 | ⭐ | ✅ | 图标+文件名 |
+| 13.5 | RAG Top-K 配置 | 0.5天 | ⭐ | ✅ | 可配置片段数 |
+| 13.6 | 端到端联调测试 | 1天 | ⭐⭐ | ✅ | 链路单测 + 人工清单 |
 
 ---
 

@@ -36,7 +36,10 @@ type EncryptionConfig struct {
 }
 
 type RAGConfig struct {
-	PythonServiceURL string `mapstructure:"python_service_url"`
+	PythonServiceURL string  `mapstructure:"python_service_url"`
+	TopK             int     `mapstructure:"top_k"`      // 阶段十三 13.5
+	MinScore         float64 `mapstructure:"min_score"`  // 阶段十三 13.5
+	MaxTokens        int     `mapstructure:"max_tokens"` // 片段预算（近似 token）
 }
 
 type ServerConfig struct {
@@ -92,6 +95,16 @@ func Load() *Config {
 		if v := os.Getenv("REDIS_PWD"); v != "" {
 			cfg.Redis.Password = v
 		}
+	}
+
+	if cfg.RAG.TopK <= 0 {
+		cfg.RAG.TopK = 3
+	}
+	if cfg.RAG.MinScore <= 0 {
+		cfg.RAG.MinScore = 0.5
+	}
+	if cfg.RAG.MaxTokens <= 0 {
+		cfg.RAG.MaxTokens = 2000
 	}
 
 	return &cfg

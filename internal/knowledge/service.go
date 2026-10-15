@@ -310,10 +310,16 @@ func (s *KnowledgeService) UploadDocument(ctx context.Context, userID, kbID stri
 	return &doc, nil
 }
 
-// SearchKnowledge 知识库检索
+// SearchKnowledge 知识库检索（HTTP 入口，带 Gin trace）
 func (s *KnowledgeService) SearchKnowledge(c *gin.Context, userID, kbID string, req *SearchRequest) (*SearchResponse, error) {
+	ctx := context.WithValue(c.Request.Context(), trace.TraceIDKey, trace.GetTraceIDFromGin(c))
+	return s.SearchByUser(ctx, userID, kbID, req)
+}
+
+// SearchByUser 供 Chat 等内部调用：按用户校验知识库后做向量检索
+func (s *KnowledgeService) SearchByUser(ctx context.Context, userID, kbID string, req *SearchRequest) (*SearchResponse, error) {
 	var kb model.KnowledgeBase
-	if err := s.db.Where("id = ? AND user_id = ?", kbID, userID).First(&kb).Error; err != nil {
+	if err := s.db.WithContext(ctx).Where("id = ? AND user_id = ?", kbID, userID).First(&kb).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, fmt.Errorf("知识库不存在")
 		}
@@ -332,10 +338,6 @@ func (s *KnowledgeService) SearchKnowledge(c *gin.Context, userID, kbID string, 
 		req.MinScore = 0.3
 	}
 
-	// 创建带 trace_id 的 context
-	ctx := context.WithValue(c.Request.Context(), trace.TraceIDKey, trace.GetTraceIDFromGin(c))
-
-	// 调用 Python 服务进行向量检索
 	pythonResp, err := s.pythonClient.Search(&SearchRequest{
 		Context:        ctx,
 		Query:          req.Query,
@@ -347,12 +349,19 @@ func (s *KnowledgeService) SearchKnowledge(c *gin.Context, userID, kbID string, 
 		return nil, fmt.Errorf("检索失败: %w", err)
 	}
 
-	// 转换为标准响应格式
 	var results []SearchResult
 	for _, r := range pythonResp.Results {
+		docName := ""
+		if r.Metadata != nil {
+			if n, ok := r.Metadata["document_name"].(string); ok {
+				docName = n
+			} else if n, ok := r.Metadata["file_name"].(string); ok {
+				docName = n
+			}
+		}
 		results = append(results, SearchResult{
 			DocumentID:   r.ChunkID,
-			DocumentName: "",
+			DocumentName: docName,
 			ChunkID:      r.ChunkID,
 			Content:      r.Content,
 			Score:        r.Score,
@@ -365,6 +374,34 @@ func (s *KnowledgeService) SearchKnowledge(c *gin.Context, userID, kbID string, 
 		Query:    req.Query,
 		Duration: time.Since(startTime).Milliseconds(),
 	}, nil
+}
+
+// ResolveKBIDsForDocuments 根据文档 ID 解析所属知识库（用户隔离）
+func (s *KnowledgeService) ResolveKBIDsForDocuments(ctx context.Context, userID string, docIDs []string) []string {
+	if len(docIDs) == 0 {
+		return nil
+	}
+	var docs []model.Document
+	if err := s.db.WithContext(ctx).
+		Select("knowledge_base_id").
+		Where("user_id = ? AND id IN ?", userID, docIDs).
+		Find(&docs).Error; err != nil {
+		slog.Warn("resolve document KB failed", "error", err)
+		return nil
+	}
+	seen := map[string]struct{}{}
+	var out []string
+	for _, d := range docs {
+		if d.KnowledgeBaseID == "" {
+			continue
+		}
+		if _, ok := seen[d.KnowledgeBaseID]; ok {
+			continue
+		}
+		seen[d.KnowledgeBaseID] = struct{}{}
+		out = append(out, d.KnowledgeBaseID)
+	}
+	return out
 }
 
 // ============ 辅助函数 ============

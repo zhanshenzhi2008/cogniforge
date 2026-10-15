@@ -3,10 +3,17 @@
 ## [变更记录]
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|---------|--------|
+| 2026-10-15 | v1.31 | 补充 code_execute / Tavily 运维开关说明 | orjrs |
 | 2026-10-14 | v1.30 | compose 各服务加 mem_limit + cpus（小机防 OOM/CPU 打满） | orjrs |
 | 2026-08-16 | v1.29 | 前端 Docker 钉 pnpm@9，避免 ERR_PNPM_IGNORED_BUILDS | orjrs |
 | 2026-08-15 | v1.28 | 模型配置走 Redis；cogniforge-ai 增加 REDIS_HOST | orjrs |
 | 2026-08-15 | v1.27 | Python LLM 回调 Go；cogniforge-ai 增加 COGNIFORGE_API_URL | orjrs |
+
+## [变更] MCP 工具运维开关（2026-10-15）
+
+- **code_execute**：Go 进程内本地子进程执行（需镜像/宿主机有 `python3` / `node` / `go`）；生产若暂不开放设 `CODE_EXECUTE_DISABLED=1`
+- **web_search**：读 `TAVILY_API_KEY`（空则 keyless）；见 `.env.example`
+- **包含配置**：`.env.example` 注释段；详细设计 `docs/01-requirements/06-mcp-skill-design.md`
 
 ## [变更] compose 内存 / CPU 硬顶（2026-10-14）
 

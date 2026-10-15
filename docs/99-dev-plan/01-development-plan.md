@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-10-15 | v1.79 | code_execute/web_search 文档纠偏 + 部署开关说明 | orjrs |
 | 2026-10-15 | v1.78 | InjectMCPTools 单测 + 技术架构文档补 MCP 注入说明 | orjrs |
 | 2026-10-15 | v1.77 | Playground 可选 mcp_servers + 注入 MCP Registry（修复从未 SetMCPRegistry） | orjrs |
 | 2026-10-15 | v1.76 | 修复 Agent 流式跳过 MCP 工具循环（查天气等实时问答失效） | orjrs |

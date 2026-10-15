@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|---------|--------|
+| 2026-10-15 | v1.7 | 纠正 code_execute 文档：本地子进程非 Docker；部署开关 CODE_EXECUTE_DISABLED；web_search=Tavily | orjrs |
 | 2026-10-15 | v1.6 | Playground 支持 mcp_servers；router 注入 MCP Registry（此前从未注入导致工具全失效） | orjrs |
 | 2026-10-15 | v1.5 | 修复 Agent 流式对话跳过工具循环；正确解析 message.tool_calls；按 Agent 勾选 Server 注入工具 | orjrs |
 | 2026-10-11 | v1.4 | 15.5 code_execute：本地子进程沙箱执行 python/node/go（超时/输出截断/`CODE_EXECUTE_DISABLED`） | orjrs |
@@ -11,6 +12,12 @@
 | 2026-09-05 | v1.2 | 新增 SKILL 外部导入：支持 Claude Skills 格式 SKILL.md（Markdown 单文件 / ZIP 压缩包）；ZIP 支持批量导入多个 Skill；内置 URL 安全校验（协议白名单、内网 IP 阻断） | orjrs |
 | 2026-09-04 | v1.1 | 修复：工具调用循环改为动态停止（无 tool_calls 即停）；SKILL 结构升级（meta/instructions/references/constraints/examples） | orjrs |
 | 2026-09-04 | v1.0 | 立项：MCP + SKILL，让 Agent 能调用外部工具，可复用技能模板 | orjrs |
+
+## [变更] code_execute / web_search 文档纠偏（2026-10-15）
+
+- **变更原因**：内置工具表仍写「沙箱容器 / Bing·Google」，与现网实现不符
+- **变更后**：`code_execute` = 本地子进程（临时目录 + 超时 + 输出截断 + 精简 env）；`CODE_EXECUTE_DISABLED=1` 可关；`web_search` = Tavily（含 keyless）
+- **未做**：Docker 网络/文件系统强隔离（仍可选后续）
 
 ## [变更] Playground MCP + Registry 注入（2026-10-15）
 
@@ -152,8 +159,8 @@ type AgentMcpServer struct {
 | 名称 | 类型 | 说明 |
 |--|--|--|
 | `fetch` | built-in | 网页抓取（调用 Go `httpclient`） |
-| `web_search` | built-in | 搜索（调用 Bing/Google API） |
-| `code_execute` | built-in | 代码执行（沙箱容器） |
+| `web_search` | built-in | 搜索（Tavily；可 keyless / 配 API Key） |
+| `code_execute` | built-in | 代码执行（**本地子进程**沙箱，非 Docker；可用 `CODE_EXECUTE_DISABLED=1` 关闭） |
 
 ### 3.3 MCP Registry（内存缓存）
 
@@ -562,7 +569,7 @@ Playground 后期也可以配 MCP Server，用于高级用户调试工具调用�
 |--|--|
 | 模型乱调工具浪费配额 | MaxToolCalls = 5；工具调用不计用户额度（类似 RAG embedding） |
 | 用户配置不安全的 MCP Server | HTTP + 可选 Auth；不执行本地命令 |
-| 内置工具安全（代码执行） | 沙箱容器；超时 + 内存限制；禁止网络请求 |
+| 内置工具安全（代码执行） | 本地子进程：临时目录 + 超时 + 输出截断 + 精简 env；`CODE_EXECUTE_DISABLED` 可关；~~Docker 强隔离~~（后续可选） |
 | MCP Server 挂了阻塞对话 | 超时 10s 降级返回错误，不卡死对话 |
 
 ---

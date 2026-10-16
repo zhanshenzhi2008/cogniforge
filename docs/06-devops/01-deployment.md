@@ -3,11 +3,20 @@
 ## [变更记录]
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|---------|--------|
+| 2026-10-16 | v1.32 | CD 登录 GHCR 改用 GITHUB_TOKEN（不再依赖 IMAGE_REGISTRY_TOKEN） | orjrs |
 | 2026-10-15 | v1.31 | 补充 code_execute / Tavily 运维开关说明 | orjrs |
 | 2026-10-14 | v1.30 | compose 各服务加 mem_limit + cpus（小机防 OOM/CPU 打满） | orjrs |
 | 2026-08-16 | v1.29 | 前端 Docker 钉 pnpm@9，避免 ERR_PNPM_IGNORED_BUILDS | orjrs |
 | 2026-08-15 | v1.28 | 模型配置走 Redis；cogniforge-ai 增加 REDIS_HOST | orjrs |
 | 2026-08-15 | v1.27 | Python LLM 回调 Go；cogniforge-ai 增加 COGNIFORGE_API_URL | orjrs |
+
+## [变更] CD 镜像仓库认证改用 GITHUB_TOKEN（2026-10-16）
+
+- **变更原因**：`IMAGE_REGISTRY_TOKEN`（PAT）失效/权限不足导致 `ghcr.io` 登录 `denied: denied`；Actions 自带 `GITHUB_TOKEN` 更稳
+- **包含代码**：三仓 `.github/workflows/cd.yml`（cogniforge / cogniforge-ai / cogniforge-web）
+- **变更前 vs 变更后**：~~`password: secrets.IMAGE_REGISTRY_TOKEN`~~（2026-10-16）→ `password: secrets.GITHUB_TOKEN`；`username: github.actor`；job 声明 `permissions: packages: write`
+- **Secret**：可删仓库/Environment `xcy` 里的 `IMAGE_REGISTRY_TOKEN`（不再使用）；`DEPLOY_*` 仍要保留
+- **注意**：服务器若需手工 `docker pull`，仍要在机器上用个人 PAT 做过一次 `docker login ghcr.io`（与 CI 无关）
 
 ## [变更] MCP 工具运维开关（2026-10-15）
 

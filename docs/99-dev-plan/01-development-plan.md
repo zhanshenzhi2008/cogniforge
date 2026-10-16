@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-10-16 | v1.85 | CD 登录 GHCR 改用 GITHUB_TOKEN（修 denied） | orjrs |
 | 2026-10-15 | v1.84 | 16.5：llm_judge 裁判 0–1 分 + 失败降级 skip | orjrs |
 | 2026-10-15 | v1.83 | 16.4.2：评估 target=agent 注入 MCP 并 ChatWithTools | orjrs |
 | 2026-10-15 | v1.82 | 阶段十七：提示词工程 CRUD + /prompts；评估 target=prompt / system_prompt | orjrs |
@@ -83,6 +84,12 @@
 | 2026-04-11 | v1.2 | 阶段八监控中心完成（请求日志中间件、日志列表 API、用量统计 API、监控仪表板页面） | orjrs |
 | 2026-04-17 | v1.3 | 阶段九用户管理与个人设置完成（用户CRUD、个人设置、会话管理、RBAC权限系统） | orjrs |
 > 注：任务状态变更直接在下方任务表格中更新即可，无需额外记录。
+
+## [变更] CD GHCR 改用 GITHUB_TOKEN（2026-10-16）
+
+- **变更原因**：`IMAGE_REGISTRY_TOKEN` 登录 ghcr.io 报 `denied: denied`
+- **包含代码**：三仓 `.github/workflows/cd.yml`；文档 `docs/06-devops/01-deployment.md`
+- **变更前 vs 变更后**：~~PAT Secret~~ → Actions 自带 `GITHUB_TOKEN` + `packages: write`
 
 ## [变更] 16.5 llm_judge（2026-10-15）
 

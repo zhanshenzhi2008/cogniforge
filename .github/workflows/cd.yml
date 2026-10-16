@@ -61,8 +61,8 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ${{ env.IMAGE_REGISTRY }}
-          username: ${{ github.repository_owner  }}
-          password: ${{ secrets.IMAGE_REGISTRY_TOKEN }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push backend image
         uses: docker/build-push-action@v6
@@ -115,7 +115,7 @@ jobs:
             echo "=== SSH OK $(whoami)@$(hostname) ==="
 
             # ── 1. 登录镜像仓库 ─────────────────────────────────────
-            echo "${{ secrets.IMAGE_REGISTRY_TOKEN }}" | docker login ${{ env.IMAGE_REGISTRY }} -u "${{ github.repository_owner }}" --password-stdin
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ${{ env.IMAGE_REGISTRY }} -u "${{ github.actor }}" --password-stdin
 
             # ── 2. 确保网络存在 ─────────────────────────────────────
             # db-net：由 /opt/project/envs/ 所在宿主机的 PostgreSQL/Redis 创建

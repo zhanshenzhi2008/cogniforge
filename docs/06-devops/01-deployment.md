@@ -3,12 +3,24 @@
 ## [变更记录]
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|---------|--------|
+| 2026-10-16 | v1.33 | GHCR 镜像扁平化：与仓名对齐（同 ai-job-hunter） | orjrs |
 | 2026-10-16 | v1.32 | CD 登录 GHCR 改用 GITHUB_TOKEN（不再依赖 IMAGE_REGISTRY_TOKEN） | orjrs |
 | 2026-10-15 | v1.31 | 补充 code_execute / Tavily 运维开关说明 | orjrs |
 | 2026-10-14 | v1.30 | compose 各服务加 mem_limit + cpus（小机防 OOM/CPU 打满） | orjrs |
 | 2026-08-16 | v1.29 | 前端 Docker 钉 pnpm@9，避免 ERR_PNPM_IGNORED_BUILDS | orjrs |
 | 2026-08-15 | v1.28 | 模型配置走 Redis；cogniforge-ai 增加 REDIS_HOST | orjrs |
 | 2026-08-15 | v1.27 | Python LLM 回调 Go；cogniforge-ai 增加 COGNIFORGE_API_URL | orjrs |
+
+## [变更] GHCR 镜像扁平化（2026-10-16）
+
+- **变更原因**：三段路径 `owner/cogniforge/cogniforge` 由 PAT 建包后，`GITHUB_TOKEN` 无法自动绑仓库（`read_package`）；对齐 ai-job-hunter 的两段路径
+- **包含代码**：三仓 `.github/workflows/cd.yml` + 各 `docker-compose*.yml`
+- **变更前 vs 变更后**：
+  - ~~`ghcr.io/<owner>/cogniforge/cogniforge`~~ → `ghcr.io/<owner>/cogniforge`
+  - ~~`ghcr.io/<owner>/cogniforge/cogniforge-ai`~~ → `ghcr.io/<owner>/cogniforge-ai`
+  - ~~`ghcr.io/<owner>/cogniforge/cogniforge-web`~~ → `ghcr.io/<owner>/cogniforge-web`
+- **服务器须人工**（CD 不覆盖 compose）：改 `/opt/project/cogniforge/` 下三个 compose 的 `image:` 行，再等 CD 推新包或手工 `pull` + `up`
+- **旧包**：`cogniforge/cogniforge*` 可保留作历史，不再使用；新包首次由 Actions 推送时自动挂仓库
 
 ## [变更] CD 镜像仓库认证改用 GITHUB_TOKEN（2026-10-16）
 

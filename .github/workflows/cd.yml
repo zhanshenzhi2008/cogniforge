@@ -30,8 +30,8 @@ env:
   # ── 镜像相关（env，公开信息，不放 Secret）────────────────────
   IMAGE_REGISTRY: ghcr.io                                          # ← 改 1：ghcr.io / registry.cn-hangzhou.aliyuncs.com
   IMAGE_NAMESPACE: ${{ github.repository_owner }}                  # ← 改 2：仓库 owner / 命名空间
-  IMAGE_PROJECT: cogniforge                                         # ← 改 3：项目名
-  IMAGE_NAME: cogniforge                                            # ← 改 4：compose.yml 里的镜像前缀（-server/-ai/-web 后缀）
+  # 与仓名对齐（同 ai-job-hunter）：ghcr.io/<owner>/<IMAGE_NAME>，不要多一层目录
+  IMAGE_NAME: cogniforge                                            # ← 改 3：= 仓库名
 
   # ── 服务器部署路径（env）────────────────────────────────────
   # 单部署根目录：所有仓都部署到 /opt/project/cogniforge/，用不同 compose 文件
@@ -71,8 +71,8 @@ jobs:
           file: ./Dockerfile
           push: true
           tags: |
-            ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/${{ env.IMAGE_PROJECT }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
-            ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/${{ env.IMAGE_PROJECT }}/${{ env.IMAGE_NAME }}:latest
+            ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+            ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/${{ env.IMAGE_NAME }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 

@@ -9,7 +9,7 @@
 
 services:
   cogniforge:
-    image: ghcr.io/${IMAGE_NAMESPACE:-zhanshenzhi2008}/cogniforge/cogniforge:latest
+    image: ghcr.io/${IMAGE_NAMESPACE:-zhanshenzhi2008}/cogniforge:latest
     container_name: cogniforge
     restart: unless-stopped
     mem_limit: ${APP_MEM_LIMIT:-256m}

@@ -9,9 +9,9 @@ import (
 // User 用户表
 type User struct {
 	ID        string         `gorm:"primaryKey;type:varchar(64)" json:"id"`
-	Email     string         `gorm:"uniqueIndex;type:varchar(255);not null" json:"email"`
-	Name      string         `gorm:"type:varchar(100);not null" json:"name"`
-	Password  string         `gorm:"type:varchar(255);not null" json:"-"`
+	Email     string         `gorm:"uniqueIndex:uk_users_email;type:varchar(255);not null" json:"email"`
+	Name      string         `gorm:"uniqueIndex:uk_users_name;type:varchar(100);not null" json:"name"` // 登录用户名；全局唯一（含软删占用，删前会改名释放）
+	Password  string         `gorm:"type:varchar(255);not null" json:"-"`                                // 哈希；不要求唯一
 	AvatarURL string         `gorm:"type:varchar(500)" json:"avatar_url"`             // 头像地址
 	Status    string         `gorm:"type:varchar(50);default:'active'" json:"status"` // active, disabled, locked
 	Role      string         `gorm:"type:varchar(100);default:'user'" json:"role"`    // 用户角色（简单方案）

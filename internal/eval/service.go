@@ -12,6 +12,7 @@ import (
 	"cogniforge/internal/chat"
 	"cogniforge/internal/mcp"
 	"cogniforge/internal/model"
+	"cogniforge/internal/prompt"
 )
 
 type Service struct {
@@ -258,14 +259,16 @@ func (s *Service) CreateAndExecuteRun(userID, suiteID string, req *CreateRunRequ
 	systemPrompt := "You are a helpful assistant for evaluation. Answer concisely."
 	modelName := strings.TrimSpace(req.TargetID)
 	var toolServerIDs []string
+	promptSvc := prompt.NewService(s.db)
 	if tt == model.EvalTargetAgent {
 		var ag struct {
 			Model        string
 			SystemPrompt string
+			PromptID     string
 			Tools        model.JSONBArray
 		}
 		if err := s.db.Table("agents").
-			Select("model, system_prompt, tools").
+			Select("model, system_prompt, prompt_id, tools").
 			Where("id = ? AND user_id = ?", strings.TrimSpace(req.TargetID), userID).
 			Take(&ag).Error; err != nil {
 			return nil, nil, errors.New("Agent 不存在")
@@ -273,7 +276,13 @@ func (s *Service) CreateAndExecuteRun(userID, suiteID string, req *CreateRunRequ
 		if ag.Model != "" {
 			modelName = ag.Model
 		}
-		if ag.SystemPrompt != "" {
+		if ag.PromptID != "" {
+			rendered, err := promptSvc.ResolvePublishedContent(userID, ag.PromptID, req.Variables)
+			if err != nil {
+				return nil, nil, fmt.Errorf("解析 Agent 绑定提示词失败: %w", err)
+			}
+			systemPrompt = rendered
+		} else if ag.SystemPrompt != "" {
 			systemPrompt = ag.SystemPrompt
 		}
 		toolServerIDs = []string(ag.Tools)
@@ -284,7 +293,13 @@ func (s *Service) CreateAndExecuteRun(userID, suiteID string, req *CreateRunRequ
 			First(&ver).Error; err != nil {
 			return nil, nil, errors.New("提示词版本不存在")
 		}
-		systemPrompt = ver.Content
+		var p model.Prompt
+		_ = s.db.Where("id = ? AND user_id = ?", ver.PromptID, userID).First(&p).Error
+		rendered, err := prompt.RenderContent(ver.Content, req.Variables, p.Variables, true)
+		if err != nil {
+			return nil, nil, err
+		}
+		systemPrompt = rendered
 		modelName = strings.TrimSpace(req.Model)
 	}
 	if strings.TrimSpace(req.Model) != "" && tt != model.EvalTargetPrompt {

@@ -4,6 +4,12 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-10-17 | v1.98 | 用户名格式：无空格，2–20，字母数字_-/中文 | orjrs |
+| 2026-10-17 | v1.97 | 补 scripts/purge-seed-admin.sh 清理种子账号 | orjrs |
+| 2026-10-17 | v1.96 | 用户名全局唯一；停种/清掉 admin@cogniforge.local | orjrs |
+| 2026-10-17 | v1.95 | 阶段十七任务表对齐：已完成工业项 + 剩余 backlog | orjrs |
+| 2026-10-17 | v1.94 | 提示词工业闭环：发布态/变量/Agent 绑定/导入/评估代入 | orjrs |
+| 2026-10-17 | v1.93 | 提示词：删版本/设当前/双版对比/{{var}} 预览 | orjrs |
 | 2026-10-17 | v1.92 | Go 监听端口改名 COGNIFORGE_PORT（兼容旧 PORT） | orjrs |
 | 2026-10-17 | v1.91 | compose 去掉写死 environment；COGNIFORGE_API_URL / RAG_PYTHON_URL 走 .env | orjrs |
 | 2026-10-17 | v1.90 | 修 web_search：Tavily keyless 非 200 返回 (nil,nil) 导致对话 500 | orjrs |
@@ -91,6 +97,44 @@
 | 2026-04-11 | v1.2 | 阶段八监控中心完成（请求日志中间件、日志列表 API、用量统计 API、监控仪表板页面） | orjrs |
 | 2026-04-17 | v1.3 | 阶段九用户管理与个人设置完成（用户CRUD、个人设置、会话管理、RBAC权限系统） | orjrs |
 > 注：任务状态变更直接在下方任务表格中更新即可，无需额外记录。
+
+## [变更] 用户名格式规范（2026-10-17）
+
+- **变更原因**：禁止空格并统一注册/管理端校验
+- **包含代码**：`internal/util/username.go`；auth/user 创建改名；Web `utils/username.ts`、注册页、用户管理页
+- **规则**：2–20 字；无空格；字母、数字、`_`、`-`、中文
+
+## [变更] 补 purge-seed-admin 脚本（2026-10-17）
+
+- **变更原因**：运维要能在库上手动清种子账号，不只靠启动时 Go 代码
+- **脚本**：`scripts/purge-seed-admin.sh` / `scripts/purge-seed-admin.sql`（预览同名后物理删 `admin@cogniforge.local`）
+- **用法**：服务器上 `PG_CONTAINER=pgsql ./scripts/purge-seed-admin.sh`
+
+## [变更] 用户名唯一 + 清理种子 admin（2026-10-17）
+
+- **变更原因**：线上两个 `name=admin`（`admin@cogniforge.local` 与 foxmail）导致同站数据互不可见；种子账号每次启动可能重建
+- **包含代码**：`model.User` `uk_users_name`；注册/创建/改名校验；`PrepareUserNameUniqueness`（AutoMigrate 前：物理删种子邮箱、释放软删占用的 name、活跃同名只留最早一条）；`InitDefaultAdmin` 仅空库创建；删用户前改名改邮箱释放唯一键
+- **线上**：已软删 `admin@cogniforge.local`；Cursor 浏览器已清掉该账号 cookie；部署后 Purge 会物理清种子行并加唯一索引
+- **说明**：邮箱、用户名全局唯一；**密码不要求唯一**（bcrypt 哈希后无法合理做跨用户查重）
+- **运维脚本**：见上节 `purge-seed-admin`
+
+## [变更] 阶段十七任务表对齐（2026-10-17）
+
+- **变更原因**：工业闭环已写完，但阶段十七表仍写 17.5/17.6 未开始；需列出剩余项
+- **包含文档**：本文件 §阶段十七；`docs/01-requirements/09-prompt-engineering-design.md` v2.1
+- **剩余（摘要）**：P0 部署；P1 试跑 / 评估变量表单 / 顶栏邮箱；P2 Skill 导入、对话 variables、行级 diff、Tags；P3 归档与 e2e
+
+## [变更] 提示词工业闭环（2026-10-17）
+
+- **变更原因**：要可上线：发布门禁、变量契约、Agent 绑定、评估代入
+- **包含代码**：`internal/model/prompt.go`、`internal/prompt/*`、`agent`、`eval`；需求 09 v2.0；API v1.33
+- **跨仓库**：cogniforge-web `/prompts` `/agents` `/evals`
+
+## [变更] 提示词删除 / 对比 / 变量预览（2026-10-17）
+
+- **变更原因**：模块过薄；缺版本删除与并排对比
+- **包含代码**：`internal/prompt/*`；cogniforge-web `/prompts`、e2e；需求 09 / API v1.32
+- **跨仓库**：cogniforge-web 同步
 
 ## [变更] COGNIFORGE_PORT（2026-10-17）
 
@@ -1172,10 +1216,10 @@ pnpm test:e2e          # Playwright：登录/注册按钮、对话发送禁用�
 
 ---
 
-### 阶段十七：提示词工程（约 0.5–1 周）⭐
+### 阶段十七：提示词工程（工业闭环 + 剩余）⭐
 
 **推荐理由**：评估「考试」需要可管理的「人设/提示词」考生；版本对比是提示词迭代的基本功。  
-**详细设计**：`docs/01-requirements/09-prompt-engineering-design.md`
+**详细设计**：`docs/01-requirements/09-prompt-engineering-design.md`（v2.1 backlog）
 
 | 序号 | 功能点 | 预计时间 | 难度 | 状态 | 测试项 | 测试时间 |
 |-----|-------|---------|------|------|-------|---------|
@@ -1183,18 +1227,35 @@ pnpm test:e2e          # Playwright：登录/注册按钮、对话发送禁用�
 | 17.2 | 评估 Run：system_prompt + target=prompt | 0.5天 | ⭐⭐ | ✅ 完成 | 17.2.1 版本正文<br>17.2.2 覆盖生效 | 0.5天 |
 | 17.3 | 前端 `/prompts` | 1天 | ⭐⭐ | ✅ 完成 | 17.3.1 建词发版 | 0.5天 |
 | 17.4 | 评估页选 prompt / 临时 system | 0.5天 | ⭐ | ✅ 完成 | 17.4.1 表单可跑 | 0.5天 |
-| 17.5 | 变量 `{{var}}`、从 Skill/Agent 导入 | 2天 | ⭐⭐⭐ | 🔴 未开始 | — | — |
-| 17.6 | 双版本并排对比 UI | 1.5天 | ⭐⭐ | 🔴 未开始 | — | — |
+| 17.5a | `{{var}}` 预览 | 0.5天 | ⭐ | ✅ 完成 | 预览替换 | 0.5天 |
+| 17.5b | 从 Agent 导入 | 0.5天 | ⭐⭐ | ✅ 完成 | import API + UI | 0.5天 |
+| 17.5c | 变量定义 + render + 评估/Agent 渲染 | 1天 | ⭐⭐⭐ | ✅ 完成 | Render/Eval Variables | 0.5天 |
+| 17.6 | 双版本并排对比 UI | 1天 | ⭐⭐ | ✅ 完成 | 勾选两版对比 | 0.5天 |
+| 17.7 | 删版 / 设当前 / 详情删 | 0.5天 | ⭐ | ✅ 完成 | 至少留一版 | 0.5天 |
+| 17.8 | draft / publish 门禁 | 0.5天 | ⭐⭐ | ✅ 完成 | 草稿不可上线 | 0.5天 |
+| 17.9 | Agent `prompt_id` + usages | 1天 | ⭐⭐ | ✅ 完成 | 对话优先绑定 Prompt | 0.5天 |
+| 17.0 | **合入部署**工业闭环到线上 | 0.5天 | ⭐ | 🟡 待做 | push + CD + 冒烟 | — |
+| 17.10 | 提示词页试跑（版本+变量+模型一轮） | 1.5天 | ⭐⭐⭐ | 🔴 未开始 | 试跑成功可见回答 | — |
+| 17.12 | 评估变量：按定义生成表单（替 JSON） | 1天 | ⭐⭐ | 🔴 未开始 | 必填校验 | — |
+| 17.13 | 顶栏展示邮箱，区分同名用户 | 0.5天 | ⭐ | 🔴 未开始 | 两 admin 可辨 | — |
+| 17.11 | 从 Skill 导入 | 0.5天 | ⭐⭐ | 🔴 未开始 | 与 Agent 导入对称 | — |
+| 17.14 | Agent 对话请求可传 variables | 0.5天 | ⭐⭐ | 🔴 未开始 | 覆盖 default | — |
+| 17.15 | 版本行级 diff | 1天 | ⭐⭐ | 🔴 未开始 | 长文可读 | — |
+| 17.16 | Tags 编辑 + 列表筛选 | 0.5天 | ⭐ | 🔴 未开始 | 字段已有 | — |
+| 17.17 | 归档/回滚发版 | 1天 | ⭐⭐ | 🔴 未开始 | — | — |
+| 17.18 | 工业能力 e2e 补齐 | 1天 | ⭐⭐ | 🔴 未开始 | 发布/绑定/导入/变量 | — |
 
 **验收（给非技术同学）**：
 
-- 配置 → 提示词：新建并发布新版本；评估里用版本或临时 system prompt 跑同一套题
+- ~~配置 → 提示词：新建并发布新版本；评估里用版本或临时 system prompt 跑同一套题~~（2026-10-15 一期）
+- **工业（部署后）**：草稿→发布→设当前；变量代入评估；Agent 绑定；从 Agent 导入；双版对比；删版
+- **下一步优先**：部署上线 → 试跑 → 评估变量表单 → 顶栏邮箱
 
-**不在本期**：提示词市场、自动优化（APE）、多轮模板编排器
+**不在本期**：提示词市场、自动优化（APE）、多轮模板编排器、跨租户共享
 
-**代码落地**（2026-10-15）：
-- Go: `internal/model/prompt.go`、`internal/prompt/{dto,service,handler}.go`；`cmd/server` AutoMigrate；router 注册
-- Web: `pages/prompts.vue`、`composables/usePrompts.ts`；`pages/evals.vue` 扩展；nav/i18n
+**代码落地**：
+- 一期（2026-10-15）：Go `internal/prompt/*`；Web `/prompts`；评估选版
+- 工业闭环（2026-10-17，**待 push/部署**）：`render.go`、publish、Agent `prompt_id`、eval `variables`；Web prompts/agents/evals
 
 ---
 
@@ -1414,4 +1475,4 @@ composables/
 
 ---
 
-**下一阶段**：16.1–16.5 与提示词一期已落地。可选 16.6 异步长卷；人工验收评估/提示词/PDF；`code_execute` Docker 隔离（可选）。
+**下一阶段**：先 **17.0 部署提示词工业闭环**；再 P1：17.10 试跑、17.12 评估变量表单、17.13 顶栏邮箱。可选 16.6 异步长卷；`code_execute` Docker 隔离。

@@ -44,7 +44,7 @@ func setupResetTest(t *testing.T) (*AuthService, *captureMailer, *miniredis.Mini
 	require.NoError(t, db.Create(&model.User{
 		ID:       "u-reset-1",
 		Email:    "reset@example.com",
-		Name:     "Reset User",
+		Name:     "ResetUser",
 		Password: "old",
 		Role:     "user",
 		Status:   "active",

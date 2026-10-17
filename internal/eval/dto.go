@@ -31,10 +31,11 @@ type UpdateCaseRequest struct {
 }
 
 type CreateRunRequest struct {
-	TargetType   string `json:"target_type" binding:"required"` // model | agent | prompt
-	TargetID     string `json:"target_id" binding:"required"`   // model 名 / agent_id / prompt_version_id
-	Model        string `json:"model"`                          // target=prompt 时必填；其它可选覆盖
-	SystemPrompt string `json:"system_prompt"`                  // 可选：覆盖 Agent/Prompt 正文（临时实验）
+	TargetType   string            `json:"target_type" binding:"required"` // model | agent | prompt
+	TargetID     string            `json:"target_id" binding:"required"`   // model 名 / agent_id / prompt_version_id
+	Model        string            `json:"model"`                          // target=prompt 时必填；其它可选覆盖
+	SystemPrompt string            `json:"system_prompt"`                  // 可选：覆盖 Agent/Prompt 正文（临时实验）
+	Variables    map[string]string `json:"variables"`                      // target=prompt 时替换 {{var}}
 }
 
 type RunDetailResponse struct {

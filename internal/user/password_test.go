@@ -53,7 +53,7 @@ func TestChangePassword_WithoutAuth(t *testing.T) {
 
 func TestChangePassword_SuccessThenLoginWithNew(t *testing.T) {
 	router := setupPasswordRouter()
-	token := registerUserAndGetToken(t, router, "pwd-ok@example.com", "password123", "Pwd Ok")
+	token := registerUserAndGetToken(t, router, "pwd-ok@example.com", "password123", "PwdOk")
 
 	w := postPassword(router, token, "password123", "NewPass1!")
 	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
@@ -72,7 +72,7 @@ func TestChangePassword_SuccessThenLoginWithNew(t *testing.T) {
 
 func TestChangePassword_WrongOldPassword(t *testing.T) {
 	router := setupPasswordRouter()
-	token := registerUserAndGetToken(t, router, "pwd-wrong@example.com", "password123", "Pwd Wrong")
+	token := registerUserAndGetToken(t, router, "pwd-wrong@example.com", "password123", "PwdWrong")
 
 	w := postPassword(router, token, "not-the-old", "NewPass1!")
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
@@ -84,7 +84,7 @@ func TestChangePassword_WrongOldPassword(t *testing.T) {
 
 func TestChangePassword_SamePassword(t *testing.T) {
 	router := setupPasswordRouter()
-	token := registerUserAndGetToken(t, router, "pwd-same@example.com", "password123", "Pwd Same")
+	token := registerUserAndGetToken(t, router, "pwd-same@example.com", "password123", "PwdSame")
 
 	w := postPassword(router, token, "password123", "password123")
 	assert.Equal(t, http.StatusBadRequest, w.Code)
@@ -92,7 +92,7 @@ func TestChangePassword_SamePassword(t *testing.T) {
 
 func TestChangePassword_WeakNewPassword(t *testing.T) {
 	router := setupPasswordRouter()
-	token := registerUserAndGetToken(t, router, "pwd-weak@example.com", "password123", "Pwd Weak")
+	token := registerUserAndGetToken(t, router, "pwd-weak@example.com", "password123", "PwdWeak")
 
 	w := postPassword(router, token, "password123", "short1")
 	assert.Equal(t, http.StatusBadRequest, w.Code, w.Body.String())

@@ -52,7 +52,7 @@ func TestGetSessions_WithoutAuth(t *testing.T) {
 
 func TestGetSessions_WithValidToken(t *testing.T) {
 	router := setupSessionRouter()
-	token := registerUserAndGetToken(t, router, "session-test@example.com", "password123", "Session Test User")
+	token := registerUserAndGetToken(t, router, "session-test@example.com", "password123", "SessionTestUser")
 
 	// Login to create a session
 	loginBody := auth.LoginRequest{
@@ -121,7 +121,7 @@ func TestRevokeSession_WithInvalidToken(t *testing.T) {
 
 func TestRevokeSession_NonexistentSession(t *testing.T) {
 	router := setupSessionRouter()
-	token := registerUserAndGetToken(t, router, "revoke-test@example.com", "password123", "Revoke Test User")
+	token := registerUserAndGetToken(t, router, "revoke-test@example.com", "password123", "RevokeTestUser")
 
 	// Try to revoke a non-existent session
 	req, _ := http.NewRequest("DELETE", "/api/v1/settings/sessions/nonexistent-session-id", nil)
@@ -134,7 +134,7 @@ func TestRevokeSession_NonexistentSession(t *testing.T) {
 
 func TestRevokeSession_Success(t *testing.T) {
 	router := setupSessionRouter()
-	token := registerUserAndGetToken(t, router, "revoke-success@example.com", "password123", "Revoke Success User")
+	token := registerUserAndGetToken(t, router, "revoke-success@example.com", "password123", "RevokeSuccessUser")
 
 	// Login to create a session
 	loginBody := auth.LoginRequest{
@@ -181,7 +181,7 @@ func TestRevokeSession_Success(t *testing.T) {
 
 func TestRevokeSession_AfterRevokeCountDecreases(t *testing.T) {
 	router := setupSessionRouter()
-	token := registerUserAndGetToken(t, router, "revoke-count@example.com", "password123", "Revoke Count User")
+	token := registerUserAndGetToken(t, router, "revoke-count@example.com", "password123", "RevokeCountUser")
 
 	// Login to create a session
 	loginBody := auth.LoginRequest{

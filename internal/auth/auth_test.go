@@ -39,7 +39,7 @@ func TestRegister_Success(t *testing.T) {
 	reqBody := auth.RegisterRequest{
 		Email:    "test@example.com",
 		Password: "password123",
-		Name:     "Test User",
+		Name:     "TestUser",
 	}
 	body, _ := json.Marshal(reqBody)
 
@@ -60,7 +60,7 @@ func TestRegister_Success(t *testing.T) {
 	assert.NotEmpty(t, data["token"])
 	user := data["user"].(map[string]interface{})
 	assert.Equal(t, "test@example.com", user["email"])
-	assert.Equal(t, "Test User", user["name"])
+	assert.Equal(t, "TestUser", user["name"])
 }
 
 func TestRegister_InvalidEmail(t *testing.T) {
@@ -69,7 +69,7 @@ func TestRegister_InvalidEmail(t *testing.T) {
 	reqBody := map[string]string{
 		"email":    "invalid-email",
 		"password": "password123",
-		"name":     "Test User",
+		"name":     "TestUser",
 	}
 	body, _ := json.Marshal(reqBody)
 
@@ -88,7 +88,7 @@ func TestRegister_ShortPassword(t *testing.T) {
 	reqBody := map[string]string{
 		"email":    "test@example.com",
 		"password": "12345",
-		"name":     "Test User",
+		"name":     "TestUser",
 	}
 	body, _ := json.Marshal(reqBody)
 
@@ -128,13 +128,26 @@ func TestRegister_MissingFields(t *testing.T) {
 	}
 }
 
+func TestRegister_NameWithSpace(t *testing.T) {
+	router := setupTestRouter()
+
+	body, _ := json.Marshal(auth.RegisterRequest{
+		Email: "space-name@example.com", Password: "password123", Name: "Bad Name",
+	})
+	req, _ := http.NewRequest("POST", "/api/v1/auth/register", bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
 func TestRegister_DuplicateUser(t *testing.T) {
 	router := setupTestRouter()
 
 	reqBody := auth.RegisterRequest{
 		Email:    "duplicate@example.com",
 		Password: "password123",
-		Name:     "Test User",
+		Name:     "DupEmailUser",
 	}
 	body, _ := json.Marshal(reqBody)
 
@@ -153,6 +166,28 @@ func TestRegister_DuplicateUser(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, w2.Code)
 }
 
+func TestRegister_DuplicateName(t *testing.T) {
+	router := setupTestRouter()
+
+	body1, _ := json.Marshal(auth.RegisterRequest{
+		Email: "name1@example.com", Password: "password123", Name: "SameName",
+	})
+	req1, _ := http.NewRequest("POST", "/api/v1/auth/register", bytes.NewBuffer(body1))
+	req1.Header.Set("Content-Type", "application/json")
+	w1 := httptest.NewRecorder()
+	router.ServeHTTP(w1, req1)
+	assert.Equal(t, http.StatusCreated, w1.Code)
+
+	body2, _ := json.Marshal(auth.RegisterRequest{
+		Email: "name2@example.com", Password: "password123", Name: "SameName",
+	})
+	req2, _ := http.NewRequest("POST", "/api/v1/auth/register", bytes.NewBuffer(body2))
+	req2.Header.Set("Content-Type", "application/json")
+	w2 := httptest.NewRecorder()
+	router.ServeHTTP(w2, req2)
+	assert.Equal(t, http.StatusBadRequest, w2.Code)
+}
+
 // ==================== Login Tests ====================
 
 func TestLogin_Success(t *testing.T) {
@@ -161,7 +196,7 @@ func TestLogin_Success(t *testing.T) {
 	registerBody := auth.RegisterRequest{
 		Email:    "login@example.com",
 		Password: "password123",
-		Name:     "Login User",
+		Name:     "LoginUser",
 	}
 	body, _ := json.Marshal(registerBody)
 	req, _ := http.NewRequest("POST", "/api/v1/auth/register", bytes.NewBuffer(body))
@@ -210,7 +245,7 @@ func TestLogin_WrongPassword(t *testing.T) {
 	registerBody := auth.RegisterRequest{
 		Email:    "wrongpass@example.com",
 		Password: "correctpassword",
-		Name:     "Test User",
+		Name:     "WrongPassUser",
 	}
 	body, _ := json.Marshal(registerBody)
 	req, _ := http.NewRequest("POST", "/api/v1/auth/register", bytes.NewBuffer(body))
@@ -275,7 +310,7 @@ func TestGetCurrentUser_WithValidToken(t *testing.T) {
 	registerBody := auth.RegisterRequest{
 		Email:    "currentuser@example.com",
 		Password: "password123",
-		Name:     "Current User",
+		Name:     "CurrentUser",
 	}
 	body, _ := json.Marshal(registerBody)
 	req, _ := http.NewRequest("POST", "/api/v1/auth/register", bytes.NewBuffer(body))
@@ -364,7 +399,7 @@ func setupApikeyRouter() *gin.Engine {
 
 func TestCreateApiKey_Success(t *testing.T) {
 	router := setupApikeyRouter()
-	token := registerAndGetToken(t, router, "createkey@example.com", "password123", "Create Key User")
+	token := registerAndGetToken(t, router, "createkey@example.com", "password123", "CreateKeyUser")
 
 	reqBody := auth.ApiKeyRequest{Name: "My First Key"}
 	body, _ := json.Marshal(reqBody)
@@ -407,7 +442,7 @@ func TestCreateApiKey_WithoutToken(t *testing.T) {
 
 func TestListApiKeys_Empty(t *testing.T) {
 	router := setupApikeyRouter()
-	token := registerAndGetToken(t, router, "listempty@example.com", "password123", "List Empty")
+	token := registerAndGetToken(t, router, "listempty@example.com", "password123", "ListEmpty")
 
 	req, _ := http.NewRequest("GET", "/api/v1/auth/apikeys", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
@@ -429,8 +464,8 @@ func TestListApiKeys_Empty(t *testing.T) {
 
 func TestListApiKeys_OnlyOwnKeys(t *testing.T) {
 	router := setupApikeyRouter()
-	token1 := registerAndGetToken(t, router, "keyowner1-new@example.com", "password123", "Key Owner 1")
-	token2 := registerAndGetToken(t, router, "keyowner2-new@example.com", "password123", "Key Owner 2")
+	token1 := registerAndGetToken(t, router, "keyowner1-new@example.com", "password123", "KeyOwner1")
+	token2 := registerAndGetToken(t, router, "keyowner2-new@example.com", "password123", "KeyOwner2")
 
 	// Create a key for user 1
 	reqBody := auth.ApiKeyRequest{Name: "Owner 1 Key New"}
@@ -461,7 +496,7 @@ func TestListApiKeys_OnlyOwnKeys(t *testing.T) {
 
 func TestDeleteApiKey_Success(t *testing.T) {
 	router := setupApikeyRouter()
-	token := registerAndGetToken(t, router, "deletesuccess@example.com", "password123", "Delete Success")
+	token := registerAndGetToken(t, router, "deletesuccess@example.com", "password123", "DeleteSuccess")
 
 	reqBody := auth.ApiKeyRequest{Name: "To Delete"}
 	body, _ := json.Marshal(reqBody)
@@ -491,7 +526,7 @@ func TestDeleteApiKey_Success(t *testing.T) {
 
 func TestDeleteApiKey_NotFound(t *testing.T) {
 	router := setupApikeyRouter()
-	token := registerAndGetToken(t, router, "deletenotfound@example.com", "password123", "Delete Not Found")
+	token := registerAndGetToken(t, router, "deletenotfound@example.com", "password123", "DeleteNotFound")
 
 	req, _ := http.NewRequest("DELETE", "/api/v1/auth/apikeys/nonexistent-id", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
@@ -509,7 +544,7 @@ func TestJWTTokenGeneration(t *testing.T) {
 	registerBody := auth.RegisterRequest{
 		Email:    "jwt@example.com",
 		Password: "password123",
-		Name:     "JWT User",
+		Name:     "JWTUser",
 	}
 	body, _ := json.Marshal(registerBody)
 	req, _ := http.NewRequest("POST", "/api/v1/auth/register", bytes.NewBuffer(body))

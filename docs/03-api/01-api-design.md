@@ -4,6 +4,10 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-10-17 | v1.35 | 用户名格式：2–20 字、无空格、字母数字_-/中文 | orjrs |
+| 2026-10-17 | v1.34 | 注册/建用户：name 与 email 均全局唯一；冲突返回 400 | orjrs |
+| 2026-10-17 | v1.33 | 提示词工业闭环：publish/render/import/usages；Agent prompt_id；评估 variables | orjrs |
+| 2026-10-17 | v1.32 | 提示词：DELETE version、PUT current-version | orjrs |
 | 2026-10-15 | v1.31 | 评估 llm_judge：裁判模型 0–1 分，失败降级 skip | orjrs |
 | 2026-10-15 | v1.30 | 提示词 /api/v1/prompts/*；评估 Run 支持 prompt + system_prompt | orjrs |
 | 2026-10-15 | v1.29 | 评估体系 /api/v1/evals/*（suites/cases/runs） | orjrs |
@@ -33,6 +37,35 @@
 | 2026-04-09 | v1.1 | 新增文档上传接口、语义检索接口实现说明 | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
 
+## [变更] 用户名格式规范（2026-10-17）
+
+- **变更原因**：用户名可含空格，格式不统一、不便登录
+- **规则**：2–20 字符；禁止空格；仅字母、数字、下划线、连字符或中文
+- **接口**：`POST /auth/register`、管理员创建/改名、`PUT /me` 校验；非法返回 400
+
+## [变更] 注册用户名唯一（2026-10-17）
+
+- **变更原因**：同名 `admin` 多账号导致同站数据隔离混乱
+- **行为**：`POST /auth/register`、管理员创建/改名：`email` 与 `name` 均全局唯一；冲突 400
+- **说明**：密码存哈希，不校验「密码不能与别人相同」
+
+## [变更] 提示词工业闭环（2026-10-17）
+
+- **变更原因**：生产需要发布门禁、变量契约、Agent 绑定
+- **新增**：
+  - `POST /prompts/versions/:id/publish`；创建版本 `publish` 字段
+  - `POST /prompts/:id/render`；`POST /prompts/import`；`GET /prompts/:id/usages`
+  - Agent `prompt_id`；评估 Run `variables`
+- **详细设计**：`docs/01-requirements/09-prompt-engineering-design.md` v2.0
+
+## [变更] 提示词版本删除 / 设当前（2026-10-17）
+
+- **变更原因**：单版不可删、当前版不可切换
+- **新增**：
+  - `DELETE /api/v1/prompts/versions/:id`（至少保留一版；删当前则切到剩余最高版）
+  - `PUT /api/v1/prompts/:id/current-version` body `{ "version_id": "..." }`
+- **详细设计**：`docs/01-requirements/09-prompt-engineering-design.md`
+
 ## [变更] 评估 llm_judge（2026-10-15）
 
 - **变更原因**：16.5 开放式打分
@@ -46,6 +79,7 @@
 - **接口组**：`/api/v1/prompts`（JWT）
   - `GET/POST /prompts`；`GET/PUT/DELETE /prompts/:id`
   - `GET/POST /prompts/:id/versions`；`GET /prompts/versions/:id`
+  - ~~（2026-10-17 起另见）~~ `DELETE /prompts/versions/:id`；`PUT /prompts/:id/current-version`
 - **评估扩展**：`POST /evals/suites/:id/runs` 增加 `target_type=prompt`（`target_id`=version_id，必填 `model`）与可选 `system_prompt` 覆盖
 - **详细设计**：`docs/01-requirements/09-prompt-engineering-design.md`
 
@@ -371,6 +405,9 @@
 
 POST /v1/auth/register
 描述: 用户注册
+约束:
+  - email、name 均全局唯一（密码不要求唯一）；冲突 400
+  - name：2–20 字，无空格，仅字母/数字/_/-/中文；非法 400（「用户名不能包含空格」等）
 请求体:
   {
     "email": "user@example.com",

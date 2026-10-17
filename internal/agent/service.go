@@ -2,6 +2,7 @@ package agent
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -53,6 +54,7 @@ func (s *AgentService) CreateAgent(userID string, req *CreateAgentRequest) (*mod
 		Description:  req.Description,
 		Model:        req.Model,
 		SystemPrompt: req.SystemPrompt,
+		PromptID:     strings.TrimSpace(req.PromptID),
 		Tools:        tools,
 		SkillID:      req.SkillID,
 		MemoryType:   "short_term",
@@ -105,6 +107,9 @@ func (s *AgentService) UpdateAgent(userID, agentID string, req *UpdateAgentReque
 	}
 	if req.SystemPrompt != "" {
 		agent.SystemPrompt = req.SystemPrompt
+	}
+	if req.PromptID != nil {
+		agent.PromptID = strings.TrimSpace(*req.PromptID)
 	}
 	if req.Tools != nil {
 		agent.Tools = req.Tools

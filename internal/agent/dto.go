@@ -9,6 +9,7 @@ type CreateAgentRequest struct {
 	Description  string   `json:"description"`
 	Model        string   `json:"model" binding:"required"`
 	SystemPrompt string   `json:"system_prompt"`
+	PromptID     string   `json:"prompt_id"` // 绑定提示词资产（优先于内联 system_prompt）
 	Tools        []string `json:"tools"`
 	SkillID      string   `json:"skill_id"` // 阶段十五：从 SKILL 创建
 	McpServers   []string `json:"mcp_servers"`
@@ -19,6 +20,7 @@ type UpdateAgentRequest struct {
 	Description  string   `json:"description"`
 	Model        string   `json:"model"`
 	SystemPrompt string   `json:"system_prompt"`
+	PromptID     *string  `json:"prompt_id"` // nil=不改；""=解绑
 	Tools        []string `json:"tools"`
 	SkillID      string   `json:"skill_id"`
 	McpServers   []string `json:"mcp_servers"`

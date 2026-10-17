@@ -1,38 +1,33 @@
-# 提示词工程（阶段十七）
+# 提示词工程（阶段十七 / 工业落地）
 
 ## [变更记录]
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|---------|--------|
+| 2026-10-17 | v2.1 | 补齐剩余 backlog 清单；与开发计划阶段十七任务表对齐 | orjrs |
+| 2026-10-17 | v2.0 | 工业闭环：发布态、变量定义、渲染、Agent 绑定、导入、评估代入 | orjrs |
+| 2026-10-17 | v1.3 | 版本删除 / 设当前 / 双版对比 / {{var}} 预览 | orjrs |
 | 2026-10-15 | v1.2 | 评估页提示词/版本下拉，免手抄 version id | orjrs |
 | 2026-10-15 | v1.1 | 落地 CRUD + Web /prompts；评估联动已接线 | orjrs |
 | 2026-10-15 | v1.0 | 立项：提示词库 + 版本；与评估体系联动（target=prompt） | orjrs |
 
-## [变更] 评估页选提示词版本（2026-10-15）
+## [变更] 工业闭环（2026-10-17）
 
-- **变更原因**：17.4 体验补齐；手抄 ID 易错
-- **包含代码**：cogniforge-web `pages/evals.vue`
-- **变更前 vs 变更后**：~~粘贴 version id~~（2026-10-15）→ 下拉选提示词与版本
-
-## [变更] 一期落地（2026-10-15）
-
-- **变更原因**：立项后补齐可跑通路径
-- **包含代码**：`internal/model/prompt.go`、`internal/prompt/*`、`cmd/server` AutoMigrate；Web `pages/prompts.vue`、`composables/usePrompts.ts`；评估 Run 扩展
-- **变更前 vs 变更后**：~~仅设计文档~~（2026-10-15）→ API + 页面 + 评估可选 prompt / 临时 system_prompt
-- **跨仓库**：cogniforge-web `/prompts`、导航「提示词」、`/evals` 运行表单
-
-## [变更] 立项（2026-10-15）
-
-- **变更原因**：评估只能考「模型/Agent」，无法系统化对比多版 system prompt；产品需要提示词资产与回归
-- **关系**：评估体系负责「考试」；本模块负责「提示词试卷上的考生人设」
-- **包含代码**：`internal/model/prompt.go`、`internal/prompt/*`；Web `/prompts`；评估 Run 支持 `system_prompt` / `target_type=prompt`
-- **变更前 vs 变更后**：~~提示词散落在 Agent 字段~~（2026-10-15）→ 可版本化的提示词库，并可一键拿去跑评估
+- **变更原因**：一期仅 CRUD，无法支撑生产：无发布门禁、无变量契约、Agent 仍内联散落、评估无法代入
+- **包含代码**：`internal/model/prompt.go`、`internal/prompt/*`；`agents.prompt_id`；`eval` Variables；Web `/prompts` `/agents` `/evals`
+- **能力**：
+  1. 版本 `draft` / `published`；发布后才能设为当前；新建默认已发布；新版本默认可存草稿
+  2. 资产级变量定义（name/default/required）+ `POST .../render` + 评估/Agent 运行时替换 `{{var}}`
+  3. Agent 绑定 `prompt_id`（优先于内联 system_prompt / Skill）
+  4. `POST /prompts/import` 从 Agent 导入；`GET .../usages` 看绑定关系
+  5. 删版本 / 设当前 / 双版对比（延续 v1.3）
+- **不做**：提示词市场、APE 自动优化、多轮模板编排器
 
 ---
 
 ## 1. 一句话
 
-**提示词工程** = 把 system prompt 当成可管理的产品资产（草稿、版本、说明），并能在评估里用「同一套题」对比不同版本。
+**工业提示词工程** = 可版本发布的 system prompt 资产 + 变量契约 + 绑定到 Agent/评估，用同一套题回归哪一版更好。
 
 ---
 
@@ -40,11 +35,11 @@
 
 | 概念 | 说明 |
 |------|------|
-| Prompt | 一条提示词资产（名称、描述、当前版本） |
-| PromptVersion | 某次定稿内容（正文 + 变更说明 + 版本号） |
-| 评估联动 | Run 时 `target_type=prompt` + `target_id=version_id`，另传 `model` 指定聊天模型 |
-
-临时对比（不入库）：评估页填 `system_prompt` 覆盖，仍可用 `target_type=model`。
+| Prompt | 资产：名称、变量定义、当前已发布版本指针 |
+| PromptVersion | 正文 + changelog；`draft` 或 `published` |
+| 当前版 | `current_version_id`，必须是已发布版；Agent/默认评估取它 |
+| 变量 | `{{name}}`；定义在 Prompt；运行时用 defaults / 请求 Variables 替换 |
+| Agent 绑定 | `agents.prompt_id`；对话优先解析绑定提示词当前已发布版 |
 
 ---
 
@@ -54,17 +49,21 @@
 prompts
   id, user_id, name, description
   current_version_id
+  variables jsonb  -- [{name, description, default, required}]
+  tags jsonb
   created_at, updated_at, deleted_at
 
 prompt_versions
   id, prompt_id, user_id
-  version int          -- 从 1 递增
-  content text         -- system prompt 正文
-  changelog text
-  created_at
-```
+  version int
+  status  draft|published
+  content, changelog
+  published_at, created_at
 
-索引：`idx_prompts_user_id`、`idx_prompt_versions_prompt_id`。
+agents
+  ... existing ...
+  prompt_id  -- 可选绑定
+```
 
 ---
 
@@ -72,55 +71,85 @@ prompt_versions
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| GET/POST | `/api/v1/prompts` | 列表 / 创建（可带初版 content） |
-| GET/PUT/DELETE | `/api/v1/prompts/:id` | 详情（含当前版）/ 更新元数据 / 删除 |
-| GET/POST | `/api/v1/prompts/:id/versions` | 版本列表 / 新建版本（自动 version+1，并更新 current） |
-| GET | `/api/v1/prompts/versions/:id` | 单版本详情 |
+| GET/POST | `/api/v1/prompts` | 列表 / 创建 |
+| POST | `/api/v1/prompts/import` | `{ agent_id }` 从 Agent 导入 |
+| GET/PUT/DELETE | `/api/v1/prompts/:id` | 详情 / 元数据与变量 / 删除 |
+| GET/POST | `/api/v1/prompts/:id/versions` | 列表 / 新建（`publish` 可选） |
+| PUT | `/api/v1/prompts/:id/current-version` | 设当前（仅 published） |
+| POST | `/api/v1/prompts/:id/render` | 渲染 `{ version_id?, variables }` |
+| GET | `/api/v1/prompts/:id/usages` | 绑定了该提示词的 Agent |
+| GET/DELETE | `/api/v1/prompts/versions/:id` | 详情 / 删版 |
+| POST | `/api/v1/prompts/versions/:id/publish` | 发布并设当前 |
+
+评估：`POST /evals/suites/:id/runs` 增加 `variables` map。
+
+Agent：创建/更新可带 `prompt_id`。
 
 ---
 
-## 5. 与评估的约定
+## 5. 运行时优先级（Agent 对话）
 
-`POST /api/v1/evals/suites/:id/runs`：
-
-```json
-{
-  "target_type": "prompt",
-  "target_id": "<prompt_version_id>",
-  "model": "deepseek-chat",
-  "system_prompt": "可选；若传则覆盖版本正文（临时实验）"
-}
-```
-
-或：
-
-```json
-{
-  "target_type": "model",
-  "target_id": "deepseek-chat",
-  "system_prompt": "你是严格的客服，只答政策相关…"
-}
-```
+1. 若 `prompt_id` 有值 → 当前已发布版 + 变量默认值渲染  
+2. 否则若有 Skill → Skill 拼装  
+3. 否则内联 `system_prompt`  
+4. 再否则默认助手文案  
 
 ---
 
-## 6. 分期
+## 6. 分期状态
+
+### 6.1 已完成（工业闭环，代码已写；须 push + 部署后线上生效）
 
 | 子项 | 内容 | 状态 |
 |------|------|------|
-| 17.1 | Prompt / Version 表 + CRUD API | ✅ 完成 |
-| 17.2 | 评估 Run：`system_prompt` 覆盖 + `target=prompt` | ✅ 完成 |
-| 17.3 | 前端 `/prompts` 列表与版本 | ✅ 完成 |
-| 17.4 | 评估页选提示词版本 / 临时 prompt | ✅ 完成 |
-| 17.5 | 变量 `{{var}}`、从 Skill/Agent 导入 | 二期 |
-| 17.6 | 双版本并排对比 UI | 二期 |
+| 17.1–17.4 | CRUD + 评估选版 | ✅ |
+| 17.5a | 正文 `{{var}}` 预览 | ✅ |
+| 17.5b | 从 Agent 导入 | ✅ |
+| 17.5c | 变量定义 + render + 评估/Agent 运行时渲染 | ✅ |
+| 17.6 | 双版并排对比 | ✅ |
+| 17.7 | 删版 / 设当前 / 详情删整条 | ✅ |
+| 17.8 | draft / publish 门禁 | ✅ |
+| 17.9 | Agent `prompt_id` 绑定 + usages | ✅ |
 
-**不在本期**：提示词市场、自动优化（APE）、多轮对话模板编排器。
+### 6.2 剩余待做（按优先级）
+
+| 优先级 | 子项 | 内容 | 说明 |
+|--------|------|------|------|
+| P0 | 17.0 | **合入并部署**当前未 push 的工业闭环 | 线上仍是一期 CRUD；不部署则新能力不可用 |
+| P1 | 17.10 | **试跑**：选版本 + 填变量 + 调模型看一轮回答 | 不必开评估集也能验人设；可挂 `/prompts` 或复用 Playground |
+| P1 | 17.12 | **评估变量表单**：按 Prompt 变量定义生成输入框 | 现在评估页是手写 JSON，易错 |
+| P1 | 17.13 | **顶栏显示邮箱/区分同名用户** | 已出现两个 `name=admin` 导致「同站看不到提示词」误判 |
+| P2 | 17.11 | 从 **Skill** 导入提示词 | 与 17.5b Agent 导入对称 |
+| P2 | 17.14 | Agent 对话请求可传 `variables` | 目前绑定 Prompt 只用定义里的 default |
+| P2 | 17.15 | 版本 **行级 diff**（在并排之外） | 长文对比更清楚 |
+| P2 | 17.16 | Tags 编辑 UI + 列表筛选 | 模型字段已有 `tags`，前端未做 |
+| P3 | 17.17 | 归档 / 废弃版本；回滚=基于旧版发新 published | 运维友好 |
+| P3 | 17.18 | 工业能力 e2e（发布/绑定/导入/变量评估） | 现有 e2e 偏一期 |
+
+### 6.3 明确不做（本阶段）
+
+提示词市场、APE 自动优化、多人协作审批流、跨租户共享库、多轮对话模板编排器。
+
+---
+
+## [变更] backlog 对齐（2026-10-17）
+
+- **变更原因**：工业闭环代码已落，但开发计划表仍标 17.5/17.6 未开始；需写清「还要做什么」
+- **影响文档**：本文件 v2.1；`docs/99-dev-plan/01-development-plan.md` 阶段十七；cogniforge-web 开发计划
 
 ---
 
 ## 7. 验收（非技术）
 
-1. 配置 → 提示词：新建一条，再发一版改文案  
-2. 评估里选「提示词版本」+ 模型跑卷，或粘贴临时 system prompt 跑卷  
-3. 两版分数能分开看，知道哪版更好  
+**已具备（部署后验）**：
+
+1. 新建提示词，发草稿 → 发布 → 设为当前  
+2. 定义 `{{brand}}`，评估填变量跑卷，回答里用到替换后的值  
+3. Agent 绑定该提示词后对话，不再靠内联文案  
+4. 从旧 Agent 一键导入成提示词资产  
+5. 两版勾选对比；删错版可删（至少留一版）  
+
+**剩余验收（做完 17.10/17.12/17.13 后再验）**：
+
+6. 提示词页内可试跑一轮，变量用表单填  
+7. 顶栏能分清同名账号（看到邮箱）  

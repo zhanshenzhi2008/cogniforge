@@ -13,6 +13,7 @@ import (
 	"cogniforge/internal/mcp"
 	"cogniforge/internal/memory"
 	agentmodel "cogniforge/internal/model"
+	promptpkg "cogniforge/internal/prompt"
 	"cogniforge/internal/provider"
 	"cogniforge/internal/quota"
 	"cogniforge/internal/response"
@@ -138,13 +139,14 @@ func (h *AgentHandler) AgentChat(c *gin.Context) {
 		UserID       string
 		Model        string
 		SystemPrompt string
+		PromptID     string
 		SkillID      string
 		MemoryType   string
 		MemoryTurns  int
 		Tools        agentmodel.JSONBArray
 	}
 	if err := database.DB.Where("id = ? AND user_id = ?", agentID, userID).
-		Select("id, user_id, model, system_prompt, skill_id, memory_type, memory_turns, tools").
+		Select("id, user_id, model, system_prompt, prompt_id, skill_id, memory_type, memory_turns, tools").
 		First(&dbAgent).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			response.NotFound(c, "Agent 不存在")
@@ -192,9 +194,13 @@ func (h *AgentHandler) AgentChat(c *gin.Context) {
 		model = h.defaultModel()
 	}
 
-	// 阶段十五：优先用 Skill.Instructions 构建 system prompt
+	// 优先级：绑定 Prompt（已发布当前版）> Skill > 内联 system_prompt
 	systemPrompt := dbAgent.SystemPrompt
-	if dbAgent.SkillID != "" {
+	if dbAgent.PromptID != "" {
+		if rendered, err := promptpkg.NewService(database.DB).ResolvePublishedContent(userID, dbAgent.PromptID, nil); err == nil && rendered != "" {
+			systemPrompt = rendered
+		}
+	} else if dbAgent.SkillID != "" {
 		if s := agentmodel.GetBuiltInSkill(dbAgent.SkillID); s != nil {
 			systemPrompt = s.BuildSystemPrompt()
 		} else if h.skillSvc != nil {

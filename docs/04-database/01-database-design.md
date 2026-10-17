@@ -3,6 +3,7 @@
 ## [变更记录]
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|---------|--------|
+| 2026-10-17 | v1.18 | users.name 唯一索引 uk_users_name；软删前改名释放 | orjrs |
 | 2026-10-15 | v1.17 | 提示词表 prompts / prompt_versions；eval_runs 增 model、system_prompt | orjrs |
 | 2026-10-15 | v1.16 | 评估体系表 eval_suites / eval_cases / eval_runs / eval_results | orjrs |
 | 2026-10-12 | v1.15 | message_queue 元素支持 attachments（排队带文件） | orjrs |
@@ -18,6 +19,19 @@
 | 2026-08-16 | v1.2 | Redis 键统一 `cogniforge:` 前缀；多项目用前缀隔离，不拆 db0/db1 | orjrs |
 | 2026-08-15 | v1.1 | 落地模型配置 Redis 键（当时为 `cf:modelcfg:*`） | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] users.name 全局唯一（2026-10-17）
+
+- **变更原因**：多用户可同名 `admin`，同站登录数据互不可见；种子 `admin@cogniforge.local` 与真实账号冲突
+- **包含代码**：`model.User` `uk_users_name`；注册/创建/改名校验；软删前改名改邮箱；`PrepareUserNameUniqueness`（启动时清理后再 AutoMigrate）
+- **落地表**：`users`（无 `cf_` 前缀）
+  - `email`：`uk_users_email`（本就唯一）
+  - `name`：`uk_users_name`（新增全局唯一）
+  - `password`：存 bcrypt 哈希，**不**建唯一索引
+- **软删**：删前把 `name`/`email` 改成带 `__del_` / `deleted+` 后缀，释放唯一键
+- **启动清理**：物理删 `admin@cogniforge.local`；软删行 name 加 `__del_`；活跃同名只留最早一条
+- **运维脚本**：`scripts/purge-seed-admin.sh`（同 `cleanup-error-request-logs.sh`，经 Docker 进 PG）
+- **name 格式**（应用层校验，非 DB CHECK）：2–20 字；无空格；字母/数字/`_`/`-`/中文
 
 ## [变更] 提示词表 + eval_runs 扩展（2026-10-15）
 
@@ -244,32 +258,33 @@ CREATE INDEX idx_org_slug ON cf_organizations(slug);
 CREATE INDEX idx_org_status ON cf_organizations(status);
 ```
 
-#### 2.1.2 用户表 (cf_users)
+#### 2.1.2 用户表
+
+> 规划稿曾用 `cf_users`；**现网落地表名为 `users`**（无 `cf_` 前缀）。以下为现网约束（2026-10-17）：
 
 ```sql
-CREATE TABLE cf_users (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    organization_id UUID NOT NULL REFERENCES cf_organizations(id),
-    email VARCHAR(255) NOT NULL UNIQUE,
-    name VARCHAR(255) NOT NULL,
-    password_hash VARCHAR(255),
+-- 落地表 users（GORM model.User）
+CREATE TABLE users (
+    id VARCHAR(64) PRIMARY KEY,
+    email VARCHAR(255) NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    password VARCHAR(255) NOT NULL,  -- bcrypt；不要求唯一
     avatar_url VARCHAR(500),
-    phone VARCHAR(50),
-    status VARCHAR(20) DEFAULT 'active',  -- active, disabled
-    email_verified BOOLEAN DEFAULT FALSE,
-    last_login_at TIMESTAMP WITH TIME ZONE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    status VARCHAR(50) DEFAULT 'active',
+    role VARCHAR(100) DEFAULT 'user',
+    created_at TIMESTAMP WITH TIME ZONE,
+    updated_at TIMESTAMP WITH TIME ZONE,
     deleted_at TIMESTAMP WITH TIME ZONE
 );
 
-CREATE INDEX idx_user_email ON cf_users(email);
-CREATE INDEX idx_user_org ON cf_users(organization_id);
-CREATE INDEX idx_user_status ON cf_users(status);
+CREATE UNIQUE INDEX uk_users_email ON users(email);
+CREATE UNIQUE INDEX uk_users_name ON users(name);  -- 2026-10-17 新增
+CREATE INDEX idx_users_deleted_at ON users(deleted_at);
 
--- 软删除查询
--- SELECT * FROM cf_users WHERE organization_id = ? AND deleted_at IS NULL;
+-- 软删前须改名改邮箱，否则唯一索引仍占用原值
 ```
+
+~~旧规划 `cf_users`（含 organization_id 等）见历史；以 `users` + 上表为准。~~（2026-10-17）
 
 #### 2.1.3 角色表 (cf_roles)
 

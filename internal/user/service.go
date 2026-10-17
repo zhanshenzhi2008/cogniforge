@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strings"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -12,6 +13,7 @@ import (
 
 	"cogniforge/internal/database"
 	"cogniforge/internal/model"
+	"cogniforge/internal/util"
 )
 
 type UserService struct {
@@ -66,9 +68,18 @@ func (s *UserService) ListUsers(req *ListUsersRequest) (*ListUsersResponse, erro
 
 // CreateUser 创建用户（管理员）
 func (s *UserService) CreateUser(req *CreateUserRequest) (*model.User, error) {
+	email := strings.TrimSpace(strings.ToLower(req.Email))
+	name := util.NormalizeUsername(req.Name)
+	if err := util.ValidateUsername(name); err != nil {
+		return nil, err
+	}
+
 	var existing model.User
-	if err := s.db.Where("email = ?", req.Email).First(&existing).Error; err == nil {
+	if err := s.db.Where("email = ?", email).First(&existing).Error; err == nil {
 		return nil, fmt.Errorf("该邮箱已被注册")
+	}
+	if err := s.db.Where("name = ?", name).First(&existing).Error; err == nil {
+		return nil, fmt.Errorf("该用户名已被使用")
 	}
 
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
@@ -78,8 +89,8 @@ func (s *UserService) CreateUser(req *CreateUserRequest) (*model.User, error) {
 
 	user := model.User{
 		ID:        generateID(),
-		Email:     req.Email,
-		Name:      req.Name,
+		Email:     email,
+		Name:      name,
 		Password:  string(hashedPassword),
 		Status:    req.Status,
 		Role:      req.Role,
@@ -130,7 +141,15 @@ func (s *UserService) UpdateUser(userID string, req *UpdateUserRequest) (*model.
 
 	updates := make(map[string]interface{})
 	if req.Name != "" {
-		updates["name"] = req.Name
+		name := util.NormalizeUsername(req.Name)
+		if err := util.ValidateUsername(name); err != nil {
+			return nil, err
+		}
+		var clash model.User
+		if err := s.db.Where("name = ? AND id <> ?", name, userID).First(&clash).Error; err == nil {
+			return nil, fmt.Errorf("该用户名已被使用")
+		}
+		updates["name"] = name
 	}
 	if req.AvatarURL != "" {
 		updates["avatar_url"] = req.AvatarURL
@@ -156,10 +175,33 @@ func (s *UserService) UpdateUser(userID string, req *UpdateUserRequest) (*model.
 	return &user, nil
 }
 
-// DeleteUser 删除用户（软删除）
+// DeleteUser 删除用户（软删除）。删前改名改邮箱，释放 uk_users_name / uk_users_email。
 func (s *UserService) DeleteUser(userID string) error {
-	if userID == "admin" {
-		return fmt.Errorf("不能删除默认管理员")
+	var user model.User
+	if err := s.db.Where("id = ?", userID).First(&user).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return fmt.Errorf("用户不存在")
+		}
+		return fmt.Errorf("删除失败")
+	}
+
+	stamp := time.Now().Unix()
+	short := userID
+	if len(short) > 8 {
+		short = short[:8]
+	}
+	freedName := fmt.Sprintf("%s__del_%s_%d", user.Name, short, stamp)
+	if len(freedName) > 100 {
+		freedName = freedName[:100]
+	}
+	freedEmail := fmt.Sprintf("deleted+%s.%d@invalid.local", short, stamp)
+
+	if err := s.db.Model(&user).Updates(map[string]interface{}{
+		"name":       freedName,
+		"email":      freedEmail,
+		"updated_at": time.Now(),
+	}).Error; err != nil {
+		return fmt.Errorf("删除失败")
 	}
 
 	result := s.db.Where("id = ?", userID).Delete(&model.User{})
@@ -201,7 +243,15 @@ func (s *UserService) UpdateCurrentUser(userID string, req *UpdateUserRequest) (
 
 	updates := make(map[string]interface{})
 	if req.Name != "" {
-		updates["name"] = req.Name
+		name := util.NormalizeUsername(req.Name)
+		if err := util.ValidateUsername(name); err != nil {
+			return nil, err
+		}
+		var clash model.User
+		if err := s.db.Where("name = ? AND id <> ?", name, userID).First(&clash).Error; err == nil {
+			return nil, fmt.Errorf("该用户名已被使用")
+		}
+		updates["name"] = name
 	}
 	if req.AvatarURL != "" {
 		updates["avatar_url"] = req.AvatarURL

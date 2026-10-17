@@ -38,7 +38,7 @@ func TestAdminResetPassword_UserNotFound(t *testing.T) {
 func TestAdminResetPassword_SuccessThenLogin(t *testing.T) {
 	router := setupResetPasswordRouter()
 	email := "admin-reset@example.com"
-	token := registerUserAndGetToken(t, router, email, "password123", "Admin Reset")
+	token := registerUserAndGetToken(t, router, email, "password123", "AdminReset")
 	require.NotEmpty(t, token)
 
 	userID := extractUserIDFromRegister(t, router, email, "password123")

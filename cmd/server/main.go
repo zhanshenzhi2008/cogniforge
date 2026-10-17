@@ -40,6 +40,10 @@ func main() {
 		slog.Error("failed to connect database", "error", err)
 		return
 	}
+	// 清理种子账号 + 同名冲突，再 AutoMigrate 加 uk_users_name
+	if err := auth.PrepareUserNameUniqueness(db); err != nil {
+		slog.Warn("prepare username uniqueness failed", "error", err)
+	}
 	if err := db.AutoMigrate(
 		&model.User{},
 		&model.UserSettings{},

@@ -230,7 +230,7 @@ docker compose up -d
 
 CI/CD 工作流：
 - 测试：`.github/workflows/ci.yml`（PR 阶段触发）
-- 部署：`.github/workflows/cd.yml`（push main 自动部署到服务器）
+- 部署：`.github/workflows/cd.yml`（CI 成功后再部署；`workflow_run`）
 
 ---
 

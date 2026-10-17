@@ -3,6 +3,8 @@
 ## [变更记录]
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|---------|--------|
+| 2026-10-17 | v1.37 | workflow 显示名 Deploy → CD（与 CI 对称） | orjrs |
+| 2026-10-17 | v1.36 | CD 改 workflow_run：等 CI 成功再部署（方案 B） | orjrs |
 | 2026-10-17 | v1.35 | 容器默认 TZ=Asia/Shanghai，修 Portainer 日志少 8 小时 | orjrs |
 | 2026-10-16 | v1.34 | cogniforge-ai Dockerfile：按 pyproject 装依赖，修 pip/hatch 构建失败 | orjrs |
 | 2026-10-16 | v1.33 | GHCR 镜像扁平化：与仓名对齐（同 ai-job-hunter） | orjrs |
@@ -12,6 +14,20 @@
 | 2026-08-16 | v1.29 | 前端 Docker 钉 pnpm@9，避免 ERR_PNPM_IGNORED_BUILDS | orjrs |
 | 2026-08-15 | v1.28 | 模型配置走 Redis；cogniforge-ai 增加 REDIS_HOST | orjrs |
 | 2026-08-15 | v1.27 | Python LLM 回调 Go；cogniforge-ai 增加 COGNIFORGE_API_URL | orjrs |
+
+## [变更] workflow 显示名改为 CD（2026-10-17）
+
+- **变更原因**：与 CI 对称；Actions 页、`gh workflow run CD` 更好认
+- **包含代码**：三仓 `.github/workflows/cd.yml` 的 `name: CD`；deploy skill 模板
+- **变更前 vs 变更后**：~~`name: Deploy`~~ → `name: CD`（文件仍是 `cd.yml`；job 步骤名「Deploy to remote…」不变）
+
+## [变更] CD 等 CI 成功再部署（2026-10-17）
+
+- **变更原因**：CI 与 CD 原先都 `on.push`，并行跑时测试失败仍可能部署
+- **包含代码**：三仓 `.github/workflows/cd.yml`；deploy / github-cicd-template skill 模板
+- **变更前 vs 变更后**：~~`on.push` branches main~~ → `on.workflow_run` 监听 `name: CI`，`conclusion == success` 且 `head_branch == main` 才 build/deploy；`checkout` / 镜像 tag 用 `head_sha`
+- **手动**：仍可用 Actions → CD → `workflow_dispatch`
+- **生效**：合入 main 后先看 CI 绿，再自动出 CD；CI 红则 CD 直接 skip
 
 ## [变更] 容器时区 Asia/Shanghai（2026-10-17）
 

@@ -4,12 +4,34 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|---------|--------|
+| 2026-10-17 | v2.3 | 来源字段；同 Agent 再导入发新版本，不加 (2) | orjrs |
+| 2026-10-17 | v2.2 | 无独立编码：同用户 name 唯一 | orjrs |
 | 2026-10-17 | v2.1 | 补齐剩余 backlog 清单；与开发计划阶段十七任务表对齐 | orjrs |
 | 2026-10-17 | v2.0 | 工业闭环：发布态、变量定义、渲染、Agent 绑定、导入、评估代入 | orjrs |
 | 2026-10-17 | v1.3 | 版本删除 / 设当前 / 双版对比 / {{var}} 预览 | orjrs |
 | 2026-10-15 | v1.2 | 评估页提示词/版本下拉，免手抄 version id | orjrs |
 | 2026-10-15 | v1.1 | 落地 CRUD + Web /prompts；评估联动已接线 | orjrs |
 | 2026-10-15 | v1.0 | 立项：提示词库 + 版本；与评估体系联动（target=prompt） | orjrs |
+
+## [变更] 来源字段 + 同 Agent 再导入（2026-10-17）
+
+- **变更原因**：同一 Agent 多次导入堆 `名称 (2)` 不合适；需要可追溯来源
+- **设计**：
+  - 字段：`source_type`（manual/agent/skill）、`source_id`、`source_name`（展示快照）
+  - 约束：`uk_prompts_user_source (user_id, source_type, source_id)`；手建 `source_id` 为空（可多条）
+  - **同一 Agent 再导入**：在原提示词上发新 published 版本，不新建资产
+  - 名称仍按用户唯一；仅首次导入且与其它提示词撞名时才加 `(2)`
+- **UI**：详情显示「来源：Agent「xxx」」；导入 toast 区分新建 / 同步新版
+
+## [变更] 名称唯一、无独立编码（2026-10-17）
+
+- **变更原因**：不需要 slug/编码字段；导入/新建若同名会撞车
+- **设计**：
+  - **对人只展示 `name`**（版本用 `v1/v2`，不展示 UUID）
+  - **同一 `user_id` 下 `name` 唯一**（`uk_prompts_user_name`）
+  - **新建/改名**：冲突 → 报错「该名称已存在」
+  - **删除**：软删前改名并清来源，原名可再建
+- **包含代码**：`model.Prompt` 联合唯一索引；`prompt.Service` Create/Update/Import/Delete；Web 去掉版本 UUID 展示
 
 ## [变更] 工业闭环（2026-10-17）
 
@@ -47,7 +69,8 @@
 
 ```
 prompts
-  id, user_id, name, description
+  id, user_id, name, description   -- 无 code/slug；uk_prompts_user_name(user_id,name)
+  source_type, source_id, source_name  -- manual/agent/skill；uk_prompts_user_source
   current_version_id
   variables jsonb  -- [{name, description, default, required}]
   tags jsonb
@@ -55,7 +78,7 @@ prompts
 
 prompt_versions
   id, prompt_id, user_id
-  version int
+  version int                      -- 对人展示 v1/v2，不展示 UUID
   status  draft|published
   content, changelog
   published_at, created_at
@@ -115,7 +138,7 @@ Agent：创建/更新可带 `prompt_id`。
 
 | 优先级 | 子项 | 内容 | 说明 |
 |--------|------|------|------|
-| P0 | 17.0 | **合入并部署**当前未 push 的工业闭环 | 线上仍是一期 CRUD；不部署则新能力不可用 |
+| P0 | 17.0 | **合入并部署**工业闭环 | 代码已 push；等/确认 CD 冒烟 |
 | P1 | 17.10 | **试跑**：选版本 + 填变量 + 调模型看一轮回答 | 不必开评估集也能验人设；可挂 `/prompts` 或复用 Playground |
 | P1 | 17.12 | **评估变量表单**：按 Prompt 变量定义生成输入框 | 现在评估页是手写 JSON，易错 |
 | P1 | 17.13 | **顶栏显示邮箱/区分同名用户** | 已出现两个 `name=admin` 导致「同站看不到提示词」误判 |

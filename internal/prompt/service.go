@@ -2,6 +2,7 @@ package prompt
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -25,10 +26,41 @@ func (s *Service) List(userID string) ([]model.Prompt, error) {
 	return list, err
 }
 
+func (s *Service) nameTaken(userID, name, excludeID string) bool {
+	q := s.db.Model(&model.Prompt{}).Where("user_id = ? AND name = ?", userID, name)
+	if excludeID != "" {
+		q = q.Where("id <> ?", excludeID)
+	}
+	var n int64
+	_ = q.Count(&n).Error
+	return n > 0
+}
+
+// uniqueNameForUser 在用户作用域内找可用名称；冲突时追加 " (2)" "(3)"…
+func (s *Service) uniqueNameForUser(userID, base string) string {
+	base = strings.TrimSpace(base)
+	if base == "" {
+		base = "未命名提示词"
+	}
+	if !s.nameTaken(userID, base, "") {
+		return base
+	}
+	for i := 2; i < 1000; i++ {
+		cand := fmt.Sprintf("%s (%d)", base, i)
+		if !s.nameTaken(userID, cand, "") {
+			return cand
+		}
+	}
+	return fmt.Sprintf("%s (%s)", base, uuid.New().String()[:8])
+}
+
 func (s *Service) Create(userID string, req *CreatePromptRequest) (*model.Prompt, *model.PromptVersion, error) {
 	name := strings.TrimSpace(req.Name)
 	if name == "" {
-		return nil, nil, errors.New("name 不能为空")
+		return nil, nil, errors.New("名称不能为空")
+	}
+	if s.nameTaken(userID, name, "") {
+		return nil, nil, errors.New("该名称已存在，请换一个")
 	}
 	now := time.Now()
 	p := &model.Prompt{
@@ -36,6 +68,7 @@ func (s *Service) Create(userID string, req *CreatePromptRequest) (*model.Prompt
 		UserID:      userID,
 		Name:        name,
 		Description: req.Description,
+		SourceType:  model.PromptSourceManual,
 		Variables:   normalizeVarDefs(req.Variables),
 		Tags:        model.JSONBArray(req.Tags),
 	}
@@ -96,7 +129,10 @@ func (s *Service) Update(userID, id string, req *UpdatePromptRequest) (*model.Pr
 	if req.Name != nil {
 		n := strings.TrimSpace(*req.Name)
 		if n == "" {
-			return nil, errors.New("name 不能为空")
+			return nil, errors.New("名称不能为空")
+		}
+		if s.nameTaken(userID, n, p.ID) {
+			return nil, errors.New("该名称已存在，请换一个")
 		}
 		p.Name = n
 	}
@@ -128,6 +164,24 @@ func (s *Service) Delete(userID, id string) error {
 			return err
 		}
 		if err := tx.Where("prompt_id = ?", p.ID).Delete(&model.PromptVersion{}).Error; err != nil {
+			return err
+		}
+		// 软删前改名并清来源，释放 uk_prompts_user_name / uk_prompts_user_source
+		stamp := time.Now().Unix()
+		short := p.ID
+		if len(short) > 8 {
+			short = short[:8]
+		}
+		freed := fmt.Sprintf("%s__del_%s_%d", p.Name, short, stamp)
+		if len(freed) > 255 {
+			freed = freed[:255]
+		}
+		if err := tx.Model(p).Updates(map[string]interface{}{
+			"name":        freed,
+			"source_type": model.PromptSourceManual,
+			"source_id":   nil,
+			"source_name": "",
+		}).Error; err != nil {
 			return err
 		}
 		return tx.Delete(p).Error
@@ -356,17 +410,79 @@ func (s *Service) ImportFromAgent(userID string, req *ImportRequest) (*model.Pro
 	if content == "" {
 		return nil, nil, errors.New("该 Agent 没有 system_prompt 可导入")
 	}
+
+	// 同一 Agent 已导入过 → 在原资产上发新版（不堆 (2)(3)）
+	var existing model.Prompt
+	err := s.db.Where("user_id = ? AND source_type = ? AND source_id = ?",
+		userID, model.PromptSourceAgent, agentID).First(&existing).Error
+	if err == nil {
+		ver, err := s.CreateVersion(userID, existing.ID, &CreateVersionRequest{
+			Content:   content,
+			Changelog: "从 Agent「" + ag.Name + "」重新导入",
+			Publish:   true,
+		})
+		if err != nil {
+			return nil, nil, err
+		}
+		// 刷新来源展示名（Agent 可能已改名）
+		_ = s.db.Model(&existing).Updates(map[string]interface{}{
+			"source_name": ag.Name,
+			"description": "从 Agent「" + ag.Name + "」导入",
+		}).Error
+		p, _, _ := s.Get(userID, existing.ID)
+		if p == nil {
+			p = &existing
+		}
+		return p, ver, nil
+	}
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil, err
+	}
+
 	name := strings.TrimSpace(req.Name)
 	if name == "" {
 		name = ag.Name + " 提示词"
 	}
-	return s.Create(userID, &CreatePromptRequest{
+	// 仅与「其它提示词」撞名时加后缀；与来源无关的手建同名才需要
+	name = s.uniqueNameForUser(userID, name)
+
+	now := time.Now()
+	srcID := agentID
+	p := &model.Prompt{
+		ID:          uuid.New().String(),
+		UserID:      userID,
 		Name:        name,
 		Description: "从 Agent「" + ag.Name + "」导入",
-		Content:     content,
-		Changelog:   "从 Agent 导入",
-		Tags:        []string{"imported", "agent"},
+		SourceType:  model.PromptSourceAgent,
+		SourceID:    &srcID,
+		SourceName:  ag.Name,
+		Tags:        model.JSONBArray{"imported", "agent"},
+	}
+	var ver *model.PromptVersion
+	err = s.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(p).Error; err != nil {
+			return err
+		}
+		ver = &model.PromptVersion{
+			ID:          uuid.New().String(),
+			PromptID:    p.ID,
+			UserID:      userID,
+			Version:     1,
+			Status:      model.PromptVersionPublished,
+			Content:     content,
+			Changelog:   "从 Agent 导入",
+			PublishedAt: &now,
+		}
+		if err := tx.Create(ver).Error; err != nil {
+			return err
+		}
+		p.CurrentVersionID = ver.ID
+		return tx.Save(p).Error
 	})
+	if err != nil {
+		return nil, nil, err
+	}
+	return p, ver, nil
 }
 
 func (s *Service) ListUsages(userID, promptID string) ([]PromptUsage, error) {

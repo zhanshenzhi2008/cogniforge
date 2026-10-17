@@ -16,6 +16,10 @@ import (
 const (
 	PromptVersionDraft     = "draft"
 	PromptVersionPublished = "published"
+
+	PromptSourceManual = "manual" // 手建
+	PromptSourceAgent  = "agent"  // 从 Agent 导入
+	PromptSourceSkill  = "skill"  // 从 Skill 导入（预留）
 )
 
 // PromptVarDef 提示词变量定义（工业：声明式，评估/运行时代入）
@@ -56,12 +60,16 @@ func (j PromptVarDefs) Value() (driver.Value, error) {
 	return json.Marshal(j)
 }
 
-// Prompt 提示词资产
+// Prompt 提示词资产（无独立编码；对人只展示 name。同一用户下 name 唯一。）
+// 来源：手建 / Agent / Skill；同一用户同一来源只对应一条资产（再导入发新版本，不加 (2)）。
 type Prompt struct {
 	ID               string         `gorm:"primaryKey;type:varchar(64)" json:"id"`
-	UserID           string         `gorm:"type:varchar(64);not null;index:idx_prompts_user_id" json:"user_id"`
-	Name             string         `gorm:"type:varchar(255);not null" json:"name"`
+	UserID           string         `gorm:"type:varchar(64);not null;uniqueIndex:uk_prompts_user_name;uniqueIndex:uk_prompts_user_source,priority:1" json:"user_id"`
+	Name             string         `gorm:"type:varchar(255);not null;uniqueIndex:uk_prompts_user_name" json:"name"`
 	Description      string         `gorm:"type:text" json:"description"`
+	SourceType       string         `gorm:"type:varchar(32);not null;default:'manual';uniqueIndex:uk_prompts_user_source,priority:2" json:"source_type"`
+	SourceID         *string        `gorm:"type:varchar(64);uniqueIndex:uk_prompts_user_source,priority:3" json:"source_id,omitempty"` // Agent/Skill id；手建为 null（可多条）
+	SourceName       string         `gorm:"type:varchar(255)" json:"source_name,omitempty"`                                           // 来源展示名快照
 	CurrentVersionID string         `gorm:"type:varchar(64)" json:"current_version_id"`
 	Variables        PromptVarDefs  `gorm:"type:jsonb" json:"variables"` // 声明式变量
 	Tags             JSONBArray     `gorm:"type:jsonb" json:"tags"`

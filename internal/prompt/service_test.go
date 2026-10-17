@@ -121,6 +121,58 @@ func TestPrompt_Delete(t *testing.T) {
 	assert.Empty(t, list)
 }
 
+func TestPrompt_DuplicateName(t *testing.T) {
+	db := setupPromptDB(t)
+	svc := NewService(db)
+	_, _, err := svc.Create("u1", &CreatePromptRequest{Name: "客服", Content: "a"})
+	require.NoError(t, err)
+	_, _, err = svc.Create("u1", &CreatePromptRequest{Name: "客服", Content: "b"})
+	require.Error(t, err)
+	// 不同用户可同名
+	_, _, err = svc.Create("u2", &CreatePromptRequest{Name: "客服", Content: "c"})
+	require.NoError(t, err)
+}
+
+func TestPrompt_Import_SameAgent_ReimportsAsNewVersion(t *testing.T) {
+	db := setupPromptDB(t)
+	svc := NewService(db)
+	ag := model.Agent{
+		ID: "a1", UserID: "u1", Name: "助手",
+		SystemPrompt: "第一版正文", Status: "active",
+	}
+	require.NoError(t, db.Create(&ag).Error)
+
+	p1, v1, err := svc.ImportFromAgent("u1", &ImportRequest{AgentID: "a1"})
+	require.NoError(t, err)
+	assert.Equal(t, 1, v1.Version)
+	assert.Equal(t, model.PromptSourceAgent, p1.SourceType)
+	require.NotNil(t, p1.SourceID)
+	assert.Equal(t, "a1", *p1.SourceID)
+	assert.Equal(t, "助手", p1.SourceName)
+
+	ag.SystemPrompt = "第二版正文"
+	require.NoError(t, db.Save(&ag).Error)
+	p2, v2, err := svc.ImportFromAgent("u1", &ImportRequest{AgentID: "a1"})
+	require.NoError(t, err)
+	assert.Equal(t, p1.ID, p2.ID, "同一 Agent 应落到同一条提示词")
+	assert.Equal(t, 2, v2.Version)
+	assert.Contains(t, v2.Content, "第二版")
+
+	list, err := svc.List("u1")
+	require.NoError(t, err)
+	assert.Len(t, list, 1)
+}
+
+func TestPrompt_Delete_FreesName(t *testing.T) {
+	db := setupPromptDB(t)
+	svc := NewService(db)
+	p, _, err := svc.Create("u1", &CreatePromptRequest{Name: "可复用", Content: "x"})
+	require.NoError(t, err)
+	require.NoError(t, svc.Delete("u1", p.ID))
+	_, _, err = svc.Create("u1", &CreatePromptRequest{Name: "可复用", Content: "y"})
+	require.NoError(t, err)
+}
+
 func TestPrompt_Render_AndImport(t *testing.T) {
 	db := setupPromptDB(t)
 	svc := NewService(db)

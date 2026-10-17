@@ -3,6 +3,8 @@
 ## [变更记录]
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|---------|--------|
+| 2026-10-17 | v1.20 | prompts：source_type/id/name + uk_prompts_user_source | orjrs |
+| 2026-10-17 | v1.19 | prompts：uk_prompts_user_name（同用户 name 唯一） | orjrs |
 | 2026-10-17 | v1.18 | users.name 唯一索引 uk_users_name；软删前改名释放 | orjrs |
 | 2026-10-15 | v1.17 | 提示词表 prompts / prompt_versions；eval_runs 增 model、system_prompt | orjrs |
 | 2026-10-15 | v1.16 | 评估体系表 eval_suites / eval_cases / eval_runs / eval_results | orjrs |
@@ -19,6 +21,19 @@
 | 2026-08-16 | v1.2 | Redis 键统一 `cogniforge:` 前缀；多项目用前缀隔离，不拆 db0/db1 | orjrs |
 | 2026-08-15 | v1.1 | 落地模型配置 Redis 键（当时为 `cf:modelcfg:*`） | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] prompts 来源字段（2026-10-17）
+
+- **变更原因**：同 Agent 多次导入不应堆多条；需可追溯来源
+- **新列**：`source_type`、`source_id`（可空）、`source_name`
+- **索引**：`uk_prompts_user_source (user_id, source_type, source_id)`（手建 source_id 为空可多条）
+- **行为**：同 source 再导入 → 原资产发新版本
+
+## [变更] prompts 同用户 name 唯一（2026-10-17）
+
+- **变更原因**：提示词不另设编码；导入/新建靠名称识别，需防重
+- **索引**：`uk_prompts_user_name (user_id, name)`（替代仅 `idx_prompts_user_id`）
+- **软删**：删前改名并清来源，释放唯一键
 
 ## [变更] users.name 全局唯一（2026-10-17）
 
@@ -41,7 +56,7 @@
   - `prompts`（user_id, name, description, current_version_id）
   - `prompt_versions`（prompt_id, user_id, version, content, changelog）
 - **变更列**：`eval_runs` 增加 `model`、`system_prompt`；`target_type` 可取值 `prompt`
-- **索引**：`idx_prompts_user_id`、`idx_prompt_versions_prompt_id`、`idx_prompt_versions_user_id`
+- **索引**：~~`idx_prompts_user_id`~~（2026-10-17）→ `uk_prompts_user_name (user_id, name)`；`idx_prompt_versions_prompt_id`、`idx_prompt_versions_user_id`
 
 ## [变更] 评估体系四表（2026-10-15）
 

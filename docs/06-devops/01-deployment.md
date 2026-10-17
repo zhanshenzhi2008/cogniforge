@@ -3,6 +3,8 @@
 ## [变更记录]
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|---------|--------|
+| 2026-10-17 | v1.39 | Go 监听端口改名 COGNIFORGE_PORT（兼容旧 PORT） | orjrs |
+| 2026-10-17 | v1.38 | compose 去掉写死 environment，业务配置一律 .env | orjrs |
 | 2026-10-17 | v1.37 | workflow 显示名 Deploy → CD（与 CI 对称） | orjrs |
 | 2026-10-17 | v1.36 | CD 改 workflow_run：等 CI 成功再部署（方案 B） | orjrs |
 | 2026-10-17 | v1.35 | 容器默认 TZ=Asia/Shanghai，修 Portainer 日志少 8 小时 | orjrs |
@@ -14,6 +16,28 @@
 | 2026-08-16 | v1.29 | 前端 Docker 钉 pnpm@9，避免 ERR_PNPM_IGNORED_BUILDS | orjrs |
 | 2026-08-15 | v1.28 | 模型配置走 Redis；cogniforge-ai 增加 REDIS_HOST | orjrs |
 | 2026-08-15 | v1.27 | Python LLM 回调 Go；cogniforge-ai 增加 COGNIFORGE_API_URL | orjrs |
+
+## [变更] Go 监听端口 COGNIFORGE_PORT（2026-10-17）
+
+- **变更原因**：三仓共享 `.env` 时通用 `PORT` 易与 AI（8086）混淆
+- **包含代码**：`cmd/server/main.go`、`configs/config.yaml`、`.env.example`
+- **变更前 vs 变更后**：~~`PORT=8080`~~ → `COGNIFORGE_PORT=8080`；启动仍兼容旧 `PORT`（新变量优先）
+- **服务器**：把 `.env` 中 `PORT=` 改成 `COGNIFORGE_PORT=` 后重启 `cogniforge`
+
+## [变更] compose 业务配置一律走 .env（2026-10-17）
+
+- **变更原因**：`COGNIFORGE_API_URL` / `GIN_MODE` / Redis 等写在 compose `environment` 会盖掉 `.env`，且与「单部署目录一份 .env」约定冲突
+- **包含代码**：`docker-compose.yml`、`cogniforge-ai/docker-compose-ai.yml`、两侧 `.env.example`
+- **变更前 vs 变更后**：
+  - ~~Go compose `environment: GIN_MODE` / `AI_SERVICE_URL`~~ → 只 `env_file: .env`
+  - ~~AI compose 写死 `HOST`/`PORT`/`COGNIFORGE_API_URL`/`REDIS_*`/`LOG_LEVEL`~~ → 只 `env_file: .env`
+- **须写入服务器 `/opt/project/cogniforge/.env`**：
+  - `GIN_MODE=release`、`COGNIFORGE_PORT=8080`
+  - `RAG_PYTHON_URL=http://cogniforge-ai:8086`（Go→AI；代码不读 `AI_SERVICE_URL`）
+  - `COGNIFORGE_API_URL=http://cogniforge:8080`（AI→Go）
+  - `REDIS_HOST` / `REDIS_PORT` / `REDIS_PWD`（与公用 Redis 一致）
+- **AI 监听**：镜像 Dockerfile `CMD` 仍固定 `0.0.0.0:8086`
+- **服务器**：对齐仓库 compose 后 `compose pull && up -d`（或 Portainer 重建）；先改 `.env` 再重启
 
 ## [变更] workflow 显示名改为 CD（2026-10-17）
 
@@ -96,7 +120,7 @@
   - `COGNIFORGE_API_URL=http://cogniforge:8080`（本地开发用 `http://localhost:8080`）
   - `PGSQL_*`（pgvector 仍直连数据库）
 - **cogniforge-ai `.env` 请删除**：`ENCRYPTION_KEY`（不再解 LLM Key）、`OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `OPENROUTER_API_KEY` / `DEFAULT_MODEL`
-- **Go `.env` 不要删**：`ENCRYPTION_KEY`（Go 自己解密 `ai_providers`）、`JWT_SECRET`、`PGSQL_*`、`REDIS_*`、`DOMAIN`、`AI_SERVICE_URL`
+- **Go `.env` 不要删**：`ENCRYPTION_KEY`（Go 自己解密 `ai_providers`）、`JWT_SECRET`、`PGSQL_*`、`REDIS_*`、`DOMAIN`、`RAG_PYTHON_URL`、`COGNIFORGE_API_URL`
 
 删完后分别重启 `cogniforge` 与 `cogniforge-ai` 容器。GoLand 本地调试需 Restart Debug 才会加载新的 `/embeddings`。
 
@@ -112,7 +136,7 @@
   - `OPENROUTER_HTTP_REFERER`
   - `OPENROUTER_TITLE`
   - 若误写在此文件：`OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `OPENROUTER_API_KEY`
-- **不要删**：`ENCRYPTION_KEY`、`JWT_SECRET`、`PGSQL_*`、`REDIS_*`、`DOMAIN`、`AI_SERVICE_URL`（Python 服务地址）
+- **不要删**：`ENCRYPTION_KEY`、`JWT_SECRET`、`PGSQL_*`、`REDIS_*`、`DOMAIN`、`RAG_PYTHON_URL`（Go→AI）、`COGNIFORGE_API_URL`（AI→Go）
 - ~~**cogniforge-ai** 同样读 `ai_providers`。需要与 Go 相同的 `ENCRYPTION_KEY`~~（2026-08-15，改为只回调 Go）
 
 删完后重新 `docker compose up -d` 或重启 cogniforge 容器。

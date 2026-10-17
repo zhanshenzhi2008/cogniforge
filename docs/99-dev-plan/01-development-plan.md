@@ -4,6 +4,8 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-10-17 | v1.92 | Go 监听端口改名 COGNIFORGE_PORT（兼容旧 PORT） | orjrs |
+| 2026-10-17 | v1.91 | compose 去掉写死 environment；COGNIFORGE_API_URL / RAG_PYTHON_URL 走 .env | orjrs |
 | 2026-10-17 | v1.90 | 修 web_search：Tavily keyless 非 200 返回 (nil,nil) 导致对话 500 | orjrs |
 | 2026-10-17 | v1.89 | 架构：LLM 传输层 Completions/Responses 可切换设计 | orjrs |
 | 2026-10-17 | v1.88 | CD 改 workflow_run：等 CI 成功再部署（方案 B） | orjrs |
@@ -89,6 +91,19 @@
 | 2026-04-11 | v1.2 | 阶段八监控中心完成（请求日志中间件、日志列表 API、用量统计 API、监控仪表板页面） | orjrs |
 | 2026-04-17 | v1.3 | 阶段九用户管理与个人设置完成（用户CRUD、个人设置、会话管理、RBAC权限系统） | orjrs |
 > 注：任务状态变更直接在下方任务表格中更新即可，无需额外记录。
+
+## [变更] COGNIFORGE_PORT（2026-10-17）
+
+- **变更原因**：共享 `.env` 下通用 `PORT` 易与 AI 8086 混淆
+- **包含代码**：`cmd/server/main.go`、`configs/config.yaml`、`.env.example`；部署文档 v1.39
+- **变更前 vs 变更后**：~~`PORT`~~ → `COGNIFORGE_PORT`（仍兼容旧 `PORT`）
+
+## [变更] compose 业务配置一律 .env（2026-10-17）
+
+- **变更原因**：compose `environment` 写死 `COGNIFORGE_API_URL` 等，与共享 `.env` 冲突且难改
+- **包含代码**：`docker-compose.yml`、`cogniforge-ai/docker-compose-ai.yml`、`.env.example`；部署文档 v1.38
+- **变更前 vs 变更后**：~~compose 写死 GIN_MODE / AI_SERVICE_URL / COGNIFORGE_API_URL / REDIS_*~~ → 只 `env_file: .env`
+- **跨仓库**：cogniforge-ai 同步；服务器 `.env` 须含 `RAG_PYTHON_URL`、`COGNIFORGE_API_URL`
 
 ## [变更] 修 web_search 对话 500（2026-10-17）
 

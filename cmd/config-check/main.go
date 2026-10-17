@@ -18,7 +18,7 @@ func main() {
 	// 模拟 expandEnvVarsInFile
 	data, _ := os.ReadFile("configs/config.yaml")
 	replacer := strings.NewReplacer(
-		"${PORT:-8080}", getEnv("PORT", "8080"),
+		"${COGNIFORGE_PORT:-8080}", getEnv("COGNIFORGE_PORT", "8080"),
 		"${GIN_MODE:-debug}", getEnv("GIN_MODE", "debug"),
 		"${PGSQL_HOST:-localhost}", getEnv("PGSQL_HOST", "localhost"),
 		"${PGSQL_PORT:-5433}", getEnv("PGSQL_PORT", "5433"),

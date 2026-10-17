@@ -113,7 +113,11 @@ func main() {
 	// 设置路由
 	router.SetupRoutes(r, cfg, db)
 
-	port := os.Getenv("PORT")
+	// COGNIFORGE_PORT 优先；兼容旧 PORT；默认 8080（勿与 AI 的 8086 混用）
+	port := os.Getenv("COGNIFORGE_PORT")
+	if port == "" {
+		port = os.Getenv("PORT")
+	}
 	if port == "" {
 		port = "8080"
 	}

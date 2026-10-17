@@ -67,6 +67,9 @@ func (t *TavilyClient) Search(ctx context.Context, query string, maxResults int)
 
 // searchWithKey 使用 API Key 搜索
 func (t *TavilyClient) searchWithKey(ctx context.Context, query string, maxResults int) (*SearchResult, error) {
+	if t.client == nil {
+		return nil, fmt.Errorf("tavily client not configured")
+	}
 	resp, err := t.client.SearchWithOptions(&tavily.SearchRequest{
 		Query:      query,
 		MaxResults: maxResults,
@@ -74,6 +77,9 @@ func (t *TavilyClient) searchWithKey(ctx context.Context, query string, maxResul
 	if err != nil {
 		slog.Error("Tavily search failed", "error", err, "query", query)
 		return nil, err
+	}
+	if resp == nil {
+		return nil, fmt.Errorf("tavily returned nil response")
 	}
 
 	results := make([]SearchResultItem, 0, len(resp.Results))

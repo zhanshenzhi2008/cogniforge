@@ -65,13 +65,21 @@ func (e *mcpToolExecutor) Execute(call ToolCall) (string, error) {
 	if e.registry == nil {
 		return "", fmt.Errorf("mcp registry not configured")
 	}
+	if e.executor == nil {
+		return "", fmt.Errorf("mcp executor not configured")
+	}
 	toolDef := e.registry.GetBuiltInTool(call.Function.Name)
 	if toolDef == nil {
 		return "", fmt.Errorf("unknown tool: %s", call.Function.Name)
 	}
-	var args map[string]interface{}
+	args := map[string]interface{}{}
 	if call.Function.Arguments != "" {
-		_ = json.Unmarshal([]byte(call.Function.Arguments), &args)
+		if err := json.Unmarshal([]byte(call.Function.Arguments), &args); err != nil {
+			return "", fmt.Errorf("invalid tool arguments: %w", err)
+		}
+		if args == nil {
+			args = map[string]interface{}{}
+		}
 	}
 	if toolDef.ServerType == "built-in" {
 		result, err := e.executor.Execute(toolDef.Name, args)

@@ -141,7 +141,15 @@ func (s *ChatService) Chat(req *ChatRequest) (*ChatResponse, error) {
 // MaxToolCalls = 5 硬上限，防止无限循环；实际次数由模型自主决定（没有 tool_calls 即停）
 const MaxToolCalls = 5
 
-func (s *ChatService) ChatWithTools(req *ChatRequest, toolExecutor ToolExecutor) (*ChatResponse, error) {
+func (s *ChatService) ChatWithTools(req *ChatRequest, toolExecutor ToolExecutor) (resp *ChatResponse, err error) {
+	defer func() {
+		if rec := recover(); rec != nil {
+			slog.Error("ChatWithTools panic recovered", "panic", rec, "model", req.Model)
+			resp = nil
+			err = fmt.Errorf("tool chat panic: %v", rec)
+		}
+	}()
+
 	if req.Model == "" {
 		req.Model = s.defaultModel()
 	}
@@ -169,23 +177,23 @@ func (s *ChatService) ChatWithTools(req *ChatRequest, toolExecutor ToolExecutor)
 		}
 
 		client := &http.Client{Timeout: 60 * time.Second}
-		resp, err := client.Do(httpReq)
+		httpResp, err := client.Do(httpReq)
 		if err != nil {
 			return nil, err
 		}
 
-		if resp.StatusCode != http.StatusOK {
-			respBody, _ := io.ReadAll(resp.Body)
-			resp.Body.Close()
-			return nil, fmt.Errorf("AI provider returned status %d: %s", resp.StatusCode, string(respBody))
+		if httpResp.StatusCode != http.StatusOK {
+			respBody, _ := io.ReadAll(httpResp.Body)
+			httpResp.Body.Close()
+			return nil, fmt.Errorf("AI provider returned status %d: %s", httpResp.StatusCode, string(respBody))
 		}
 
 		var chatResp ChatResponse
-		if err := json.NewDecoder(resp.Body).Decode(&chatResp); err != nil {
-			resp.Body.Close()
+		if err := json.NewDecoder(httpResp.Body).Decode(&chatResp); err != nil {
+			httpResp.Body.Close()
 			return nil, err
 		}
-		resp.Body.Close()
+		httpResp.Body.Close()
 
 		toolCalls := extractToolCalls(&chatResp)
 		if len(toolCalls) == 0 {
@@ -194,9 +202,12 @@ func (s *ChatService) ChatWithTools(req *ChatRequest, toolExecutor ToolExecutor)
 		}
 
 		// OpenAI 协议：先追加带 tool_calls 的 assistant 消息，再追加各 tool 结果
-		asst := ChatMessage{Role: "assistant", Content: nil}
+		// content 用 "" 而非 null，部分上游（含 DeepSeek）对 null + tool_calls 更挑剔
+		asst := ChatMessage{Role: "assistant", Content: ""}
 		if len(chatResp.Choices) > 0 {
-			asst.Content = chatResp.Choices[0].Message.Content
+			if chatResp.Choices[0].Message.Content != nil {
+				asst.Content = chatResp.Choices[0].Message.Content
+			}
 			asst.ToolCalls = chatResp.Choices[0].Message.ToolCalls
 			if len(asst.ToolCalls) == 0 {
 				asst.ToolCalls = chatResp.Choices[0].ToolCalls
@@ -205,10 +216,10 @@ func (s *ChatService) ChatWithTools(req *ChatRequest, toolExecutor ToolExecutor)
 		req.Messages = append(req.Messages, asst)
 
 		for _, tc := range toolCalls {
-			result, execErr := toolExecutor.Execute(tc)
-			content := "Error: " + execErr.Error()
-			if execErr == nil {
-				content = result
+			result, execErr := safeExecuteTool(toolExecutor, tc)
+			content := result
+			if execErr != nil {
+				content = "Error: " + execErr.Error()
 			}
 			req.Messages = append(req.Messages, ChatMessage{
 				Role:       "tool",
@@ -222,6 +233,20 @@ func (s *ChatService) ChatWithTools(req *ChatRequest, toolExecutor ToolExecutor)
 	// 达到 MaxToolCalls 硬上限，不再发请求，直接返回已有结果
 	// 实际应用中建议此时给出警告日志
 	return nil, fmt.Errorf("tool call limit (%d) reached, please reduce tool usage", MaxToolCalls)
+}
+
+func safeExecuteTool(toolExecutor ToolExecutor, tc ToolCall) (result string, err error) {
+	defer func() {
+		if rec := recover(); rec != nil {
+			slog.Error("tool execute panic recovered", "tool", tc.Function.Name, "panic", rec)
+			result = ""
+			err = fmt.Errorf("tool panic: %v", rec)
+		}
+	}()
+	if toolExecutor == nil {
+		return "", fmt.Errorf("tool executor not configured")
+	}
+	return toolExecutor.Execute(tc)
 }
 
 // extractToolCalls 从 chat response 中提取 tool_calls（优先 message.tool_calls，兼容 choice 顶层）

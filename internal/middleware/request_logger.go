@@ -60,11 +60,12 @@ func RequestLogger() gin.HandlerFunc {
 		blw := &bodyLogWriter{body: bytes.NewBufferString(""), ResponseWriter: c.Writer}
 		c.Writer = blw
 
-		// 获取用户 ID
-		userID, _ := c.Get("user_id")
+		// 获取用户 ID（勿用硬断言，避免非 string 时整请求 500）
 		userIDStr := ""
-		if userID != nil {
-			userIDStr = userID.(string)
+		if userID, ok := c.Get("user_id"); ok {
+			if s, ok := userID.(string); ok {
+				userIDStr = s
+			}
 		}
 
 		// 处理请求

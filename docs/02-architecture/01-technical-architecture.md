@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-10-17 | v4.10 | LLM 传输层设计：Chat Completions / Responses 可切换（Adapter+Strategy） | orjrs |
 | 2026-10-15 | v4.9 | MCP Registry 注入 Chat/Agent；Playground 可选 mcp_servers | orjrs |
 | 2026-08-18 | v4.8 | 配额闸门做在 Go 热路径；不走 Java 计费空目录 | orjrs |
 | 2026-08-16 | v4.7 | 未配置默认模型时对话返回 4010，不再 mock | orjrs |
@@ -17,6 +18,12 @@
 | 2026-04-27 | v3.0 | 后端从 handler 目录重构为业务模块化架构；新增 auth/user/chat/workflow/knowledge/agent 等独立模块，遵循 DTO → Service → Handler 分层模式 | orjrs |
 | 2026-04-04 | v2.0 | 后端架构由 gateway 独立目录收敛为 monolith；删除 go-standards/dev-environment rules；rules 文档变更记录规范 | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] LLM 传输层：Completions / Responses 可切换（2026-10-17）
+
+- **变更原因**：DeepSeek 等供应商同时提供 `/chat/completions` 与 `/responses`；官网联网挂在新协议，现有代码写死 Completions
+- **设计要点**：见下文 **§ LLM 传输层（Protocol Adapter）**；本期先落文档，实现按阶段切割
+- **不采用**：在 `ChatService` 里用 `if protocol == responses` 堆分支；不把 Anthropic Messages 与 Responses 混成一个 Adapter
 
 ## [变更] MCP Registry 注入对话热路径（2026-10-15）
 
@@ -419,21 +426,108 @@ cogniforge/
   - Prometheus 指标
 ```
 
-### 3.1 模型网关服务
+### 3.1 模型网关 / LLM 传输层（Protocol Adapter）
 
-**当前状态**：功能位于 `internal/chat/` 模块。
+**当前状态**：`internal/chat/service.go` 写死 OpenAI **Chat Completions**（`/v1/chat/completions`）；工具循环 `ChatWithTools` 也绑在这条协议上。
 
-```yaml
-实际位置: internal/chat/
-端口: 8080 (与 monolith 共享)
+**目标**：对内仍用现有 `ChatRequest` / `ChatResponse` / MCP 工具语义；对外可切换：
 
-核心功能:
-  - OpenAI 兼容 API 格式
-  - SSE 流式响应
-  - Mock 降级 (无 API Key 时)
+| 协议 | 典型路径 | 官方自带联网 | 你们现状 |
+|------|----------|--------------|----------|
+| `chat_completions` | `/v1/chat/completions` | 无（靠 MCP/Tavily） | ✅ 已实现 |
+| `responses` | `/v1/responses`（或供应商等价路径） | 可（如 DeepSeek `web_search`） | ❌ 待做 |
+| `anthropic_messages` | `/anthropic` Messages | 可（server tool） | ❌ 另议，不与 Responses 混一个 Adapter |
 
-支持的模型: OpenAI gpt-4o, gpt-4o-mini, gpt-3.5-turbo 等
+#### 为什么用「端口 + Adapter + Strategy」，而不是只写 Adapter
+
+| 模式 | 在本系统里的角色 |
+|------|------------------|
+| **端口（Port）** | `LLMTransport` 接口：业务只认对内 DTO，不认供应商 JSON |
+| **Adapter** | 每个协议一个实现：Completions ↔ 对内 DTO；Responses ↔ 对内 DTO |
+| **Strategy / Factory** | 按 `ai_providers` 上的协议字段选 Adapter；默认 `chat_completions` |
+
+单靠「Adapter」容易变成：业务层仍拼 URL、仍 `if deepseek`。  
+把「选哪套协议」交给 Strategy，把「怎么拼请求/拆响应」交给 Adapter，最贴合现在的 `ChatService` + `provider.Service`。
+
+#### 推荐结构（落代码时）
+
 ```
+internal/chat/
+  dto.go                 # 对内 DTO（已有，保持稳定）
+  service.go             # 编排：配额 / RAG / MCP 注入 / 调 Transport
+  transport/
+    transport.go         # interface LLMTransport
+    completions.go       # ChatCompletionsAdapter（从现 service 抽出）
+    responses.go         # ResponsesAdapter（新建）
+    factory.go           # 按 protocol 返回 Transport
+```
+
+```go
+// 对内端口（示意）
+type LLMTransport interface {
+    Chat(ctx context.Context, cfg EndpointConfig, req *ChatRequest) (*ChatResponse, error)
+    ChatStream(ctx context.Context, cfg EndpointConfig, req *ChatRequest, w StreamWriter) (*ChatUsage, error)
+    // 工具：Completions = 客户端执行 MCP；Responses = 可声明官方 web_search 或仍走 MCP
+    ChatWithTools(ctx context.Context, cfg EndpointConfig, req *ChatRequest, exec ToolExecutor) (*ChatResponse, error)
+}
+```
+
+```
+浏览器 / Agent
+    → Handler（不变）
+    → ChatService（编排不变：gate / RAG / InjectMCPTools）
+    → LLMTransport（可切换）
+         ├─ CompletionsAdapter  → https://api.xxx/v1/chat/completions
+         └─ ResponsesAdapter    → https://api.xxx/v1/responses
+```
+
+#### 多供应商模型管理：必须先想清楚的点
+
+你们 `ai_providers` 已经是多厂商（DeepSeek / OpenAI / Ollama / OpenRouter…），**不能**做成「选了 DeepSeek 就自动走 Responses」。协议能力因厂商而异：
+
+| 维度 | 说明 | 设计约束 |
+|------|------|----------|
+| **厂商 ≠ 协议** | 同一厂商可提供多种协议；不同厂商对 Responses 支持不一致 | `provider` 与 `api_protocol` **两个字段**；默认一律 `chat_completions` |
+| **能力矩阵** | 例：Ollama 通常只有 Completions；DeepSeek 可 Completions+Responses；Anthropic 走 Messages | Adapter 声明 `Capabilities`（stream / tools / native_web_search）；模型页只展示该协议可用选项 |
+| **BaseURL 规则** | Completions 常是 `…/v1` + `/chat/completions`；Responses 路径不同；有的要把 host 换成 `/anthropic` | Adapter 自己拼最终 URL；**禁止**业务层字符串拼接 |
+| **联网搜索两条腿** | Completions：MCP/Tavily（全厂商通用兜底）；Responses：可选官方 `web_search`（仅支持的厂商） | Playground「网络搜索」开着时：Transport 若 `native_web_search` 可用则走官方，否则降级 MCP |
+| **工具循环** | Completions：客户端 `tool_calls` + MCP；Responses：官方 server tool 与 MCP 可能并存 | `ChatWithTools` 留在 Service 编排层，Adapter 只负责「发一轮 / 解析工具请求」 |
+| **切换粒度** | 按「这一条供应商配置」切换，不是全局开关 | 用户可 DeepSeek=Responses、Ollama=Completions 同时存在；`GetActiveForChat` 带上该行的 `api_protocol` |
+| **测试 / 健康检查** | `POST /providers/:id/test` 必须按该行协议探测 | Test 走同一 Factory，避免 Completions 测通、Responses 运行挂 |
+
+推荐扩展（实现阶段再改表，文档先冻结语义）：
+
+```text
+ai_providers.api_protocol   = chat_completions | responses   # 默认 chat_completions
+# 可选后续：anthropic_messages（不要塞进 responses Adapter）
+```
+
+模型页交互建议：
+
+1. 选厂商 / 填 BaseURL / Key（现状）
+2. 增加「API 协议」下拉：默认「Chat Completions（兼容最广）」
+3. 选 Responses 时提示：「仅部分厂商支持官方联网；不支持时网络搜索仍走系统 MCP」
+4. 不支持的协议组合：保存时校验或 Test 失败给出明确错误，不要运行时才 500
+
+#### 怎么「切换」
+
+1. **配置切换（推荐）**：每条 `ai_providers` 行自带 `api_protocol`；聊天热路径读当前默认供应商的协议选 Adapter。
+2. **能力切换**：同一 Playground「网络搜索」开关；底层按 Adapter 能力选官方搜或 MCP。
+3. **禁止**：`if provider == "deepseek"` 写死协议；禁止全局一个 env 强迫所有厂商走 Responses。
+
+#### 落地顺序（避免一次改爆）
+
+1. 把现有 HTTP 拼装从 `service.go` **原样抽出**为 `CompletionsAdapter`（行为零变化；覆盖现有多厂商）
+2. 加 `factory` + `api_protocol` 默认 `chat_completions`（无迁移成本）
+3. 实现 `ResponsesAdapter`（先 DeepSeek 验证；能力矩阵标明 native_web_search）
+4. 模型页 + Test 按协议探测；文档写清 Completions=MCP 搜、Responses=可选官方搜
+
+#### 刻意不做
+
+- ~~在 Handler 层分两套 API~~（前端永远只打你们的 `/api/v1/chat/stream`）
+- ~~一个 Adapter 同时吞 Completions + Anthropic Messages~~（字段差太大，拆开更清晰）
+- ~~Python 再实现一套协议客户端~~（LLM 仍只经 Go）
+- ~~按厂商名硬编码协议~~（与多供应商模型管理冲突）
 
 ### 3.2 Agent 引擎服务
 

@@ -22,6 +22,8 @@ services:
       - .env
     environment:
       GIN_MODE: release
+      # TZ 由 Dockerfile ENV 提供（Asia/Shanghai）；仅临时覆盖时再解开
+      # TZ: ${TZ:-Asia/Shanghai}
       # ── 业务配置（云端不走 db.env 时也能跑）────────────────────
       AI_SERVICE_URL: http://cogniforge-ai:8086
     volumes:

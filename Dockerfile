@@ -34,6 +34,8 @@ RUN mkdir -p /app/uploads
 
 EXPOSE 8080
 
+# 镜像内默认北京时间（Portainer / Gin 日志）；compose 不必再写 TZ
+ENV TZ=Asia/Shanghai
 ENV GIN_MODE=release
 
 ENTRYPOINT ["./cogniforge"]

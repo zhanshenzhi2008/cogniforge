@@ -3,6 +3,7 @@
 ## [变更记录]
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|---------|--------|
+| 2026-10-17 | v1.35 | 容器默认 TZ=Asia/Shanghai，修 Portainer 日志少 8 小时 | orjrs |
 | 2026-10-16 | v1.34 | cogniforge-ai Dockerfile：按 pyproject 装依赖，修 pip/hatch 构建失败 | orjrs |
 | 2026-10-16 | v1.33 | GHCR 镜像扁平化：与仓名对齐（同 ai-job-hunter） | orjrs |
 | 2026-10-16 | v1.32 | CD 登录 GHCR 改用 GITHUB_TOKEN（不再依赖 IMAGE_REGISTRY_TOKEN） | orjrs |
@@ -11,6 +12,13 @@
 | 2026-08-16 | v1.29 | 前端 Docker 钉 pnpm@9，避免 ERR_PNPM_IGNORED_BUILDS | orjrs |
 | 2026-08-15 | v1.28 | 模型配置走 Redis；cogniforge-ai 增加 REDIS_HOST | orjrs |
 | 2026-08-15 | v1.27 | Python LLM 回调 Go；cogniforge-ai 增加 COGNIFORGE_API_URL | orjrs |
+
+## [变更] 容器时区 Asia/Shanghai（2026-10-17）
+
+- **变更原因**：Portainer 看 Gin 日志比北京时间少 8 小时（容器默认 UTC）
+- **约定**：**Dockerfile** 装 `tzdata` + `ENV TZ=Asia/Shanghai`；compose / `.env` 默认不写（注释保留，仅临时覆盖）
+- **包含代码**：三仓 `Dockerfile`；compose 中 `TZ` 行已注释；deploy skill §七·七 同步
+- **生效**：须重新 build/push 镜像后再 `compose pull && up -d`
 
 ## [变更] cogniforge-ai Docker 构建修 pip install（2026-10-16）
 

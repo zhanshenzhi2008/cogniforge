@@ -420,6 +420,8 @@ func (s *ChatService) buildPayload(req *ChatRequest, stream bool) map[string]any
 	// 阶段十五 15.2：注入 MCP 工具
 	if len(req.Tools) > 0 {
 		payload["tools"] = req.Tools
+		// 显式 auto，避免部分上游默认不调工具
+		payload["tool_choice"] = "auto"
 	}
 	return payload
 }

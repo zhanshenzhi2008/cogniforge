@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -129,7 +130,8 @@ func (t *TavilyClient) searchKeyless(ctx context.Context, query string, maxResul
 	if resp.StatusCode != 200 {
 		respBody, _ := io.ReadAll(resp.Body)
 		slog.Error("Tavily keyless search error", "status", resp.StatusCode, "body", string(respBody))
-		return nil, err
+		// 注意：此处外层 err 仍是 nil，必须新建错误，否则调用方拿到 (nil, nil) 会 NPE
+		return nil, fmt.Errorf("tavily keyless status %d: %s", resp.StatusCode, string(respBody))
 	}
 
 	var rawResp struct {

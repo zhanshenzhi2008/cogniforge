@@ -4,6 +4,8 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-10-17 | v1.90 | 修 web_search：Tavily keyless 非 200 返回 (nil,nil) 导致对话 500 | orjrs |
+| 2026-10-17 | v1.89 | 架构：LLM 传输层 Completions/Responses 可切换设计 | orjrs |
 | 2026-10-17 | v1.88 | CD 改 workflow_run：等 CI 成功再部署（方案 B） | orjrs |
 | 2026-10-16 | v1.87 | 修 cogniforge-ai Docker：按 pyproject 装依赖（hatch/README） | orjrs |
 | 2026-10-16 | v1.86 | GHCR 镜像扁平化（与仓名对齐，同 ai-job-hunter） | orjrs |
@@ -87,6 +89,19 @@
 | 2026-04-11 | v1.2 | 阶段八监控中心完成（请求日志中间件、日志列表 API、用量统计 API、监控仪表板页面） | orjrs |
 | 2026-04-17 | v1.3 | 阶段九用户管理与个人设置完成（用户CRUD、个人设置、会话管理、RBAC权限系统） | orjrs |
 > 注：任务状态变更直接在下方任务表格中更新即可，无需额外记录。
+
+## [变更] 修 web_search 对话 500（2026-10-17）
+
+- **变更原因**：开「网络搜索」问天气时 HTTP 500 空包；Tavily keyless 非 200 时 `return nil, err`（err 仍为 nil）→ `(nil,nil)` → 解引用 panic
+- **包含代码**：`internal/mcp/web_search.go`、`executor.go`；`chat` 工具系统提示 + `tool_choice=auto`；单测
+- **变更后**：搜索失败降级为工具 JSON `status=error`，对话不崩；引导模型先调工具再答
+
+## [变更] LLM 传输层设计（Completions / Responses）（2026-10-17）
+
+- **变更原因**：要在保留现有 `/chat/completions` 的同时，可切换到 `/responses`（官方联网等）
+- **包含文档**：`docs/02-architecture/01-technical-architecture.md` §3.1
+- **设计**：对内 DTO 不变；`LLMTransport` + Completions/Responses Adapter；`ai_providers.api_protocol` 切换
+- **实现**：尚未写代码；先抽 Completions，再加 Responses
 
 ## [变更] CD 等 CI 成功再部署（2026-10-17）
 

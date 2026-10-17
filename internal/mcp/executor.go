@@ -102,8 +102,12 @@ func (e *BuiltInExecutor) webSearch(args map[string]interface{}) (map[string]int
 	}
 
 	result, err := e.tavily.Search(context.Background(), query, maxResults)
-	if err != nil {
+	if err != nil || result == nil {
+		if err == nil {
+			err = fmt.Errorf("tavily returned empty result")
+		}
 		slog.Error("Web search failed", "error", err, "query", query)
+		// 降级为可序列化结果，勿返回 error，避免整轮对话 500；让模型根据 status=error 回答
 		return map[string]interface{}{
 			"query":   query,
 			"results": []map[string]string{},

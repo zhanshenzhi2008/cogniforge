@@ -252,7 +252,15 @@ func (h *AgentHandler) AgentChat(c *gin.Context) {
 				return
 			}
 			h.commitAgent(c, userID, model, nil, "error", started)
-			response.Fail(c, http.StatusBadGateway, "AI provider error: "+err.Error())
+			response.FailWithHTTPStatus(c, http.StatusBadGateway, response.CodeAIProviderError, "AI provider error: "+err.Error())
+			return
+		}
+		if chatResp == nil {
+			if h.quota != nil {
+				h.quota.RefundRequest(c.Request.Context(), userID)
+			}
+			h.commitAgent(c, userID, model, nil, "error", started)
+			response.InternalError(c, "empty tool chat response")
 			return
 		}
 		h.commitAgent(c, userID, model, &chatResp.Usage, "ok", started)

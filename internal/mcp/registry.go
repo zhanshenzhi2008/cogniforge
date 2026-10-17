@@ -67,13 +67,13 @@ func (r *Registry) registerBuiltInTools(srv *model.McpServer) {
 	case "web_search":
 		r.tools["web_search:search"] = ToolDefinition{
 			Name:        "web_search_search",
-			Description: "搜索互联网获取与关键词相关的信息列表",
+			Description: "搜索互联网获取实时信息。用户问天气、新闻、股价、赛事比分、最新事件等时效性问题时必须调用本工具，不要让用户去 App 自行搜索。",
 			InputSchema: map[string]interface{}{
 				"type": "object",
 				"properties": map[string]interface{}{
 					"query": map[string]interface{}{
 						"type":        "string",
-						"description": "搜索关键词，建议简洁具体",
+						"description": "搜索关键词，如「北京今天天气」「今日热点新闻」",
 					},
 					"max_results": map[string]interface{}{
 						"type":        "integer",

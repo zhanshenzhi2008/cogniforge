@@ -219,7 +219,16 @@ func (h *ChatHandler) ChatStream(c *gin.Context) {
 			slog.Error("ChatWithTools failed",
 				"error", err, "model", req.Model, "messages_count", len(req.Messages),
 			)
+			c.Header("Content-Type", "text/event-stream")
 			fmt.Fprintf(c.Writer, "data: {\"error\": \"AI provider error: %s\"}\n\n", err.Error())
+			c.Writer.Flush()
+			return
+		}
+		if chatResp == nil {
+			h.refund(c)
+			h.commit(c, "playground", req.Model, nil, "error", started)
+			c.Header("Content-Type", "text/event-stream")
+			fmt.Fprintf(c.Writer, "data: {\"error\": \"empty tool chat response\"}\n\n")
 			c.Writer.Flush()
 			return
 		}

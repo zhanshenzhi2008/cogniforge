@@ -11,12 +11,15 @@ import (
 
 func TestInjectMCPTools_WebSearch(t *testing.T) {
 	reg := mcp.NewRegistry()
-	req := &ChatRequest{}
+	req := &ChatRequest{Messages: []ChatMessage{{Role: "user", Content: "北京天气"}}}
 	InjectMCPTools(req, reg, []string{"web_search"})
 	require.Len(t, req.Tools, 1)
 	assert.Equal(t, "function", req.Tools[0].Type)
 	assert.Equal(t, "web_search_search", req.Tools[0].Function.Name)
 	assert.NotEmpty(t, req.Tools[0].Function.Description)
+	require.NotEmpty(t, req.Messages)
+	assert.Equal(t, "system", req.Messages[0].Role)
+	assert.Contains(t, req.Messages[0].Content.(string), "web_search_search")
 }
 
 func TestInjectMCPTools_NilSafe(t *testing.T) {

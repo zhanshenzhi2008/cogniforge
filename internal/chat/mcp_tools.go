@@ -3,6 +3,7 @@ package chat
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -14,11 +15,15 @@ func (h *ChatHandler) SetMCPRegistry(reg *mcp.Registry) {
 	h.mcpRegistry = reg
 }
 
+// toolUseSystemHint 有 MCP 工具时注入，避免模型套用「去 App 开联网」话术而不调工具
+const toolUseSystemHint = "你可以使用函数工具获取实时信息。用户询问天气、新闻、股价、比分等时效性问题时，必须先调用相应工具（如 web_search_search），再根据工具返回结果作答。禁止让用户去官方 App 开启联网或自行搜索；禁止声称自己无法获取实时信息（除非工具已返回失败）。"
+
 // InjectMCPTools 按 server ID 列表把工具 schema 写入 req.Tools（已有 Tools 时追加）
 func InjectMCPTools(req *ChatRequest, reg *mcp.Registry, serverIDs []string) {
 	if req == nil || reg == nil || len(serverIDs) == 0 {
 		return
 	}
+	before := len(req.Tools)
 	for _, toolDef := range reg.GetToolsForAgent(serverIDs) {
 		req.Tools = append(req.Tools, ToolCallSpec{
 			Type: "function",
@@ -29,6 +34,21 @@ func InjectMCPTools(req *ChatRequest, reg *mcp.Registry, serverIDs []string) {
 			},
 		})
 	}
+	if len(req.Tools) > before {
+		ensureToolUseSystemHint(req)
+	}
+}
+
+func ensureToolUseSystemHint(req *ChatRequest) {
+	for _, m := range req.Messages {
+		if m.Role != "system" {
+			continue
+		}
+		if s, ok := m.Content.(string); ok && strings.Contains(s, "web_search_search") {
+			return
+		}
+	}
+	req.Messages = append([]ChatMessage{{Role: "system", Content: toolUseSystemHint}}, req.Messages...)
 }
 
 // NewMCPToolExecutor 供 ChatWithTools 使用

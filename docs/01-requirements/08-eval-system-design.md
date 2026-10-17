@@ -4,11 +4,38 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|---------|--------|
+| 2026-10-17 | v1.5 | 对照公开业务标准做能力审计（达标项 / 缺口） | orjrs |
 | 2026-10-15 | v1.4 | 16.5：llm_judge 裁判模型 0–1 分，失败降级 skip | orjrs |
 | 2026-10-15 | v1.3 | 16.4.2：target=agent 注入 Agent.tools 并走 ChatWithTools | orjrs |
 | 2026-10-15 | v1.2 | Run 支持 target=prompt + system_prompt 覆盖；联动提示词工程 | orjrs |
 | 2026-10-15 | v1.1 | 单测覆盖 Suite/Case/Run/Judge；JSONB Valuer 修 SQLite；Web e2e | orjrs |
 | 2026-10-15 | v1.0 | 立项：模型/智能体评测集 + 运行 + 打分；对齐 FT-020 | orjrs |
+
+## [变更] 公开业务标准审计（2026-10-17）
+
+- **变更原因**：提示词工业闭环已 push；需判断评估模块是否达到「可对外的产品评估」水准（对照 Promptfoo / LangSmith / OpenAI Evals 一类能力）
+- **结论**：对 **SaaS 内「个人/团队质量回归」** 已达标（卷→跑→判→明细）；对 **对外评测平台 / 企业合规评测** 仍缺异步、对比、导出与 CI
+- **已达标（MVP 业务标准）**：
+  | 能力 | 现状 |
+  |------|------|
+  | 评测集 / 用例 CRUD + 用户隔离 | ✅ |
+  | 多目标：model / agent / prompt | ✅ |
+  | 裁判：contains / exact / llm_judge | ✅ |
+  | Agent 工具题 ChatWithTools | ✅ |
+  | 运行历史 + 逐题输出/耗时 | ✅ |
+  | Prompt 变量代入（API Variables） | ✅（前端仍为 JSON） |
+  | 单测 + e2e 骨架 | ✅ |
+- **未达公开/企业标准的缺口（按优先级）**：
+  | 缺口 | 对标 | 计划 |
+  |------|------|------|
+  | 长卷异步 + 进度 | Promptfoo/LangSmith 队列 | 16.6 |
+  | 两次 Run 对比 / 基线回归 | LangSmith experiment | 未排 |
+  | 数据集导入导出（JSON/CSV） | OpenAI Evals | 未排 |
+  | 变量表单（非手写 JSON） | 工业可用性 | 17.12 |
+  | CI 门禁（PR 跑评测） | Promptfoo CI | 未排 |
+  | 人工标注 / 多维 rubric | 企业质检 | 明确不做（本期） |
+  | 公开榜 / 跨租户共享 | 社区榜 | 明确不做 |
+- **产品口径**：当前 = **「产品内质量考试卷」**，不是独立评测 SaaS；对内上线够用，对外宣传勿称「企业级评测平台」除非补齐 16.6 + 对比 + 导出
 
 ## [变更] llm_judge 裁判打分（2026-10-15）
 

@@ -3,6 +3,7 @@
 ## [变更记录]
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|---------|--------|
+| 2026-10-18 | v1.40 | CD 关闭 provenance/sbom，修 GHCR pull digest not found | orjrs |
 | 2026-10-17 | v1.39 | Go 监听端口改名 COGNIFORGE_PORT（兼容旧 PORT） | orjrs |
 | 2026-10-17 | v1.38 | compose 去掉写死 environment，业务配置一律 .env | orjrs |
 | 2026-10-17 | v1.37 | workflow 显示名 Deploy → CD（与 CI 对称） | orjrs |
@@ -16,6 +17,13 @@
 | 2026-08-16 | v1.29 | 前端 Docker 钉 pnpm@9，避免 ERR_PNPM_IGNORED_BUILDS | orjrs |
 | 2026-08-15 | v1.28 | 模型配置走 Redis；cogniforge-ai 增加 REDIS_HOST | orjrs |
 | 2026-08-15 | v1.27 | Python LLM 回调 Go；cogniforge-ai 增加 COGNIFORGE_API_URL | orjrs |
+
+## [变更] CD 关闭镜像 attestation（2026-10-18）
+
+- **现象**：`docker compose pull` 失败 `NotFound: content digest sha256:...: not found`（偶发 `lease does not exist`）
+- **原因**：`docker/build-push-action` 默认推 OCI index + provenance；服务器侧 Docker/compose 解析 `latest` 时子 digest 拉不到
+- **修复**：三仓 CD `provenance: false` + `sbom: false`，推单架构普通镜像 manifest
+- **包含代码**：`cogniforge` / `cogniforge-web` / `cogniforge-ai` 的 `.github/workflows/cd.yml`
 
 ## [变更] Go 监听端口 COGNIFORGE_PORT（2026-10-17）
 

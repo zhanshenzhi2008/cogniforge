@@ -4,7 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
-| 2026-10-18 | v1.105 | CD：关闭镜像 provenance/sbom，修 pull digest not found | orjrs |
+| 2026-10-18 | v1.105 | CD：关 provenance/sbom + 部署禁 prune（修并行 pull 失败） | orjrs |
 | 2026-10-18 | v1.104 | MCP UI：卡片/筛选/开关/刷新工具（业界对标） | orjrs |
 | 2026-10-18 | v1.103 | MCP Streamable HTTP（tools/list + tools/call） | orjrs |
 | 2026-10-18 | v1.102 | MCP：内置工具明细 UI；飞书配置路径说明 | orjrs |

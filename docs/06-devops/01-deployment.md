@@ -18,11 +18,16 @@
 | 2026-08-15 | v1.28 | 模型配置走 Redis；cogniforge-ai 增加 REDIS_HOST | orjrs |
 | 2026-08-15 | v1.27 | Python LLM 回调 Go；cogniforge-ai 增加 COGNIFORGE_API_URL | orjrs |
 
-## [变更] CD 关闭镜像 attestation（2026-10-18）
+## [变更] CD 关闭镜像 attestation + 部署时禁 prune（2026-10-18）
 
-- **现象**：`docker compose pull` 失败 `NotFound: content digest sha256:...: not found`（偶发 `lease does not exist`）
-- **原因**：`docker/build-push-action` 默认推 OCI index + provenance；服务器侧 Docker/compose 解析 `latest` 时子 digest 拉不到
-- **修复**：三仓 CD `provenance: false` + `sbom: false`，推单架构普通镜像 manifest
+- **现象**：`docker compose pull` 失败  
+  - `NotFound: content digest sha256:...: not found`  
+  - `lease does not exist: not found`  
+  - `failed commit ... rename .../ingest/...: no such file or directory`
+- **原因**：
+  1. Buildx 默认 provenance 推 OCI index，老 Docker 拉 `latest` 易炸  
+  2. 更关键：CD 脚本里的 `docker image prune -f` 与**其它仓并行 pull**抢 containerd lease（moby#53321）
+- **修复**：三仓 CD `provenance: false` + `sbom: false`；**去掉部署步骤里的 image prune**（旧镜像改服务器定时清理）
 - **包含代码**：`cogniforge` / `cogniforge-web` / `cogniforge-ai` 的 `.github/workflows/cd.yml`
 
 ## [变更] Go 监听端口 COGNIFORGE_PORT（2026-10-17）

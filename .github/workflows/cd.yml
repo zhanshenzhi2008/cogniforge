@@ -158,13 +158,15 @@ jobs:
             cd ${{ env.DEPLOY_PATH }}
             docker compose -f ${{ env.COMPOSE_FILE }} pull ${{ env.COMPOSE_SERVICES }}
 
-            # ── 6. 滚动升级 ─────────────────────────────────────────
+            # ── 5. 滚动升级 ─────────────────────────────────────────
             docker compose -f ${{ env.COMPOSE_FILE }} up -d --no-deps ${{ env.COMPOSE_SERVICES }}
 
-            # ── 6. 清理旧镜像 ──────────────────────────────────────
-            docker image prune -f --filter "until=72h"
+            # 注意：不要在此处 docker image prune。
+            # 与其它仓并行 pull 时，prune 会删掉 in-flight lease，导致
+            # "content digest not found" / "lease does not exist" / rename ingest 失败。
+            # 旧镜像改由服务器定时任务单独清理。
 
-            # ── 7. 健康检查 ────────────────────────────────────────
+            # ── 6. 健康检查 ────────────────────────────────────────
             sleep 15
             docker compose -f ${{ env.COMPOSE_FILE }} ps ${{ env.COMPOSE_SERVICES }}
 

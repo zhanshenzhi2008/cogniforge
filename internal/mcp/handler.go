@@ -36,12 +36,12 @@ func (h *Handler) ListServers(c *gin.Context) {
 		return
 	}
 
-	// 合并内置 server
-	allServers := servers
+	// 内置在前，便于列表一眼看到工具能力；再接用户自定义
+	allServers := make([]model.McpServer, 0, len(model.BuiltInMcpServers)+len(servers))
 	for _, b := range model.BuiltInMcpServers {
-		b := b
 		allServers = append(allServers, b)
 	}
+	allServers = append(allServers, servers...)
 
 	response.Success(c, allServers)
 }

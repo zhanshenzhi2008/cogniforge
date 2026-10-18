@@ -162,9 +162,10 @@ func (r *Registry) GetServer(id string) *model.McpServer {
 func (r *Registry) GetToolsForServer(serverID string) []ToolDefinition {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
+	prefix := serverID + ":"
 	var out []ToolDefinition
 	for key, t := range r.tools {
-		if len(key) > len(serverID) && key[:len(serverID)] == serverID {
+		if len(key) >= len(prefix) && key[:len(prefix)] == prefix {
 			out = append(out, t)
 		}
 	}

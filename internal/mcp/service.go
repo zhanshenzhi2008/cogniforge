@@ -38,10 +38,17 @@ func (s *Service) CreateServer(userID string, req *CreateServerRequest) (*model.
 	if req.Type == "" {
 		req.Type = model.McpServerTypeHTTP
 	}
-	if req.Type != model.McpServerTypeBuiltIn && req.URL == "" {
+	if req.Type == model.McpServerTypeBuiltIn {
+		return nil, fmt.Errorf("不可创建内置类型，请使用 HTTP 自定义 Server")
+	}
+	if req.URL == "" {
 		return nil, fmt.Errorf("URL 不能为空")
 	}
 
+	enabled := true
+	if req.Enabled != nil {
+		enabled = *req.Enabled
+	}
 	srv := model.McpServer{
 		ID:         uuid.New().String(),
 		UserID:     userID,
@@ -49,7 +56,7 @@ func (s *Service) CreateServer(userID string, req *CreateServerRequest) (*model.
 		Type:       req.Type,
 		URL:        req.URL,
 		AuthHeader: req.AuthHeader,
-		Enabled:    true,
+		Enabled:    enabled,
 		Metadata:   req.Metadata,
 		CreatedAt:  time.Now(),
 		UpdatedAt:  time.Now(),
@@ -147,11 +154,12 @@ func (s *Service) GetServerTools(serverID string, registry *Registry) []ToolDefi
 // ============ 请求结构 ============
 
 type CreateServerRequest struct {
-	Name        string            `json:"name" binding:"required"`
-	Type        string            `json:"type"` // "built-in" | "http"
-	URL         string            `json:"url"`
-	AuthHeader  string            `json:"auth_header"`
-	Metadata    model.JSONBMap    `json:"metadata"`
+	Name       string         `json:"name" binding:"required"`
+	Type       string         `json:"type"` // "http"（内置不可创建）
+	URL        string         `json:"url"`
+	AuthHeader string         `json:"auth_header"`
+	Enabled    *bool          `json:"enabled"`
+	Metadata   model.JSONBMap `json:"metadata"`
 }
 
 type UpdateServerRequest struct {

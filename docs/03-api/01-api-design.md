@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-10-18 | v1.36 | MCP：创建禁 built-in；Create 支持 enabled；列表内置在前 | orjrs |
 | 2026-10-17 | v1.35 | 用户名格式：2–20 字、无空格、字母数字_-/中文 | orjrs |
 | 2026-10-17 | v1.34 | 注册/建用户：name 与 email 均全局唯一；冲突返回 400 | orjrs |
 | 2026-10-17 | v1.33 | 提示词工业闭环：publish/render/import/usages；Agent prompt_id；评估 variables | orjrs |
@@ -36,6 +37,15 @@
 | 2026-08-15 | v1.2 | GET /v1/models 改为返回已启用供应商的 default_model（不再写死 GPT 列表） | orjrs |
 | 2026-04-09 | v1.1 | 新增文档上传接口、语义检索接口实现说明 | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] MCP 创建约束与列表顺序（2026-10-18）
+
+- **变更原因**：前端要配置飞书等 HTTP MCP；禁止误创 `built-in`；列表需先看清内置能力
+- **行为**：
+  - `POST /api/v1/mcp/servers`：`type` 不可为 `built-in`；`url` 必填；可选 `enabled`、`metadata.description`
+  - `GET /api/v1/mcp/servers`：内置（fetch / web_search / code_execute）排在自定义之前
+  - `GET /api/v1/mcp/servers/:id/tools`：内置返回 Registry 工具 schema（名、说明、参数）
+- **限制**：自定义 HTTP 仍为简化网关调用，完整 MCP SSE/stdio（飞书官方 npx）下一期
 
 ## [变更] 用户名格式规范（2026-10-17）
 

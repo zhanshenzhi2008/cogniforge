@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-10-18 | v1.102 | MCP：内置工具明细 UI；飞书配置路径说明 | orjrs |
 | 2026-10-17 | v1.101 | 评估模块对照公开业务标准审计 | orjrs |
 | 2026-10-17 | v1.100 | 提示词来源字段；同 Agent 再导入发新版 | orjrs |
 | 2026-10-17 | v1.99 | 提示词：无编码、同用户 name 唯一 | orjrs |
@@ -213,6 +214,13 @@
 - **变更原因**：开放式回答需要裁判模型，而非关键词
 - **包含代码**：`internal/eval/llm_judge.go`；运行循环分支
 - **变更前 vs 变更后**：~~一律 skip~~（2026-10-15）→ 解析 score；失败降级 skip
+
+## [变更] MCP 内置明细 + 飞书配置路径（2026-10-18）
+
+- **变更原因**：MCP 列表只有「内置」标签；新建表单无法指导飞书等第三方配置
+- **包含代码**：`internal/model/mcp.go`（description/tools metadata、Enabled）；`internal/mcp/{handler,service,registry}.go`；Web `pages/mcp.vue` + i18n
+- **能力**：点行看工具名/参数；HTTP 创建（名称/说明/URL/鉴权/启用）；禁止创建 built-in
+- **未做（下一期）**：MCP SSE / tools/list / 飞书官方 stdio（`npx @larksuiteoapi/lark-mcp`）
 
 ## [变更] 16.4.2 评估 Agent MCP（2026-10-15）
 

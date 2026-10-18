@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|---------|--------|
+| 2026-10-18 | v1.8 | MCP 页：内置工具明细；HTTP 创建表单强化；飞书路径说明 | orjrs |
 | 2026-10-15 | v1.7 | 纠正 code_execute 文档：本地子进程非 Docker；部署开关 CODE_EXECUTE_DISABLED；web_search=Tavily | orjrs |
 | 2026-10-15 | v1.6 | Playground 支持 mcp_servers；router 注入 MCP Registry（此前从未注入导致工具全失效） | orjrs |
 | 2026-10-15 | v1.5 | 修复 Agent 流式对话跳过工具循环；正确解析 message.tool_calls；按 Agent 勾选 Server 注入工具 | orjrs |
@@ -13,7 +14,19 @@
 | 2026-09-04 | v1.1 | 修复：工具调用循环改为动态停止（无 tool_calls 即停）；SKILL 结构升级（meta/instructions/references/constraints/examples） | orjrs |
 | 2026-09-04 | v1.0 | 立项：MCP + SKILL，让 Agent 能调用外部工具，可复用技能模板 | orjrs |
 
+## [变更] MCP 明细 + 飞书配置路径（2026-10-18）
+
+- **变更原因**：列表只有「内置」标签看不到工具；新建只有 URL，飞书等第三方无法理解怎么配
+- **已做**：详情滑层展示内置工具名/参数；创建表单加说明与鉴权提示；禁止创建 `built-in` 类型
+- **现状限制**：自定义 HTTP 仍是**简化网关**（`POST {url}/tools/{name}/call`），**未**完整实现 MCP JSON-RPC / SSE / stdio；官方飞书 `npx @larksuiteoapi/lark-mcp` 需下一期
+- **下一期（飞书可用）**：
+  1. MCP SSE / streamable HTTP：`initialize` + `tools/list` + `tools/call`
+  2. （可选）托管 stdio 或引导用户用 HTTP 网关转发飞书 MCP
+  3. 创建后自动拉工具列表写入 Registry
+
 ## [变更] code_execute / web_search 文档纠偏（2026-10-15）
+
+
 
 - **变更原因**：内置工具表仍写「沙箱容器 / Bing·Google」，与现网实现不符
 - **变更后**：`code_execute` = 本地子进程（临时目录 + 超时 + 输出截断 + 精简 env）；`CODE_EXECUTE_DISABLED=1` 可关；`web_search` = Tavily（含 keyless）

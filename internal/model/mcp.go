@@ -53,30 +53,33 @@ const (
 // BuiltInMcpServers 内置 MCP Server 定义（代码内置，无需数据库记录）
 var BuiltInMcpServers = []McpServer{
 	{
-		ID:   "fetch",
-		Type: McpServerTypeBuiltIn,
-		Name: "网页抓取",
+		ID:      "fetch",
+		Type:    McpServerTypeBuiltIn,
+		Name:    "网页抓取",
+		Enabled: true,
 		Metadata: JSONBMap{
-			"description": "获取网页内容并提取正文",
-			"icon":        "🌐",
+			"description": "获取指定 URL 的网页内容并提取正文文本。平台内置，无需填写地址。",
+			"tools":       []string{"fetch_get_page"},
 		},
 	},
 	{
-		ID:   "web_search",
-		Type: McpServerTypeBuiltIn,
-		Name: "网络搜索",
+		ID:      "web_search",
+		Type:    McpServerTypeBuiltIn,
+		Name:    "网络搜索",
+		Enabled: true,
 		Metadata: JSONBMap{
-			"description": "搜索互联网获取相关信息",
-			"icon":        "🔍",
+			"description": "搜索互联网获取实时信息（天气、新闻等）。走 Tavily，可 keyless 或配 API Key。",
+			"tools":       []string{"web_search_search"},
 		},
 	},
 	{
-		ID:   "code_execute",
-		Type: McpServerTypeBuiltIn,
-		Name: "代码执行",
+		ID:      "code_execute",
+		Type:    McpServerTypeBuiltIn,
+		Name:    "代码执行",
+		Enabled: true,
 		Metadata: JSONBMap{
-			"description": "在沙箱中执行代码（Python/Go/JS）",
-			"icon":        "💻",
+			"description": "在本地子进程沙箱执行 Python / Go / JavaScript（非 Docker）。可用 CODE_EXECUTE_DISABLED=1 关闭。",
+			"tools":       []string{"code_execute_python", "code_execute_go", "code_execute_javascript"},
 		},
 	},
 }

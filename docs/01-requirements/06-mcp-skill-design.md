@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|---------|--------|
+| 2026-10-18 | v1.9 | Streamable HTTP：tools/list / tools/call；飞书可走 HTTP 网关 | orjrs |
 | 2026-10-18 | v1.8 | MCP 页：内置工具明细；HTTP 创建表单强化；飞书路径说明 | orjrs |
 | 2026-10-15 | v1.7 | 纠正 code_execute 文档：本地子进程非 Docker；部署开关 CODE_EXECUTE_DISABLED；web_search=Tavily | orjrs |
 | 2026-10-15 | v1.6 | Playground 支持 mcp_servers；router 注入 MCP Registry（此前从未注入导致工具全失效） | orjrs |
@@ -14,15 +15,23 @@
 | 2026-09-04 | v1.1 | 修复：工具调用循环改为动态停止（无 tool_calls 即停）；SKILL 结构升级（meta/instructions/references/constraints/examples） | orjrs |
 | 2026-09-04 | v1.0 | 立项：MCP + SKILL，让 Agent 能调用外部工具，可复用技能模板 | orjrs |
 
+## [变更] MCP Streamable HTTP（2026-10-18）
+
+- **变更原因**：自定义 HTTP 无法对接标准 MCP / 飞书网关
+- **包含代码**：`internal/mcp/http_client.go`；Registry 发现；对话前 `EnsureHTTPToolsByIDs`
+- **已做**：
+  1. `initialize` + `notifications/initialized` + `tools/list` + `tools/call`
+  2. 响应支持 `application/json` 与 `text/event-stream`（SSE）
+  3. `Mcp-Session-Id` / `MCP-Protocol-Version`；鉴权自动补 `Bearer`
+  4. 失败回退旧网关 `POST {url}/tools/{name}/call`
+- **飞书用法**：填可公网访问的 **Streamable HTTP** MCP URL + Token；官方 `npx @larksuiteoapi/lark-mcp`（stdio）需自建 HTTP 转发，平台不托管本地进程
+- **下一期**：托管 stdio / 旧版 HTTP+SSE endpoint 事件兼容增强
+
 ## [变更] MCP 明细 + 飞书配置路径（2026-10-18）
 
 - **变更原因**：列表只有「内置」标签看不到工具；新建只有 URL，飞书等第三方无法理解怎么配
 - **已做**：详情滑层展示内置工具名/参数；创建表单加说明与鉴权提示；禁止创建 `built-in` 类型
-- **现状限制**：自定义 HTTP 仍是**简化网关**（`POST {url}/tools/{name}/call`），**未**完整实现 MCP JSON-RPC / SSE / stdio；官方飞书 `npx @larksuiteoapi/lark-mcp` 需下一期
-- **下一期（飞书可用）**：
-  1. MCP SSE / streamable HTTP：`initialize` + `tools/list` + `tools/call`
-  2. （可选）托管 stdio 或引导用户用 HTTP 网关转发飞书 MCP
-  3. 创建后自动拉工具列表写入 Registry
+- ~~**现状限制**：自定义 HTTP 仍是简化网关~~（2026-10-18 → 见 v1.9 Streamable HTTP）
 
 ## [变更] code_execute / web_search 文档纠偏（2026-10-15）
 
@@ -200,26 +209,28 @@ type ToolDefinition struct {
 
 ### 3.4 MCP 客户端
 
-#### HTTP MCP Server 客户端
+#### HTTP MCP Server 客户端（Streamable HTTP，2026-10-18）
 
 ```go
-type HttpClient struct {
-    server  *McpServer
-    client  *http.Client
-}
-
-func (c *HttpClient) CallTool(ctx context.Context, name string, args map[string]interface{}) (*ToolResult, error)
+type StreamableHTTPClient struct { /* endpoint + auth + session */ }
+func (c *StreamableHTTPClient) ListTools(ctx context.Context) ([]ToolDefinition, error)
+func (c *StreamableHTTPClient) CallTool(ctx context.Context, name string, args map[string]interface{}) (map[string]interface{}, error)
 ```
 
-调用格式（符合 MCP 协议）：
+调用格式（MCP JSON-RPC 2.0，单端点 POST）：
 
 ```
-POST {url}/tools/{name}/call
-Authorization: Bearer {auth_header}
-Content-Type: application/json
+POST {url}
+Authorization: Bearer {token}
+Accept: application/json, text/event-stream
+MCP-Protocol-Version: 2025-06-18
+Mcp-Session-Id: {optional}
 
-{"arguments": {...}}
+{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}
+{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"...","arguments":{...}}}
 ```
+
+~~旧简化网关 `POST {url}/tools/{name}/call`~~（2026-10-18）：仅作回退兼容。
 
 #### Built-in 客户端
 

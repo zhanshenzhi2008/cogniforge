@@ -61,9 +61,7 @@ func (h *Handler) CreateServer(c *gin.Context) {
 		return
 	}
 
-	// 刷新 Registry
-	h.registry.Refresh([]model.McpServer{*srv})
-
+	h.refreshUserRegistry(userID)
 	response.Created(c, srv)
 }
 
@@ -101,10 +99,7 @@ func (h *Handler) UpdateServer(c *gin.Context) {
 		return
 	}
 
-	// 刷新 Registry
-	servers, _ := h.svc.ListServers(userID)
-	h.registry.Refresh(servers)
-
+	h.refreshUserRegistry(userID)
 	response.Success(c, srv)
 }
 
@@ -123,18 +118,31 @@ func (h *Handler) DeleteServer(c *gin.Context) {
 		return
 	}
 
-	// 刷新 Registry
-	servers, _ := h.svc.ListServers(userID)
-	h.registry.Refresh(servers)
-
+	h.refreshUserRegistry(userID)
 	response.SuccessWithMessage(c, nil, "MCP Server 已删除")
 }
 
 // ListTools 列出某 Server 的工具
 func (h *Handler) ListTools(c *gin.Context) {
+	userID := c.GetString("user_id")
 	serverID := c.Param("id")
+
+	// HTTP Server：若尚未发现工具则即时 tools/list
+	if srv, err := h.svc.GetServer(userID, serverID); err == nil && srv != nil {
+		h.registry.EnsureHTTPTools(srv)
+	}
+
 	tools := h.svc.GetServerTools(serverID, h.registry)
 	response.Success(c, tools)
+}
+
+// refreshUserRegistry 用当前用户全部自定义 Server 刷新（含 HTTP 工具发现）
+func (h *Handler) refreshUserRegistry(userID string) {
+	servers, err := h.svc.ListServers(userID)
+	if err != nil {
+		return
+	}
+	h.registry.Refresh(servers)
 }
 
 // TestTool 测试调用工具（调试用）

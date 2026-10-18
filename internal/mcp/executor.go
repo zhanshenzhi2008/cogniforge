@@ -1,9 +1,7 @@
 package mcp
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
@@ -136,38 +134,3 @@ func (e *BuiltInExecutor) webSearch(args map[string]interface{}) (map[string]int
 	}, nil
 }
 
-// CallHTTPClient 调用 HTTP MCP Server
-func (e *BuiltInExecutor) CallHTTPClient(url, authHeader string, toolName string, args map[string]interface{}) (map[string]interface{}, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	body, _ := json.Marshal(map[string]interface{}{
-		"arguments": args,
-	})
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url+"/tools/"+toolName+"/call", bytes.NewReader(body))
-	if err != nil {
-		return nil, fmt.Errorf("创建请求失败: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	if authHeader != "" {
-		req.Header.Set("Authorization", authHeader)
-	}
-
-	resp, err := e.client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("请求失败: %w", err)
-	}
-	defer resp.Body.Close()
-
-	respBody, _ := io.ReadAll(resp.Body)
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("MCP Server 返回错误 %d: %s", resp.StatusCode, string(respBody))
-	}
-
-	var result map[string]interface{}
-	if err := json.Unmarshal(respBody, &result); err != nil {
-		return nil, fmt.Errorf("解析响应失败: %w", err)
-	}
-	return result, nil
-}

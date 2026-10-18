@@ -243,8 +243,8 @@ func (h *AgentHandler) AgentChat(c *gin.Context) {
 		RAGMinScore:         req.RAGMinScore,
 	}
 
-	// 阶段十五 15.2：按 Agent 勾选的 MCP Server 注入工具
-	chat.InjectMCPTools(svcReq, h.mcpRegistry, []string(dbAgent.Tools))
+	// 阶段十五 15.2：按 Agent 勾选的 MCP Server 注入工具（含 HTTP 远程发现）
+	chat.InjectMCPTools(svcReq, h.mcpRegistry, []string(dbAgent.Tools), userID)
 	hasTools := len(svcReq.Tools) > 0
 
 	// 有工具时必须走工具循环（Playground 默认 stream=true，以前被 !stream 条件跳过）

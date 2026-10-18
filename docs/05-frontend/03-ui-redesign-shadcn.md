@@ -52,7 +52,7 @@
 - **变更原因**：内置三项只有标签无工具说明；新建无法指导飞书 HTTP 配置
 - **包含代码**：`cogniforge-web/pages/mcp.vue`、`useMcpServers.ts`、i18n `mcp.*`
 - **交互**：点行 → 滑层展示工具名/说明/参数；创建仅 HTTP（名称、说明、URL、鉴权、启用）+ 飞书路径提示
-- **限制文案**：完整 MCP SSE/stdio 下一期
+- **文案（同日更新）**：已支持 Streamable HTTP；stdio 需自建网关
 
 ## [变更] 模型页对话/向量用途（2026-08-25）
 

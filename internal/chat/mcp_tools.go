@@ -19,9 +19,17 @@ func (h *ChatHandler) SetMCPRegistry(reg *mcp.Registry) {
 const toolUseSystemHint = "你可以使用函数工具获取实时信息。用户询问天气、新闻、股价、比分等时效性问题时，必须先调用相应工具（如 web_search_search），再根据工具返回结果作答。禁止让用户去官方 App 开启联网或自行搜索；禁止声称自己无法获取实时信息（除非工具已返回失败）。"
 
 // InjectMCPTools 按 server ID 列表把工具 schema 写入 req.Tools（已有 Tools 时追加）
-func InjectMCPTools(req *ChatRequest, reg *mcp.Registry, serverIDs []string) {
+// userID 非空时会先对自定义 HTTP Server 做 tools/list 发现。
+func InjectMCPTools(req *ChatRequest, reg *mcp.Registry, serverIDs []string, userID ...string) {
 	if req == nil || reg == nil || len(serverIDs) == 0 {
 		return
+	}
+	uid := ""
+	if len(userID) > 0 {
+		uid = userID[0]
+	}
+	if uid != "" {
+		reg.EnsureHTTPToolsByIDs(uid, serverIDs)
 	}
 	before := len(req.Tools)
 	for _, toolDef := range reg.GetToolsForAgent(serverIDs) {

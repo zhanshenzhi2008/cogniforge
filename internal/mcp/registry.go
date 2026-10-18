@@ -1,9 +1,12 @@
 package mcp
 
 import (
+	"context"
 	"log/slog"
 	"sync"
+	"time"
 
+	"cogniforge/internal/database"
 	"cogniforge/internal/model"
 )
 
@@ -114,30 +117,103 @@ func (r *Registry) registerBuiltInTools(srv *model.McpServer) {
 	}
 }
 
-// Refresh 从数据库重新加载用户 MCP Server
+// Refresh 从数据库重新加载用户 MCP Server，并对 HTTP 类型尝试 tools/list
 func (r *Registry) Refresh(servers []model.McpServer) {
 	r.mu.Lock()
-	defer r.mu.Unlock()
 	// 清空用户 server（保留内置）
 	for k := range r.servers {
 		if !model.IsBuiltInServer(k) {
 			delete(r.servers, k)
-			// 清空该 server 的工具
+			prefix := k + ":"
 			for toolKey := range r.tools {
-				if len(toolKey) > len(k) && toolKey[:len(k)] == k {
+				if len(toolKey) >= len(prefix) && toolKey[:len(prefix)] == prefix {
 					delete(r.tools, toolKey)
 				}
 			}
 		}
 	}
-	// 重新注册用户 server（暂不注册 HTTP 工具，待 tool list 接口实现）
+	enabledHTTP := make([]model.McpServer, 0)
 	for _, srv := range servers {
-		if srv.Enabled {
-			s := srv
-			r.servers[s.ID] = &s
+		if !srv.Enabled {
+			continue
+		}
+		s := srv
+		r.servers[s.ID] = &s
+		if s.Type == model.McpServerTypeHTTP && s.URL != "" {
+			enabledHTTP = append(enabledHTTP, s)
 		}
 	}
-	slog.Info("MCP registry refreshed", "total_servers", len(r.servers))
+	r.mu.Unlock()
+
+	for _, srv := range enabledHTTP {
+		r.discoverAndRegisterHTTP(srv)
+	}
+	slog.Info("MCP registry refreshed", "total_servers", len(r.GetServers()), "http_discovered", len(enabledHTTP))
+}
+
+// discoverAndRegisterHTTP 拉取远程工具并写入 Registry（失败只打日志，不阻断列表）
+func (r *Registry) discoverAndRegisterHTTP(srv model.McpServer) {
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	tools, err := DiscoverHTTPTools(ctx, srv.ID, srv.URL, srv.AuthHeader)
+	if err != nil {
+		slog.Warn("MCP HTTP tools/list failed", "server_id", srv.ID, "url", srv.URL, "error", err)
+		return
+	}
+	r.RegisterHTTPTools(srv.ID, tools)
+	slog.Info("MCP HTTP tools registered", "server_id", srv.ID, "count", len(tools))
+}
+
+// RegisterHTTPTools 覆盖注册某 HTTP Server 的工具列表
+func (r *Registry) RegisterHTTPTools(serverID string, tools []ToolDefinition) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	prefix := serverID + ":"
+	for toolKey := range r.tools {
+		if len(toolKey) >= len(prefix) && toolKey[:len(prefix)] == prefix {
+			delete(r.tools, toolKey)
+		}
+	}
+	for _, t := range tools {
+		t.ServerID = serverID
+		t.ServerType = model.McpServerTypeHTTP
+		r.tools[serverID+":"+t.Name] = t
+	}
+}
+
+// EnsureHTTPTools 若该 Server 尚无工具则尝试发现一次
+func (r *Registry) EnsureHTTPTools(srv *model.McpServer) {
+	if srv == nil || srv.Type != model.McpServerTypeHTTP || srv.URL == "" {
+		return
+	}
+	if len(r.GetToolsForServer(srv.ID)) > 0 {
+		r.mu.Lock()
+		r.servers[srv.ID] = srv
+		r.mu.Unlock()
+		return
+	}
+	r.mu.Lock()
+	cp := *srv
+	r.servers[srv.ID] = &cp
+	r.mu.Unlock()
+	r.discoverAndRegisterHTTP(cp)
+}
+
+// EnsureHTTPToolsByIDs 对话前按 ID 拉取用户 HTTP Server 并发现工具（进程重启后也能用）
+func (r *Registry) EnsureHTTPToolsByIDs(userID string, serverIDs []string) {
+	if r == nil || userID == "" || len(serverIDs) == 0 || database.DB == nil {
+		return
+	}
+	for _, id := range serverIDs {
+		if id == "" || model.IsBuiltInServer(id) {
+			continue
+		}
+		var srv model.McpServer
+		if err := database.DB.Where("id = ? AND user_id = ? AND enabled = ?", id, userID, true).First(&srv).Error; err != nil {
+			continue
+		}
+		r.EnsureHTTPTools(&srv)
+	}
 }
 
 // GetServers 返回所有已注册 Server

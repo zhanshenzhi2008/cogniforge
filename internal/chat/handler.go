@@ -207,7 +207,7 @@ func (h *ChatHandler) ChatStream(c *gin.Context) {
 	started := time.Now()
 
 	// Playground 可选 MCP：有 mcp_servers 时先工具循环，再 SSE 最终回复
-	InjectMCPTools(&req, h.mcpRegistry, req.McpServers)
+	InjectMCPTools(&req, h.mcpRegistry, req.McpServers, c.GetString("user_id"))
 	if len(req.Tools) > 0 {
 		chatResp, err := h.service.ChatWithTools(&req, NewMCPToolExecutor(h.mcpRegistry))
 		if err != nil {

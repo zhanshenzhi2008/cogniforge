@@ -413,7 +413,7 @@ func (s *Service) callCase(modelName, systemPrompt, userInput string, toolServer
 			{Role: "user", Content: userInput},
 		},
 	}
-	chat.InjectMCPTools(req, s.mcpReg, toolServerIDs)
+	chat.InjectMCPTools(req, s.mcpReg, toolServerIDs) // 评估无 user 上下文时依赖 Registry 已有工具
 	var (
 		resp *chat.ChatResponse
 		err  error

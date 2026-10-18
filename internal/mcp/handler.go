@@ -27,6 +27,12 @@ func (h *Handler) Registry() *Registry {
 	return h.registry
 }
 
+// ServerListItem 列表项：Server + 已发现工具数（对标 Cursor / Comis 卡片信息密度）
+type ServerListItem struct {
+	model.McpServer
+	ToolCount int `json:"tool_count"`
+}
+
 // ListServers 获取 MCP Server 列表
 func (h *Handler) ListServers(c *gin.Context) {
 	userID := c.GetString("user_id")
@@ -43,7 +49,15 @@ func (h *Handler) ListServers(c *gin.Context) {
 	}
 	allServers = append(allServers, servers...)
 
-	response.Success(c, allServers)
+	items := make([]ServerListItem, 0, len(allServers))
+	for _, srv := range allServers {
+		items = append(items, ServerListItem{
+			McpServer: srv,
+			ToolCount: h.registry.ToolCount(srv.ID),
+		})
+	}
+
+	response.Success(c, items)
 }
 
 // CreateServer 创建 MCP Server
@@ -122,16 +136,49 @@ func (h *Handler) DeleteServer(c *gin.Context) {
 	response.SuccessWithMessage(c, nil, "MCP Server 已删除")
 }
 
-// ListTools 列出某 Server 的工具
+// ListTools 列出某 Server 的工具；?refresh=1 强制重新发现 HTTP 工具
 func (h *Handler) ListTools(c *gin.Context) {
 	userID := c.GetString("user_id")
 	serverID := c.Param("id")
+	force := c.Query("refresh") == "1" || c.Query("refresh") == "true"
 
-	// HTTP Server：若尚未发现工具则即时 tools/list
-	if srv, err := h.svc.GetServer(userID, serverID); err == nil && srv != nil {
-		h.registry.EnsureHTTPTools(srv)
+	srv, err := h.svc.GetServer(userID, serverID)
+	if err != nil {
+		response.NotFound(c, err.Error())
+		return
+	}
+	if srv.Type == model.McpServerTypeHTTP && srv.URL != "" {
+		if force {
+			if err := h.registry.RediscoverHTTP(srv); err != nil {
+				response.BadRequest(c, "刷新工具失败: "+err.Error())
+				return
+			}
+		} else {
+			h.registry.EnsureHTTPTools(srv)
+		}
 	}
 
+	tools := h.svc.GetServerTools(serverID, h.registry)
+	response.Success(c, tools)
+}
+
+// RefreshTools 强制重新 tools/list（HTTP）
+func (h *Handler) RefreshTools(c *gin.Context) {
+	userID := c.GetString("user_id")
+	serverID := c.Param("id")
+	srv, err := h.svc.GetServer(userID, serverID)
+	if err != nil {
+		response.NotFound(c, err.Error())
+		return
+	}
+	if srv.Type != model.McpServerTypeHTTP {
+		response.BadRequest(c, "内置 Server 无需刷新")
+		return
+	}
+	if err := h.registry.RediscoverHTTP(srv); err != nil {
+		response.BadRequest(c, "刷新工具失败: "+err.Error())
+		return
+	}
 	tools := h.svc.GetServerTools(serverID, h.registry)
 	response.Success(c, tools)
 }
@@ -184,6 +231,7 @@ func (h *Handler) RegisterRoutes(rg *gin.RouterGroup) {
 		servers.PUT("/:id", h.UpdateServer)
 		servers.DELETE("/:id", h.DeleteServer)
 		servers.GET("/:id/tools", h.ListTools)
+		servers.POST("/:id/tools/refresh", h.RefreshTools)
 		servers.POST("/:id/test", h.TestTool)
 	}
 }

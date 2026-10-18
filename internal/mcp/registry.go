@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"sync"
 	"time"
@@ -214,6 +215,37 @@ func (r *Registry) EnsureHTTPToolsByIDs(userID string, serverIDs []string) {
 		}
 		r.EnsureHTTPTools(&srv)
 	}
+}
+
+// RediscoverHTTP 强制重新 tools/list（忽略缓存）
+func (r *Registry) RediscoverHTTP(srv *model.McpServer) error {
+	if srv == nil || srv.Type != model.McpServerTypeHTTP || srv.URL == "" {
+		return fmt.Errorf("仅 HTTP MCP Server 可刷新工具")
+	}
+	r.mu.Lock()
+	cp := *srv
+	r.servers[srv.ID] = &cp
+	prefix := srv.ID + ":"
+	for toolKey := range r.tools {
+		if len(toolKey) >= len(prefix) && toolKey[:len(prefix)] == prefix {
+			delete(r.tools, toolKey)
+		}
+	}
+	r.mu.Unlock()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
+	defer cancel()
+	tools, err := DiscoverHTTPTools(ctx, srv.ID, srv.URL, srv.AuthHeader)
+	if err != nil {
+		return err
+	}
+	r.RegisterHTTPTools(srv.ID, tools)
+	return nil
+}
+
+// ToolCount 返回已缓存工具数
+func (r *Registry) ToolCount(serverID string) int {
+	return len(r.GetToolsForServer(serverID))
 }
 
 // GetServers 返回所有已注册 Server

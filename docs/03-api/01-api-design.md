@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-10-18 | v1.38 | MCP 列表带 tool_count；POST .../tools/refresh | orjrs |
 | 2026-10-18 | v1.37 | MCP Streamable HTTP：tools/list 发现 + tools/call | orjrs |
 | 2026-10-18 | v1.36 | MCP：创建禁 built-in；Create 支持 enabled；列表内置在前 | orjrs |
 | 2026-10-17 | v1.35 | 用户名格式：2–20 字、无空格、字母数字_-/中文 | orjrs |
@@ -38,6 +39,11 @@
 | 2026-08-15 | v1.2 | GET /v1/models 改为返回已启用供应商的 default_model（不再写死 GPT 列表） | orjrs |
 | 2026-04-09 | v1.1 | 新增文档上传接口、语义检索接口实现说明 | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] MCP 列表 tool_count + 刷新（2026-10-18）
+
+- **新增**：`GET /mcp/servers` 每项附带 `tool_count`；`POST /mcp/servers/:id/tools/refresh` 强制 `tools/list`；`GET .../tools?refresh=1` 同效
+- **用途**：前端卡片展示「N 个工具」与一键刷新
 
 ## [变更] MCP Streamable HTTP（2026-10-18）
 

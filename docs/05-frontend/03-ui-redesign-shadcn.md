@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-10-18 | v1.41 | 共用 CfModal：拖动 / 缩放 / 最大化，替换全站 UModal | orjrs |
 | 2026-10-18 | v1.40 | MCP 页：卡片网格 + 筛选/开关/工具数（对标 Cursor） | orjrs |
 | 2026-10-18 | v1.39 | MCP 页：点行看工具明细；创建表单强化飞书路径说明 | orjrs |
 | 2026-10-15 | v1.38 | 配置下增加「提示词」/prompts；评估页支持 prompt 目标 | orjrs |
@@ -47,6 +48,13 @@
 | 2026-08-12 | v1.0 | 全新 UI 方向：Vue3 + Nuxt3 + Tailwind4 + shadcn-vue；保留 Vue Flow；接口与 CI/CD 不变 | orjrs |
 
 > 注：任务状态变更直接在下方任务表格中更新即可，无需额外记录。
+
+## [变更] 共用 CfModal（拖动/缩放/最大化）（2026-10-18）
+
+- **变更原因**：Nuxt UI `UModal` 仅有 `fullscreen`，不支持拖动与改尺寸；弹窗需统一体验
+- **包含代码**：`cogniforge-web/components/CfModal.vue`；全站 `UModal` → `CfModal`
+- **能力**：标题栏拖动；四边/角缩放；最大化/还原（双击标题栏）；Esc/遮罩关闭；API 兼容 `#body`/`#footer`/`#content` + `ui.content` 宽度
+- **未改**：`USlideover`（侧栏，非居中弹窗）
 
 ## [变更] MCP 卡片式管理 UI（2026-10-18）
 

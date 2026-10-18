@@ -3,7 +3,7 @@
 ## [变更记录]
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|---------|--------|
-| 2026-10-18 | v1.40 | CD 关闭 provenance/sbom，修 GHCR pull digest not found | orjrs |
+| 2026-10-18 | v1.40 | CD：关 provenance/sbom；部署去掉 image prune（修 pull 失败） | orjrs |
 | 2026-10-17 | v1.39 | Go 监听端口改名 COGNIFORGE_PORT（兼容旧 PORT） | orjrs |
 | 2026-10-17 | v1.38 | compose 去掉写死 environment，业务配置一律 .env | orjrs |
 | 2026-10-17 | v1.37 | workflow 显示名 Deploy → CD（与 CI 对称） | orjrs |

@@ -180,6 +180,44 @@ func (s *WorkflowService) GetWorkflowExecution(userID, executionID string) (*mod
 	return &execution, nil
 }
 
+// GetWorkflowExecutionDetail 详情 + node_runs（阶段十八 W1）
+func (s *WorkflowService) GetWorkflowExecutionDetail(userID, executionID string) (*ExecutionDetail, error) {
+	exec, err := s.GetWorkflowExecution(userID, executionID)
+	if err != nil {
+		return nil, err
+	}
+	var runs []model.WorkflowNodeRun
+	_ = s.db.Where("execution_id = ?", executionID).Order("created_at ASC").Find(&runs).Error
+	return &ExecutionDetail{
+		ID:          exec.ID,
+		WorkflowID:  exec.WorkflowID,
+		UserID:      exec.UserID,
+		Status:      exec.Status,
+		Input:       exec.Input,
+		Output:      exec.Output,
+		Error:       exec.Error,
+		CurrentNode: exec.CurrentNode,
+		TraceID:     exec.TraceID,
+		StartedAt:   exec.StartedAt,
+		CompletedAt: exec.CompletedAt,
+		CreatedAt:   exec.CreatedAt,
+		UpdatedAt:   exec.UpdatedAt,
+		NodeRuns:    runs,
+	}, nil
+}
+
+// ListNodeRuns 某次执行的节点尝试列表
+func (s *WorkflowService) ListNodeRuns(userID, executionID string) ([]model.WorkflowNodeRun, error) {
+	if _, err := s.GetWorkflowExecution(userID, executionID); err != nil {
+		return nil, err
+	}
+	var runs []model.WorkflowNodeRun
+	if err := s.db.Where("execution_id = ?", executionID).Order("created_at ASC").Find(&runs).Error; err != nil {
+		return nil, fmt.Errorf("查询节点运行失败")
+	}
+	return runs, nil
+}
+
 // CancelWorkflowExecution 取消执行
 func (s *WorkflowService) CancelWorkflowExecution(userID, executionID string) error {
 	var execution model.WorkflowExecution
@@ -240,20 +278,11 @@ func (s *WorkflowService) DebugWorkflowWithTraceID(userID, workflowID string, re
 	}
 
 	go func() {
-		ctx := engine.NewExecutionContextWithTraceID(workflowID, executionID, input, traceID)
+		ctx := engine.NewExecutionContextWithTraceID(workflowID, executionID, input, traceID).WithUserID(userID)
+		// 节点进度由引擎写 current_node / node_runs；勿用节点 status 覆盖整次执行 status
 		ctx.OnNodeStart = func(nodeID string) {
-			updates := map[string]any{
-				"current_node": nodeID,
-				"status":       "running",
-			}
-			s.db.Model(&model.WorkflowExecution{}).Where("id = ?", executionID).Updates(updates)
-		}
-		ctx.OnNodeEnd = func(nodeID string, status string) {
-			updates := map[string]any{
-				"current_node": nodeID,
-				"status":       status,
-			}
-			s.db.Model(&model.WorkflowExecution{}).Where("id = ?", executionID).Updates(updates)
+			s.db.Model(&model.WorkflowExecution{}).Where("id = ?", executionID).
+				Updates(map[string]any{"current_node": nodeID, "status": "running"})
 		}
 
 		def, err := s.workflowEngine.ParseDefinition(workflow.Definition)
@@ -264,8 +293,7 @@ func (s *WorkflowService) DebugWorkflowWithTraceID(userID, workflowID string, re
 			return
 		}
 
-		result := s.workflowEngine.Execute(ctx, def)
-		_ = result
+		_ = s.workflowEngine.Execute(ctx, def)
 	}()
 
 	return &ExecuteResponse{

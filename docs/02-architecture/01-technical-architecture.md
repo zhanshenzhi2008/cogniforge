@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-10-26 | v4.13 | 工作流 W1：workflow_node_runs + current_node 持久化 | orjrs |
 | 2026-10-26 | v4.12 | 工作流 W0：LLM/Agent 节点经 NewEngineWithDeps 接真实 Chat | orjrs |
 | 2026-10-26 | v4.11 | 工作流：加强现有引擎 + Checkpoint 路线（阶段十八）；纠正「节点引擎未实现」过时描述 | orjrs |
 | 2026-10-17 | v4.10 | LLM 传输层设计：Chat Completions / Responses 可切换（Adapter+Strategy） | orjrs |
@@ -580,11 +581,12 @@ ai_providers.api_protocol   = chat_completions | responses   # 默认 chat_compl
   - 定时调度表（Cron）骨架
   - 调试回调钩子（OnNodeStart/End）
 
-已实现（阶段十八 W0）:
+已实现（阶段十八 W0–W1）:
   - LLM / Agent 节点接 Chat / ChatWithTools（NewEngineWithDeps）
+  - workflow_node_runs + current_node；执行详情含 node_runs
 
 缺口（阶段十八）:
-  - 无 node_runs / checkpoint / waiting+resume → W1–W2
+  - checkpoint / waiting+resume → W2
   - 人审 / 超时恢复 → W3
 
 不采用: 嵌 n8n；本期不上 Temporal；不做平行 StateMachineEngine

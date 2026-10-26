@@ -173,13 +173,29 @@ func (h *WorkflowHandler) GetWorkflowExecution(c *gin.Context) {
 	}
 
 	executionID := c.Param("executionId")
-	execution, err := h.service.GetWorkflowExecution(userID, executionID)
+	detail, err := h.service.GetWorkflowExecutionDetail(userID, executionID)
 	if err != nil {
 		response.NotFound(c, err.Error())
 		return
 	}
 
-	response.Success(c, execution)
+	response.Success(c, detail)
+}
+
+// ListExecutionNodeRuns 节点运行列表
+func (h *WorkflowHandler) ListExecutionNodeRuns(c *gin.Context) {
+	userID := c.GetString("user_id")
+	if userID == "" {
+		response.Unauthorized(c, "unauthorized")
+		return
+	}
+	executionID := c.Param("executionId")
+	runs, err := h.service.ListNodeRuns(userID, executionID)
+	if err != nil {
+		response.NotFound(c, err.Error())
+		return
+	}
+	response.Success(c, runs)
 }
 
 // CancelWorkflowExecution 取消执行
@@ -236,6 +252,7 @@ func (h *WorkflowHandler) RegisterRoutes(rg *gin.RouterGroup) {
 		workflows.POST("/:id/debug", h.DebugWorkflow)
 		workflows.GET("/:id/executions", h.ListWorkflowExecutions)
 		workflows.GET("/executions/:executionId", h.GetWorkflowExecution)
+		workflows.GET("/executions/:executionId/nodes", h.ListExecutionNodeRuns)
 		workflows.POST("/executions/:executionId/cancel", h.CancelWorkflowExecution)
 	}
 }

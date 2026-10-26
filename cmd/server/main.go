@@ -57,6 +57,7 @@ func main() {
 		&model.WorkflowNode{},
 		&model.WorkflowEdge{},
 		&model.WorkflowExecution{},
+		&model.WorkflowNodeRun{},
 		&model.KnowledgeBase{},
 		&model.Document{},
 		&model.RequestLog{},

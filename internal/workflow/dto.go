@@ -37,3 +37,22 @@ type WorkflowExecutionResponse struct {
 	WorkflowID string `json:"workflow_id"`
 	Status     string `json:"status"`
 }
+
+// ExecutionDetail 执行详情（含节点运行记录，阶段十八 W1）
+type ExecutionDetail struct {
+	ID                 string      `json:"id"`
+	WorkflowID         string      `json:"workflow_id"`
+	UserID             string      `json:"user_id"`
+	Status             string      `json:"status"`
+	Input              any         `json:"input,omitempty"`
+	Output             string      `json:"output,omitempty"`
+	Error              string      `json:"error,omitempty"`
+	CurrentNode        string      `json:"current_node,omitempty"`
+	TraceID            string      `json:"trace_id,omitempty"`
+	StartedAt          any         `json:"started_at,omitempty"`
+	CompletedAt        any         `json:"completed_at,omitempty"`
+	CreatedAt          any         `json:"created_at,omitempty"`
+	UpdatedAt          any         `json:"updated_at,omitempty"`
+	NodeRuns           any         `json:"node_runs"`
+	LatestCheckpointSeq int        `json:"latest_checkpoint_seq,omitempty"`
+}

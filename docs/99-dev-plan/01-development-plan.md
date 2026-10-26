@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-10-26 | v1.110 | 阶段十八 W1：node_runs + current_node + 画布高亮 | orjrs |
 | 2026-10-26 | v1.109 | 阶段十八 W0：工作流 LLM/Agent 节点接真实 Chat | orjrs |
 | 2026-10-26 | v1.108 | 阶段十八立项：工作流真实 AI 节点 + Checkpoint（W0–W3） | orjrs |
 | 2026-10-24 | v1.107 | P1：提示词试跑 / 评估变量表单 / 顶栏邮箱 | orjrs |
@@ -109,11 +110,16 @@
 | 2026-04-17 | v1.3 | 阶段九用户管理与个人设置完成（用户CRUD、个人设置、会话管理、RBAC权限系统） | orjrs |
 > 注：任务状态变更直接在下方任务表格中更新即可，无需额外记录。
 
+## [变更] 阶段十八 W1：node_runs（2026-10-26）
+
+- **包含代码**：`model.WorkflowNodeRun`；引擎持久化；执行详情 `node_runs`；Web 画布高亮
+- **下一步**：W2 checkpoint / resume
+
 ## [变更] 阶段十八 W0：LLM/Agent 接真（2026-10-26）
 
 - **变更原因**：模拟节点无法验收 Agent 编排
 - **包含代码**：`internal/engine/nodes/llm.go`、`agent.go`；`NewEngineWithDeps`；`router` 注入；`ExecutionContext.UserID`
-- **下一步**：W1 `workflow_node_runs` + 画布高亮
+- **下一步**：~~W1~~ → W2
 
 ## [变更] 阶段十八立项：工作流 + Checkpoint（2026-10-26）
 
@@ -1330,21 +1336,21 @@ pnpm test:e2e          # Playwright：登录/注册按钮、对话发送禁用�
 | 序号 | 功能点 | 预计时间 | 难度 | 状态 | 测试项 | 测试时间 |
 |-----|-------|---------|------|------|-------|---------|
 | 18.0 / W0 | LLM + Agent 节点接真（Chat / ChatWithTools） | 2天 | ⭐⭐⭐ | ✅ 完成 | 真回答；工具题可用 | 0.5天 |
-| 18.1 / W1 | `workflow_node_runs` + current_node + 画布高亮 | 2天 | ⭐⭐ | 🔴 未开始 | 看到跑到哪/失败点 | — |
+| 18.1 / W1 | `workflow_node_runs` + current_node + 画布高亮 | 2天 | ⭐⭐ | ✅ 完成 | 看到跑到哪/失败点 | 0.5天 |
 | 18.2 / W2 | checkpoints + waiting/resume/cancel | 2.5天 | ⭐⭐⭐⭐ | 🔴 未开始 | waiting 后继续不重头跑 | — |
 | 18.3 / W3 | 审批门 / 超时扫描 / 工具幂等 | 3天 | ⭐⭐⭐⭐ | 🔴 未开始 | 人审通过再续 | — |
 
 **验收（给非技术同学）**：
 
 1. ✅ 工作流里 LLM/Agent 出真实回答（不是 Simulated）— 需部署后冒烟  
-2. 执行能看出当前节点与失败节点（W1）  
+2. ✅ 执行能看出当前节点与失败节点（W1）  
 3.（W2）等待后续跑，不从第一个节点重来  
 
 **不在本期**：嵌 n8n、Temporal、Java 通用状态机引擎、LangGraph 当平台真相
 
-**下一步**：开工 **W1**
+**下一步**：开工 **W2**
 
-**代码落地（W0）**：`internal/engine/{deps,engine}.go`；`nodes/{llm,agent,template}.go`；`router` 注入 AIDeps
+**代码落地**：W0 AI 节点；W1 `WorkflowNodeRun` + 详情 `node_runs` + 画布高亮
 
 ---
 
@@ -1564,4 +1570,4 @@ composables/
 
 ---
 
-**下一阶段**：**阶段十八 W1** — `workflow_node_runs` + `current_node` + 画布高亮；W0 部署后冒烟验证真模型回答。
+**下一阶段**：**阶段十八 W2** — checkpoints + waiting/resume/cancel；部署后冒烟 W0/W1。

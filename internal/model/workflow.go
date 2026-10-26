@@ -84,6 +84,28 @@ func (WorkflowExecution) TableName() string {
 	return "workflow_executions"
 }
 
+// WorkflowNodeRun 单次执行中某个节点的一次尝试（阶段十八 W1）
+type WorkflowNodeRun struct {
+	ID          string     `gorm:"primaryKey;type:varchar(64)" json:"id"`
+	ExecutionID string     `gorm:"type:varchar(64);not null;index:idx_wnr_execution;index:idx_wnr_exec_node,priority:1" json:"execution_id"`
+	NodeID      string     `gorm:"type:varchar(64);not null;index:idx_wnr_exec_node,priority:2" json:"node_id"`
+	NodeType    string     `gorm:"type:varchar(50);not null" json:"node_type"`
+	Attempt     int        `gorm:"not null;default:1" json:"attempt"`
+	Status      string     `gorm:"type:varchar(20);not null;default:'pending'" json:"status"` // pending/running/succeeded/failed/skipped
+	Input       JSONBMap   `gorm:"type:jsonb" json:"input,omitempty"`
+	Output      JSONBMap   `gorm:"type:jsonb" json:"output,omitempty"`
+	Error       string     `gorm:"type:text" json:"error,omitempty"`
+	Detail      JSONBMap   `gorm:"type:jsonb" json:"detail,omitempty"`
+	StartedAt   *time.Time `json:"started_at,omitempty"`
+	FinishedAt  *time.Time `json:"finished_at,omitempty"`
+	DurationMS  int64      `gorm:"column:duration_ms" json:"duration_ms"`
+	CreatedAt   time.Time  `json:"created_at"`
+}
+
+func (WorkflowNodeRun) TableName() string {
+	return "workflow_node_runs"
+}
+
 // WorkflowSchedule 工作流定时调度表
 type WorkflowSchedule struct {
 	ID             string         `gorm:"primaryKey;type:varchar(64)" json:"id"`

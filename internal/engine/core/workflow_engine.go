@@ -102,10 +102,12 @@ func (e *WorkflowEngine) Execute(ctx *ExecutionContext, def *WorkflowDefinition)
 
 	for _, node := range sortedNodes {
 		if ctx.GetNodeState(node.ID) == "skipped" {
+			e.persistNodeRun(ctx, node, "skipped", 1, nil, nil, "", 0)
 			continue
 		}
 
 		ctx.NodeID = node.ID
+		e.setCurrentNode(ctx.ExecutionID, node.ID)
 
 		ctx.Logger.Logf(node.ID, "info", "Starting node: %s (type: %s)", node.Name, node.Type)
 		if ctx.OnNodeStart != nil {
@@ -116,6 +118,7 @@ func (e *WorkflowEngine) Execute(ctx *ExecutionContext, def *WorkflowDefinition)
 		if !ok {
 			err := fmt.Errorf("unknown node type: %s", node.Type)
 			ctx.Logger.Logf(node.ID, "error", "Node execution failed: %v", err)
+			e.persistNodeRun(ctx, node, "failed", 1, nil, nil, err.Error(), 0)
 			result.Status = "failed"
 			result.Error = err.Error()
 			e.updateExecutionStatus(ctx.ExecutionID, "failed", "", result.Error)
@@ -123,11 +126,13 @@ func (e *WorkflowEngine) Execute(ctx *ExecutionContext, def *WorkflowDefinition)
 		}
 
 		startTime := time.Now()
+		e.persistNodeRun(ctx, node, "running", 1, nil, nil, "", 0)
 		output, err := executor.Execute(ctx, node.Config)
 		duration := time.Since(startTime).Milliseconds()
 
 		if err != nil {
 			ctx.Logger.Logf(node.ID, "error", "Node execution failed after %dms: %v", duration, err)
+			e.persistNodeRun(ctx, node, "failed", 1, nil, nil, err.Error(), duration)
 			if ctx.OnNodeEnd != nil {
 				ctx.OnNodeEnd(node.ID, "failed")
 			}
@@ -141,6 +146,7 @@ func (e *WorkflowEngine) Execute(ctx *ExecutionContext, def *WorkflowDefinition)
 		if output != nil {
 			ctx.Output[node.ID] = output
 		}
+		e.persistNodeRun(ctx, node, "succeeded", 1, nil, output, "", duration)
 		if ctx.OnNodeEnd != nil {
 			ctx.OnNodeEnd(node.ID, "completed")
 		}
@@ -149,8 +155,115 @@ func (e *WorkflowEngine) Execute(ctx *ExecutionContext, def *WorkflowDefinition)
 	result.Status = "completed"
 	result.Output = ctx.Output
 	result.Duration = time.Since(ctx.StartTime).Milliseconds()
+	e.setCurrentNode(ctx.ExecutionID, "")
 	e.updateExecutionStatus(ctx.ExecutionID, "completed", result.Output, "")
 	return result
+}
+
+func (e *WorkflowEngine) setCurrentNode(executionID, nodeID string) {
+	if executionID == "" || database.DB == nil {
+		return
+	}
+	database.DB.Model(&model.WorkflowExecution{}).Where("id = ?", executionID).
+		Update("current_node", nodeID)
+}
+
+// persistNodeRun 写入/更新节点尝试记录（同一 execution+node+attempt 幂等更新）
+func (e *WorkflowEngine) persistNodeRun(
+	ctx *ExecutionContext,
+	node NodeDefinition,
+	status string,
+	attempt int,
+	input any,
+	output any,
+	errMsg string,
+	durationMS int64,
+) {
+	if ctx == nil || ctx.ExecutionID == "" || database.DB == nil {
+		return
+	}
+	now := time.Now()
+	var existing model.WorkflowNodeRun
+	q := database.DB.Where("execution_id = ? AND node_id = ? AND attempt = ?", ctx.ExecutionID, node.ID, attempt)
+	err := q.First(&existing).Error
+	outMap := toJSONBMap(output)
+	inMap := toJSONBMap(input)
+
+	if err == gorm.ErrRecordNotFound {
+		run := model.WorkflowNodeRun{
+			ID:          fmt.Sprintf("wnr_%d_%s", time.Now().UnixNano(), randomString(6)),
+			ExecutionID: ctx.ExecutionID,
+			NodeID:      node.ID,
+			NodeType:    node.Type,
+			Attempt:     attempt,
+			Status:      status,
+			Input:       inMap,
+			Output:      outMap,
+			Error:       errMsg,
+			DurationMS:  durationMS,
+			CreatedAt:   now,
+		}
+		if status == "running" {
+			run.StartedAt = &now
+		}
+		if status == "succeeded" || status == "failed" || status == "skipped" {
+			run.FinishedAt = &now
+			if run.StartedAt == nil {
+				run.StartedAt = &now
+			}
+		}
+		if createErr := database.DB.Create(&run).Error; createErr != nil {
+			slog.Warn("persist node run create failed", "error", createErr, "execution_id", ctx.ExecutionID, "node_id", node.ID)
+		}
+		return
+	}
+	if err != nil {
+		slog.Warn("persist node run lookup failed", "error", err, "execution_id", ctx.ExecutionID, "node_id", node.ID)
+		return
+	}
+
+	updates := map[string]any{
+		"status":      status,
+		"error":       errMsg,
+		"duration_ms": durationMS,
+		"node_type":   node.Type,
+	}
+	if inMap != nil {
+		updates["input"] = inMap
+	}
+	if outMap != nil {
+		updates["output"] = outMap
+	}
+	if status == "running" && existing.StartedAt == nil {
+		updates["started_at"] = &now
+	}
+	if status == "succeeded" || status == "failed" || status == "skipped" {
+		updates["finished_at"] = &now
+	}
+	if updErr := database.DB.Model(&existing).Updates(updates).Error; updErr != nil {
+		slog.Warn("persist node run update failed", "error", updErr, "execution_id", ctx.ExecutionID, "node_id", node.ID)
+	}
+}
+
+func toJSONBMap(v any) model.JSONBMap {
+	if v == nil {
+		return nil
+	}
+	if m, ok := v.(map[string]any); ok {
+		return model.JSONBMap(m)
+	}
+	if m, ok := v.(model.JSONBMap); ok {
+		return m
+	}
+	b, err := json.Marshal(v)
+	if err != nil {
+		return model.JSONBMap{"value": fmt.Sprint(v)}
+	}
+	var out model.JSONBMap
+	if err := json.Unmarshal(b, &out); err != nil {
+		return model.JSONBMap{"value": string(b)}
+	}
+	return out
 }
 
 func (e *WorkflowEngine) updateExecutionStatus(executionID, status string, output any, errorMsg string) {
@@ -166,6 +279,7 @@ func (e *WorkflowEngine) updateExecutionStatus(executionID, status string, outpu
 	if status == "completed" || status == "failed" {
 		now := time.Now()
 		updates["completed_at"] = &now
+		updates["current_node"] = ""
 	}
 	database.DB.Model(&model.WorkflowExecution{}).Where("id = ?", executionID).Updates(updates)
 }

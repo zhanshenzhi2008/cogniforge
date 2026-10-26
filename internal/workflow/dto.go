@@ -24,6 +24,10 @@ type DebugWorkflowRequest struct {
 	NodeBreakpoints []string       `json:"node_breakpoints"`
 }
 
+type ResumeExecutionRequest struct {
+	Seq *int `json:"seq"` // 可选：指定 checkpoint seq；默认最新
+}
+
 // ============ 响应结构 ============
 
 type ExecuteResponse struct {
@@ -53,6 +57,7 @@ type ExecutionDetail struct {
 	CompletedAt        any         `json:"completed_at,omitempty"`
 	CreatedAt          any         `json:"created_at,omitempty"`
 	UpdatedAt          any         `json:"updated_at,omitempty"`
-	NodeRuns           any         `json:"node_runs"`
-	LatestCheckpointSeq int        `json:"latest_checkpoint_seq,omitempty"`
+	WaitReason          string `json:"wait_reason,omitempty"`
+	NodeRuns            any    `json:"node_runs"`
+	LatestCheckpointSeq int    `json:"latest_checkpoint_seq,omitempty"`
 }

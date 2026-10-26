@@ -4,22 +4,30 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|---------|--------|
+| 2026-10-26 | v1.3 | W2 落地：wait 节点 + checkpoint + resume/cancel | orjrs |
 | 2026-10-26 | v1.2 | W1 落地：node_runs + current_node + 画布高亮 | orjrs |
 | 2026-10-26 | v1.1 | W0 落地：LLM/Agent 节点接 Chat / ChatWithTools | orjrs |
 | 2026-10-26 | v1.0 | 立项：加强现有 Vue Flow + Go 引擎；W0–W3 排期；不做第二套状态机 | orjrs |
+
+## [变更] W2 checkpoint + waiting/resume（2026-10-26）
+
+- **变更原因**：执行一口气跑完无法人工审批 / 外部等待后继续
+- **包含代码**：`WorkflowCheckpoint`；`wait` 节点 `__wait__`；引擎挂起 + 每节点 checkpoint；`POST .../resume`、`GET .../checkpoints`；cancel 支持 waiting；Web wait 节点 + 继续/取消条
+- **行为**：waiting 后从最新（或指定 seq）checkpoint 跳过已完成节点继续；不重头跑
+- **下一步**：W3 审批超时 / 外部回调入口
 
 ## [变更] W1 节点运行记录（2026-10-26）
 
 - **变更原因**：执行不可观测；画布不知道跑到哪
 - **包含代码**：`model.WorkflowNodeRun`；引擎 `persistNodeRun` / `setCurrentNode`；`GET .../executions/:id` 含 `node_runs`；`GET .../nodes`；Web 画布 run-* 高亮
-- **下一步**：W2 checkpoint + waiting/resume
+- **下一步**：~~W2~~ → W3
 
 ## [变更] W0 真实 AI 节点（2026-10-26）
 
 - **变更原因**：工作流 LLM/Agent 原为模拟，无法作为 Agent 平台编排
 - **包含代码**：`internal/engine/nodes/{llm,agent,template}.go`；`engine.NewEngineWithDeps`；router 注入 Chat/MCP/Quota/DB；`ExecutionContext.UserID`
 - **行为**：LLM → `ChatService.Chat`；Agent → 解析人设 + `InjectMCPTools` + `ChatWithTools`/`Chat`；配额 source=`workflow`
-- **下一步**：~~W1~~ → W2
+- **下一步**：~~W1~~ → ~~W2~~ → W3
 
 ## [变更] 立项（2026-10-26）
 

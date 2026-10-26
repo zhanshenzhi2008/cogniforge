@@ -216,6 +216,40 @@ func (h *WorkflowHandler) CancelWorkflowExecution(c *gin.Context) {
 	response.SuccessWithMessage(c, nil, "执行已取消")
 }
 
+// ListExecutionCheckpoints 检查点列表
+func (h *WorkflowHandler) ListExecutionCheckpoints(c *gin.Context) {
+	userID := c.GetString("user_id")
+	if userID == "" {
+		response.Unauthorized(c, "unauthorized")
+		return
+	}
+	executionID := c.Param("executionId")
+	list, err := h.service.ListCheckpoints(userID, executionID)
+	if err != nil {
+		response.NotFound(c, err.Error())
+		return
+	}
+	response.Success(c, list)
+}
+
+// ResumeWorkflowExecution 从 checkpoint 继续
+func (h *WorkflowHandler) ResumeWorkflowExecution(c *gin.Context) {
+	userID := c.GetString("user_id")
+	if userID == "" {
+		response.Unauthorized(c, "unauthorized")
+		return
+	}
+	executionID := c.Param("executionId")
+	var req ResumeExecutionRequest
+	_ = c.ShouldBindJSON(&req)
+	result, err := h.service.ResumeExecution(userID, executionID, &req)
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+	response.Accepted(c, result)
+}
+
 // DebugWorkflow 调试工作流
 func (h *WorkflowHandler) DebugWorkflow(c *gin.Context) {
 	userID := c.GetString("user_id")
@@ -253,6 +287,8 @@ func (h *WorkflowHandler) RegisterRoutes(rg *gin.RouterGroup) {
 		workflows.GET("/:id/executions", h.ListWorkflowExecutions)
 		workflows.GET("/executions/:executionId", h.GetWorkflowExecution)
 		workflows.GET("/executions/:executionId/nodes", h.ListExecutionNodeRuns)
+		workflows.GET("/executions/:executionId/checkpoints", h.ListExecutionCheckpoints)
+		workflows.POST("/executions/:executionId/resume", h.ResumeWorkflowExecution)
 		workflows.POST("/executions/:executionId/cancel", h.CancelWorkflowExecution)
 	}
 }

@@ -1,6 +1,8 @@
 package core
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -10,6 +12,8 @@ import (
 	"cogniforge/internal/model"
 	"gorm.io/gorm"
 )
+
+const EngineVersion = "18.2"
 
 type WorkflowEngine struct {
 	db            *gorm.DB
@@ -29,11 +33,90 @@ func (e *WorkflowEngine) RegisterExecutor(nodeType string, executor NodeExecutor
 }
 
 func (e *WorkflowEngine) ParseDefinition(definition string) (*WorkflowDefinition, error) {
-	var def WorkflowDefinition
-	if err := json.Unmarshal([]byte(definition), &def); err != nil {
+	// 兼容前端 Vue Flow：nodes[].data 承载配置，引擎要 nodes[].config
+	var raw struct {
+		Nodes []struct {
+			ID       string          `json:"id"`
+			Type     string          `json:"type"`
+			Name     string          `json:"name"`
+			Config   json.RawMessage `json:"config"`
+			Data     map[string]any  `json:"data"`
+			Position Position        `json:"position"`
+		} `json:"nodes"`
+		Edges []EdgeDefinition `json:"edges"`
+	}
+	if err := json.Unmarshal([]byte(definition), &raw); err != nil {
 		return nil, fmt.Errorf("failed to parse workflow definition: %w", err)
 	}
-	return &def, nil
+	def := &WorkflowDefinition{Edges: raw.Edges, Nodes: make([]NodeDefinition, 0, len(raw.Nodes))}
+	for _, n := range raw.Nodes {
+		cfg := n.Config
+		name := n.Name
+		if len(cfg) == 0 || string(cfg) == "null" {
+			cfg = vueDataToConfig(n.Type, n.Data)
+		}
+		if name == "" && n.Data != nil {
+			if label, ok := n.Data["label"].(string); ok {
+				name = label
+			}
+		}
+		def.Nodes = append(def.Nodes, NodeDefinition{
+			ID: n.ID, Type: n.Type, Name: name, Config: cfg, Position: n.Position,
+		})
+	}
+	return def, nil
+}
+
+// vueDataToConfig 将画布 data 字段映射为节点 config JSON
+func vueDataToConfig(nodeType string, data map[string]any) json.RawMessage {
+	if data == nil {
+		return json.RawMessage(`{}`)
+	}
+	out := map[string]any{}
+	switch nodeType {
+	case "wait":
+		if v, ok := data["waitReason"]; ok {
+			out["reason"] = v
+		} else if v, ok := data["reason"]; ok {
+			out["reason"] = v
+		}
+		if v, ok := data["waitMessage"]; ok {
+			out["message"] = v
+		} else if v, ok := data["message"]; ok {
+			out["message"] = v
+		}
+	case "llm", "agent":
+		if v, ok := data["model"]; ok {
+			out["model"] = v
+		}
+		if v, ok := data["systemPrompt"]; ok {
+			out["system_prompt"] = v
+		}
+		if v, ok := data["prompt"]; ok {
+			out["prompt"] = v
+		}
+		if v, ok := data["temperature"]; ok {
+			out["temperature"] = v
+		}
+		if v, ok := data["maxTokens"]; ok {
+			out["max_tokens"] = v
+		}
+		if v, ok := data["agentId"]; ok {
+			out["agent_id"] = v
+		}
+	default:
+		for k, v := range data {
+			if k == "label" {
+				continue
+			}
+			out[k] = v
+		}
+	}
+	b, err := json.Marshal(out)
+	if err != nil {
+		return json.RawMessage(`{}`)
+	}
+	return b
 }
 
 func (e *WorkflowEngine) TopologicalSort(def *WorkflowDefinition) ([]NodeDefinition, error) {
@@ -100,7 +183,14 @@ func (e *WorkflowEngine) Execute(ctx *ExecutionContext, def *WorkflowDefinition)
 		return result
 	}
 
-	for _, node := range sortedNodes {
+	completed := make([]string, 0)
+	for id, st := range ctx.State {
+		if st == "skipped" || st == "succeeded" {
+			completed = append(completed, id)
+		}
+	}
+
+	for i, node := range sortedNodes {
 		if ctx.GetNodeState(node.ID) == "skipped" {
 			e.persistNodeRun(ctx, node, "skipped", 1, nil, nil, "", 0)
 			continue
@@ -142,11 +232,42 @@ func (e *WorkflowEngine) Execute(ctx *ExecutionContext, def *WorkflowDefinition)
 			return result
 		}
 
+		// wait 节点：写成功记录 + checkpoint，挂起为 waiting
+		if reason, msg, isWait := isWaitOutput(output); isWait {
+			ctx.Logger.Logf(node.ID, "info", "Entering waiting: %s (%s)", reason, msg)
+			if output != nil {
+				ctx.Output[node.ID] = output
+			}
+			e.persistNodeRun(ctx, node, "succeeded", 1, nil, output, "", duration)
+			completed = append(completed, node.ID)
+			ctx.SetNodeState(node.ID, "succeeded")
+			nextID := ""
+			if i+1 < len(sortedNodes) {
+				nextID = sortedNodes[i+1].ID
+			}
+			e.saveCheckpoint(ctx, nextID, completed, "enter_waiting")
+			e.setWaiting(ctx.ExecutionID, reason, msg)
+			result.Status = "waiting"
+			result.Output = ctx.Output
+			result.Duration = time.Since(ctx.StartTime).Milliseconds()
+			if ctx.OnNodeEnd != nil {
+				ctx.OnNodeEnd(node.ID, "waiting")
+			}
+			return result
+		}
+
 		ctx.Logger.Logf(node.ID, "info", "Node completed in %dms", duration)
 		if output != nil {
 			ctx.Output[node.ID] = output
 		}
 		e.persistNodeRun(ctx, node, "succeeded", 1, nil, output, "", duration)
+		completed = append(completed, node.ID)
+		ctx.SetNodeState(node.ID, "succeeded")
+		nextID := ""
+		if i+1 < len(sortedNodes) {
+			nextID = sortedNodes[i+1].ID
+		}
+		e.saveCheckpoint(ctx, nextID, completed, "node_ok")
 		if ctx.OnNodeEnd != nil {
 			ctx.OnNodeEnd(node.ID, "completed")
 		}
@@ -156,8 +277,111 @@ func (e *WorkflowEngine) Execute(ctx *ExecutionContext, def *WorkflowDefinition)
 	result.Output = ctx.Output
 	result.Duration = time.Since(ctx.StartTime).Milliseconds()
 	e.setCurrentNode(ctx.ExecutionID, "")
+	e.saveCheckpoint(ctx, "", completed, "final")
 	e.updateExecutionStatus(ctx.ExecutionID, "completed", result.Output, "")
 	return result
+}
+
+func isWaitOutput(output any) (reason, message string, ok bool) {
+	m, ok := output.(map[string]any)
+	if !ok {
+		return "", "", false
+	}
+	flag, _ := m["__wait__"].(bool)
+	if !flag {
+		return "", "", false
+	}
+	reason, _ = m["reason"].(string)
+	message, _ = m["message"].(string)
+	if reason == "" {
+		reason = "approval"
+	}
+	return reason, message, true
+}
+
+func (e *WorkflowEngine) setWaiting(executionID, reason, message string) {
+	if executionID == "" || database.DB == nil {
+		return
+	}
+	updates := map[string]any{
+		"status":      "waiting",
+		"wait_reason": reason,
+		"error":       message, // 复用 error 字段展示等待说明（非失败）
+	}
+	database.DB.Model(&model.WorkflowExecution{}).Where("id = ?", executionID).Updates(updates)
+}
+
+func (e *WorkflowEngine) saveCheckpoint(ctx *ExecutionContext, cursorNodeID string, completed []string, reason string) {
+	if ctx == nil || ctx.ExecutionID == "" || database.DB == nil {
+		return
+	}
+	seq := e.nextCheckpointSeq(ctx.ExecutionID)
+	vars := model.JSONBMap{}
+	ctx.mu.RLock()
+	for k, v := range ctx.Variables {
+		vars[k] = v
+	}
+	outs := model.JSONBMap{}
+	for k, v := range ctx.Output {
+		outs[k] = v
+	}
+	hash := ctx.DefinitionHash
+	ctx.mu.RUnlock()
+
+	cp := model.WorkflowCheckpoint{
+		ID:               fmt.Sprintf("wcp_%d_%s", time.Now().UnixNano(), randomString(6)),
+		ExecutionID:      ctx.ExecutionID,
+		Seq:              seq,
+		CursorNodeID:     cursorNodeID,
+		Variables:        vars,
+		Outputs:          outs,
+		CompletedNodeIDs: model.JSONBArray(completed),
+		Reason:           reason,
+		EngineVersion:    EngineVersion,
+		DefinitionHash:   hash,
+		CreatedAt:        time.Now(),
+	}
+	if err := database.DB.Create(&cp).Error; err != nil {
+		slog.Warn("save checkpoint failed", "error", err, "execution_id", ctx.ExecutionID, "seq", seq)
+	}
+}
+
+func (e *WorkflowEngine) nextCheckpointSeq(executionID string) int {
+	var maxSeq int
+	database.DB.Model(&model.WorkflowCheckpoint{}).
+		Where("execution_id = ?", executionID).
+		Select("COALESCE(MAX(seq), 0)").
+		Scan(&maxSeq)
+	return maxSeq + 1
+}
+
+// HashDefinition 工作流定义内容哈希
+func HashDefinition(definition string) string {
+	sum := sha256.Sum256([]byte(definition))
+	return hex.EncodeToString(sum[:8])
+}
+
+// ApplyCheckpoint 将 checkpoint 恢复到执行上下文（标记已完成节点为 skipped）
+func ApplyCheckpoint(ctx *ExecutionContext, cp *model.WorkflowCheckpoint) {
+	if ctx == nil || cp == nil {
+		return
+	}
+	if cp.Variables != nil {
+		for k, v := range cp.Variables {
+			ctx.SetVariable(k, v)
+		}
+	}
+	if cp.Outputs != nil {
+		if ctx.Output == nil {
+			ctx.Output = make(map[string]any)
+		}
+		for k, v := range cp.Outputs {
+			ctx.Output[k] = v
+		}
+	}
+	for _, id := range cp.CompletedNodeIDs {
+		ctx.SetNodeState(id, "skipped")
+	}
 }
 
 func (e *WorkflowEngine) setCurrentNode(executionID, nodeID string) {
@@ -276,10 +500,15 @@ func (e *WorkflowEngine) updateExecutionStatus(executionID, status string, outpu
 	if errorMsg != "" {
 		updates["error"] = errorMsg
 	}
-	if status == "completed" || status == "failed" {
+	if status == "completed" || status == "failed" || status == "cancelled" {
 		now := time.Now()
 		updates["completed_at"] = &now
 		updates["current_node"] = ""
+		updates["wait_reason"] = ""
+	}
+	if status == "running" {
+		updates["wait_reason"] = ""
+		updates["error"] = ""
 	}
 	database.DB.Model(&model.WorkflowExecution{}).Where("id = ?", executionID).Updates(updates)
 }

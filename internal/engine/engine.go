@@ -14,6 +14,7 @@ type (
 	EndNodeExecutor       = nodes.EndNodeExecutor
 	LLMNodeExecutor       = nodes.LLMNodeExecutor
 	AgentNodeExecutor     = nodes.AgentNodeExecutor
+	WaitNodeExecutor      = nodes.WaitNodeExecutor
 	HTTPNodeExecutor      = nodes.HTTPNodeExecutor
 	CodeNodeExecutor      = nodes.CodeNodeExecutor
 	DelayNodeExecutor     = nodes.DelayNodeExecutor
@@ -42,6 +43,8 @@ var (
 	NewExecutionContext            = core.NewExecutionContext
 	NewExecutionContextWithTraceID = core.NewExecutionContextWithTraceID
 	NewExecutionLogger             = core.NewExecutionLogger
+	HashDefinition                 = core.HashDefinition
+	ApplyCheckpoint                = core.ApplyCheckpoint
 )
 
 // 调试器构造函数
@@ -68,6 +71,7 @@ func NewEngineWithDeps(deps AIDeps) *WorkflowEngine {
 		Quota: deps.Quota,
 		DB:    deps.DB,
 	})
+	engine.RegisterExecutor("wait", &WaitNodeExecutor{})
 	engine.RegisterExecutor("condition", &ConditionNodeExecutor{})
 	engine.RegisterExecutor("loop", &LoopNodeExecutor{})
 	engine.RegisterExecutor("http", nodes.NewHTTPNodeExecutor())

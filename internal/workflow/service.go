@@ -188,22 +188,100 @@ func (s *WorkflowService) GetWorkflowExecutionDetail(userID, executionID string)
 	}
 	var runs []model.WorkflowNodeRun
 	_ = s.db.Where("execution_id = ?", executionID).Order("created_at ASC").Find(&runs).Error
+	var maxSeq int
+	_ = s.db.Model(&model.WorkflowCheckpoint{}).
+		Where("execution_id = ?", executionID).
+		Select("COALESCE(MAX(seq), 0)").Scan(&maxSeq).Error
 	return &ExecutionDetail{
-		ID:          exec.ID,
-		WorkflowID:  exec.WorkflowID,
-		UserID:      exec.UserID,
-		Status:      exec.Status,
-		Input:       exec.Input,
-		Output:      exec.Output,
-		Error:       exec.Error,
-		CurrentNode: exec.CurrentNode,
-		TraceID:     exec.TraceID,
-		StartedAt:   exec.StartedAt,
-		CompletedAt: exec.CompletedAt,
-		CreatedAt:   exec.CreatedAt,
-		UpdatedAt:   exec.UpdatedAt,
-		NodeRuns:    runs,
+		ID:                  exec.ID,
+		WorkflowID:          exec.WorkflowID,
+		UserID:              exec.UserID,
+		Status:              exec.Status,
+		WaitReason:          exec.WaitReason,
+		Input:               exec.Input,
+		Output:              exec.Output,
+		Error:               exec.Error,
+		CurrentNode:         exec.CurrentNode,
+		TraceID:             exec.TraceID,
+		StartedAt:           exec.StartedAt,
+		CompletedAt:         exec.CompletedAt,
+		CreatedAt:           exec.CreatedAt,
+		UpdatedAt:           exec.UpdatedAt,
+		NodeRuns:            runs,
+		LatestCheckpointSeq: maxSeq,
 	}, nil
+}
+
+// ListCheckpoints 检查点列表
+func (s *WorkflowService) ListCheckpoints(userID, executionID string) ([]model.WorkflowCheckpoint, error) {
+	if _, err := s.GetWorkflowExecution(userID, executionID); err != nil {
+		return nil, err
+	}
+	var list []model.WorkflowCheckpoint
+	if err := s.db.Where("execution_id = ?", executionID).Order("seq ASC").Find(&list).Error; err != nil {
+		return nil, fmt.Errorf("查询检查点失败")
+	}
+	return list, nil
+}
+
+// ResumeExecution 从 checkpoint 继续（仅 waiting）
+func (s *WorkflowService) ResumeExecution(userID, executionID string, req *ResumeExecutionRequest) (*ExecuteResponse, error) {
+	exec, err := s.GetWorkflowExecution(userID, executionID)
+	if err != nil {
+		return nil, err
+	}
+	if exec.Status != "waiting" {
+		return nil, fmt.Errorf("仅 waiting 状态可 resume，当前: %s", exec.Status)
+	}
+
+	var wf model.Workflow
+	if err := s.db.Where("id = ? AND user_id = ?", exec.WorkflowID, userID).First(&wf).Error; err != nil {
+		return nil, fmt.Errorf("工作流不存在")
+	}
+
+	var cp model.WorkflowCheckpoint
+	q := s.db.Where("execution_id = ?", executionID)
+	if req != nil && req.Seq != nil {
+		q = q.Where("seq = ?", *req.Seq)
+	} else {
+		q = q.Order("seq DESC")
+	}
+	if err := q.First(&cp).Error; err != nil {
+		return nil, fmt.Errorf("没有可用检查点")
+	}
+
+	input := map[string]any(exec.Input)
+	if input == nil {
+		input = map[string]any{}
+	}
+
+	s.db.Model(&model.WorkflowExecution{}).Where("id = ?", executionID).Updates(map[string]any{
+		"status":       "running",
+		"wait_reason":  "",
+		"error":        "",
+		"completed_at": nil,
+	})
+
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				s.db.Model(&model.WorkflowExecution{}).Where("id = ?", executionID).
+					Updates(map[string]any{"status": "failed", "error": fmt.Sprintf("panic: %v", r)})
+			}
+		}()
+		ctx := engine.NewExecutionContextWithTraceID(exec.WorkflowID, executionID, input, exec.TraceID).WithUserID(userID)
+		ctx.DefinitionHash = engine.HashDefinition(wf.Definition)
+		engine.ApplyCheckpoint(ctx, &cp)
+		def, err := s.workflowEngine.ParseDefinition(wf.Definition)
+		if err != nil {
+			s.db.Model(&model.WorkflowExecution{}).Where("id = ?", executionID).
+				Updates(map[string]any{"status": "failed", "error": err.Error()})
+			return
+		}
+		_ = s.workflowEngine.Execute(ctx, def)
+	}()
+
+	return &ExecuteResponse{ExecutionID: executionID, TraceID: exec.TraceID, Status: "running"}, nil
 }
 
 // ListNodeRuns 某次执行的节点尝试列表
@@ -228,7 +306,7 @@ func (s *WorkflowService) CancelWorkflowExecution(userID, executionID string) er
 		return fmt.Errorf("查询执行记录失败")
 	}
 
-	if execution.Status != "pending" && execution.Status != "running" {
+	if execution.Status != "pending" && execution.Status != "running" && execution.Status != "waiting" && execution.Status != "debugging" {
 		return fmt.Errorf("当前状态无法取消")
 	}
 
@@ -236,7 +314,9 @@ func (s *WorkflowService) CancelWorkflowExecution(userID, executionID string) er
 	s.db.Model(&execution).Updates(map[string]any{
 		"status":       "cancelled",
 		"completed_at": &now,
+		"wait_reason":  "",
 		"error":        "Cancelled by user",
+		"current_node": "",
 	})
 
 	return nil
@@ -279,6 +359,7 @@ func (s *WorkflowService) DebugWorkflowWithTraceID(userID, workflowID string, re
 
 	go func() {
 		ctx := engine.NewExecutionContextWithTraceID(workflowID, executionID, input, traceID).WithUserID(userID)
+		ctx.DefinitionHash = engine.HashDefinition(workflow.Definition)
 		// 节点进度由引擎写 current_node / node_runs；勿用节点 status 覆盖整次执行 status
 		ctx.OnNodeStart = func(nodeID string) {
 			s.db.Model(&model.WorkflowExecution{}).Where("id = ?", executionID).

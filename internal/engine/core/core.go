@@ -11,22 +11,23 @@ import (
 )
 
 type ExecutionContext struct {
-	WorkflowID  string
-	ExecutionID string
-	UserID      string // 执行所属用户（配额 / Agent 归属）
-	TraceID     string          // 新增：请求追踪 ID
-	Context     context.Context // 新增：用于传递 traceId
-	NodeID      string
-	Variables   map[string]any
-	Input       map[string]any
-	Output      map[string]any
-	State       map[string]string
-	StartTime   time.Time
-	mu          sync.RWMutex
-	Logger      *ExecutionLogger
-	OnNodeStart func(nodeID string)
-	OnNodeEnd   func(nodeID string, status string)
-	OnProgress  func(nodeID string, message string)
+	WorkflowID     string
+	ExecutionID    string
+	UserID         string // 执行所属用户（配额 / Agent 归属）
+	TraceID        string          // 新增：请求追踪 ID
+	Context        context.Context // 新增：用于传递 traceId
+	NodeID         string
+	Variables      map[string]any
+	Input          map[string]any
+	Output         map[string]any
+	State          map[string]string
+	DefinitionHash string // 工作流定义哈希（checkpoint）
+	StartTime      time.Time
+	mu             sync.RWMutex
+	Logger         *ExecutionLogger
+	OnNodeStart    func(nodeID string)
+	OnNodeEnd      func(nodeID string, status string)
+	OnProgress     func(nodeID string, message string)
 }
 
 // NewExecutionContext 创建执行上下文，可选传入 traceId

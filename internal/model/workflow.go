@@ -68,7 +68,8 @@ type WorkflowExecution struct {
 	TraceID     string         `gorm:"type:varchar(64);index" json:"trace_id"` // 请求追踪 ID
 	WorkflowID  string         `gorm:"type:varchar(64);not null;index" json:"workflow_id"`
 	UserID      string         `gorm:"type:varchar(64);not null;index" json:"user_id"`
-	Status      string         `gorm:"type:varchar(50);default:'pending'" json:"status"`
+	Status      string         `gorm:"type:varchar(50);default:'pending'" json:"status"` // pending/running/waiting/completed/failed/cancelled
+	WaitReason  string         `gorm:"type:varchar(64)" json:"wait_reason,omitempty"`    // approval/retry/external（仅 waiting）
 	Input       JSONBMap       `gorm:"type:jsonb" json:"input"`
 	Output      string         `gorm:"type:text" json:"output"`
 	Error       string         `gorm:"type:text" json:"error"`
@@ -104,6 +105,25 @@ type WorkflowNodeRun struct {
 
 func (WorkflowNodeRun) TableName() string {
 	return "workflow_node_runs"
+}
+
+// WorkflowCheckpoint 可恢复执行快照（阶段十八 W2）
+type WorkflowCheckpoint struct {
+	ID                string    `gorm:"primaryKey;type:varchar(64)" json:"id"`
+	ExecutionID       string    `gorm:"type:varchar(64);not null;uniqueIndex:uk_wcp_exec_seq,priority:1;index:idx_wcp_execution" json:"execution_id"`
+	Seq               int       `gorm:"not null;uniqueIndex:uk_wcp_exec_seq,priority:2" json:"seq"`
+	CursorNodeID      string    `gorm:"type:varchar(64)" json:"cursor_node_id"`
+	Variables         JSONBMap  `gorm:"type:jsonb" json:"variables,omitempty"`
+	Outputs           JSONBMap  `gorm:"type:jsonb" json:"outputs,omitempty"` // node_id -> 节点输出（resume 用）
+	CompletedNodeIDs  JSONBArray `gorm:"type:jsonb;not null" json:"completed_node_ids"`
+	Reason            string    `gorm:"type:varchar(32);not null" json:"reason"` // node_ok / enter_waiting / manual / final
+	EngineVersion     string    `gorm:"type:varchar(32)" json:"engine_version,omitempty"`
+	DefinitionHash    string    `gorm:"type:varchar(64)" json:"definition_hash,omitempty"`
+	CreatedAt         time.Time `json:"created_at"`
+}
+
+func (WorkflowCheckpoint) TableName() string {
+	return "workflow_checkpoints"
 }
 
 // WorkflowSchedule 工作流定时调度表

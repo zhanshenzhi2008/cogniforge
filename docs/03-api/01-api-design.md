@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-10-26 | v1.41 | W2 落地：resume/checkpoints/wait；详情 wait_reason + latest_checkpoint_seq | orjrs |
 | 2026-10-26 | v1.40 | W1：执行详情返回 node_runs；GET .../executions/:id/nodes | orjrs |
 | 2026-10-26 | v1.39 | 工作流执行：resume/cancel/checkpoints；详情含 node_runs（阶段十八） | orjrs |
 | 2026-10-18 | v1.38 | MCP 列表带 tool_count；POST .../tools/refresh | orjrs |
@@ -41,6 +42,15 @@
 | 2026-08-15 | v1.2 | GET /v1/models 改为返回已启用供应商的 default_model（不再写死 GPT 列表） | orjrs |
 | 2026-04-09 | v1.1 | 新增文档上传接口、语义检索接口实现说明 | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] W2 resume / checkpoints 落地（2026-10-26）
+
+- **路径**（均在 `/api/v1/workflows` 下）：
+  - `GET /executions/:executionId` — 含 `wait_reason`、`node_runs`、`latest_checkpoint_seq`
+  - `GET /executions/:executionId/checkpoints`
+  - `POST /executions/:executionId/resume` — body 可选 `{ "seq": n }`；仅 `waiting`
+  - `POST /executions/:executionId/cancel` — 支持 `waiting`
+- **节点**：`wait` 类型；引擎识别 `__wait__` 后写 checkpoint 并 `status=waiting`
 
 ## [变更] W1 执行详情 node_runs（2026-10-26）
 

@@ -3,6 +3,7 @@
 ## [变更记录]
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|---------|--------|
+| 2026-10-26 | v1.21 | 工作流增强：node_runs / checkpoints；executions 增 waiting 等 | orjrs |
 | 2026-10-17 | v1.20 | prompts：source_type/id/name + uk_prompts_user_source | orjrs |
 | 2026-10-17 | v1.19 | prompts：uk_prompts_user_name（同用户 name 唯一） | orjrs |
 | 2026-10-17 | v1.18 | users.name 唯一索引 uk_users_name；软删前改名释放 | orjrs |
@@ -21,6 +22,18 @@
 | 2026-08-16 | v1.2 | Redis 键统一 `cogniforge:` 前缀；多项目用前缀隔离，不拆 db0/db1 | orjrs |
 | 2026-08-15 | v1.1 | 落地模型配置 Redis 键（当时为 `cf:modelcfg:*`） | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] 工作流 Checkpoint / 节点运行表（2026-10-26）
+
+- **变更原因**：阶段十八；执行可恢复、节点可观测；设计见 `docs/01-requirements/10-workflow-checkpoint-design.md`
+- **现网表名**（GORM）：`workflow_executions`（非文档旧稿 `cf_workflow_executions` 前缀以代码为准）
+- **扩展 `workflow_executions`**：
+  - `status` 取值：`pending` / `running` / `waiting` / `succeeded` / `failed` / `cancelled`（兼容读旧值 `completed`≈`succeeded`）
+  - `wait_reason` VARCHAR(64) 可空（如 `approval` / `retry` / `external`）
+  - 已有 `current_node`：执行中必须更新
+- **新表 `workflow_node_runs`**：每节点每次尝试一行（input/output/error/attempt/status/detail jsonb）
+- **新表 `workflow_checkpoints`**：`execution_id` + `seq`；cursor、variables、completed_node_ids、reason、engine_version
+- **可选 Redis**：`cogniforge:workflow:exec:lock:{execution_id}`（防双 resume）；落地前再写入 §5.1
 
 ## [变更] prompts 来源字段（2026-10-17）
 
@@ -580,6 +593,52 @@ CREATE INDEX idx_exec_workflow ON cf_workflow_executions(workflow_id);
 CREATE INDEX idx_exec_status ON cf_workflow_executions(status);
 CREATE INDEX idx_exec_id ON cf_workflow_executions(execution_id);
 CREATE INDEX idx_exec_created ON cf_workflow_executions(created_at DESC);
+```
+
+> **2026-10-26 注**：上表为早期草案。现网 GORM 表为 `workflow_executions`，字段见 `internal/model/workflow.go`。阶段十八增量以本节下方「2.4.4 / 2.4.5」及变更记录 v1.21 为准。
+
+#### 2.4.4 节点运行表 (workflow_node_runs) — 阶段十八 W1
+
+```sql
+CREATE TABLE workflow_node_runs (
+    id              VARCHAR(64) PRIMARY KEY,
+    execution_id    VARCHAR(64) NOT NULL,
+    node_id         VARCHAR(64) NOT NULL,
+    node_type       VARCHAR(50) NOT NULL,
+    attempt         INT NOT NULL DEFAULT 1,
+    status          VARCHAR(20) NOT NULL DEFAULT 'pending', -- pending/running/succeeded/failed/skipped
+    input           JSONB,
+    output          JSONB,
+    error           TEXT,
+    detail          JSONB,          -- agent phase / tool 摘要等
+    started_at      TIMESTAMPTZ,
+    finished_at     TIMESTAMPTZ,
+    duration_ms     BIGINT,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_wnr_execution ON workflow_node_runs(execution_id);
+CREATE INDEX idx_wnr_exec_node ON workflow_node_runs(execution_id, node_id);
+```
+
+#### 2.4.5 检查点表 (workflow_checkpoints) — 阶段十八 W2
+
+```sql
+CREATE TABLE workflow_checkpoints (
+    id                   VARCHAR(64) PRIMARY KEY,
+    execution_id         VARCHAR(64) NOT NULL,
+    seq                  INT NOT NULL,
+    cursor_node_id       VARCHAR(64),
+    variables            JSONB,
+    completed_node_ids   JSONB NOT NULL DEFAULT '[]',
+    reason               VARCHAR(32) NOT NULL, -- node_ok / enter_waiting / manual / final
+    engine_version       VARCHAR(32),
+    definition_hash      VARCHAR(64),
+    created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (execution_id, seq)
+);
+
+CREATE INDEX idx_wcp_execution ON workflow_checkpoints(execution_id);
 ```
 
 ---

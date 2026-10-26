@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-10-26 | v4.11 | 工作流：加强现有引擎 + Checkpoint 路线（阶段十八）；纠正「节点引擎未实现」过时描述 | orjrs |
 | 2026-10-17 | v4.10 | LLM 传输层设计：Chat Completions / Responses 可切换（Adapter+Strategy） | orjrs |
 | 2026-10-15 | v4.9 | MCP Registry 注入 Chat/Agent；Playground 可选 mcp_servers | orjrs |
 | 2026-08-18 | v4.8 | 配额闸门做在 Go 热路径；不走 Java 计费空目录 | orjrs |
@@ -18,6 +19,13 @@
 | 2026-04-27 | v3.0 | 后端从 handler 目录重构为业务模块化架构；新增 auth/user/chat/workflow/knowledge/agent 等独立模块，遵循 DTO → Service → Handler 分层模式 | orjrs |
 | 2026-04-04 | v2.0 | 后端架构由 gateway 独立目录收敛为 monolith；删除 go-standards/dev-environment rules；rules 文档变更记录规范 | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] 工作流 Checkpoint 路线（2026-10-26）
+
+- **变更原因**：Agent 平台需要可恢复编排；LLM/Agent 节点仍模拟
+- **路线**：加强现有 Vue Flow + Go `WorkflowEngine` + checkpoint（阶段十八 W0–W3）
+- **详细**：`docs/01-requirements/10-workflow-checkpoint-design.md`
+- **不采用**：嵌 n8n、Temporal（本期）、Java 通用状态机引擎
 
 ## [变更] LLM 传输层：Completions / Responses 可切换（2026-10-17）
 
@@ -551,22 +559,28 @@ ai_providers.api_protocol   = chat_completions | responses   # 默认 chat_compl
 
 ### 3.3 工作流编排服务
 
-**当前状态**：`internal/workflow/` 模块提供 CRUD + 执行。
+**当前状态**：`internal/workflow/` CRUD + `internal/engine/` 拓扑执行；前端 Vue Flow。
 
 ```yaml
-实际位置: internal/workflow/
+实际位置:
+  - Go: internal/workflow/ + internal/engine/
+  - Web: pages/workflows/（Vue Flow）
 端口: 8080 (与 monolith 共享)
 
 已实现:
-  - 工作流 CRUD
-  - 执行触发 (POST /workflows/:id/execute)
-  - 执行状态存储
+  - 工作流 CRUD + 异步执行
+  - 节点执行器注册：start/end/llm/agent/condition/loop/http/code/delay
+  - 条件 / 循环 / HTTP / delay 等
+  - 定时调度表（Cron）骨架
+  - 调试回调钩子（OnNodeStart/End）
 
-未实现:
-  - 可视化流程设计器后端
-  - 节点执行引擎
-  - 条件分支/并行/循环
-  - 定时执行 (Cron)
+缺口（阶段十八）:
+  - LLM / Agent 节点仍为模拟 → W0 接 Chat / ChatWithTools
+  - 无 node_runs / checkpoint / waiting+resume → W1–W2
+  - 人审 / 超时恢复 → W3
+
+不采用: 嵌 n8n；本期不上 Temporal；不做平行 StateMachineEngine
+设计: docs/01-requirements/10-workflow-checkpoint-design.md
 ```
 
 ### 3.4 知识库服务 (RAG)

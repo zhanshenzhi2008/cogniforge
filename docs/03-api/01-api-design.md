@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-10-26 | v1.39 | 工作流执行：resume/cancel/checkpoints；详情含 node_runs（阶段十八） | orjrs |
 | 2026-10-18 | v1.38 | MCP 列表带 tool_count；POST .../tools/refresh | orjrs |
 | 2026-10-18 | v1.37 | MCP Streamable HTTP：tools/list 发现 + tools/call | orjrs |
 | 2026-10-18 | v1.36 | MCP：创建禁 built-in；Create 支持 enabled；列表内置在前 | orjrs |
@@ -39,6 +40,12 @@
 | 2026-08-15 | v1.2 | GET /v1/models 改为返回已启用供应商的 default_model（不再写死 GPT 列表） | orjrs |
 | 2026-04-09 | v1.1 | 新增文档上传接口、语义检索接口实现说明 | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] 工作流执行 resume / checkpoint（2026-10-26）
+
+- **变更原因**：阶段十八；可恢复编排
+- **设计**：`docs/01-requirements/10-workflow-checkpoint-design.md`
+- **新增**：`POST /executions/:id/resume`、`POST /executions/:id/cancel`、`GET .../nodes`、`GET .../checkpoints`；详情增强 node_runs / current_node / waiting
 
 ## [变更] MCP 列表 tool_count + 刷新（2026-10-18）
 
@@ -1149,6 +1156,28 @@ GET /v1/executions/{execution_id}
     "created_at": "2026-03-16T10:00:00Z",
     "completed_at": "2026-03-16T10:00:02Z"
   }
+
+---
+
+# 阶段十八增量（设计见 docs/01-requirements/10-workflow-checkpoint-design.md）
+
+GET /v1/executions/{execution_id}
+描述: 详情增强 — 含 current_node、wait_reason、node_runs[]、latest_checkpoint_seq
+status: pending|running|waiting|succeeded|failed|cancelled（兼容读 completed）
+
+GET /v1/executions/{execution_id}/nodes
+描述: 节点尝试列表（workflow_node_runs）
+
+GET /v1/executions/{execution_id}/checkpoints
+描述: 检查点列表（排障）
+
+POST /v1/executions/{execution_id}/resume
+描述: 从最新（或 body.seq）checkpoint 继续；仅 waiting（一期）
+请求体: { "seq": 3 }  # 可选
+响应: { "execution_id", "status": "running" }
+
+POST /v1/executions/{execution_id}/cancel
+描述: 取消执行 → cancelled
 ```
 
 ---

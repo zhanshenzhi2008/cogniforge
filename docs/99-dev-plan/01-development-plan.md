@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-10-26 | v1.108 | 阶段十八立项：工作流真实 AI 节点 + Checkpoint（W0–W3） | orjrs |
 | 2026-10-24 | v1.107 | P1：提示词试跑 / 评估变量表单 / 顶栏邮箱 | orjrs |
 | 2026-10-18 | v1.106 | Web：共用 CfModal（拖动/缩放/最大化） | orjrs |
 | 2026-10-18 | v1.105 | CD：关 provenance/sbom + 部署禁 prune（修并行 pull 失败） | orjrs |
@@ -106,6 +107,14 @@
 | 2026-04-11 | v1.2 | 阶段八监控中心完成（请求日志中间件、日志列表 API、用量统计 API、监控仪表板页面） | orjrs |
 | 2026-04-17 | v1.3 | 阶段九用户管理与个人设置完成（用户CRUD、个人设置、会话管理、RBAC权限系统） | orjrs |
 > 注：任务状态变更直接在下方任务表格中更新即可，无需额外记录。
+
+## [变更] 阶段十八立项：工作流 + Checkpoint（2026-10-26）
+
+- **变更原因**：Agent 平台需要可恢复编排；LLM/Agent 节点仍为模拟；无 checkpoint
+- **路线**：加强现有 Vue Flow + Go `WorkflowEngine`（不嵌 n8n / 不做 Java 状态机引擎）
+- **详细设计**：`docs/01-requirements/10-workflow-checkpoint-design.md` v1.0
+- **排期**：W0 接真 → W1 node_runs → W2 checkpoint/resume → W3 审批/超时
+- **下一步开工**：W0（LLM/Agent 节点接 `Chat` / `ChatWithTools`）
 
 ## [变更] 阶段十七 P1：试跑 / 变量表单 / 顶栏邮箱（2026-10-24）
 
@@ -1295,7 +1304,7 @@ pnpm test:e2e          # Playwright：登录/注册按钮、对话发送禁用�
 
 - ~~配置 → 提示词：新建并发布新版本；评估里用版本或临时 system prompt 跑同一套题~~（2026-10-15 一期）
 - **工业（部署后）**：草稿→发布→设当前；变量代入评估；Agent 绑定；从 Agent 导入；双版对比；删版
-- **下一步优先**：17.0 线上冒烟；可选 P2（Skill 导入 / 对话 variables / 行级 diff / Tags）
+- **下一步优先**：主线改推阶段十八；17.0 冒烟与提示词 P2 可并行后排
 
 **不在本期**：提示词市场、自动优化（APE）、多轮模板编排器、跨租户共享
 
@@ -1303,6 +1312,30 @@ pnpm test:e2e          # Playwright：登录/注册按钮、对话发送禁用�
 - 一期（2026-10-15）：Go `internal/prompt/*`；Web `/prompts`；评估选版
 - 工业闭环（2026-10-17）：`render.go`、publish、Agent `prompt_id`、eval `variables`；Web prompts/agents/evals
 - P1（2026-10-24）：试跑 / 评估变量表单 / 顶栏邮箱（web）
+
+---
+
+### 阶段十八：工作流真实 AI 节点 + Checkpoint ⭐
+
+**推荐理由**：Agent 平台编排要「能跑真模型、能暂停恢复」；现有 Vue Flow + Go 引擎方向正确，补齐执行层即可。  
+**详细设计**：`docs/01-requirements/10-workflow-checkpoint-design.md`（v1.0）
+
+| 序号 | 功能点 | 预计时间 | 难度 | 状态 | 测试项 | 测试时间 |
+|-----|-------|---------|------|------|-------|---------|
+| 18.0 / W0 | LLM + Agent 节点接真（Chat / ChatWithTools） | 2天 | ⭐⭐⭐ | 🔴 未开始 | 真回答；工具题可用 | — |
+| 18.1 / W1 | `workflow_node_runs` + current_node + 画布高亮 | 2天 | ⭐⭐ | 🔴 未开始 | 看到跑到哪/失败点 | — |
+| 18.2 / W2 | checkpoints + waiting/resume/cancel | 2.5天 | ⭐⭐⭐⭐ | 🔴 未开始 | waiting 后继续不重头跑 | — |
+| 18.3 / W3 | 审批门 / 超时扫描 / 工具幂等 | 3天 | ⭐⭐⭐⭐ | 🔴 未开始 | 人审通过再续 | — |
+
+**验收（给非技术同学）**：
+
+1. 工作流里 LLM/Agent 出真实回答（不是 Simulated）  
+2. 执行能看出当前节点与失败节点  
+3.（W2）等待后续跑，不从第一个节点重来  
+
+**不在本期**：嵌 n8n、Temporal、Java 通用状态机引擎、LangGraph 当平台真相
+
+**下一步**：开工 **W0**
 
 ---
 
@@ -1522,4 +1555,4 @@ composables/
 
 ---
 
-**下一阶段**：确认 **17.0 线上冒烟**；再推 P2（17.11/17.14–17.16）或可选 16.6 异步长卷、`code_execute` Docker 隔离。
+**下一阶段**：**阶段十八 W0** — 工作流 LLM/Agent 节点接真（见 `10-workflow-checkpoint-design.md`）；并行可确认 17.0 冒烟；提示词 P2 / 评估 16.6 可后排。

@@ -18,9 +18,17 @@ type WorkflowService struct {
 }
 
 func NewWorkflowService() *WorkflowService {
+	return NewWorkflowServiceWithEngine(engine.NewEngine())
+}
+
+// NewWorkflowServiceWithEngine 注入已配置 AI 依赖的引擎（阶段十八 W0）
+func NewWorkflowServiceWithEngine(eng *engine.WorkflowEngine) *WorkflowService {
+	if eng == nil {
+		eng = engine.NewEngine()
+	}
 	return &WorkflowService{
 		db:             database.DB,
-		workflowEngine: engine.NewEngine(),
+		workflowEngine: eng,
 	}
 }
 

@@ -211,7 +211,7 @@ func (e *WorkflowEngine) ExecuteAsyncWithTraceID(workflowID, userID string, inpu
 			}
 		}()
 
-		ctx := NewExecutionContextWithTraceID(workflowID, executionID, input, currentTraceID)
+		ctx := NewExecutionContextWithTraceID(workflowID, executionID, input, currentTraceID).WithUserID(userID)
 		def, err := e.ParseDefinition(workflow.Definition)
 		if err != nil {
 			database.DB.Model(&model.WorkflowExecution{}).

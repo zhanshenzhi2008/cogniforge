@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-10-26 | v4.12 | 工作流 W0：LLM/Agent 节点经 NewEngineWithDeps 接真实 Chat | orjrs |
 | 2026-10-26 | v4.11 | 工作流：加强现有引擎 + Checkpoint 路线（阶段十八）；纠正「节点引擎未实现」过时描述 | orjrs |
 | 2026-10-17 | v4.10 | LLM 传输层设计：Chat Completions / Responses 可切换（Adapter+Strategy） | orjrs |
 | 2026-10-15 | v4.9 | MCP Registry 注入 Chat/Agent；Playground 可选 mcp_servers | orjrs |
@@ -19,6 +20,11 @@
 | 2026-04-27 | v3.0 | 后端从 handler 目录重构为业务模块化架构；新增 auth/user/chat/workflow/knowledge/agent 等独立模块，遵循 DTO → Service → Handler 分层模式 | orjrs |
 | 2026-04-04 | v2.0 | 后端架构由 gateway 独立目录收敛为 monolith；删除 go-standards/dev-environment rules；rules 文档变更记录规范 | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] 工作流 W0 真实 AI 节点（2026-10-26）
+
+- **包含代码**：`engine.NewEngineWithDeps`；`nodes.LLMNodeExecutor` / `AgentNodeExecutor`；router 注入
+- **详细**：`docs/01-requirements/10-workflow-checkpoint-design.md` v1.1
 
 ## [变更] 工作流 Checkpoint 路线（2026-10-26）
 
@@ -574,8 +580,10 @@ ai_providers.api_protocol   = chat_completions | responses   # 默认 chat_compl
   - 定时调度表（Cron）骨架
   - 调试回调钩子（OnNodeStart/End）
 
+已实现（阶段十八 W0）:
+  - LLM / Agent 节点接 Chat / ChatWithTools（NewEngineWithDeps）
+
 缺口（阶段十八）:
-  - LLM / Agent 节点仍为模拟 → W0 接 Chat / ChatWithTools
   - 无 node_runs / checkpoint / waiting+resume → W1–W2
   - 人审 / 超时恢复 → W3
 

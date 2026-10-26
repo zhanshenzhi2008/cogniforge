@@ -12,9 +12,15 @@ type WorkflowHandler struct {
 }
 
 func NewWorkflowHandler() *WorkflowHandler {
-	return &WorkflowHandler{
-		service: NewWorkflowService(),
+	return NewWorkflowHandlerWithService(NewWorkflowService())
+}
+
+// NewWorkflowHandlerWithService 注入带 AI 依赖的 WorkflowService
+func NewWorkflowHandlerWithService(svc *WorkflowService) *WorkflowHandler {
+	if svc == nil {
+		svc = NewWorkflowService()
 	}
+	return &WorkflowHandler{service: svc}
 }
 
 // ListWorkflows 获取工作流列表

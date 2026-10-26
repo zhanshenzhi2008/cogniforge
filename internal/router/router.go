@@ -10,6 +10,7 @@ import (
 	"cogniforge/internal/auth"
 	"cogniforge/internal/chat"
 	"cogniforge/internal/config"
+	"cogniforge/internal/engine"
 	"cogniforge/internal/eval"
 	"cogniforge/internal/httpclient"
 	"cogniforge/internal/knowledge"
@@ -61,7 +62,6 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 	chat.SetRAGDefaults(cfg.RAG.TopK, cfg.RAG.MinScore, cfg.RAG.MaxTokens)
 	chatHandler := chat.NewChatHandler(providerSvc, db, quotaSvc)
 	memoryHandler := memory.NewMemoryHandler(db)
-	workflowHandler := workflow.NewWorkflowHandler()
 	pythonClient := knowledge.NewServiceClient(httpclient.NewClient(cfg.RAG.PythonServiceURL))
 	knowledgeSvc := knowledge.NewKnowledgeService(pythonClient)
 	chatHandler.SetKnowledgeService(knowledgeSvc)
@@ -73,6 +73,14 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 	// 关键：Registry 必须注入，否则 Agent/Playground 勾选工具也不会生效
 	chatHandler.SetMCPRegistry(mcpHandler.Registry())
 	agentHandler.SetMCPRegistry(mcpHandler.Registry())
+	// 阶段十八 W0：工作流 LLM/Agent 节点走真实 Chat / ChatWithTools
+	wfEngine := engine.NewEngineWithDeps(engine.AIDeps{
+		Chat:  chatHandler.Service(),
+		MCP:   mcpHandler.Registry(),
+		Quota: quotaSvc,
+		DB:    db,
+	})
+	workflowHandler := workflow.NewWorkflowHandlerWithService(workflow.NewWorkflowServiceWithEngine(wfEngine))
 	skillHandler := skill.NewHandler(db)
 	evalHandler := eval.NewHandler(db, chatHandler.Service())
 	evalHandler.SetMCPRegistry(mcpHandler.Registry())

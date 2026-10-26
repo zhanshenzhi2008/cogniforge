@@ -4,7 +4,15 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|---------|--------|
+| 2026-10-26 | v1.1 | W0 落地：LLM/Agent 节点接 Chat / ChatWithTools | orjrs |
 | 2026-10-26 | v1.0 | 立项：加强现有 Vue Flow + Go 引擎；W0–W3 排期；不做第二套状态机 | orjrs |
+
+## [变更] W0 真实 AI 节点（2026-10-26）
+
+- **变更原因**：工作流 LLM/Agent 原为模拟，无法作为 Agent 平台编排
+- **包含代码**：`internal/engine/nodes/{llm,agent,template}.go`；`engine.NewEngineWithDeps`；router 注入 Chat/MCP/Quota/DB；`ExecutionContext.UserID`
+- **行为**：LLM → `ChatService.Chat`；Agent → 解析人设 + `InjectMCPTools` + `ChatWithTools`/`Chat`；配额 source=`workflow`
+- **下一步**：W1 node_runs + 画布高亮
 
 ## [变更] 立项（2026-10-26）
 
@@ -99,7 +107,7 @@ pending → running ⇄ waiting
 
 | 阶段 | 内容 | 验收（非技术） | 预估 |
 |------|------|----------------|------|
-| **W0** | LLM / Agent 节点接真：走 Go Chat / `ChatWithTools`；去掉模拟 | 工作流里问一句能出真模型回答；勾了工具能查天气类 | 1.5–2 天 |
+| **W0** | LLM / Agent 节点接真：走 Go Chat / `ChatWithTools`；去掉模拟 | ✅ 2026-10-26 | 2 天 |
 | **W1** | `workflow_node_runs` + 写 `current_node`；执行详情 API；画布节点高亮 | 跑的时候能看到亮到哪、哪失败 | 2 天 |
 | **W2** | `workflow_checkpoints`；status 增 `waiting`/`cancelled`/`succeeded`；Resume/Cancel API | 能暂停在等待态，点继续接着跑 | 2–3 天 |
 | **W3** | 审批节点/危险工具门；超时扫描；工具幂等 | 人审通过再继续；进程重启可捞 waiting | 3 天 |

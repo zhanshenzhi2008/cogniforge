@@ -13,6 +13,7 @@ import (
 type ExecutionContext struct {
 	WorkflowID  string
 	ExecutionID string
+	UserID      string // 执行所属用户（配额 / Agent 归属）
 	TraceID     string          // 新增：请求追踪 ID
 	Context     context.Context // 新增：用于传递 traceId
 	NodeID      string
@@ -41,18 +42,30 @@ func NewExecutionContextWithTraceID(workflowID, executionID string, input map[st
 	} else {
 		ctx = context.Background()
 	}
+	vars := make(map[string]any)
+	if input != nil {
+		for k, v := range input {
+			vars[k] = v
+		}
+	}
 	return &ExecutionContext{
 		WorkflowID:  workflowID,
 		ExecutionID: executionID,
 		TraceID:     traceID,
 		Context:     ctx,
-		Variables:   make(map[string]any),
+		Variables:   vars,
 		Input:       input,
 		Output:      make(map[string]any),
 		State:       make(map[string]string),
 		StartTime:   time.Now(),
 		Logger:      NewExecutionLogger(executionID, traceID),
 	}
+}
+
+// WithUserID 设置执行用户（链式）
+func (ctx *ExecutionContext) WithUserID(userID string) *ExecutionContext {
+	ctx.UserID = userID
+	return ctx
 }
 
 func (ctx *ExecutionContext) SetVariable(key string, value any) {

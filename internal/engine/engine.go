@@ -50,15 +50,24 @@ var NewDebugger = debug.NewDebugger
 // WorkflowEngine 引擎实例
 type WorkflowEngine = core.WorkflowEngine
 
-// NewEngine 创建并初始化引擎（注册默认节点执行器）
+// NewEngine 创建并初始化引擎（无 AI 依赖时 LLM/Agent 节点会报未配置）
 func NewEngine() *WorkflowEngine {
+	return NewEngineWithDeps(AIDeps{})
+}
+
+// NewEngineWithDeps 注册节点执行器；注入 Chat/MCP/Quota 后 LLM/Agent 走真实模型
+func NewEngineWithDeps(deps AIDeps) *WorkflowEngine {
 	engine := core.NewEngine()
 
-	// 注册默认节点执行器
 	engine.RegisterExecutor("start", &StartNodeExecutor{})
 	engine.RegisterExecutor("end", &EndNodeExecutor{})
-	engine.RegisterExecutor("llm", &LLMNodeExecutor{})
-	engine.RegisterExecutor("agent", &AgentNodeExecutor{})
+	engine.RegisterExecutor("llm", &nodes.LLMNodeExecutor{Chat: deps.Chat, Quota: deps.Quota})
+	engine.RegisterExecutor("agent", &nodes.AgentNodeExecutor{
+		Chat:  deps.Chat,
+		MCP:   deps.MCP,
+		Quota: deps.Quota,
+		DB:    deps.DB,
+	})
 	engine.RegisterExecutor("condition", &ConditionNodeExecutor{})
 	engine.RegisterExecutor("loop", &LoopNodeExecutor{})
 	engine.RegisterExecutor("http", nodes.NewHTTPNodeExecutor())

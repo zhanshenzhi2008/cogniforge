@@ -43,7 +43,8 @@ type RenderResponse struct {
 
 type ImportRequest struct {
 	AgentID string `json:"agent_id"` // 从 Agent.system_prompt 导入
-	Name    string `json:"name"`     // 可选；默认用 Agent 名
+	SkillID string `json:"skill_id"` // 从 Skill 拼装正文导入（与 agent_id 二选一）
+	Name    string `json:"name"`     // 可选；默认用来源名
 }
 
 type PromptUsage struct {

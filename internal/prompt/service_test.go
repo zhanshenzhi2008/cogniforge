@@ -15,7 +15,7 @@ func setupPromptDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(&model.Prompt{}, &model.PromptVersion{}, &model.Agent{}))
+	require.NoError(t, db.AutoMigrate(&model.Prompt{}, &model.PromptVersion{}, &model.Agent{}, &model.Skill{}))
 	return db
 }
 
@@ -161,6 +161,36 @@ func TestPrompt_Import_SameAgent_ReimportsAsNewVersion(t *testing.T) {
 	list, err := svc.List("u1")
 	require.NoError(t, err)
 	assert.Len(t, list, 1)
+}
+
+func TestPrompt_Import_SameSkill_ReimportsAsNewVersion(t *testing.T) {
+	db := setupPromptDB(t)
+	svc := NewService(db)
+	sk := model.Skill{
+		ID: "sk1", UserID: "u1", Name: "写作",
+		Instructions: "第一版指令", Description: "写手",
+	}
+	require.NoError(t, db.Create(&sk).Error)
+
+	p1, v1, err := svc.ImportFromSkill("u1", &ImportRequest{SkillID: "sk1"})
+	require.NoError(t, err)
+	assert.Equal(t, 1, v1.Version)
+	assert.Equal(t, model.PromptSourceSkill, p1.SourceType)
+	assert.Contains(t, v1.Content, "第一版指令")
+
+	sk.Instructions = "第二版指令"
+	require.NoError(t, db.Save(&sk).Error)
+	p2, v2, err := svc.ImportFromSkill("u1", &ImportRequest{SkillID: "sk1"})
+	require.NoError(t, err)
+	assert.Equal(t, p1.ID, p2.ID)
+	assert.Equal(t, 2, v2.Version)
+	assert.Contains(t, v2.Content, "第二版指令")
+
+	_, _, err = svc.ImportFromSkill("u1", &ImportRequest{SkillID: "code_assistant"})
+	require.NoError(t, err)
+	list, err := svc.List("u1")
+	require.NoError(t, err)
+	assert.Len(t, list, 2)
 }
 
 func TestPrompt_Delete_FreesName(t *testing.T) {

@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-06 | v1.43 | 提示词导入支持 skill_id（17.11） | orjrs |
 | 2026-10-26 | v1.42 | W3：approve/reject/callback；详情 wait_until；resume 防重入 | orjrs |
 | 2026-10-26 | v1.41 | W2 落地：resume/checkpoints/wait；详情 wait_reason + latest_checkpoint_seq | orjrs |
 | 2026-10-26 | v1.40 | W1：执行详情返回 node_runs；GET .../executions/:id/nodes | orjrs |
@@ -43,6 +44,12 @@
 | 2026-08-15 | v1.2 | GET /v1/models 改为返回已启用供应商的 default_model（不再写死 GPT 列表） | orjrs |
 | 2026-04-09 | v1.1 | 新增文档上传接口、语义检索接口实现说明 | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] 提示词从 Skill 导入（2026-11-06）
+
+- **路径**：`POST /api/v1/prompts/import`
+- **请求**：`{ "skill_id": "..." }` 或原 `{ "agent_id": "..." }`，可选 `name`
+- **行为**：Skill 用 `BuildSystemPrompt` 作为版本正文；同一 skill 再导入发新 published 版本
 
 ## [变更] W3 审批 / 回调 / 超时（2026-10-26）
 

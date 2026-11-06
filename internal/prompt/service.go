@@ -485,6 +485,96 @@ func (s *Service) ImportFromAgent(userID string, req *ImportRequest) (*model.Pro
 	return p, ver, nil
 }
 
+// ImportFromSkill 从 Skill（内置或本人）拼装 system prompt 导入（17.11）
+func (s *Service) ImportFromSkill(userID string, req *ImportRequest) (*model.Prompt, *model.PromptVersion, error) {
+	skillID := strings.TrimSpace(req.SkillID)
+	if skillID == "" {
+		return nil, nil, errors.New("skill_id 不能为空")
+	}
+	sk := model.GetBuiltInSkill(skillID)
+	if sk == nil {
+		var row model.Skill
+		if err := s.db.Where("id = ? AND user_id = ?", skillID, userID).First(&row).Error; err != nil {
+			return nil, nil, errors.New("Skill 不存在")
+		}
+		sk = &row
+	}
+	content := strings.TrimSpace(sk.BuildSystemPrompt())
+	if content == "" {
+		return nil, nil, errors.New("该 Skill 没有可导入的指令")
+	}
+
+	var existing model.Prompt
+	err := s.db.Where("user_id = ? AND source_type = ? AND source_id = ?",
+		userID, model.PromptSourceSkill, skillID).First(&existing).Error
+	if err == nil {
+		ver, err := s.CreateVersion(userID, existing.ID, &CreateVersionRequest{
+			Content:   content,
+			Changelog: "从 Skill「" + sk.Name + "」重新导入",
+			Publish:   true,
+		})
+		if err != nil {
+			return nil, nil, err
+		}
+		_ = s.db.Model(&existing).Updates(map[string]interface{}{
+			"source_name": sk.Name,
+			"description": "从 Skill「" + sk.Name + "」导入",
+		}).Error
+		p, _, _ := s.Get(userID, existing.ID)
+		if p == nil {
+			p = &existing
+		}
+		return p, ver, nil
+	}
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil, err
+	}
+
+	name := strings.TrimSpace(req.Name)
+	if name == "" {
+		name = sk.Name + " 提示词"
+	}
+	name = s.uniqueNameForUser(userID, name)
+
+	now := time.Now()
+	srcID := skillID
+	p := &model.Prompt{
+		ID:          uuid.New().String(),
+		UserID:      userID,
+		Name:        name,
+		Description: "从 Skill「" + sk.Name + "」导入",
+		SourceType:  model.PromptSourceSkill,
+		SourceID:    &srcID,
+		SourceName:  sk.Name,
+		Tags:        model.JSONBArray{"imported", "skill"},
+	}
+	var ver *model.PromptVersion
+	err = s.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(p).Error; err != nil {
+			return err
+		}
+		ver = &model.PromptVersion{
+			ID:          uuid.New().String(),
+			PromptID:    p.ID,
+			UserID:      userID,
+			Version:     1,
+			Status:      model.PromptVersionPublished,
+			Content:     content,
+			Changelog:   "从 Skill 导入",
+			PublishedAt: &now,
+		}
+		if err := tx.Create(ver).Error; err != nil {
+			return err
+		}
+		p.CurrentVersionID = ver.ID
+		return tx.Save(p).Error
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	return p, ver, nil
+}
+
 func (s *Service) ListUsages(userID, promptID string) ([]PromptUsage, error) {
 	if _, _, err := s.Get(userID, promptID); err != nil {
 		return nil, err

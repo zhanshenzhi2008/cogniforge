@@ -1,9 +1,12 @@
 package prompt
 
 import (
+	"strings"
+
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
+	"cogniforge/internal/model"
 	"cogniforge/internal/response"
 )
 
@@ -155,7 +158,14 @@ func (h *Handler) Import(c *gin.Context) {
 		response.BadRequest(c, err.Error())
 		return
 	}
-	p, ver, err := h.svc.ImportFromAgent(c.GetString("user_id"), &req)
+	var p *model.Prompt
+	var ver *model.PromptVersion
+	var err error
+	if strings.TrimSpace(req.SkillID) != "" {
+		p, ver, err = h.svc.ImportFromSkill(c.GetString("user_id"), &req)
+	} else {
+		p, ver, err = h.svc.ImportFromAgent(c.GetString("user_id"), &req)
+	}
 	if err != nil {
 		response.BadRequest(c, err.Error())
 		return

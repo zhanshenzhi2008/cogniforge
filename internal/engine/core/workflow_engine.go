@@ -13,7 +13,7 @@ import (
 	"gorm.io/gorm"
 )
 
-const EngineVersion = "18.2"
+const EngineVersion = "18.3"
 
 type WorkflowEngine struct {
 	db            *gorm.DB
@@ -84,6 +84,11 @@ func vueDataToConfig(nodeType string, data map[string]any) json.RawMessage {
 			out["message"] = v
 		} else if v, ok := data["message"]; ok {
 			out["message"] = v
+		}
+		if v, ok := data["timeoutSec"]; ok {
+			out["timeout_sec"] = v
+		} else if v, ok := data["timeout_sec"]; ok {
+			out["timeout_sec"] = v
 		}
 	case "llm", "agent":
 		if v, ok := data["model"]; ok {
@@ -233,8 +238,8 @@ func (e *WorkflowEngine) Execute(ctx *ExecutionContext, def *WorkflowDefinition)
 		}
 
 		// wait 节点：写成功记录 + checkpoint，挂起为 waiting
-		if reason, msg, isWait := isWaitOutput(output); isWait {
-			ctx.Logger.Logf(node.ID, "info", "Entering waiting: %s (%s)", reason, msg)
+		if reason, msg, timeoutSec, isWait := isWaitOutput(output); isWait {
+			ctx.Logger.Logf(node.ID, "info", "Entering waiting: %s (%s) timeout=%ds", reason, msg, timeoutSec)
 			if output != nil {
 				ctx.Output[node.ID] = output
 			}
@@ -246,7 +251,7 @@ func (e *WorkflowEngine) Execute(ctx *ExecutionContext, def *WorkflowDefinition)
 				nextID = sortedNodes[i+1].ID
 			}
 			e.saveCheckpoint(ctx, nextID, completed, "enter_waiting")
-			e.setWaiting(ctx.ExecutionID, reason, msg)
+			e.setWaiting(ctx.ExecutionID, reason, msg, timeoutSec)
 			result.Status = "waiting"
 			result.Output = ctx.Output
 			result.Duration = time.Since(ctx.StartTime).Milliseconds()
@@ -282,24 +287,30 @@ func (e *WorkflowEngine) Execute(ctx *ExecutionContext, def *WorkflowDefinition)
 	return result
 }
 
-func isWaitOutput(output any) (reason, message string, ok bool) {
+func isWaitOutput(output any) (reason, message string, timeoutSec int, ok bool) {
 	m, ok := output.(map[string]any)
 	if !ok {
-		return "", "", false
+		return "", "", 0, false
 	}
 	flag, _ := m["__wait__"].(bool)
 	if !flag {
-		return "", "", false
+		return "", "", 0, false
 	}
 	reason, _ = m["reason"].(string)
 	message, _ = m["message"].(string)
 	if reason == "" {
 		reason = "approval"
 	}
-	return reason, message, true
+	switch v := m["timeout_sec"].(type) {
+	case float64:
+		timeoutSec = int(v)
+	case int:
+		timeoutSec = v
+	}
+	return reason, message, timeoutSec, true
 }
 
-func (e *WorkflowEngine) setWaiting(executionID, reason, message string) {
+func (e *WorkflowEngine) setWaiting(executionID, reason, message string, timeoutSec int) {
 	if executionID == "" || database.DB == nil {
 		return
 	}
@@ -307,6 +318,11 @@ func (e *WorkflowEngine) setWaiting(executionID, reason, message string) {
 		"status":      "waiting",
 		"wait_reason": reason,
 		"error":       message, // 复用 error 字段展示等待说明（非失败）
+		"wait_until":  nil,
+	}
+	if timeoutSec > 0 {
+		until := time.Now().Add(time.Duration(timeoutSec) * time.Second)
+		updates["wait_until"] = &until
 	}
 	database.DB.Model(&model.WorkflowExecution{}).Where("id = ?", executionID).Updates(updates)
 }
@@ -424,8 +440,11 @@ func (e *WorkflowEngine) persistNodeRun(
 			Input:       inMap,
 			Output:      outMap,
 			Error:       errMsg,
-			DurationMS:  durationMS,
-			CreatedAt:   now,
+			Detail: model.JSONBMap{
+				"idempotency_key": fmt.Sprintf("%s:%s:%d", ctx.ExecutionID, node.ID, attempt),
+			},
+			DurationMS: durationMS,
+			CreatedAt:  now,
 		}
 		if status == "running" {
 			run.StartedAt = &now
@@ -505,9 +524,11 @@ func (e *WorkflowEngine) updateExecutionStatus(executionID, status string, outpu
 		updates["completed_at"] = &now
 		updates["current_node"] = ""
 		updates["wait_reason"] = ""
+		updates["wait_until"] = nil
 	}
 	if status == "running" {
 		updates["wait_reason"] = ""
+		updates["wait_until"] = nil
 		updates["error"] = ""
 	}
 	database.DB.Model(&model.WorkflowExecution{}).Where("id = ?", executionID).Updates(updates)

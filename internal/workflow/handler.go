@@ -250,6 +250,66 @@ func (h *WorkflowHandler) ResumeWorkflowExecution(c *gin.Context) {
 	response.Accepted(c, result)
 }
 
+// ApproveWorkflowExecution 审批通过（W3）
+func (h *WorkflowHandler) ApproveWorkflowExecution(c *gin.Context) {
+	userID := c.GetString("user_id")
+	if userID == "" {
+		response.Unauthorized(c, "unauthorized")
+		return
+	}
+	executionID := c.Param("executionId")
+	var req ApproveExecutionRequest
+	_ = c.ShouldBindJSON(&req)
+	result, err := h.service.ApproveExecution(userID, executionID, &req)
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+	response.Accepted(c, result)
+}
+
+// RejectWorkflowExecution 审批拒绝（W3）
+func (h *WorkflowHandler) RejectWorkflowExecution(c *gin.Context) {
+	userID := c.GetString("user_id")
+	if userID == "" {
+		response.Unauthorized(c, "unauthorized")
+		return
+	}
+	executionID := c.Param("executionId")
+	var req RejectExecutionRequest
+	_ = c.ShouldBindJSON(&req)
+	if err := h.service.RejectExecution(userID, executionID, &req); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+	response.SuccessWithMessage(c, nil, "已拒绝")
+}
+
+// CallbackWorkflowExecution 外部回调 approve/reject（W3）
+func (h *WorkflowHandler) CallbackWorkflowExecution(c *gin.Context) {
+	userID := c.GetString("user_id")
+	if userID == "" {
+		response.Unauthorized(c, "unauthorized")
+		return
+	}
+	executionID := c.Param("executionId")
+	var req CallbackExecutionRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "action 必填（approve|reject）")
+		return
+	}
+	result, err := h.service.CallbackExecution(userID, executionID, &req)
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+	if result.Status == "failed" {
+		response.Success(c, result)
+		return
+	}
+	response.Accepted(c, result)
+}
+
 // DebugWorkflow 调试工作流
 func (h *WorkflowHandler) DebugWorkflow(c *gin.Context) {
 	userID := c.GetString("user_id")
@@ -289,6 +349,9 @@ func (h *WorkflowHandler) RegisterRoutes(rg *gin.RouterGroup) {
 		workflows.GET("/executions/:executionId/nodes", h.ListExecutionNodeRuns)
 		workflows.GET("/executions/:executionId/checkpoints", h.ListExecutionCheckpoints)
 		workflows.POST("/executions/:executionId/resume", h.ResumeWorkflowExecution)
+		workflows.POST("/executions/:executionId/approve", h.ApproveWorkflowExecution)
+		workflows.POST("/executions/:executionId/reject", h.RejectWorkflowExecution)
+		workflows.POST("/executions/:executionId/callback", h.CallbackWorkflowExecution)
 		workflows.POST("/executions/:executionId/cancel", h.CancelWorkflowExecution)
 	}
 }

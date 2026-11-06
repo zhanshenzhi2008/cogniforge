@@ -28,6 +28,23 @@ type ResumeExecutionRequest struct {
 	Seq *int `json:"seq"` // 可选：指定 checkpoint seq；默认最新
 }
 
+type ApproveExecutionRequest struct {
+	Comment string `json:"comment,omitempty"`
+	Seq     *int   `json:"seq,omitempty"`
+}
+
+type RejectExecutionRequest struct {
+	Reason string `json:"reason,omitempty"`
+}
+
+type CallbackExecutionRequest struct {
+	Action  string         `json:"action" binding:"required"` // approve | reject
+	Comment string         `json:"comment,omitempty"`
+	Reason  string         `json:"reason,omitempty"`
+	Payload map[string]any `json:"payload,omitempty"`
+	Seq     *int           `json:"seq,omitempty"`
+}
+
 // ============ 响应结构 ============
 
 type ExecuteResponse struct {
@@ -58,6 +75,7 @@ type ExecutionDetail struct {
 	CreatedAt          any         `json:"created_at,omitempty"`
 	UpdatedAt          any         `json:"updated_at,omitempty"`
 	WaitReason          string `json:"wait_reason,omitempty"`
+	WaitUntil           any    `json:"wait_until,omitempty"`
 	NodeRuns            any    `json:"node_runs"`
 	LatestCheckpointSeq int    `json:"latest_checkpoint_seq,omitempty"`
 }

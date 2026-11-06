@@ -4,30 +4,38 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|---------|--------|
+| 2026-10-26 | v1.4 | W3 落地：审批/拒绝/回调、wait 超时扫描、resume 锁、节点幂等键 | orjrs |
 | 2026-10-26 | v1.3 | W2 落地：wait 节点 + checkpoint + resume/cancel | orjrs |
 | 2026-10-26 | v1.2 | W1 落地：node_runs + current_node + 画布高亮 | orjrs |
 | 2026-10-26 | v1.1 | W0 落地：LLM/Agent 节点接 Chat / ChatWithTools | orjrs |
 | 2026-10-26 | v1.0 | 立项：加强现有 Vue Flow + Go 引擎；W0–W3 排期；不做第二套状态机 | orjrs |
+
+## [变更] W3 审批 / 超时 / 幂等（2026-10-26）
+
+- **变更原因**：waiting 需要人审入口、超时收口、防双 resume；进程重启后 waiting 仍可捞
+- **包含代码**：`wait_until`；`POST .../approve|reject|callback`；`StartWaitTimeoutScanner`；Redis `cogniforge:workflow:exec:lock:{id}`；`node_runs.detail.idempotency_key`；Web 审批通过/拒绝
+- **行为**：timeout_sec>0 写入 wait_until，扫描标 failed；approve=resume+变量；reject=failed
+- **下一步**：阶段十八收尾冒烟；危险工具门可后续增强
 
 ## [变更] W2 checkpoint + waiting/resume（2026-10-26）
 
 - **变更原因**：执行一口气跑完无法人工审批 / 外部等待后继续
 - **包含代码**：`WorkflowCheckpoint`；`wait` 节点 `__wait__`；引擎挂起 + 每节点 checkpoint；`POST .../resume`、`GET .../checkpoints`；cancel 支持 waiting；Web wait 节点 + 继续/取消条
 - **行为**：waiting 后从最新（或指定 seq）checkpoint 跳过已完成节点继续；不重头跑
-- **下一步**：W3 审批超时 / 外部回调入口
+- **下一步**：~~W3~~
 
 ## [变更] W1 节点运行记录（2026-10-26）
 
 - **变更原因**：执行不可观测；画布不知道跑到哪
 - **包含代码**：`model.WorkflowNodeRun`；引擎 `persistNodeRun` / `setCurrentNode`；`GET .../executions/:id` 含 `node_runs`；`GET .../nodes`；Web 画布 run-* 高亮
-- **下一步**：~~W2~~ → W3
+- **下一步**：~~W2~~ → ~~W3~~
 
 ## [变更] W0 真实 AI 节点（2026-10-26）
 
 - **变更原因**：工作流 LLM/Agent 原为模拟，无法作为 Agent 平台编排
 - **包含代码**：`internal/engine/nodes/{llm,agent,template}.go`；`engine.NewEngineWithDeps`；router 注入 Chat/MCP/Quota/DB；`ExecutionContext.UserID`
 - **行为**：LLM → `ChatService.Chat`；Agent → 解析人设 + `InjectMCPTools` + `ChatWithTools`/`Chat`；配额 source=`workflow`
-- **下一步**：~~W1~~ → ~~W2~~ → W3
+- **下一步**：~~W1~~ → ~~W2~~ → ~~W3~~
 
 ## [变更] 立项（2026-10-26）
 
@@ -125,7 +133,7 @@ pending → running ⇄ waiting
 | **W0** | LLM / Agent 节点接真：走 Go Chat / `ChatWithTools`；去掉模拟 | ✅ 2026-10-26 | 2 天 |
 | **W1** | `workflow_node_runs` + 写 `current_node`；执行详情 API；画布节点高亮 | ✅ 2026-10-26 | 2 天 |
 | **W2** | `workflow_checkpoints`；status 增 `waiting`/`cancelled`/`succeeded`；Resume/Cancel API | 能暂停在等待态，点继续接着跑 | 2–3 天 |
-| **W3** | 审批节点/危险工具门；超时扫描；工具幂等 | 人审通过再继续；进程重启可捞 waiting | 3 天 |
+| **W3** | 审批节点/危险工具门；超时扫描；工具幂等 | ✅ 2026-10-26（审批/超时/锁/幂等键；危险工具门轻量） | 3 天 |
 
 **开工顺序**：必须先 W0，再 W1，再 W2。W3 可与产品 HITL 需求对齐后开。
 
@@ -191,7 +199,7 @@ Redis：执行锁可选 `cogniforge:workflow:exec:lock:{execution_id}`（防双 
 | W0 | 执行结果展示真实 content（调试面板） |
 | W1 | 画布节点按 node_runs 着色：running/success/failed |
 | W2 | 「继续」「取消」按钮；waiting 提示文案 |
-| W3 | 审批通过入口 |
+| W3 | ✅ 审批通过 / 拒绝入口 |
 
 画布继续 **Vue Flow**，不换 n8n。
 

@@ -2,6 +2,7 @@ package router
 
 import (
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -80,7 +81,9 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 		Quota: quotaSvc,
 		DB:    db,
 	})
-	workflowHandler := workflow.NewWorkflowHandlerWithService(workflow.NewWorkflowServiceWithEngine(wfEngine))
+	wfSvc := workflow.NewWorkflowServiceWithDeps(wfEngine, rdb)
+	workflow.StartWaitTimeoutScanner(wfSvc, 30*time.Second)
+	workflowHandler := workflow.NewWorkflowHandlerWithService(wfSvc)
 	skillHandler := skill.NewHandler(db)
 	evalHandler := eval.NewHandler(db, chatHandler.Service())
 	evalHandler.SetMCPRegistry(mcpHandler.Registry())

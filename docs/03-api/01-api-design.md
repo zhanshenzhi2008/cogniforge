@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-10-26 | v1.42 | W3：approve/reject/callback；详情 wait_until；resume 防重入 | orjrs |
 | 2026-10-26 | v1.41 | W2 落地：resume/checkpoints/wait；详情 wait_reason + latest_checkpoint_seq | orjrs |
 | 2026-10-26 | v1.40 | W1：执行详情返回 node_runs；GET .../executions/:id/nodes | orjrs |
 | 2026-10-26 | v1.39 | 工作流执行：resume/cancel/checkpoints；详情含 node_runs（阶段十八） | orjrs |
@@ -42,6 +43,15 @@
 | 2026-08-15 | v1.2 | GET /v1/models 改为返回已启用供应商的 default_model（不再写死 GPT 列表） | orjrs |
 | 2026-04-09 | v1.1 | 新增文档上传接口、语义检索接口实现说明 | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] W3 审批 / 回调 / 超时（2026-10-26）
+
+- **新增**（`/api/v1/workflows/executions/:executionId`）：
+  - `POST .../approve` — `{ comment? }` → resume，写入变量 `approval_decision=approved`
+  - `POST .../reject` — `{ reason? }` → `failed`
+  - `POST .../callback` — `{ action: approve|reject, ... }` 外部回调入口（需登录）
+- **详情**：增加 `wait_until`；wait 节点 `timeout_sec` 驱动超时扫描
+- **锁**：resume/approve 使用 `cogniforge:workflow:exec:lock:{execution_id}`（无 Redis 时进程内互斥）
 
 ## [变更] W2 resume / checkpoints 落地（2026-10-26）
 

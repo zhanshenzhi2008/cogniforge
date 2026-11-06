@@ -3,6 +3,7 @@
 ## [变更记录]
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|---------|--------|
+| 2026-10-26 | v1.22 | W3：executions.wait_until；Redis resume 锁键落地 | orjrs |
 | 2026-10-26 | v1.21 | 工作流增强：node_runs / checkpoints；executions 增 waiting 等 | orjrs |
 | 2026-10-17 | v1.20 | prompts：source_type/id/name + uk_prompts_user_source | orjrs |
 | 2026-10-17 | v1.19 | prompts：uk_prompts_user_name（同用户 name 唯一） | orjrs |
@@ -23,6 +24,12 @@
 | 2026-08-15 | v1.1 | 落地模型配置 Redis 键（当时为 `cf:modelcfg:*`） | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
 
+## [变更] W3 wait_until + resume 锁（2026-10-26）
+
+- **扩展 `workflow_executions.wait_until`**：TIMESTAMPTZ 可空；waiting 且 wait 节点配置 `timeout_sec>0` 时写入
+- **Redis（已落地）**：`cogniforge:workflow:exec:lock:{execution_id}` TTL 90s，防双 resume/approve
+- **node_runs.detail**：写入 `idempotency_key = {execution_id}:{node_id}:{attempt}`
+
 ## [变更] 工作流 Checkpoint / 节点运行表（2026-10-26）
 
 - **变更原因**：阶段十八；执行可恢复、节点可观测；设计见 `docs/01-requirements/10-workflow-checkpoint-design.md`
@@ -30,10 +37,11 @@
 - **扩展 `workflow_executions`**：
   - `status` 取值：`pending` / `running` / `waiting` / `succeeded` / `failed` / `cancelled`（兼容读旧值 `completed`≈`succeeded`）
   - `wait_reason` VARCHAR(64) 可空（如 `approval` / `retry` / `external`）
+  - `wait_until`（W3）：等待截止时间
   - 已有 `current_node`：执行中必须更新
 - **新表 `workflow_node_runs`**：每节点每次尝试一行（input/output/error/attempt/status/detail jsonb）
 - **新表 `workflow_checkpoints`**：`execution_id` + `seq`；cursor、variables、completed_node_ids、reason、engine_version
-- **可选 Redis**：`cogniforge:workflow:exec:lock:{execution_id}`（防双 resume）；落地前再写入 §5.1
+- **Redis**：`cogniforge:workflow:exec:lock:{execution_id}`（防双 resume）见 §5.1
 
 ## [变更] prompts 来源字段（2026-10-17）
 
@@ -1038,6 +1046,7 @@ cogniforge:session:{user_id} -> JSON {token, expires_at}
 cogniforge:ratelimit:{api_key_id}:{minute} -> counter
 cogniforge:agent:conv:{agent_id}:{session_id} -> JSON {messages}
 cogniforge:workflow:exec:{execution_id} -> JSON {status, result}
+cogniforge:workflow:exec:lock:{execution_id} -> "1"  # TTL 90s，防双 resume（2026-10-26 W3）
 cogniforge:token:{org_id}:{date} -> counter
 
 # 配额计数（2026-08-18 设计，待落地；热路径强制这些名字）

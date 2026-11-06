@@ -70,6 +70,7 @@ type WorkflowExecution struct {
 	UserID      string         `gorm:"type:varchar(64);not null;index" json:"user_id"`
 	Status      string         `gorm:"type:varchar(50);default:'pending'" json:"status"` // pending/running/waiting/completed/failed/cancelled
 	WaitReason  string         `gorm:"type:varchar(64)" json:"wait_reason,omitempty"`    // approval/retry/external（仅 waiting）
+	WaitUntil   *time.Time     `json:"wait_until,omitempty"`                             // 等待截止（超时扫描用，阶段十八 W3）
 	Input       JSONBMap       `gorm:"type:jsonb" json:"input"`
 	Output      string         `gorm:"type:text" json:"output"`
 	Error       string         `gorm:"type:text" json:"error"`

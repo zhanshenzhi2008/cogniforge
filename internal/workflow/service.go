@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 
 	"cogniforge/internal/database"
@@ -15,6 +16,7 @@ import (
 type WorkflowService struct {
 	db             *gorm.DB
 	workflowEngine *engine.WorkflowEngine
+	locker         *ExecLocker
 }
 
 func NewWorkflowService() *WorkflowService {
@@ -23,12 +25,18 @@ func NewWorkflowService() *WorkflowService {
 
 // NewWorkflowServiceWithEngine 注入已配置 AI 依赖的引擎（阶段十八 W0）
 func NewWorkflowServiceWithEngine(eng *engine.WorkflowEngine) *WorkflowService {
+	return NewWorkflowServiceWithDeps(eng, nil)
+}
+
+// NewWorkflowServiceWithDeps 注入引擎 + Redis（W3 resume 锁）
+func NewWorkflowServiceWithDeps(eng *engine.WorkflowEngine, rdb *redis.Client) *WorkflowService {
 	if eng == nil {
 		eng = engine.NewEngine()
 	}
 	return &WorkflowService{
 		db:             database.DB,
 		workflowEngine: eng,
+		locker:         NewExecLocker(rdb),
 	}
 }
 
@@ -198,6 +206,7 @@ func (s *WorkflowService) GetWorkflowExecutionDetail(userID, executionID string)
 		UserID:              exec.UserID,
 		Status:              exec.Status,
 		WaitReason:          exec.WaitReason,
+		WaitUntil:           exec.WaitUntil,
 		Input:               exec.Input,
 		Output:              exec.Output,
 		Error:               exec.Error,
@@ -226,6 +235,82 @@ func (s *WorkflowService) ListCheckpoints(userID, executionID string) ([]model.W
 
 // ResumeExecution 从 checkpoint 继续（仅 waiting）
 func (s *WorkflowService) ResumeExecution(userID, executionID string, req *ResumeExecutionRequest) (*ExecuteResponse, error) {
+	return s.resumeWithExtras(userID, executionID, req, nil)
+}
+
+// ApproveExecution 审批通过 → resume（W3）
+func (s *WorkflowService) ApproveExecution(userID, executionID string, req *ApproveExecutionRequest) (*ExecuteResponse, error) {
+	exec, err := s.GetWorkflowExecution(userID, executionID)
+	if err != nil {
+		return nil, err
+	}
+	if exec.Status != "waiting" {
+		return nil, fmt.Errorf("仅 waiting 可审批，当前: %s", exec.Status)
+	}
+	extras := map[string]any{
+		"approval_decision": "approved",
+		"approved_at":       time.Now().UTC().Format(time.RFC3339),
+	}
+	if req != nil && req.Comment != "" {
+		extras["approval_comment"] = req.Comment
+	}
+	var resumeReq *ResumeExecutionRequest
+	if req != nil && req.Seq != nil {
+		resumeReq = &ResumeExecutionRequest{Seq: req.Seq}
+	}
+	return s.resumeWithExtras(userID, executionID, resumeReq, extras)
+}
+
+// RejectExecution 审批拒绝 → failed（W3）
+func (s *WorkflowService) RejectExecution(userID, executionID string, req *RejectExecutionRequest) error {
+	exec, err := s.GetWorkflowExecution(userID, executionID)
+	if err != nil {
+		return err
+	}
+	if exec.Status != "waiting" {
+		return fmt.Errorf("仅 waiting 可拒绝，当前: %s", exec.Status)
+	}
+	reason := "Rejected by user"
+	if req != nil && req.Reason != "" {
+		reason = req.Reason
+	}
+	now := time.Now()
+	return s.db.Model(&model.WorkflowExecution{}).Where("id = ?", executionID).Updates(map[string]any{
+		"status":       "failed",
+		"error":        reason,
+		"wait_reason":  "",
+		"wait_until":   nil,
+		"current_node": "",
+		"completed_at": &now,
+	}).Error
+}
+
+// CallbackExecution 外部回调 approve/reject（W3；需登录，与审批同权）
+func (s *WorkflowService) CallbackExecution(userID, executionID string, req *CallbackExecutionRequest) (*ExecuteResponse, error) {
+	if req == nil {
+		return nil, fmt.Errorf("缺少回调参数")
+	}
+	switch req.Action {
+	case "approve":
+		return s.ApproveExecution(userID, executionID, &ApproveExecutionRequest{
+			Comment: req.Comment,
+			Seq:     req.Seq,
+		})
+	case "reject":
+		reason := req.Reason
+		if reason == "" {
+			reason = "Rejected by callback"
+		}
+		if err := s.RejectExecution(userID, executionID, &RejectExecutionRequest{Reason: reason}); err != nil {
+			return nil, err
+		}
+		return &ExecuteResponse{ExecutionID: executionID, Status: "failed"}, nil
+	default:
+		return nil, fmt.Errorf("action 仅支持 approve / reject")
+	}
+}
+
+func (s *WorkflowService) resumeWithExtras(userID, executionID string, req *ResumeExecutionRequest, extras map[string]any) (*ExecuteResponse, error) {
 	exec, err := s.GetWorkflowExecution(userID, executionID)
 	if err != nil {
 		return nil, err
@@ -234,8 +319,14 @@ func (s *WorkflowService) ResumeExecution(userID, executionID string, req *Resum
 		return nil, fmt.Errorf("仅 waiting 状态可 resume，当前: %s", exec.Status)
 	}
 
+	unlock, ok := s.locker.TryLock(executionID)
+	if !ok {
+		return nil, fmt.Errorf("执行正在恢复中，请勿重复操作")
+	}
+
 	var wf model.Workflow
 	if err := s.db.Where("id = ? AND user_id = ?", exec.WorkflowID, userID).First(&wf).Error; err != nil {
+		unlock()
 		return nil, fmt.Errorf("工作流不存在")
 	}
 
@@ -247,6 +338,7 @@ func (s *WorkflowService) ResumeExecution(userID, executionID string, req *Resum
 		q = q.Order("seq DESC")
 	}
 	if err := q.First(&cp).Error; err != nil {
+		unlock()
 		return nil, fmt.Errorf("没有可用检查点")
 	}
 
@@ -258,11 +350,13 @@ func (s *WorkflowService) ResumeExecution(userID, executionID string, req *Resum
 	s.db.Model(&model.WorkflowExecution{}).Where("id = ?", executionID).Updates(map[string]any{
 		"status":       "running",
 		"wait_reason":  "",
+		"wait_until":   nil,
 		"error":        "",
 		"completed_at": nil,
 	})
 
 	go func() {
+		defer unlock()
 		defer func() {
 			if r := recover(); r != nil {
 				s.db.Model(&model.WorkflowExecution{}).Where("id = ?", executionID).
@@ -272,6 +366,9 @@ func (s *WorkflowService) ResumeExecution(userID, executionID string, req *Resum
 		ctx := engine.NewExecutionContextWithTraceID(exec.WorkflowID, executionID, input, exec.TraceID).WithUserID(userID)
 		ctx.DefinitionHash = engine.HashDefinition(wf.Definition)
 		engine.ApplyCheckpoint(ctx, &cp)
+		for k, v := range extras {
+			ctx.SetVariable(k, v)
+		}
 		def, err := s.workflowEngine.ParseDefinition(wf.Definition)
 		if err != nil {
 			s.db.Model(&model.WorkflowExecution{}).Where("id = ?", executionID).
@@ -315,6 +412,7 @@ func (s *WorkflowService) CancelWorkflowExecution(userID, executionID string) er
 		"status":       "cancelled",
 		"completed_at": &now,
 		"wait_reason":  "",
+		"wait_until":   nil,
 		"error":        "Cancelled by user",
 		"current_node": "",
 	})

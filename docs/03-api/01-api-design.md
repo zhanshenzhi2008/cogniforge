@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-07 | v1.44 | Agent 对话可选 variables（17.14） | orjrs |
 | 2026-11-06 | v1.43 | 提示词导入支持 skill_id（17.11） | orjrs |
 | 2026-10-26 | v1.42 | W3：approve/reject/callback；详情 wait_until；resume 防重入 | orjrs |
 | 2026-10-26 | v1.41 | W2 落地：resume/checkpoints/wait；详情 wait_reason + latest_checkpoint_seq | orjrs |
@@ -113,6 +114,13 @@
 - **变更原因**：同名 `admin` 多账号导致同站数据隔离混乱
 - **行为**：`POST /auth/register`、管理员创建/改名：`email` 与 `name` 均全局唯一；冲突 400
 - **说明**：密码存哈希，不校验「密码不能与别人相同」
+
+## [变更] Agent 对话 variables（2026-11-07）
+
+- **变更原因**：17.14：绑定 Prompt 的 Agent 对话需覆盖 `{{var}}` 默认值
+- **接口**：`POST /api/v1/agents/:id/chat` 可选 `variables: { "name": "value" }`
+- **行为**：有 `prompt_id` 时用请求 variables 渲染已发布正文；必填缺失返回 400
+- **详细设计**：`docs/01-requirements/09-prompt-engineering-design.md` v2.6
 
 ## [变更] 提示词工业闭环（2026-10-17）
 
@@ -1011,14 +1019,16 @@ DELETE /v1/agents/{agent_id}
 
 POST /v1/agents/{agent_id}/chat
 描述: 与Agent对话
-认证: API密钥
+认证: JWT / API密钥
 请求体:
   {
     "messages": [
       {"role": "user", "content": "你好"}
     ],
-    "stream": false
+    "stream": false,
+    "variables": {"brand": "CogniForge"}
   }
+说明: variables 可选；Agent 绑定 prompt_id 时覆盖提示词 {{var}}（缺省用定义 default）
 响应:
   {
     "id": "agent_chat_xxx",

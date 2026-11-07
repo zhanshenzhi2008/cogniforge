@@ -157,15 +157,16 @@ func (h *AgentHandler) AgentChat(c *gin.Context) {
 	}
 
 	var req struct {
-		Model               string                  `json:"model"`
-		Messages            []chat.ChatMessage      `json:"messages" binding:"required"`
-		Stream              bool                    `json:"stream"`
-		Temperature         *float64                `json:"temperature,omitempty"`
-		MaxTokens           *int                    `json:"max_tokens,omitempty"`
+		Model               string                   `json:"model"`
+		Messages            []chat.ChatMessage       `json:"messages" binding:"required"`
+		Stream              bool                     `json:"stream"`
+		Temperature         *float64                 `json:"temperature,omitempty"`
+		MaxTokens           *int                     `json:"max_tokens,omitempty"`
 		Attachments         []chat.MessageAttachment `json:"attachments,omitempty"`
-		RAGKnowledgeBaseIDs []string                `json:"rag_kb_ids,omitempty"`
-		RAGTopK             *int                    `json:"rag_top_k,omitempty"`
-		RAGMinScore         *float64                `json:"rag_min_score,omitempty"`
+		RAGKnowledgeBaseIDs []string                 `json:"rag_kb_ids,omitempty"`
+		RAGTopK             *int                     `json:"rag_top_k,omitempty"`
+		RAGMinScore         *float64                 `json:"rag_min_score,omitempty"`
+		Variables           map[string]string        `json:"variables,omitempty"` // 覆盖绑定 Prompt 的 {{var}}（17.14）
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, "Invalid request: "+err.Error())
@@ -197,7 +198,12 @@ func (h *AgentHandler) AgentChat(c *gin.Context) {
 	// 优先级：绑定 Prompt（已发布当前版）> Skill > 内联 system_prompt
 	systemPrompt := dbAgent.SystemPrompt
 	if dbAgent.PromptID != "" {
-		if rendered, err := promptpkg.NewService(database.DB).ResolvePublishedContent(userID, dbAgent.PromptID, nil); err == nil && rendered != "" {
+		rendered, err := promptpkg.NewService(database.DB).ResolvePublishedContent(userID, dbAgent.PromptID, req.Variables)
+		if err != nil {
+			response.BadRequest(c, err.Error())
+			return
+		}
+		if rendered != "" {
 			systemPrompt = rendered
 		}
 	} else if dbAgent.SkillID != "" {

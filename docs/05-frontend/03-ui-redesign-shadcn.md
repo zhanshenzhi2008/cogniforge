@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-07 | v1.43 | Playground：绑定 Prompt 的 Agent 展示变量表单（17.14） | orjrs |
 | 2026-10-24 | v1.42 | 提示词试跑；评估变量表单；顶栏展示邮箱 | orjrs |
 | 2026-10-18 | v1.41 | 共用 CfModal：拖动 / 缩放 / 最大化，替换全站 UModal | orjrs |
 | 2026-10-18 | v1.40 | MCP 页：卡片网格 + 筛选/开关/工具数（对标 Cursor） | orjrs |
@@ -49,6 +50,12 @@
 | 2026-08-12 | v1.0 | 全新 UI 方向：Vue3 + Nuxt3 + Tailwind4 + shadcn-vue；保留 Vue Flow；接口与 CI/CD 不变 | orjrs |
 
 > 注：任务状态变更直接在下方任务表格中更新即可，无需额外记录。
+
+## [变更] Playground Agent 提示词变量（2026-11-07）
+
+- **变更原因**：17.14；对话侧补齐与试跑/评估一致的变量表单
+- **包含代码**：`playground.vue`、`PlaygroundConfigPanel.vue`、`useAgentChat.ts`
+- **交互**：选中绑定 Prompt 的 Agent → 参数滑层出变量表单；发送带 `variables`；必填未填拦截
 
 ## [变更] 提示词试跑 / 评估变量表单 / 顶栏邮箱（2026-10-24）
 

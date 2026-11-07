@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|---------|--------|
+| 2026-11-07 | v2.6 | P2 17.14：Agent 对话可传 variables | orjrs |
 | 2026-11-06 | v2.5 | P2 17.11：从 Skill 导入提示词 | orjrs |
 | 2026-10-24 | v2.4 | P1：试跑 / 评估变量表单 / 顶栏邮箱 | orjrs |
 | 2026-10-17 | v2.3 | 来源字段；同 Agent 再导入发新版本，不加 (2) | orjrs |
@@ -14,6 +15,13 @@
 | 2026-10-15 | v1.2 | 评估页提示词/版本下拉，免手抄 version id | orjrs |
 | 2026-10-15 | v1.1 | 落地 CRUD + Web /prompts；评估联动已接线 | orjrs |
 | 2026-10-15 | v1.0 | 立项：提示词库 + 版本；与评估体系联动（target=prompt） | orjrs |
+
+## [变更] P2 Agent 对话传 variables（2026-11-07）
+
+- **变更原因**：绑定 Prompt 后对话只能用定义里的 default，试跑/评估已有变量表单，对话侧缺口
+- **行为**：`POST /agents/:id/chat` 可选 `variables` map；有 `prompt_id` 时走 `ResolvePublishedContent`（必填缺失 → 400）
+- **前端**：Playground 选中绑定 Prompt 的 Agent 时展示变量表单；发送前校验必填并写入请求体
+- **包含代码**：`internal/agent/handler.go`；Web `playground.vue` / `PlaygroundConfigPanel` / `useAgentChat`
 
 ## [变更] P2 从 Skill 导入（2026-11-06）
 
@@ -161,7 +169,7 @@ Agent：创建/更新可带 `prompt_id`。
 | P1 | 17.12 | **评估变量表单**：按 Prompt 变量定义生成输入框 | ✅ 2026-10-24（prompt 目标；agent 仍 JSON） |
 | P1 | 17.13 | **顶栏显示邮箱/区分同名用户** | ✅ 2026-10-24 |
 | P2 | 17.11 | 从 **Skill** 导入提示词 | ✅ 2026-11-06 |
-| P2 | 17.14 | Agent 对话请求可传 `variables` | 目前绑定 Prompt 只用定义里的 default |
+| P2 | 17.14 | Agent 对话请求可传 `variables` | ✅ 2026-11-07 |
 | P2 | 17.15 | 版本 **行级 diff**（在并排之外） | 长文对比更清楚 |
 | P2 | 17.16 | Tags 编辑 UI + 列表筛选 | 模型字段已有 `tags`，前端未做 |
 | P3 | 17.17 | 归档 / 废弃版本；回滚=基于旧版发新 published | 运维友好 |

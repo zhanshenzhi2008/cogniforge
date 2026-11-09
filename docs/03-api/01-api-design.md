@@ -4,6 +4,9 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-08 | v1.47 | provider 是厂商键；误标 openai 按地址改正 | orjrs |
+| 2026-11-08 | v1.46 | PUT providers 可改 provider（快捷模板） | orjrs |
+| 2026-11-08 | v1.45 | 智谱 zhipu 供应商；OpenAI 兼容路径支持 /v4 | orjrs |
 | 2026-11-07 | v1.44 | Agent 对话可选 variables（17.14） | orjrs |
 | 2026-11-06 | v1.43 | 提示词导入支持 skill_id（17.11） | orjrs |
 | 2026-10-26 | v1.42 | W3：approve/reject/callback；详情 wait_until；resume 防重入 | orjrs |
@@ -121,6 +124,25 @@
 - **接口**：`POST /api/v1/agents/:id/chat` 可选 `variables: { "name": "value" }`
 - **行为**：有 `prompt_id` 时用请求 variables 渲染已发布正文；必填缺失返回 400
 - **详细设计**：`docs/01-requirements/09-prompt-engineering-design.md` v2.6
+
+## [变更] provider 表示厂商，不表示接口格式（2026-11-08）
+
+- **字段**：`ai_providers.provider` 是厂商键（`zhipu`、`deepseek`、`custom`…）。卡片小字由它映射，例如 `zhipu` → 智谱 BigModel
+- **调用**：聊天仍走 OpenAI 兼容的 `/chat/completions`（或地址里已有的 `/v4`）。接口格式不写在这字段上
+- **纠正**：`GET /api/v1/providers` 时，若 `provider=openai` 且 `base_url` 属于已知其它厂商（如 `open.bigmodel.cn`），改成对应键。已经写成 `zhipu` / `custom` 的不动
+- **包含代码**：`internal/model/provider.go` `VendorFromBaseURL`；`internal/provider/repository.go` `RepairOpenAIVendorLabels`
+
+## [变更] 智谱 BigModel 供应商（2026-11-08）
+
+- **变更原因**：模型广场接入智谱；免费 Flash 优先，资源包模型可选
+- **供应商**：`provider=zhipu`；默认 `base_url=https://open.bigmodel.cn/api/paas/v4`；默认对话 `glm-4.7-flash`；向量 `embedding-3`
+- **CatalogModels**：免费 Flash 在前，其后 `glm-4.5-air` / `glm-4.6` 等
+- **路径**：`aiOpenAIPath` 识别 `/v4` 后缀，避免拼成 `/v4/v1/...`
+
+## [变更] 供应商 Update 可改 provider（2026-11-08）
+
+- **接口**：`PUT /api/v1/providers/:id` 可选 `provider`
+- **原因**：前端快捷模板在编辑时也可切换，不再锁死类型
 
 ## [变更] 提示词工业闭环（2026-10-17）
 

@@ -118,8 +118,21 @@ func snapshotToProvider(snap *modelcache.Snapshot) *model.AIProvider {
 	}
 }
 
+// RepairVendorLabels 修正误标成 OpenAI 的已知厂商，有改动时刷新缓存。
+func (s *Service) RepairVendorLabels() {
+	if s.repo == nil {
+		return
+	}
+	n, err := s.repo.RepairOpenAIVendorLabels()
+	if err != nil || n == 0 {
+		return
+	}
+	s.refreshCache()
+}
+
 // List 获取所有供应商
 func (s *Service) List() ([]model.AIProvider, error) {
+	s.RepairVendorLabels()
 	return s.repo.ListAll()
 }
 
@@ -179,17 +192,17 @@ func (s *Service) Create(req *CreateProviderRequest) (*model.AIProvider, error) 
 		return nil, fmt.Errorf("failed to encrypt api key: %w", err)
 	}
 	p := &model.AIProvider{
-		ID:           req.ID,
-		Name:         req.Name,
-		Provider:     req.Provider,
-		BaseURL:      req.BaseURL,
-		APIKey:       encryptedKey,
+		ID:             req.ID,
+		Name:           req.Name,
+		Provider:       req.Provider,
+		BaseURL:        req.BaseURL,
+		APIKey:         encryptedKey,
 		DefaultModel:   req.DefaultModel,
 		EmbeddingModel: req.EmbeddingModel,
 		Capabilities:   model.JoinCapabilities(req.Capabilities),
 		IsEnabled:      req.IsEnabled,
-		Priority:     req.Priority,
-		Status:       "active",
+		Priority:       req.Priority,
+		Status:         "active",
 	}
 	if p.ID == "" {
 		p.ID = uuid.New().String()
@@ -214,6 +227,11 @@ func (s *Service) Update(id string, req *UpdateProviderRequest) (*model.AIProvid
 	}
 	if req.Name != nil {
 		p.Name = *req.Name
+	}
+	if req.Provider != nil {
+		if v := strings.TrimSpace(*req.Provider); v != "" {
+			p.Provider = v
+		}
 	}
 	if req.BaseURL != nil {
 		p.BaseURL = *req.BaseURL

@@ -44,6 +44,7 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 	providerRepo := provider.NewRepository(db)
 	mc := modelcache.NewFromRedis(rdb)
 	providerSvc := provider.NewService(providerRepo, mc)
+	providerSvc.RepairVendorLabels()
 	providerSvc.RefreshCache()
 	providerHandler := provider.NewHandler(providerSvc)
 

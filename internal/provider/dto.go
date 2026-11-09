@@ -7,11 +7,11 @@ import (
 // ===================== 请求结构 =====================
 
 type CreateProviderRequest struct {
-	ID           string                 `json:"id"`                      // 可选，手动指定 ID
-	Name         string                 `json:"name" binding:"required"` // 配置名称
-	Provider     string                 `json:"provider" binding:"required"`
-	BaseURL      string                 `json:"base_url"`
-	APIKey       string                 `json:"api_key" binding:"required"`
+	ID             string                 `json:"id"`                      // 可选，手动指定 ID
+	Name           string                 `json:"name" binding:"required"` // 配置名称
+	Provider       string                 `json:"provider" binding:"required"`
+	BaseURL        string                 `json:"base_url"`
+	APIKey         string                 `json:"api_key" binding:"required"`
 	DefaultModel   string                 `json:"default_model"`
 	EmbeddingModel string                 `json:"embedding_model"`
 	Capabilities   []string               `json:"capabilities"`
@@ -22,6 +22,7 @@ type CreateProviderRequest struct {
 
 type UpdateProviderRequest struct {
 	Name           *string                `json:"name"`
+	Provider       *string                `json:"provider"` // 厂商键。决定卡片小字（zhipu→智谱 BigModel）。可与 Base URL 分开改。
 	BaseURL        *string                `json:"base_url"`
 	APIKey         *string                `json:"api_key"`
 	DefaultModel   *string                `json:"default_model"`
@@ -39,10 +40,10 @@ type SetDefaultRequest struct {
 // ===================== 响应结构 =====================
 
 type ProviderResponse struct {
-	ID           string                 `json:"id"`
-	Name         string                 `json:"name"`
-	Provider     string                 `json:"provider"`
-	BaseURL      string                 `json:"base_url"`
+	ID                 string                 `json:"id"`
+	Name               string                 `json:"name"`
+	Provider           string                 `json:"provider"`
+	BaseURL            string                 `json:"base_url"`
 	DefaultModel       string                 `json:"default_model"`
 	EmbeddingModel     string                 `json:"embedding_model"`
 	Capabilities       []string               `json:"capabilities"`
@@ -51,11 +52,11 @@ type ProviderResponse struct {
 	IsDefault          bool                   `json:"is_default"`
 	IsDefaultEmbedding bool                   `json:"is_default_embedding"`
 	Priority           int                    `json:"priority"`
-	Status       string                 `json:"status"`
-	LastTestAt   *string                `json:"last_test_at"`
-	LastError    string                 `json:"last_error,omitempty"`
-	CreatedAt    string                 `json:"created_at"`
-	UpdatedAt    string                 `json:"updated_at"`
+	Status             string                 `json:"status"`
+	LastTestAt         *string                `json:"last_test_at"`
+	LastError          string                 `json:"last_error,omitempty"`
+	CreatedAt          string                 `json:"created_at"`
+	UpdatedAt          string                 `json:"updated_at"`
 	// API Key 安全处理：创建/更新时返回，后续列表接口不返回原始 Key
 	APIKey string `json:"api_key,omitempty"`
 }
@@ -70,10 +71,10 @@ type TestResult struct {
 
 func toResponse(p *model.AIProvider) ProviderResponse {
 	resp := ProviderResponse{
-		ID:           p.ID,
-		Name:         p.Name,
-		Provider:     p.Provider,
-		BaseURL:      p.BaseURL,
+		ID:                 p.ID,
+		Name:               p.Name,
+		Provider:           p.Provider,
+		BaseURL:            p.BaseURL,
 		DefaultModel:       p.DefaultModel,
 		EmbeddingModel:     p.EmbeddingModel,
 		Capabilities:       model.SplitCapabilities(p.Capabilities),
@@ -82,10 +83,10 @@ func toResponse(p *model.AIProvider) ProviderResponse {
 		IsDefault:          p.IsDefault,
 		IsDefaultEmbedding: p.IsDefaultEmbedding,
 		Priority:           p.Priority,
-		Status:       p.Status,
-		LastError:    p.LastError,
-		CreatedAt:    p.CreatedAt.Format("2006-01-02T15:04:05Z"),
-		UpdatedAt:    p.UpdatedAt.Format("2006-01-02T15:04:05Z"),
+		Status:             p.Status,
+		LastError:          p.LastError,
+		CreatedAt:          p.CreatedAt.Format("2006-01-02T15:04:05Z"),
+		UpdatedAt:          p.UpdatedAt.Format("2006-01-02T15:04:05Z"),
 	}
 	if p.APIKey != "" {
 		resp.APIKey = p.APIKey

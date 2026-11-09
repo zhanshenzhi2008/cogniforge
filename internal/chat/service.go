@@ -363,10 +363,29 @@ func (s *ChatService) aiOpenAIPath(base, path string) string {
 	if base == "" {
 		return "/v1/" + path
 	}
-	if strings.HasSuffix(base, "/v1") {
+	// 已带 /v1、/v4 等版本后缀时不再拼 /v1（智谱为 …/api/paas/v4）
+	if openAIAPIVersionSuffix(base) {
 		return base + "/" + path
 	}
 	return base + "/v1/" + path
+}
+
+// openAIAPIVersionSuffix 判断 base 是否以 /v{数字} 结尾。
+func openAIAPIVersionSuffix(base string) bool {
+	i := strings.LastIndex(base, "/")
+	if i < 0 || i == len(base)-1 {
+		return false
+	}
+	seg := base[i+1:]
+	if len(seg) < 2 || seg[0] != 'v' {
+		return false
+	}
+	for _, c := range seg[1:] {
+		if c < '0' || c > '9' {
+			return false
+		}
+	}
+	return true
 }
 
 // Embeddings 用「向量默认」供应商调上游 /v1/embeddings，不复用对话模型。

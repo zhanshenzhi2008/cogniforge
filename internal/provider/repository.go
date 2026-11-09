@@ -1,8 +1,10 @@
 package provider
 
 import (
-	"cogniforge/internal/model"
+	"strings"
 	"time"
+
+	"cogniforge/internal/model"
 
 	"gorm.io/gorm"
 )
@@ -117,6 +119,25 @@ func (r *Repository) SetDefaultEmbedding(id string) error {
 		return tx.Model(&model.AIProvider{}).Where("id = ?", id).
 			Updates(map[string]any{"is_default_embedding": true}).Error
 	})
+}
+
+// RepairOpenAIVendorLabels 把「厂商仍写成 openai、但地址明显是别的厂商」的行改成对应厂商键。
+// 只动 provider=openai 的行，已经选过智谱/自定义的不动。返回改了多少行。
+func (r *Repository) RepairOpenAIVendorLabels() (int64, error) {
+	var changed int64
+	for _, h := range model.VendorURLHints() {
+		if h.Provider == "" || h.Provider == string(model.ProviderOpenAI) {
+			continue
+		}
+		res := r.db.Model(&model.AIProvider{}).
+			Where("provider = ? AND LOWER(base_url) LIKE ?", string(model.ProviderOpenAI), "%"+strings.ToLower(h.Host)+"%").
+			Update("provider", h.Provider)
+		if res.Error != nil {
+			return changed, res.Error
+		}
+		changed += res.RowsAffected
+	}
+	return changed, nil
 }
 
 // UpdateStatus 更新供应商状态

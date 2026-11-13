@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-13 | v1.48 | 修 execute panic：执行 ID 改 UUID；LLM 无 user prompt 时用上下文兜底 | orjrs |
 | 2026-11-08 | v1.47 | provider 是厂商键；误标 openai 按地址改正 | orjrs |
 | 2026-11-08 | v1.46 | PUT providers 可改 provider（快捷模板） | orjrs |
 | 2026-11-08 | v1.45 | 智谱 zhipu 供应商；OpenAI 兼容路径支持 /v4 | orjrs |
@@ -48,6 +49,13 @@
 | 2026-08-15 | v1.2 | GET /v1/models 改为返回已启用供应商的 default_model（不再写死 GPT 列表） | orjrs |
 | 2026-04-09 | v1.1 | 新增文档上传接口、语义检索接口实现说明 | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] 工作流 execute 空 500 与 LLM 兜底（2026-11-13）
+
+- **变更原因**：`POST /workflows/:id/execute` 返回 HTTP 500 且 body 为空；同路径 `/debug` 正常
+- **根因**：引擎 `generateID` 用 `UnixNano*31` 伪随机，`int64` 溢出后取模为负，`letters[负下标]` panic；`gin.Recovery` 只 `AbortWithStatus(500)` 无 JSON
+- **变更后**：执行 / checkpoint / node_run ID 改 `uuid`；`JSONRecovery` 返回业务 JSON；LLM 仅配 `system_prompt` 时用 input + 上游输出拼 user 消息
+- **包含代码**：`internal/engine/core/workflow_engine.go`、`internal/engine/nodes/llm.go`、`internal/middleware/middleware.go`、`cmd/server/main.go`
 
 ## [变更] 提示词从 Skill 导入（2026-11-06）
 

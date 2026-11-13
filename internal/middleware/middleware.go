@@ -1,11 +1,15 @@
 package middleware
 
 import (
+	"log/slog"
 	"net/http"
+	"runtime/debug"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+
+	"cogniforge/internal/response"
 )
 
 var JWTSecret = []byte("cogniforge-secret-key")
@@ -35,6 +39,27 @@ func Cors() gin.HandlerFunc {
 
 func Logger() gin.HandlerFunc {
 	return gin.Logger()
+}
+
+// JSONRecovery 捕获 panic，返回带业务码的 JSON（避免 gin.Recovery 空 body 500）
+func JSONRecovery() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		defer func() {
+			if rec := recover(); rec != nil {
+				slog.Error("panic recovered",
+					"error", rec,
+					"path", c.Request.URL.Path,
+					"method", c.Request.Method,
+					"stack", string(debug.Stack()),
+				)
+				if !c.Writer.Written() {
+					response.InternalError(c, "internal server error")
+				}
+				c.Abort()
+			}
+		}()
+		c.Next()
+	}
 }
 
 func AuthRequired() gin.HandlerFunc {

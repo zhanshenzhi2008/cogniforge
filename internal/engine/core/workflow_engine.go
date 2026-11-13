@@ -10,6 +10,8 @@ import (
 
 	"cogniforge/internal/database"
 	"cogniforge/internal/model"
+
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -345,7 +347,7 @@ func (e *WorkflowEngine) saveCheckpoint(ctx *ExecutionContext, cursorNodeID stri
 	ctx.mu.RUnlock()
 
 	cp := model.WorkflowCheckpoint{
-		ID:               fmt.Sprintf("wcp_%d_%s", time.Now().UnixNano(), randomString(6)),
+		ID:               uuid.New().String(),
 		ExecutionID:      ctx.ExecutionID,
 		Seq:              seq,
 		CursorNodeID:     cursorNodeID,
@@ -431,7 +433,7 @@ func (e *WorkflowEngine) persistNodeRun(
 
 	if err == gorm.ErrRecordNotFound {
 		run := model.WorkflowNodeRun{
-			ID:          fmt.Sprintf("wnr_%d_%s", time.Now().UnixNano(), randomString(6)),
+			ID:          uuid.New().String(),
 			ExecutionID: ctx.ExecutionID,
 			NodeID:      node.ID,
 			NodeType:    node.Type,
@@ -600,16 +602,7 @@ func (e *WorkflowEngine) ExecuteAsyncWithTraceID(workflowID, userID string, inpu
 }
 
 func generateID() string {
-	return fmt.Sprintf("exec_%s%s", time.Now().Format("20060102150405"), randomString(8))
-}
-
-func randomString(n int) string {
-	const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	b := make([]byte, n)
-	r := time.Now().UnixNano()
-	for i := range b {
-		r = r*31 + int64(letters[r%int64(len(letters))])
-		b[i] = letters[r%int64(len(letters))]
-	}
-	return string(b)
+	// 旧实现用 UnixNano*31 伪随机，int64 溢出后取模为负，letters[负下标] 直接 panic，
+	// 表现是 POST /workflows/:id/execute 返回空 body 的 500；调试接口走 UUID 所以正常。
+	return uuid.New().String()
 }

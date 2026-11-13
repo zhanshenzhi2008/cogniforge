@@ -42,8 +42,16 @@ func (e *LLMNodeExecutor) Execute(ctx *core.ExecutionContext, config json.RawMes
 
 	prompt := resolveTemplate(cfg.Prompt, ctx)
 	systemPrompt := resolveTemplate(cfg.SystemPrompt, ctx)
+	// 画布目前只配 systemPrompt 时，用流程输入 + 上游节点输出拼 user 消息
 	if prompt == "" {
+		prompt = defaultLLMUserPrompt(ctx)
+	}
+	if prompt == "" && systemPrompt == "" {
 		return nil, fmt.Errorf("LLM node: prompt is empty")
+	}
+	if prompt == "" {
+		prompt = systemPrompt
+		systemPrompt = ""
 	}
 
 	model := cfg.Model
@@ -121,6 +129,27 @@ func (e *LLMNodeExecutor) Execute(ctx *core.ExecutionContext, config json.RawMes
 		"usage":      usage,
 		"latency_ms": latency,
 	}, nil
+}
+
+func defaultLLMUserPrompt(ctx *core.ExecutionContext) string {
+	if ctx == nil {
+		return ""
+	}
+	payload := map[string]any{}
+	if len(ctx.Input) > 0 {
+		payload["input"] = ctx.Input
+	}
+	if len(ctx.Output) > 0 {
+		payload["previous_outputs"] = ctx.Output
+	}
+	if len(payload) == 0 {
+		return "请根据系统提示完成任务。"
+	}
+	b, err := json.MarshalIndent(payload, "", "  ")
+	if err != nil {
+		return fmt.Sprint(payload)
+	}
+	return "请根据以下上下文完成任务：\n" + string(b)
 }
 
 func firstChoiceContent(resp *chat.ChatResponse) string {

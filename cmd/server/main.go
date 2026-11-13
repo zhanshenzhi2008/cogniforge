@@ -108,7 +108,7 @@ func main() {
 
 	// 创建 gin engine
 	r := gin.New()
-	r.Use(gin.Recovery())
+	r.Use(middleware.JSONRecovery())
 	r.Use(middleware.Cors())
 	r.Use(middleware.RequestLogger())
 	r.Use(middleware.Logger())

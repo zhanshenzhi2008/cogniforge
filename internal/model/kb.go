@@ -34,12 +34,22 @@ type KnowledgeBase struct {
 	Description    string         `gorm:"type:text" json:"description"`
 	VectorDB       string         `gorm:"type:varchar(50);default:'pgvector'" json:"vector_db"` // pgvector, chroma, qdrant, weaviate
 	EmbeddingModel string         `gorm:"type:varchar(100);default:'text-embedding-ada-002'" json:"embedding_model"`
-	Status         string         `gorm:"type:varchar(50);default:'active'" json:"status"`
-	Metadata       JSONBMap       `gorm:"type:jsonb" json:"metadata"`
-	DocCount       int            `gorm:"default:0" json:"doc_count"` // 文档数量
-	CreatedAt      time.Time      `json:"created_at"`
-	UpdatedAt      time.Time      `json:"updated_at"`
-	DeletedAt      gorm.DeletedAt `gorm:"index" json:"-"`
+	// 默认分段（上传时可覆盖）
+	ChunkSize      int            `gorm:"default:512" json:"chunk_size"`
+	ChunkOverlap   int            `gorm:"default:50" json:"chunk_overlap"`
+	SplitMode      string         `gorm:"type:varchar(32);default:'recursive'" json:"split_mode"` // recursive | fixed | separator
+	SplitSeparator string         `gorm:"type:varchar(64);default:''" json:"split_separator"`
+	// 默认检索（阶段二）
+	RagTopK     int     `gorm:"default:5" json:"rag_top_k"`
+	RagMinScore float64 `gorm:"type:double precision;default:0.3" json:"rag_min_score"`
+	// 可见性占位（阶段三）：private | org（暂仅 private）
+	Visibility string `gorm:"type:varchar(32);default:'private'" json:"visibility"`
+	Status     string `gorm:"type:varchar(50);default:'active'" json:"status"`
+	Metadata   JSONBMap       `gorm:"type:jsonb" json:"metadata"`
+	DocCount   int            `gorm:"default:0" json:"doc_count"` // 文档数量
+	CreatedAt  time.Time      `json:"created_at"`
+	UpdatedAt  time.Time      `json:"updated_at"`
+	DeletedAt  gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
 func (KnowledgeBase) TableName() string {

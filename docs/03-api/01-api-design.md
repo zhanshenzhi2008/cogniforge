@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-15 | v1.52 | 上传分段参数 + POST documents/preview；AI /api/rag/preview | orjrs |
 | 2026-11-15 | v1.51 | 知识库目录 GET/POST /knowledge/folders；KB 支持 folder_id | orjrs |
 | 2026-11-15 | v1.50 | GET 知识库文档详情（含文本预览 content） | orjrs |
 | 2026-11-14 | v1.49 | 修 AgentChat 匿名 struct 推错表，对话「查询 Agent 失败」 | orjrs |
@@ -52,6 +53,13 @@
 | 2026-08-15 | v1.2 | GET /v1/models 改为返回已启用供应商的 default_model（不再写死 GPT 列表） | orjrs |
 | 2026-04-09 | v1.1 | 新增文档上传接口、语义检索接口实现说明 | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] 上传分段配置与分块预览（2026-11-15）
+
+- **变更原因**：上传前可调分段方式并预览块，避免盲传
+- **Go**：`POST /api/v1/knowledge/{kb_id}/documents/upload` 增加可选 form：`chunk_size` / `chunk_overlap` / `split_mode` / `split_separator`；新增 `POST .../documents/preview`（不入库）
+- **AI**：`POST /api/rag/process` 透传分段参数；新增 `POST /api/rag/preview`（只解析+分块）
+- **KB 字段**：创建/更新可带默认分段；写入文档 `metadata` 供异步解析使用
 
 ## [变更] 知识库目录（2026-11-15）
 
@@ -1353,11 +1361,15 @@ DELETE /api/v1/knowledge/{kb_id}
 ```yaml
 接口组: /api/v1/knowledge/{kb_id}
 
-POST /api/v1/knowledge/{kb_id}/documents
-描述: 上传文档
+POST /api/v1/knowledge/{kb_id}/documents/upload
+描述: 上传文档（异步解析+向量化）
 认证: JWT
 请求: multipart/form-data
   - file: PDF/TXT/MD/DOCX/HTML 文件（必填）
+  - chunk_size: 可选，默认取知识库配置（64–4000）
+  - chunk_overlap: 可选
+  - split_mode: 可选 recursive | fixed | separator
+  - split_separator: 可选，separator 模式分隔符
 响应:
   {
     "code": 2001,
@@ -1373,6 +1385,25 @@ POST /api/v1/knowledge/{kb_id}/documents
       "chunk_count": 0,
       "vector_count": 0,
       "created_at": "2026-04-09T10:00:00Z"
+    }
+  }
+
+---
+
+POST /api/v1/knowledge/{kb_id}/documents/preview
+描述: 上传前预览分块（临时文件，不入库、不向量化）
+认证: JWT
+请求: multipart/form-data（字段同 upload）
+响应:
+  {
+    "code": 2000,
+    "data": {
+      "total_chunks": 12,
+      "preview_count": 12,
+      "char_count": 8400,
+      "chunks": [
+        { "index": 0, "content": "...", "char_count": 480 }
+      ]
     }
   }
 

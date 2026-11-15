@@ -9,20 +9,55 @@ import (
 // ============ 请求结构 ============
 
 type CreateKBRequest struct {
-	Name           string `json:"name" binding:"required"`
-	Description    string `json:"description"`
-	FolderID       string `json:"folder_id"`
-	VectorDB       string `json:"vector_db"`
-	EmbeddingModel string `json:"embedding_model"`
+	Name           string  `json:"name" binding:"required"`
+	Description    string  `json:"description"`
+	FolderID       string  `json:"folder_id"`
+	VectorDB       string  `json:"vector_db"`
+	EmbeddingModel string  `json:"embedding_model"`
+	ChunkSize      *int    `json:"chunk_size"`
+	ChunkOverlap   *int    `json:"chunk_overlap"`
+	SplitMode      string  `json:"split_mode"`
+	SplitSeparator string  `json:"split_separator"`
+	RagTopK        *int    `json:"rag_top_k"`
+	RagMinScore    *float64 `json:"rag_min_score"`
+	Visibility     string  `json:"visibility"`
 }
 
 type UpdateKBRequest struct {
-	Name           string  `json:"name"`
-	Description    string  `json:"description"`
-	FolderID       *string `json:"folder_id"` // nil=不改；""=移到未分类
-	VectorDB       string  `json:"vector_db"`
-	EmbeddingModel string  `json:"embedding_model"`
-	Status         string  `json:"status"`
+	Name           string   `json:"name"`
+	Description    string   `json:"description"`
+	FolderID       *string  `json:"folder_id"` // nil=不改；""=移到未分类
+	VectorDB       string   `json:"vector_db"`
+	EmbeddingModel string   `json:"embedding_model"`
+	ChunkSize      *int     `json:"chunk_size"`
+	ChunkOverlap   *int     `json:"chunk_overlap"`
+	SplitMode      string   `json:"split_mode"`
+	SplitSeparator *string  `json:"split_separator"`
+	RagTopK        *int     `json:"rag_top_k"`
+	RagMinScore    *float64 `json:"rag_min_score"`
+	Visibility     string   `json:"visibility"`
+	Status         string   `json:"status"`
+}
+
+// ParseOptions 上传/预览分段参数
+type ParseOptions struct {
+	ChunkSize      int    `json:"chunk_size"`
+	ChunkOverlap   int    `json:"chunk_overlap"`
+	SplitMode      string `json:"split_mode"`
+	SplitSeparator string `json:"split_separator"`
+}
+
+type ChunkPreviewItem struct {
+	Index     int    `json:"index"`
+	Content   string `json:"content"`
+	CharCount int    `json:"char_count"`
+}
+
+type ChunkPreviewResponse struct {
+	TotalChunks  int                `json:"total_chunks"`
+	PreviewCount int                `json:"preview_count"`
+	CharCount    int                `json:"char_count"`
+	Chunks       []ChunkPreviewItem `json:"chunks"`
 }
 
 type CreateFolderRequest struct {
@@ -75,6 +110,20 @@ type ProcessRequest struct {
 	DocumentID     string                 `json:"document_id"`
 	CollectionName string                 `json:"collection_name"`
 	Metadata       map[string]interface{} `json:"metadata,omitempty"`
+	ChunkSize      int                    `json:"chunk_size,omitempty"`
+	ChunkOverlap   int                    `json:"chunk_overlap,omitempty"`
+	SplitMode      string                 `json:"split_mode,omitempty"`
+	Separator      string                 `json:"separator,omitempty"`
+}
+
+type PreviewChunksRequest struct {
+	Context        context.Context `json:"-"`
+	FilePath       string          `json:"file_path"`
+	ChunkSize      int             `json:"chunk_size,omitempty"`
+	ChunkOverlap   int             `json:"chunk_overlap,omitempty"`
+	SplitMode      string          `json:"split_mode,omitempty"`
+	Separator      string          `json:"separator,omitempty"`
+	MaxChunks      int             `json:"max_chunks,omitempty"`
 }
 
 type ProcessResponse struct {

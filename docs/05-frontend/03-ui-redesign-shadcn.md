@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-15 | v1.52 | 知识库上传两步：分段设置 + 分块预览 | orjrs |
 | 2026-11-15 | v1.51 | CfModal：叠在 USlideover 上可点击（pointer-events + z-index） | orjrs |
 | 2026-11-15 | v1.50 | 知识库：目录下拉 +「+」新建；列表按目录分段 | orjrs |
 | 2026-11-15 | v1.49 | 知识库抽屉：点文档名预览正文（列表+右侧阅读区） | orjrs |
@@ -58,6 +59,11 @@
 | 2026-08-12 | v1.0 | 全新 UI 方向：Vue3 + Nuxt3 + Tailwind4 + shadcn-vue；保留 Vue Flow；接口与 CI/CD 不变 | orjrs |
 
 > 注：任务状态变更直接在下方任务表格中更新即可，无需额外记录。
+
+## [变更] 知识库上传分段预览（2026-11-15）
+
+- **交互**：上传弹窗两步——选文件 → 分段方式/块大小/重叠 +「预览分块」→ 确认上传
+- **包含代码**：`cogniforge-web/pages/knowledge.vue`、`useKnowledgeBases.ts`（`previewChunks` / `uploadDoc` 带 parse options）
 
 ## [变更] 知识库目录（2026-11-15）
 

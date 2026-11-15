@@ -25,6 +25,15 @@ func (c *ServiceClient) ProcessDocument(req *ProcessRequest) (*ProcessResponse, 
 	return &result, nil
 }
 
+// PreviewChunks 调用 Python 服务仅解析+分块（不向量化）。
+func (c *ServiceClient) PreviewChunks(req *PreviewChunksRequest) (*ChunkPreviewResponse, error) {
+	var result ChunkPreviewResponse
+	if err := c.cli.Post(req.Context, "/api/rag/preview", req, &result); err != nil {
+		return nil, fmt.Errorf("preview chunks: %w", err)
+	}
+	return &result, nil
+}
+
 // Search 调用 Python 服务进行向量检索。
 func (c *ServiceClient) Search(req *SearchRequest) (*RAGSearchResponse, error) {
 	var result RAGSearchResponse

@@ -1,6 +1,8 @@
 package knowledge
 
 import (
+	"strconv"
+
 	"github.com/gin-gonic/gin"
 
 	"cogniforge/internal/response"
@@ -191,12 +193,33 @@ func (h *KnowledgeHandler) UploadDocument(c *gin.Context) {
 		return
 	}
 
-	doc, err := h.service.UploadDocument(c.Request.Context(), userID, kbID, file)
+	opts := parseOptionsFromForm(c)
+	doc, err := h.service.UploadDocument(c.Request.Context(), userID, kbID, file, opts)
 	if err != nil {
 		response.BadRequest(c, err.Error())
 		return
 	}
 	response.Created(c, doc)
+}
+
+// PreviewChunks 上传前预览分块（不入库）
+func (h *KnowledgeHandler) PreviewChunks(c *gin.Context) {
+	userID := c.GetString("user_id")
+	kbID := c.Param("id")
+
+	file, err := c.FormFile("file")
+	if err != nil {
+		response.BadRequest(c, "请选择要预览的文件")
+		return
+	}
+
+	opts := parseOptionsFromForm(c)
+	result, err := h.service.PreviewChunks(c.Request.Context(), userID, kbID, file, opts)
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+	response.Success(c, result)
 }
 
 // SearchKnowledge 知识库检索
@@ -233,7 +256,37 @@ func (h *KnowledgeHandler) RegisterRoutes(rg *gin.RouterGroup) {
 		kbs.GET("/:id/documents/:docId", h.GetDocument)
 		kbs.DELETE("/:id/documents/:docId", h.DeleteDocument)
 		kbs.POST("/:id/documents/upload", h.UploadDocument)
+		kbs.POST("/:id/documents/preview", h.PreviewChunks)
 		kbs.POST("/:id/documents/reparse", h.ReparseDocument)
 		kbs.POST("/:id/search", h.SearchKnowledge)
 	}
+}
+
+func parseOptionsFromForm(c *gin.Context) *ParseOptions {
+	opts := &ParseOptions{}
+	has := false
+	if v := c.PostForm("chunk_size"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			opts.ChunkSize = n
+			has = true
+		}
+	}
+	if v := c.PostForm("chunk_overlap"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
+			opts.ChunkOverlap = n
+			has = true
+		}
+	}
+	if v := c.PostForm("split_mode"); v != "" {
+		opts.SplitMode = v
+		has = true
+	}
+	if v := c.PostForm("split_separator"); v != "" {
+		opts.SplitSeparator = v
+		has = true
+	}
+	if !has {
+		return nil
+	}
+	return opts
 }

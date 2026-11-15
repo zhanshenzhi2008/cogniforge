@@ -3,6 +3,7 @@
 ## [变更记录]
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|---------|--------|
+| 2026-11-15 | v1.24 | knowledge_bases 默认分段/检索/可见性字段 | orjrs |
 | 2026-11-15 | v1.23 | 知识库目录 knowledge_folders；knowledge_bases.folder_id | orjrs |
 | 2026-10-26 | v1.22 | W3：executions.wait_until；Redis resume 锁键落地 | orjrs |
 | 2026-10-26 | v1.21 | 工作流增强：node_runs / checkpoints；executions 增 waiting 等 | orjrs |
@@ -24,6 +25,16 @@
 | 2026-08-16 | v1.2 | Redis 键统一 `cogniforge:` 前缀；多项目用前缀隔离，不拆 db0/db1 | orjrs |
 | 2026-08-15 | v1.1 | 落地模型配置 Redis 键（当时为 `cf:modelcfg:*`） | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] 知识库默认分段与检索字段（2026-11-15）
+
+- **扩展 `knowledge_bases`**（GORM AutoMigrate）：
+  - `chunk_size` INT 默认 512；`chunk_overlap` INT 默认 50
+  - `split_mode` VARCHAR(32) 默认 `recursive`（recursive / fixed / separator）
+  - `split_separator` VARCHAR(64) 可空（应用层默认 `\n\n`）
+  - `rag_top_k` INT 默认 5；`rag_min_score` DOUBLE 默认 0.3（阶段二使用）
+  - `visibility` VARCHAR(32) 默认 `private`（阶段三占位）
+- **文档**：上传时把实际分段参数写入 `documents.metadata`
 
 ## [变更] 知识库目录（2026-11-15）
 

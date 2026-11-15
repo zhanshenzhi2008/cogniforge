@@ -8,6 +8,7 @@ import (
 	"mime/multipart"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -131,6 +132,13 @@ func (s *KnowledgeService) CreateKnowledgeBase(userID string, req *CreateKBReque
 		Description:    req.Description,
 		VectorDB:       req.VectorDB,
 		EmbeddingModel: req.EmbeddingModel,
+		ChunkSize:      512,
+		ChunkOverlap:   50,
+		SplitMode:      "recursive",
+		SplitSeparator: "\n\n",
+		RagTopK:        5,
+		RagMinScore:    0.3,
+		Visibility:     "private",
 		Status:         "active",
 		Metadata:       model.JSONBMap{},
 		CreatedAt:      time.Now(),
@@ -143,6 +151,7 @@ func (s *KnowledgeService) CreateKnowledgeBase(userID string, req *CreateKBReque
 	if kb.EmbeddingModel == "" {
 		kb.EmbeddingModel = "text-embedding-ada-002"
 	}
+	applyCreateParseDefaults(&kb, req)
 
 	if err := s.db.Create(&kb).Error; err != nil {
 		return nil, fmt.Errorf("创建知识库失败")
@@ -191,6 +200,7 @@ func (s *KnowledgeService) UpdateKnowledgeBase(userID, kbID string, req *UpdateK
 	if req.EmbeddingModel != "" {
 		kb.EmbeddingModel = req.EmbeddingModel
 	}
+	applyUpdateParseDefaults(&kb, req)
 	if req.Status != "" {
 		kb.Status = req.Status
 	}
@@ -358,8 +368,8 @@ func (s *KnowledgeService) ReparseDocument(ctx context.Context, userID, kbID, do
 	return &doc, nil
 }
 
-// UploadDocument 上传文档
-func (s *KnowledgeService) UploadDocument(ctx context.Context, userID, kbID string, file *multipart.FileHeader) (*model.Document, error) {
+// UploadDocument 上传文档（opts 为空时用知识库默认分段）
+func (s *KnowledgeService) UploadDocument(ctx context.Context, userID, kbID string, file *multipart.FileHeader, opts *ParseOptions) (*model.Document, error) {
 	var kb model.KnowledgeBase
 	if err := s.db.Where("id = ? AND user_id = ?", kbID, userID).First(&kb).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -391,6 +401,14 @@ func (s *KnowledgeService) UploadDocument(ctx context.Context, userID, kbID stri
 		return nil, fmt.Errorf("保存文件失败: %w", err)
 	}
 
+	resolved := resolveParseOptions(&kb, opts)
+	meta := model.JSONBMap{
+		"chunk_size":      resolved.ChunkSize,
+		"chunk_overlap":   resolved.ChunkOverlap,
+		"split_mode":      resolved.SplitMode,
+		"split_separator": resolved.SplitSeparator,
+	}
+
 	doc := model.Document{
 		ID:              docID,
 		KnowledgeBaseID: kbID,
@@ -403,7 +421,7 @@ func (s *KnowledgeService) UploadDocument(ctx context.Context, userID, kbID stri
 		Status:          "pending",
 		ChunkCount:      0,
 		VectorCount:     0,
-		Metadata:        model.JSONBMap{},
+		Metadata:        meta,
 		CreatedAt:       time.Now(),
 		UpdatedAt:       time.Now(),
 	}
@@ -420,6 +438,51 @@ func (s *KnowledgeService) UploadDocument(ctx context.Context, userID, kbID stri
 	}()
 
 	return &doc, nil
+}
+
+// PreviewChunks 临时保存文件并调用 AI 预览分块（不入库、不向量化）
+func (s *KnowledgeService) PreviewChunks(ctx context.Context, userID, kbID string, file *multipart.FileHeader, opts *ParseOptions) (*ChunkPreviewResponse, error) {
+	var kb model.KnowledgeBase
+	if err := s.db.Where("id = ? AND user_id = ?", kbID, userID).First(&kb).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, fmt.Errorf("知识库不存在")
+		}
+		return nil, fmt.Errorf("查询知识库失败")
+	}
+
+	if file.Size > MaxFileSize {
+		return nil, fmt.Errorf("文件大小不能超过 %dMB", MaxFileSize/(1024*1024))
+	}
+	if _, ok := getFileType(file.Filename); !ok {
+		return nil, fmt.Errorf("不支持的文件类型，支持：PDF、TXT、MD、DOCX、HTML")
+	}
+
+	dir, err := ensureUploadDir(userID, kbID)
+	if err != nil {
+		return nil, fmt.Errorf("创建上传目录失败")
+	}
+	previewDir := filepath.Join(dir, "_preview")
+	if err := os.MkdirAll(previewDir, 0o755); err != nil {
+		return nil, fmt.Errorf("创建预览目录失败")
+	}
+
+	tmpName := "preview_" + strconv.FormatInt(time.Now().UnixNano(), 10) + getFileExt(file.Filename)
+	destPath := filepath.Join(previewDir, tmpName)
+	if err := saveUploadedFile(file, destPath); err != nil {
+		return nil, fmt.Errorf("保存预览文件失败: %w", err)
+	}
+	defer os.Remove(destPath)
+
+	resolved := resolveParseOptions(&kb, opts)
+	return s.pythonClient.PreviewChunks(&PreviewChunksRequest{
+		Context:      ctx,
+		FilePath:     destPath,
+		ChunkSize:    resolved.ChunkSize,
+		ChunkOverlap: resolved.ChunkOverlap,
+		SplitMode:    resolved.SplitMode,
+		Separator:    resolved.SplitSeparator,
+		MaxChunks:    20,
+	})
 }
 
 // SearchKnowledge 知识库检索（HTTP 入口，带 Gin trace）
@@ -539,6 +602,10 @@ func (s *KnowledgeService) processDocumentAsync(docID, parentTraceID string) {
 
 	slog.Info("开始处理文档", "doc_id", docID, "file", doc.Name, "trace_id", traceID)
 
+	var kb model.KnowledgeBase
+	_ = s.db.Where("id = ?", doc.KnowledgeBaseID).First(&kb).Error
+	opts := parseOptionsFromMetadata(doc.Metadata, &kb)
+
 	// 调用 Python 服务进行文档处理和向量化
 	result, err := s.pythonClient.ProcessDocument(&ProcessRequest{
 		Context:        ctx,
@@ -549,6 +616,10 @@ func (s *KnowledgeService) processDocumentAsync(docID, parentTraceID string) {
 			"file_type": doc.FileType,
 			"file_name": doc.Name,
 		},
+		ChunkSize:    opts.ChunkSize,
+		ChunkOverlap: opts.ChunkOverlap,
+		SplitMode:    opts.SplitMode,
+		Separator:    opts.SplitSeparator,
 	})
 
 	if err != nil || !result.Success {
@@ -588,6 +659,190 @@ func getFileType(filename string) (string, bool) {
 
 func generateDocID() string {
 	return fmt.Sprintf("doc_%s_%d", time.Now().Format("20060102150405"), time.Now().UnixNano()%1000000)
+}
+
+func applyCreateParseDefaults(kb *model.KnowledgeBase, req *CreateKBRequest) {
+	if req.ChunkSize != nil && *req.ChunkSize > 0 {
+		kb.ChunkSize = clampChunkSize(*req.ChunkSize)
+	}
+	if req.ChunkOverlap != nil && *req.ChunkOverlap >= 0 {
+		kb.ChunkOverlap = clampOverlap(*req.ChunkOverlap, kb.ChunkSize)
+	}
+	if req.SplitMode != "" {
+		kb.SplitMode = normalizeSplitMode(req.SplitMode)
+	}
+	if req.SplitSeparator != "" {
+		kb.SplitSeparator = req.SplitSeparator
+	}
+	if req.RagTopK != nil && *req.RagTopK > 0 {
+		kb.RagTopK = *req.RagTopK
+	}
+	if req.RagMinScore != nil && *req.RagMinScore >= 0 {
+		kb.RagMinScore = *req.RagMinScore
+	}
+	if req.Visibility != "" {
+		kb.Visibility = req.Visibility
+	}
+}
+
+func applyUpdateParseDefaults(kb *model.KnowledgeBase, req *UpdateKBRequest) {
+	if req.ChunkSize != nil && *req.ChunkSize > 0 {
+		kb.ChunkSize = clampChunkSize(*req.ChunkSize)
+	}
+	if req.ChunkOverlap != nil && *req.ChunkOverlap >= 0 {
+		kb.ChunkOverlap = clampOverlap(*req.ChunkOverlap, kb.ChunkSize)
+	}
+	if req.SplitMode != "" {
+		kb.SplitMode = normalizeSplitMode(req.SplitMode)
+	}
+	if req.SplitSeparator != nil {
+		kb.SplitSeparator = *req.SplitSeparator
+	}
+	if req.RagTopK != nil && *req.RagTopK > 0 {
+		kb.RagTopK = *req.RagTopK
+	}
+	if req.RagMinScore != nil && *req.RagMinScore >= 0 {
+		kb.RagMinScore = *req.RagMinScore
+	}
+	if req.Visibility != "" {
+		kb.Visibility = req.Visibility
+	}
+}
+
+func normalizeSplitMode(mode string) string {
+	switch strings.ToLower(strings.TrimSpace(mode)) {
+	case "fixed", "fixed_size":
+		return "fixed"
+	case "separator", "by_separator":
+		return "separator"
+	default:
+		return "recursive"
+	}
+}
+
+func clampChunkSize(size int) int {
+	if size < 64 {
+		return 64
+	}
+	if size > 4000 {
+		return 4000
+	}
+	return size
+}
+
+func clampOverlap(overlap, chunkSize int) int {
+	if overlap < 0 {
+		return 0
+	}
+	if overlap >= chunkSize {
+		return chunkSize - 1
+	}
+	return overlap
+}
+
+func resolveParseOptions(kb *model.KnowledgeBase, opts *ParseOptions) ParseOptions {
+	out := ParseOptions{
+		ChunkSize:      512,
+		ChunkOverlap:   50,
+		SplitMode:      "recursive",
+		SplitSeparator: "\n\n",
+	}
+	if kb != nil {
+		if kb.ChunkSize > 0 {
+			out.ChunkSize = kb.ChunkSize
+		}
+		if kb.ChunkOverlap >= 0 {
+			out.ChunkOverlap = kb.ChunkOverlap
+		}
+		if kb.SplitMode != "" {
+			out.SplitMode = kb.SplitMode
+		}
+		if kb.SplitSeparator != "" {
+			out.SplitSeparator = kb.SplitSeparator
+		}
+	}
+	if opts != nil {
+		if opts.ChunkSize > 0 {
+			out.ChunkSize = opts.ChunkSize
+		}
+		if opts.ChunkOverlap >= 0 && opts.ChunkSize > 0 {
+			out.ChunkOverlap = opts.ChunkOverlap
+		} else if opts.ChunkOverlap > 0 {
+			out.ChunkOverlap = opts.ChunkOverlap
+		}
+		if opts.SplitMode != "" {
+			out.SplitMode = opts.SplitMode
+		}
+		if opts.SplitSeparator != "" {
+			out.SplitSeparator = opts.SplitSeparator
+		}
+	}
+	out.ChunkSize = clampChunkSize(out.ChunkSize)
+	out.ChunkOverlap = clampOverlap(out.ChunkOverlap, out.ChunkSize)
+	out.SplitMode = normalizeSplitMode(out.SplitMode)
+	if out.SplitSeparator == "" {
+		out.SplitSeparator = "\n\n"
+	}
+	return out
+}
+
+func parseOptionsFromMetadata(meta model.JSONBMap, kb *model.KnowledgeBase) ParseOptions {
+	opts := &ParseOptions{}
+	has := false
+	if meta != nil {
+		if v, ok := metaInt(meta, "chunk_size"); ok {
+			opts.ChunkSize = v
+			has = true
+		}
+		if v, ok := metaInt(meta, "chunk_overlap"); ok {
+			opts.ChunkOverlap = v
+			has = true
+		}
+		if v, ok := metaString(meta, "split_mode"); ok {
+			opts.SplitMode = v
+			has = true
+		}
+		if v, ok := metaString(meta, "split_separator"); ok {
+			opts.SplitSeparator = v
+			has = true
+		}
+	}
+	if !has {
+		opts = nil
+	}
+	return resolveParseOptions(kb, opts)
+}
+
+func metaInt(meta model.JSONBMap, key string) (int, bool) {
+	raw, ok := meta[key]
+	if !ok || raw == nil {
+		return 0, false
+	}
+	switch v := raw.(type) {
+	case float64:
+		return int(v), true
+	case int:
+		return v, true
+	case int64:
+		return int(v), true
+	case string:
+		n, err := strconv.Atoi(v)
+		if err != nil {
+			return 0, false
+		}
+		return n, true
+	default:
+		return 0, false
+	}
+}
+
+func metaString(meta model.JSONBMap, key string) (string, bool) {
+	raw, ok := meta[key]
+	if !ok || raw == nil {
+		return "", false
+	}
+	s, ok := raw.(string)
+	return s, ok && s != ""
 }
 
 func ensureUploadDir(userID, kbID string) (string, error) {

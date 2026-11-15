@@ -1,6 +1,10 @@
 package knowledge
 
-import "context"
+import (
+	"context"
+
+	"cogniforge/internal/model"
+)
 
 // ============ 请求结构 ============
 
@@ -21,6 +25,15 @@ type UpdateKBRequest struct {
 
 type ReparseDocumentRequest struct {
 	DocumentID string `json:"document_id" binding:"required"`
+}
+
+// DocumentPreview 文档详情 + 可预览正文（文本类）
+type DocumentPreview struct {
+	model.Document
+	Content     string `json:"content"`
+	Previewable bool   `json:"previewable"`
+	PreviewNote string `json:"preview_note,omitempty"`
+	Truncated   bool   `json:"truncated,omitempty"`
 }
 
 type SearchRequest struct {

@@ -143,6 +143,7 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 				kb.PUT("/:id", knowledgeHandler.UpdateKnowledgeBase)
 				kb.DELETE("/:id", knowledgeHandler.DeleteKnowledgeBase)
 				kb.GET("/:id/documents", knowledgeHandler.ListDocuments)
+				kb.GET("/:id/documents/:docId", knowledgeHandler.GetDocument)
 				kb.DELETE("/:id/documents/:docId", knowledgeHandler.DeleteDocument)
 				kb.POST("/:id/documents/upload", knowledgeHandler.UploadDocument)
 				kb.POST("/:id/documents/reparse", knowledgeHandler.ReparseDocument)

@@ -106,6 +106,20 @@ func (h *KnowledgeHandler) ListDocuments(c *gin.Context) {
 	response.Success(c, docs)
 }
 
+// GetDocument 文档详情（含文本预览）
+func (h *KnowledgeHandler) GetDocument(c *gin.Context) {
+	userID := c.GetString("user_id")
+	kbID := c.Param("id")
+	docID := c.Param("docId")
+
+	doc, err := h.service.GetDocument(userID, kbID, docID)
+	if err != nil {
+		response.NotFound(c, err.Error())
+		return
+	}
+	response.Success(c, doc)
+}
+
 // DeleteDocument 删除文档
 func (h *KnowledgeHandler) DeleteDocument(c *gin.Context) {
 	userID := c.GetString("user_id")
@@ -187,6 +201,7 @@ func (h *KnowledgeHandler) RegisterRoutes(rg *gin.RouterGroup) {
 		kbs.PUT("/:id", h.UpdateKnowledgeBase)
 		kbs.DELETE("/:id", h.DeleteKnowledgeBase)
 		kbs.GET("/:id/documents", h.ListDocuments)
+		kbs.GET("/:id/documents/:docId", h.GetDocument)
 		kbs.DELETE("/:id/documents/:docId", h.DeleteDocument)
 		kbs.POST("/:id/documents/upload", h.UploadDocument)
 		kbs.POST("/:id/documents/reparse", h.ReparseDocument)

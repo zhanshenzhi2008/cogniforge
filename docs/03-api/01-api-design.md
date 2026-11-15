@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-15 | v1.50 | GET 知识库文档详情（含文本预览 content） | orjrs |
 | 2026-11-14 | v1.49 | 修 AgentChat 匿名 struct 推错表，对话「查询 Agent 失败」 | orjrs |
 | 2026-11-13 | v1.48 | 修 execute panic：执行 ID 改 UUID；LLM 无 user prompt 时用上下文兜底 | orjrs |
 | 2026-11-08 | v1.47 | provider 是厂商键；误标 openai 按地址改正 | orjrs |
@@ -50,6 +51,13 @@
 | 2026-08-15 | v1.2 | GET /v1/models 改为返回已启用供应商的 default_model（不再写死 GPT 列表） | orjrs |
 | 2026-04-09 | v1.1 | 新增文档上传接口、语义检索接口实现说明 | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] 知识库文档预览接口（2026-11-15）
+
+- **变更原因**：文档列表只能看文件名，无法点开正文
+- **接口**：`GET /api/v1/knowledge/{kb_id}/documents/{doc_id}`（`/knowledge-bases` 同路径）
+- **响应要点**：元数据 + `content` / `previewable` / `preview_note` / `truncated`；md/txt/html 可读，pdf/docx 暂不在线预览
+- **前端**：知识库抽屉改为列表 + 右侧预览
 
 ## [变更] Agent 对话查询失败（2026-11-14）
 
@@ -1380,6 +1388,28 @@ GET /api/v1/knowledge/{kb_id}/documents
       }
     ]
   }
+
+---
+
+GET /api/v1/knowledge/{kb_id}/documents/{doc_id}
+描述: 文档详情；文本类附带正文预览
+认证: JWT
+响应:
+  {
+    "code": 2000,
+    "data": {
+      "id": "doc_xxx",
+      "name": "01-退换货政策.md",
+      "file_type": "md",
+      "status": "completed",
+      "chunk_count": 1,
+      "previewable": true,
+      "truncated": false,
+      "content": "# 退换货政策…",
+      "preview_note": ""
+    }
+  }
+说明: md/txt/html 返回 content；pdf/docx 的 previewable=false，见 preview_note
 
 ---
 

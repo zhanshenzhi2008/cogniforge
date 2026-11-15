@@ -250,7 +250,7 @@ RAG 默认走 Go `POST /api/v1/embeddings`，上游是当前启用的 `ai_provid
 
 **修复**（`cogniforge-ai`）：
 - `resolve_file_path` 将宿主机/相对 `uploads/...` 统一映射到 `/app/uploads`
-- compose 双挂 `./data/uploads` → `/app/uploads` 与 `/opt/data/cogniforge/uploads`
+- compose 只挂 `./data/uploads:/app/uploads`（~~曾双挂 `/opt/data/...` 兜底~~，已去掉，靠代码映射即可）
 - `create_embedder(local)` 在缺包时回退 Go embedder
 
 **状态**：🟢 路径/回退已部署（2026-11-15）

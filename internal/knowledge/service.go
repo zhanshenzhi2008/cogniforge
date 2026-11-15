@@ -167,6 +167,49 @@ func (s *KnowledgeService) ListDocuments(userID, kbID string) ([]model.Document,
 	return docs, nil
 }
 
+const maxPreviewRunes = 120000
+
+// GetDocument 文档详情；文本类附带正文预览
+func (s *KnowledgeService) GetDocument(userID, kbID, docID string) (*DocumentPreview, error) {
+	var kb model.KnowledgeBase
+	if err := s.db.Where("id = ? AND user_id = ?", kbID, userID).First(&kb).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, fmt.Errorf("知识库不存在")
+		}
+		return nil, fmt.Errorf("查询知识库失败")
+	}
+
+	var doc model.Document
+	if err := s.db.Where("id = ? AND knowledge_base_id = ?", docID, kbID).First(&doc).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, fmt.Errorf("文档不存在")
+		}
+		return nil, fmt.Errorf("查询文档失败")
+	}
+
+	out := &DocumentPreview{Document: doc}
+	switch doc.FileType {
+	case AllowedFileTypeTXT, AllowedFileTypeMD, AllowedFileTypeHTML:
+		content, err := readDocumentContent(doc.FilePath, doc.FileType)
+		if err != nil {
+			out.Previewable = false
+			out.PreviewNote = err.Error()
+			return out, nil
+		}
+		runes := []rune(content)
+		if len(runes) > maxPreviewRunes {
+			content = string(runes[:maxPreviewRunes])
+			out.Truncated = true
+		}
+		out.Content = content
+		out.Previewable = true
+	default:
+		out.Previewable = false
+		out.PreviewNote = "该格式暂不支持在线预览，请下载后查看"
+	}
+	return out, nil
+}
+
 // DeleteDocument 删除文档
 func (s *KnowledgeService) DeleteDocument(userID, kbID, docID string) error {
 	var kb model.KnowledgeBase

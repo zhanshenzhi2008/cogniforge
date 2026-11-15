@@ -134,17 +134,8 @@ func (h *AgentHandler) AgentChat(c *gin.Context) {
 	agentID := c.Param("id")
 	userID := c.GetString("user_id")
 
-	var dbAgent struct {
-		ID           string
-		UserID       string
-		Model        string
-		SystemPrompt string
-		PromptID     string
-		SkillID      string
-		MemoryType   string
-		MemoryTurns  int
-		Tools        agentmodel.JSONBArray
-	}
+	// 必须用带 TableName 的 model.Agent；匿名 struct 会被 GORM 推错表名，导致「查询 Agent 失败」
+	var dbAgent agentmodel.Agent
 	if err := database.DB.Where("id = ? AND user_id = ?", agentID, userID).
 		Select("id, user_id, model, system_prompt, prompt_id, skill_id, memory_type, memory_turns, tools").
 		First(&dbAgent).Error; err != nil {

@@ -234,6 +234,16 @@ RAG 默认走 Go `POST /api/v1/embeddings`，上游是当前启用的 `ai_provid
 
 **状态**：🟢 已修复
 
+### 7. pgvector 连接串被密码特殊字符拆坏（2026-11-15）
+
+**问题描述**：知识库文档解析报 `RAG processor not initialized`。日志：`could not translate host name "…#@pgsql"`。
+
+**原因**：`PGVectorStore` 用 `postgresql://user:password@host/...` 拼 URI，密码含 `@`/`#` 时 host 被拆错，启动时 RAG 置空。
+
+**修复**：`cogniforge-ai/services/rag/vector_store/pgvector_store.py` 改为 `psycopg2.connect(host=…, password=…)` 关键字参数。
+
+**状态**：🟡 代码已改，待合并部署；部署后对失败文档点「重新解析」
+
 ---
 
 ## 🔧 技术债务

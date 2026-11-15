@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-15 | v1.51 | CfModal：叠在 USlideover 上可点击（pointer-events + z-index） | orjrs |
 | 2026-11-15 | v1.50 | 知识库：目录下拉 +「+」新建；列表按目录分段 | orjrs |
 | 2026-11-15 | v1.49 | 知识库抽屉：点文档名预览正文（列表+右侧阅读区） | orjrs |
 | 2026-11-11 | v1.48 | 前端 SSE：共用读取，缓冲/取消/连接重试/断线提示 | orjrs |
@@ -60,7 +61,7 @@
 
 ## [变更] 知识库目录（2026-11-15）
 
-- **交互**：创建/编辑表单「目录」下拉 +「+」弹窗新建；首页按目录分段展示
+- **交互**：创建/编辑表单「目录」下拉；选项列表末尾「+ 新建目录」弹窗新建（不在下拉框右侧）；首页按目录分段展示
 - **包含代码**：`pages/knowledge.vue`、`useKnowledgeBases.ts`
 
 ## [变更] 知识库文档预览（2026-11-15）
@@ -110,6 +111,12 @@
 - **变更原因**：阶段十七 P1；验人设、评估填变量、同名用户区分
 - **包含代码**：`cogniforge-web` `pages/prompts.vue`、`pages/evals.vue`、`layouts/default.vue`、`PromptVarForm.vue`
 - **交互**：提示词详情「试跑」；评估选 prompt 时变量为表单；顶栏姓名下显示邮箱
+
+## [变更] CfModal 叠在侧栏上可点（2026-11-15）
+
+- **变更原因**：知识库抽屉（`USlideover`/Dialog）打开时 body 为 `pointer-events:none`，Teleport 出的 CfModal 看得见但点选/上传无反应
+- **包含代码**：`cogniforge-web/components/CfModal.vue`（`pointer-events: auto` + `z-index: 200`）；`knowledge.vue` 未选文件时 toast
+- **变更前 vs 变更后**：~~叠在 Slideover 上点击无效~~（2026-11-15）→ 可选文件、点上传正常
 
 ## [变更] 共用 CfModal（拖动/缩放/最大化）（2026-10-18）
 

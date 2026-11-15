@@ -25,7 +25,12 @@ func NewChatService(providerSvc *provider.Service) *ChatService {
 }
 
 // ListModels 返回已启用供应商在模型模块里配置的默认模型（不再使用环境变量或内置 GPT 列表）
-func (s *ChatService) ListModels() *ListModelsResponse {
+func (s *ChatService) ListModels(userID ...string) *ListModelsResponse {
+	uid := ""
+	if len(userID) > 0 {
+		uid = userID[0]
+	}
+	actor := provider.ResolveActor(uid)
 	models := make([]ModelInfo, 0)
 	seen := make(map[string]struct{})
 
@@ -41,15 +46,15 @@ func (s *ChatService) ListModels() *ListModelsResponse {
 		models = append(models, ModelInfo{ID: m, Name: m})
 	}
 
-	add(s.defaultModel())
+	add(s.defaultModel(uid))
 	if s.providerSvc != nil {
-		if cached := s.providerSvc.CachedModels(); len(cached) > 0 {
+		if cached := s.providerSvc.CachedModelsFor(actor); len(cached) > 0 {
 			for _, m := range cached {
 				add(m.ID)
 			}
 			return &ListModelsResponse{Models: models}
 		}
-		list, err := s.providerSvc.List()
+		list, err := s.providerSvc.ListFor(actor)
 		if err == nil {
 			for _, p := range list {
 				if p.IsEnabled && model.HasCapability(p.Capabilities, model.CapChat) {
@@ -62,11 +67,14 @@ func (s *ChatService) ListModels() *ListModelsResponse {
 	return &ListModelsResponse{Models: models}
 }
 
-func (s *ChatService) defaultModel() string {
+func (s *ChatService) defaultModel(userID string) string {
 	if s.providerSvc == nil {
 		return ""
 	}
-	active, err := s.providerSvc.GetActive()
+	active, err := s.providerSvc.GetActiveForUser(userID)
+	if err != nil {
+		active, err = s.providerSvc.GetActive()
+	}
 	if err == nil && active.DefaultModel != "" {
 		return active.DefaultModel
 	}
@@ -74,11 +82,15 @@ func (s *ChatService) defaultModel() string {
 }
 
 // activeChatConfig 取当前可用供应商。没有默认模型或 Key 时返回 ErrNoActiveProvider，不再走 mock。
-func (s *ChatService) activeChatConfig() (baseURL, apiKey string, headers map[string]string, err error) {
+func (s *ChatService) activeChatConfig(userID string) (baseURL, apiKey string, headers map[string]string, err error) {
 	if s.providerSvc == nil {
 		return "", "", nil, ErrNoActiveProvider
 	}
-	baseURL, apiKey, headers, err = s.providerSvc.GetActiveForChat()
+	if userID != "" {
+		baseURL, apiKey, headers, err = s.providerSvc.GetActiveForChat(userID)
+	} else {
+		baseURL, apiKey, headers, err = s.providerSvc.GetActiveForChat()
+	}
 	if err != nil {
 		slog.Warn("chat skipped: no usable AI provider", "error", err)
 		return "", "", nil, ErrNoActiveProvider
@@ -93,10 +105,10 @@ func (s *ChatService) activeChatConfig() (baseURL, apiKey string, headers map[st
 // Chat 非流式对话
 func (s *ChatService) Chat(req *ChatRequest) (*ChatResponse, error) {
 	if req.Model == "" {
-		req.Model = s.defaultModel()
+		req.Model = s.defaultModel(req.UserID)
 	}
 
-	baseURL, apiKey, extraHeaders, err := s.activeChatConfig()
+	baseURL, apiKey, extraHeaders, err := s.activeChatConfig(req.UserID)
 	if err != nil {
 		return nil, err
 	}
@@ -151,10 +163,10 @@ func (s *ChatService) ChatWithTools(req *ChatRequest, toolExecutor ToolExecutor)
 	}()
 
 	if req.Model == "" {
-		req.Model = s.defaultModel()
+		req.Model = s.defaultModel(req.UserID)
 	}
 
-	baseURL, apiKey, extraHeaders, err := s.activeChatConfig()
+	baseURL, apiKey, extraHeaders, err := s.activeChatConfig(req.UserID)
 	if err != nil {
 		return nil, err
 	}
@@ -288,10 +300,10 @@ func extractToolCalls(resp *ChatResponse) []ToolCall {
 // ChatStream 流式对话。返回本次 usage（上游没有则估算）。
 func (s *ChatService) ChatStream(c *gin.Context, req *ChatRequest) (*ChatUsage, error) {
 	if req.Model == "" {
-		req.Model = s.defaultModel()
+		req.Model = s.defaultModel(req.UserID)
 	}
 
-	baseURL, apiKey, extraHeaders, err := s.activeChatConfig()
+	baseURL, apiKey, extraHeaders, err := s.activeChatConfig(req.UserID)
 	if err != nil {
 		return nil, err
 	}
@@ -393,7 +405,17 @@ func (s *ChatService) Embeddings(req *EmbeddingsRequest) (*EmbeddingsResponse, e
 	if s.providerSvc == nil {
 		return nil, fmt.Errorf("no embedding provider configured")
 	}
-	baseURL, apiKey, extraHeaders, embedModel, err := s.providerSvc.GetActiveForEmbedding()
+	var (
+		baseURL, apiKey string
+		extraHeaders    map[string]string
+		embedModel      string
+		err             error
+	)
+	if req.UserID != "" {
+		baseURL, apiKey, extraHeaders, embedModel, err = s.providerSvc.GetActiveForEmbedding(req.UserID)
+	} else {
+		baseURL, apiKey, extraHeaders, embedModel, err = s.providerSvc.GetActiveForEmbedding()
+	}
 	if err != nil {
 		return nil, fmt.Errorf("no embedding provider: %w", err)
 	}

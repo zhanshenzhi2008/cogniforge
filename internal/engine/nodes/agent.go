@@ -97,6 +97,7 @@ func (e *AgentNodeExecutor) Execute(ctx *core.ExecutionContext, config json.RawM
 	req := &chat.ChatRequest{
 		Model:    modelName,
 		Messages: messages,
+		UserID:   userID,
 	}
 
 	toolIDs := cfg.Tools

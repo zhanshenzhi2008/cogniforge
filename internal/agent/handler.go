@@ -183,7 +183,7 @@ func (h *AgentHandler) AgentChat(c *gin.Context) {
 		model = dbAgent.Model
 	}
 	if model == "" {
-		model = h.defaultModel()
+		model = h.defaultModel(userID)
 	}
 
 	// 优先级：绑定 Prompt（已发布当前版）> Skill > 内联 system_prompt
@@ -232,6 +232,7 @@ func (h *AgentHandler) AgentChat(c *gin.Context) {
 		Model:               model,
 		Messages:            messages,
 		Stream:              req.Stream,
+		UserID:              userID,
 		Temperature:         req.Temperature,
 		MaxTokens:           req.MaxTokens,
 		Attachments:         req.Attachments,
@@ -329,11 +330,14 @@ func (h *AgentHandler) commitAgent(c *gin.Context, userID, modelName string, usa
 	h.quota.Commit(c.Request.Context(), in)
 }
 
-func (h *AgentHandler) defaultModel() string {
+func (h *AgentHandler) defaultModel(userID string) string {
 	if h.providerSvc == nil {
 		return ""
 	}
-	active, err := h.providerSvc.GetActive()
+	active, err := h.providerSvc.GetActiveForUser(userID)
+	if err != nil {
+		active, err = h.providerSvc.GetActive()
+	}
 	if err == nil && active.DefaultModel != "" {
 		return active.DefaultModel
 	}

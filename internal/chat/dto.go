@@ -26,6 +26,9 @@ type ChatRequest struct {
 	Messages []ChatMessage `json:"messages" binding:"required"`
 	Stream   bool          `json:"stream"`
 
+	// UserID 由 Handler 注入，不进 JSON；用于按用户解析供应商
+	UserID string `json:"-"`
+
 	// 阶段十五 15.2：MCP 工具列表（由 MCP Registry 注入）
 	Tools []ToolCallSpec `json:"tools,omitempty"`
 	// Playground 可选：传入 MCP Server ID（如 web_search），服务端注入 tools 并跑工具循环
@@ -162,8 +165,9 @@ type ToolCallResponse struct {
 
 // EmbeddingsRequest OpenAI 兼容：input 可以是字符串或字符串数组
 type EmbeddingsRequest struct {
-	Model string `json:"model"`
-	Input any    `json:"input" binding:"required"`
+	Model  string `json:"model"`
+	Input  any    `json:"input" binding:"required"`
+	UserID string `json:"-"` // Handler 注入
 }
 
 type EmbeddingItem struct {

@@ -18,6 +18,7 @@ type CreateProviderRequest struct {
 	ExtraHeaders   map[string]interface{} `json:"extra_headers"`
 	IsEnabled      bool                   `json:"is_enabled"`
 	Priority       int                    `json:"priority"`
+	Scope          string                 `json:"scope"` // private | public；非 admin 强制 private
 }
 
 type UpdateProviderRequest struct {
@@ -31,10 +32,13 @@ type UpdateProviderRequest struct {
 	ExtraHeaders   map[string]interface{} `json:"extra_headers"`
 	IsEnabled      *bool                  `json:"is_enabled"`
 	Priority       *int                   `json:"priority"`
+	Scope          *string                `json:"scope"` // 仅 admin 可改为 public
 }
 
 type SetDefaultRequest struct {
 	Purpose string `json:"purpose"` // chat | embedding，空则对话
+	// Personal=true：写入用户偏好，不改全站 is_default（普通用户默认走这条）
+	Personal *bool `json:"personal,omitempty"`
 }
 
 // ===================== 响应结构 =====================
@@ -48,6 +52,11 @@ type ProviderResponse struct {
 	EmbeddingModel     string                 `json:"embedding_model"`
 	Capabilities       []string               `json:"capabilities"`
 	ExtraHeaders       map[string]interface{} `json:"extra_headers"`
+	OwnerUserID        string                 `json:"owner_user_id"`
+	Scope              string                 `json:"scope"`
+	CanWrite           bool                   `json:"can_write"`
+	IsPreferredChat    bool                   `json:"is_preferred_chat,omitempty"`
+	IsPreferredEmbed   bool                   `json:"is_preferred_embedding,omitempty"`
 	IsEnabled          bool                   `json:"is_enabled"`
 	IsDefault          bool                   `json:"is_default"`
 	IsDefaultEmbedding bool                   `json:"is_default_embedding"`
@@ -70,6 +79,14 @@ type TestResult struct {
 // ===================== 辅助函数 =====================
 
 func toResponse(p *model.AIProvider) ProviderResponse {
+	return toResponseFor(p, Actor{}, "", "")
+}
+
+func toResponseFor(p *model.AIProvider, actor Actor, prefChat, prefEmbed string) ProviderResponse {
+	scope := p.Scope
+	if scope == "" {
+		scope = model.ProviderScopePublic
+	}
 	resp := ProviderResponse{
 		ID:                 p.ID,
 		Name:               p.Name,
@@ -79,6 +96,11 @@ func toResponse(p *model.AIProvider) ProviderResponse {
 		EmbeddingModel:     p.EmbeddingModel,
 		Capabilities:       model.SplitCapabilities(p.Capabilities),
 		ExtraHeaders:       p.ExtraHeaders,
+		OwnerUserID:        p.OwnerUserID,
+		Scope:              scope,
+		CanWrite:           model.ProviderWritableBy(p, actor.UserID, actor.IsAdmin),
+		IsPreferredChat:    prefChat != "" && prefChat == p.ID,
+		IsPreferredEmbed:   prefEmbed != "" && prefEmbed == p.ID,
 		IsEnabled:          p.IsEnabled,
 		IsDefault:          p.IsDefault,
 		IsDefaultEmbedding: p.IsDefaultEmbedding,

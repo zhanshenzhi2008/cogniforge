@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-15 | v1.58 | providers：scope/owner 可见性；个人默认；按用户解析生效配置 | orjrs |
 | 2026-11-15 | v1.57 | 预览分块：路径规范化；空 PDF/缺文件可读错误 | orjrs |
 | 2026-11-15 | v1.55 | PUT 文档 content：在线改 md/txt/html，默认触发 reparse | orjrs |
 | 2026-11-15 | v1.54 | 知识库设置：默认分段/检索/可见性占位（仅 private） | orjrs |
@@ -57,6 +58,18 @@
 | 2026-08-15 | v1.2 | GET /v1/models 改为返回已启用供应商的 default_model（不再写死 GPT 列表） | orjrs |
 | 2026-04-09 | v1.1 | 新增文档上传接口、语义检索接口实现说明 | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] 模型供应商 Scope + 权限（一期，2026-11-15）
+
+- **变更原因**：管理员发布公开模型供新用户免配 Key；普通用户可建私有；写操作按所有者/管理员
+- **认证**：`/api/v1/providers*` 仍需登录；**不**整组改 admin-only
+- **响应字段**：`owner_user_id`、`scope`（`private`|`public`）、`can_write`、`is_preferred_chat`、`is_preferred_embedding`；Key 一律打码
+- **列表 / 详情**：可见 = 自己的 private + 全部 public
+- **创建**：默认 `scope=private`；`scope=public` 仅 admin
+- **更新 / 删除 / 测连**：owner（且 private）或 admin；公开仅 admin 可改
+- **设默认** `POST /api/v1/providers/:id/default`：`purpose` + 可选 `personal`；admin 非 personal → 全站默认；否则写个人偏好
+- **生效配置 / 聊天热路径**：用户偏好 → 全站 public 默认 → 可见启用项；`GetActiveForChat(userID)`
+- **包含代码**：`internal/provider/*`、`internal/model/provider.go`、`internal/model/user.go`；Chat/Agent 传入 userID
 
 ## [变更] 预览分块路径与错误（2026-11-15）
 

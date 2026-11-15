@@ -3,6 +3,7 @@
 ## [变更记录]
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|---------|--------|
+| 2026-11-15 | v1.25 | ai_providers owner/scope；user_settings 个人默认供应商 | orjrs |
 | 2026-11-15 | v1.24 | knowledge_bases 默认分段/检索/可见性字段 | orjrs |
 | 2026-11-15 | v1.23 | 知识库目录 knowledge_folders；knowledge_bases.folder_id | orjrs |
 | 2026-10-26 | v1.22 | W3：executions.wait_until；Redis resume 锁键落地 | orjrs |
@@ -25,6 +26,20 @@
 | 2026-08-16 | v1.2 | Redis 键统一 `cogniforge:` 前缀；多项目用前缀隔离，不拆 db0/db1 | orjrs |
 | 2026-08-15 | v1.1 | 落地模型配置 Redis 键（当时为 `cf:modelcfg:*`） | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] 模型供应商 Scope + 个人偏好（2026-11-15）
+
+- **变更原因**：一期权限——管理员可发布全站共用 Key 的公开模型；普通用户可建私有供应商；写操作按所有者/管理员鉴权
+- **包含代码**：`internal/model/provider.go` `MigrateProviders` / `BackfillProviderOwnership`；`internal/model/user.go` `UserSettings`
+- **扩展 `ai_providers`**（GORM AutoMigrate）：
+  - `owner_user_id` VARCHAR(64)，索引 `idx_owner_user_id`（创建者）
+  - `scope` VARCHAR(20) 默认 `private`，索引 `idx_scope`（`private` | `public`）
+  - ~~历史无 owner 的行视为全站共用~~（2026-11-15）→ 启动回填：owner 归第一个 admin；空 scope 标 `public`
+- **全站默认**：`is_default` / `is_default_embedding` 仅应对 `scope=public`
+- **扩展 `user_settings`**：
+  - `preferred_chat_provider_id` VARCHAR(64) 可空
+  - `preferred_embedding_provider_id` VARCHAR(64) 可空
+- **解析顺序**（对话/向量）：用户偏好（且对该用户可见）→ 全站 public 默认 → 该用户可见的启用条目中优先
 
 ## [变更] 知识库默认分段与检索字段（2026-11-15）
 

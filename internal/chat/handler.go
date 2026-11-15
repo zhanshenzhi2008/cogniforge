@@ -59,7 +59,7 @@ func (h *ChatHandler) Service() *ChatService {
 }
 
 func (h *ChatHandler) ListModels(c *gin.Context) {
-	result := h.service.ListModels()
+	result := h.service.ListModels(c.GetString("user_id"))
 	response.Success(c, result)
 }
 
@@ -128,6 +128,7 @@ func (h *ChatHandler) Chat(c *gin.Context) {
 	windowMsgs := toWindowMessages(req.Messages)
 	windowMsgs = memory.ApplyWindow(windowMsgs, req.MemoryTurns, req.MaxInputTokens)
 	req.Messages = fromWindowMessages(windowMsgs)
+	req.UserID = c.GetString("user_id")
 	if !h.gate(c, "playground") {
 		return
 	}
@@ -159,6 +160,7 @@ func (h *ChatHandler) ChatStream(c *gin.Context) {
 	}
 
 	userID := c.GetString("user_id")
+	req.UserID = userID
 
 	// --- 阶段十四 14.3：加载历史 + 摘要注入 ---
 	var existingMsgs []model.ConversationMessage
@@ -280,6 +282,7 @@ func (h *ChatHandler) Embeddings(c *gin.Context) {
 		response.BadRequest(c, "input 不能为空")
 		return
 	}
+	req.UserID = c.GetString("user_id")
 
 	resp, err := h.service.Embeddings(&req)
 	if err != nil {

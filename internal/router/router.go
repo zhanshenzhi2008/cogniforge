@@ -19,6 +19,7 @@ import (
 	"cogniforge/internal/mcp"
 	"cogniforge/internal/memory"
 	"cogniforge/internal/middleware"
+	"cogniforge/internal/model"
 	"cogniforge/internal/modelcache"
 	"cogniforge/internal/monitor"
 	"cogniforge/internal/prompt"
@@ -44,6 +45,8 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 	providerRepo := provider.NewRepository(db)
 	mc := modelcache.NewFromRedis(rdb)
 	providerSvc := provider.NewService(providerRepo, mc)
+	_ = model.MigrateProviders(db)
+	_ = db.AutoMigrate(&model.UserSettings{})
 	providerSvc.RepairVendorLabels()
 	providerSvc.RefreshCache()
 	providerHandler := provider.NewHandler(providerSvc)

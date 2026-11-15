@@ -67,9 +67,11 @@ func (e *LLMNodeExecutor) Execute(ctx *core.ExecutionContext, config json.RawMes
 	}
 	messages = append(messages, chat.ChatMessage{Role: "user", Content: prompt})
 
+	userID := ctx.UserID
 	req := &chat.ChatRequest{
 		Model:    model,
 		Messages: messages,
+		UserID:   userID,
 	}
 	if cfg.Temperature > 0 {
 		t := cfg.Temperature
@@ -80,7 +82,6 @@ func (e *LLMNodeExecutor) Execute(ctx *core.ExecutionContext, config json.RawMes
 		req.MaxTokens = &m
 	}
 
-	userID := ctx.UserID
 	bg := context.Background()
 	if e.Quota != nil && userID != "" {
 		if err := e.Quota.Allow(bg, userID, "workflow"); err != nil {

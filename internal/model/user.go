@@ -26,15 +26,17 @@ func (User) TableName() string {
 
 // UserSettings 用户设置表
 type UserSettings struct {
-	ID        string    `gorm:"primaryKey;type:varchar(64)" json:"id"`
-	UserID    string    `gorm:"type:varchar(64);not null;uniqueIndex" json:"user_id"`
-	AvatarURL string    `gorm:"type:varchar(500)" json:"avatar_url"`           // 头像地址
-	Theme     string    `gorm:"type:varchar(50);default:'light'" json:"theme"` // 主题：light/dark
-	Language  string    `gorm:"type:varchar(20);default:'zh-CN'" json:"language"`
-	Timezone  string    `gorm:"type:varchar(50);default:'Asia/Shanghai'" json:"timezone"`
-	Metadata  JSONBMap  `gorm:"type:jsonb" json:"metadata"` // 其他设置（通知偏好等）
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID                           string    `gorm:"primaryKey;type:varchar(64)" json:"id"`
+	UserID                       string    `gorm:"type:varchar(64);not null;uniqueIndex" json:"user_id"`
+	AvatarURL                    string    `gorm:"type:varchar(500)" json:"avatar_url"`           // 头像地址
+	Theme                        string    `gorm:"type:varchar(50);default:'light'" json:"theme"` // 主题：light/dark
+	Language                     string    `gorm:"type:varchar(20);default:'zh-CN'" json:"language"`
+	Timezone                     string    `gorm:"type:varchar(50);default:'Asia/Shanghai'" json:"timezone"`
+	PreferredChatProviderID      string    `gorm:"type:varchar(64)" json:"preferred_chat_provider_id"`      // 个人对话默认供应商
+	PreferredEmbeddingProviderID string    `gorm:"type:varchar(64)" json:"preferred_embedding_provider_id"` // 个人向量默认供应商
+	Metadata                     JSONBMap  `gorm:"type:jsonb" json:"metadata"`                             // 其他设置（通知偏好等）
+	CreatedAt                    time.Time `json:"created_at"`
+	UpdatedAt                    time.Time `json:"updated_at"`
 }
 
 func (UserSettings) TableName() string {

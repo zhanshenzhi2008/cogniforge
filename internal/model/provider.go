@@ -7,6 +7,12 @@ import (
 	"gorm.io/gorm"
 )
 
+// 供应商可见范围
+const (
+	ProviderScopePrivate = "private" // 仅所有者可见/可改（管理员可运维改）
+	ProviderScopePublic  = "public"  // 全站可用；共用 Key；仅管理员可改
+)
+
 // AIProvider AI供应商配置表
 type AIProvider struct {
 	ID                 string         `gorm:"primaryKey;type:varchar(64)" json:"id"`
@@ -18,9 +24,11 @@ type AIProvider struct {
 	EmbeddingModel     string         `gorm:"type:varchar(100)" json:"embedding_model"`          // 向量模型；空则对话模型不当向量用
 	Capabilities       string         `gorm:"type:varchar(64);default:chat" json:"capabilities"` // chat,embedding
 	ExtraHeaders       JSONBMap       `gorm:"type:jsonb" json:"extra_headers"`                   // 额外请求头（如OpenRouter的HTTP-Referer）
+	OwnerUserID        string         `gorm:"type:varchar(64);index:idx_owner_user_id" json:"owner_user_id"` // 创建者
+	Scope              string         `gorm:"type:varchar(20);default:'private';index:idx_scope" json:"scope"` // private | public
 	IsEnabled          bool           `gorm:"default:false" json:"is_enabled"`                   // 是否启用
-	IsDefault          bool           `gorm:"default:false;index" json:"is_default"`             // 对话默认
-	IsDefaultEmbedding bool           `gorm:"default:false;index" json:"is_default_embedding"`   // 向量默认
+	IsDefault          bool           `gorm:"default:false;index" json:"is_default"`             // 全站对话默认（仅 public）
+	IsDefaultEmbedding bool           `gorm:"default:false;index" json:"is_default_embedding"`   // 全站向量默认（仅 public）
 	Priority           int            `gorm:"default:0" json:"priority"`                         // 优先级
 	Status             string         `gorm:"type:varchar(20);default:'active'" json:"status"`   // active | error | testing
 	LastTestAt         *time.Time     `json:"last_test_at"`                                      // 上次测试时间
@@ -169,12 +177,60 @@ var DefaultProviders = []AIProvider{
 	},
 }
 
-// MigrateProviders 迁移 AIProvider 表
+// MigrateProviders 迁移 AIProvider 表，并回填 owner/scope（旧数据曾全站共用 → public）
 func MigrateProviders(db *gorm.DB) error {
 	if err := db.AutoMigrate(&AIProvider{}); err != nil {
 		return err
 	}
-	return db.Model(&AIProvider{}).Where("capabilities IS NULL OR capabilities = ?", "").Update("capabilities", CapChat).Error
+	if err := db.Model(&AIProvider{}).Where("capabilities IS NULL OR capabilities = ?", "").Update("capabilities", CapChat).Error; err != nil {
+		return err
+	}
+	return BackfillProviderOwnership(db)
+}
+
+// BackfillProviderOwnership 历史行无 owner：归第一个 admin；scope 空则标 public（保持旧「全站共用」行为）
+func BackfillProviderOwnership(db *gorm.DB) error {
+	adminID := ""
+	var admin User
+	if err := db.Where("role = ? AND deleted_at IS NULL", "admin").Order("created_at ASC").First(&admin).Error; err == nil {
+		adminID = admin.ID
+	}
+	if adminID != "" {
+		_ = db.Model(&AIProvider{}).
+			Where("(owner_user_id IS NULL OR owner_user_id = '') AND deleted_at IS NULL").
+			Update("owner_user_id", adminID).Error
+	}
+	return db.Model(&AIProvider{}).
+		Where("(scope IS NULL OR scope = '') AND deleted_at IS NULL").
+		Update("scope", ProviderScopePublic).Error
+}
+
+// ProviderVisibleTo 列表/详情可见性：admin 全看；public 全员；private 仅所有者
+func ProviderVisibleTo(p *AIProvider, userID string, isAdmin bool) bool {
+	if p == nil {
+		return false
+	}
+	if isAdmin {
+		return true
+	}
+	if p.Scope == ProviderScopePublic || p.Scope == "" {
+		return true
+	}
+	return p.OwnerUserID != "" && p.OwnerUserID == userID
+}
+
+// ProviderWritableBy 写权限：admin 全可；非 admin 仅可写自己的 private
+func ProviderWritableBy(p *AIProvider, userID string, isAdmin bool) bool {
+	if p == nil {
+		return false
+	}
+	if isAdmin {
+		return true
+	}
+	if p.Scope == ProviderScopePublic {
+		return false
+	}
+	return p.OwnerUserID != "" && p.OwnerUserID == userID
 }
 
 // InitDefaultProviders 初始化默认供应商记录（如果不存在）

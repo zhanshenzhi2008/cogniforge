@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-15 | v1.53 | 检索缺省 Top-K/min_score 回落到知识库默认 | orjrs |
 | 2026-11-15 | v1.52 | 上传分段参数 + POST documents/preview；AI /api/rag/preview | orjrs |
 | 2026-11-15 | v1.51 | 知识库目录 GET/POST /knowledge/folders；KB 支持 folder_id | orjrs |
 | 2026-11-15 | v1.50 | GET 知识库文档详情（含文本预览 content） | orjrs |
@@ -53,6 +54,12 @@
 | 2026-08-15 | v1.2 | GET /v1/models 改为返回已启用供应商的 default_model（不再写死 GPT 列表） | orjrs |
 | 2026-04-09 | v1.1 | 新增文档上传接口、语义检索接口实现说明 | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] 检索默认 Top-K / 最低分（2026-11-15）
+
+- **变更原因**：检索测试与未传参时使用知识库级默认，而不是写死 5 / 0.3
+- **行为**：`POST .../search` 中 `top_k<=0` 或 `min_score<=0` 时取 KB 的 `rag_top_k` / `rag_min_score`
+- **前端**：检索测试面板可改 Top-K、最低相似度（打开 KB 时用库默认填充）
 
 ## [变更] 上传分段配置与分块预览（2026-11-15）
 

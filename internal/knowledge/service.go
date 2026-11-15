@@ -503,22 +503,35 @@ func (s *KnowledgeService) SearchByUser(ctx context.Context, userID, kbID string
 
 	startTime := time.Now()
 
-	if req.TopK <= 0 {
-		req.TopK = 5
+	topK := req.TopK
+	if topK <= 0 {
+		if kb.RagTopK > 0 {
+			topK = kb.RagTopK
+		} else {
+			topK = 5
+		}
 	}
-	if req.TopK > 20 {
-		req.TopK = 20
+	if topK > 20 {
+		topK = 20
 	}
-	if req.MinScore <= 0 {
-		req.MinScore = 0.3
+	minScore := req.MinScore
+	if minScore <= 0 {
+		if kb.RagMinScore > 0 {
+			minScore = kb.RagMinScore
+		} else {
+			minScore = 0.3
+		}
+	}
+	if minScore > 1 {
+		minScore = 1
 	}
 
 	pythonResp, err := s.pythonClient.Search(&SearchRequest{
 		Context:        ctx,
 		Query:          req.Query,
 		CollectionName: kbID,
-		TopK:           req.TopK,
-		MinScore:       req.MinScore,
+		TopK:           topK,
+		MinScore:       minScore,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("检索失败: %w", err)

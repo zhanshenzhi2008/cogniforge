@@ -694,7 +694,8 @@ func applyCreateParseDefaults(kb *model.KnowledgeBase, req *CreateKBRequest) {
 		kb.RagMinScore = *req.RagMinScore
 	}
 	if req.Visibility != "" {
-		kb.Visibility = req.Visibility
+		// 阶段三：暂仅 private；org 等后续 ACL
+		kb.Visibility = "private"
 	}
 }
 
@@ -718,7 +719,7 @@ func applyUpdateParseDefaults(kb *model.KnowledgeBase, req *UpdateKBRequest) {
 		kb.RagMinScore = *req.RagMinScore
 	}
 	if req.Visibility != "" {
-		kb.Visibility = req.Visibility
+		kb.Visibility = "private"
 	}
 }
 

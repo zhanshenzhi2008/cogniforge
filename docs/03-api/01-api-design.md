@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-15 | v1.54 | 知识库设置：默认分段/检索/可见性占位（仅 private） | orjrs |
 | 2026-11-15 | v1.53 | 检索缺省 Top-K/min_score 回落到知识库默认 | orjrs |
 | 2026-11-15 | v1.52 | 上传分段参数 + POST documents/preview；AI /api/rag/preview | orjrs |
 | 2026-11-15 | v1.51 | 知识库目录 GET/POST /knowledge/folders；KB 支持 folder_id | orjrs |
@@ -54,6 +55,12 @@
 | 2026-08-15 | v1.2 | GET /v1/models 改为返回已启用供应商的 default_model（不再写死 GPT 列表） | orjrs |
 | 2026-04-09 | v1.1 | 新增文档上传接口、语义检索接口实现说明 | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] 知识库设置默认值与权限占位（2026-11-15）
+
+- **变更原因**：库级默认分段/检索需可配置；ACL 先占位
+- **接口**：`PUT /api/v1/knowledge/{id}` 可更新 `chunk_*` / `split_*` / `rag_top_k` / `rag_min_score` / `visibility`（当前强制 `private`）
+- **前端**：抽屉「设置」页编辑并保存
 
 ## [变更] 检索默认 Top-K / 最低分（2026-11-15）
 

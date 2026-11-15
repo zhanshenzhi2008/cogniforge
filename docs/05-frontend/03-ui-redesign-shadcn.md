@@ -4,6 +4,9 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-15 | v1.57 | 知识库卡片：⋯ 菜单改为文档/编辑/删除图标按钮 | orjrs |
+| 2026-11-15 | v1.56 | CfModal 内 Select 下拉抬到 z-300，避免被弹窗挡住 | orjrs |
+| 2026-11-15 | v1.55 | 知识库文档预览区：预览 / Markdown 编辑切换并保存 | orjrs |
 | 2026-11-15 | v1.54 | 知识库抽屉「设置」：默认分段/检索 + 权限占位 | orjrs |
 | 2026-11-15 | v1.53 | 检索测试可调 Top-K / 最低相似度 | orjrs |
 | 2026-11-15 | v1.52 | 知识库上传两步：分段设置 + 分块预览 | orjrs |
@@ -61,6 +64,24 @@
 | 2026-08-12 | v1.0 | 全新 UI 方向：Vue3 + Nuxt3 + Tailwind4 + shadcn-vue；保留 Vue Flow；接口与 CI/CD 不变 | orjrs |
 
 > 注：任务状态变更直接在下方任务表格中更新即可，无需额外记录。
+
+## [变更] 知识库卡片图标操作（2026-11-15）
+
+- **变更原因**：卡片只有「⋯」，操作不好找；对齐 MCP / 智能体列表的图标按钮
+- **交互**：右上「文档 / 编辑 / 删除」；单击卡片仍开抽屉，双击仍看详情
+- **包含代码**：`cogniforge-web/pages/knowledge.vue`
+
+## [变更] CfModal 内下拉不被挡住（2026-11-15）
+
+- **变更原因**：弹窗里点「目录」等 USelect，aria 已展开但看不到列表（内容层无 z-index，被 CfModal z-200 盖住），体感像卡顿/点不动
+- **处理**：`main.css` 把打开态 content/listbox 提到 `z-index:300`；知识库表单 Select 再加 `ui.content`；CfModal 根节点 `pointer-events:none`，遮罩/面板再开回
+- **包含代码**：`assets/css/main.css`、`components/CfModal.vue`、`pages/knowledge.vue`
+
+## [变更] 文档预览 / Markdown 编辑（2026-11-15）
+
+- **变更原因**：右侧预览只能看，无法改演示 Markdown
+- **交互**：可编辑文档工具栏「预览 | 编辑」；保存后自动重新解析；未保存切换会确认
+- **包含代码**：`cogniforge-web/pages/knowledge.vue`、`useKnowledgeBases.ts`；Go `PUT .../documents/:docId/content`
 
 ## [变更] 知识库设置页（2026-11-15）
 

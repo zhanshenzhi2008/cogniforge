@@ -73,8 +73,16 @@ type DocumentPreview struct {
 	model.Document
 	Content     string `json:"content"`
 	Previewable bool   `json:"previewable"`
+	Editable    bool   `json:"editable"`
 	PreviewNote string `json:"preview_note,omitempty"`
 	Truncated   bool   `json:"truncated,omitempty"`
+}
+
+// UpdateDocumentContentRequest 更新文本类文档正文（md/txt/html）
+type UpdateDocumentContentRequest struct {
+	Content string `json:"content"`
+	// Reparse 默认 true：保存后重新分块向量，保证检索跟上正文
+	Reparse *bool `json:"reparse,omitempty"`
 }
 
 type SearchRequest struct {

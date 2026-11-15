@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-15 | v1.55 | PUT 文档 content：在线改 md/txt/html，默认触发 reparse | orjrs |
 | 2026-11-15 | v1.54 | 知识库设置：默认分段/检索/可见性占位（仅 private） | orjrs |
 | 2026-11-15 | v1.53 | 检索缺省 Top-K/min_score 回落到知识库默认 | orjrs |
 | 2026-11-15 | v1.52 | 上传分段参数 + POST documents/preview；AI /api/rag/preview | orjrs |
@@ -55,6 +56,14 @@
 | 2026-08-15 | v1.2 | GET /v1/models 改为返回已启用供应商的 default_model（不再写死 GPT 列表） | orjrs |
 | 2026-04-09 | v1.1 | 新增文档上传接口、语义检索接口实现说明 | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] 文档正文在线编辑（2026-11-15）
+
+- **变更原因**：知识库抽屉预览只能看，无法改 Markdown
+- **接口**：`PUT /api/v1/knowledge/{kb_id}/documents/{doc_id}/content`
+- **请求**：`{ "content": "...", "reparse": true }`（`reparse` 默认 true）
+- **限制**：仅 `md` / `txt` / `html`；覆盖磁盘文件并更新 `file_size`；默认触发重新解析
+- **GET 详情**：增加 `editable`；HTML 返回原文（不再剥标签）
 
 ## [变更] 知识库设置默认值与权限占位（2026-11-15）
 
@@ -1456,12 +1465,26 @@ GET /api/v1/knowledge/{kb_id}/documents/{doc_id}
       "status": "completed",
       "chunk_count": 1,
       "previewable": true,
+      "editable": true,
       "truncated": false,
       "content": "# 退换货政策…",
       "preview_note": ""
     }
   }
-说明: md/txt/html 返回 content；pdf/docx 的 previewable=false，见 preview_note
+说明: md/txt/html 返回原文 content；过长则 truncated 且 editable=false；pdf/docx 的 previewable=false
+
+---
+
+PUT /api/v1/knowledge/{kb_id}/documents/{doc_id}/content
+描述: 更新文本类文档正文（md/txt/html），默认保存后重新解析
+认证: JWT
+请求:
+  {
+    "content": "# 更新后的 Markdown…",
+    "reparse": true
+  }
+响应: 同 GET 文档详情（含 content / editable）
+说明: reparse 省略时按 true；非文本格式返回 400
 
 ---
 

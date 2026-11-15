@@ -149,6 +149,26 @@ func (h *KnowledgeHandler) GetDocument(c *gin.Context) {
 	response.Success(c, doc)
 }
 
+// UpdateDocumentContent 更新文本类文档正文
+func (h *KnowledgeHandler) UpdateDocumentContent(c *gin.Context) {
+	userID := c.GetString("user_id")
+	kbID := c.Param("id")
+	docID := c.Param("docId")
+
+	var req UpdateDocumentContentRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "请求参数无效: "+err.Error())
+		return
+	}
+
+	doc, err := h.service.UpdateDocumentContent(c.Request.Context(), userID, kbID, docID, &req)
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+	response.Success(c, doc)
+}
+
 // DeleteDocument 删除文档
 func (h *KnowledgeHandler) DeleteDocument(c *gin.Context) {
 	userID := c.GetString("user_id")
@@ -254,6 +274,7 @@ func (h *KnowledgeHandler) RegisterRoutes(rg *gin.RouterGroup) {
 		kbs.DELETE("/:id", h.DeleteKnowledgeBase)
 		kbs.GET("/:id/documents", h.ListDocuments)
 		kbs.GET("/:id/documents/:docId", h.GetDocument)
+		kbs.PUT("/:id/documents/:docId/content", h.UpdateDocumentContent)
 		kbs.DELETE("/:id/documents/:docId", h.DeleteDocument)
 		kbs.POST("/:id/documents/upload", h.UploadDocument)
 		kbs.POST("/:id/documents/preview", h.PreviewChunks)

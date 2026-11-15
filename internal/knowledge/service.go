@@ -269,7 +269,8 @@ func (s *KnowledgeService) GetDocument(userID, kbID, docID string) (*DocumentPre
 	out := &DocumentPreview{Document: doc}
 	switch doc.FileType {
 	case AllowedFileTypeTXT, AllowedFileTypeMD, AllowedFileTypeHTML:
-		content, err := readDocumentContent(doc.FilePath, doc.FileType)
+		// 预览/编辑用原文；HTML 不再剥标签（搜索仍走 strip）
+		content, err := readDocumentRaw(doc.FilePath)
 		if err != nil {
 			out.Previewable = false
 			out.PreviewNote = err.Error()
@@ -279,6 +280,10 @@ func (s *KnowledgeService) GetDocument(userID, kbID, docID string) (*DocumentPre
 		if len(runes) > maxPreviewRunes {
 			content = string(runes[:maxPreviewRunes])
 			out.Truncated = true
+			out.Editable = false
+			out.PreviewNote = "正文过长，仅可预览前段，暂不支持在线编辑"
+		} else {
+			out.Editable = true
 		}
 		out.Content = content
 		out.Previewable = true
@@ -287,6 +292,67 @@ func (s *KnowledgeService) GetDocument(userID, kbID, docID string) (*DocumentPre
 		out.PreviewNote = "该格式暂不支持在线预览，请下载后查看"
 	}
 	return out, nil
+}
+
+// UpdateDocumentContent 覆盖文本类文档文件内容，默认触发重新解析
+func (s *KnowledgeService) UpdateDocumentContent(ctx context.Context, userID, kbID, docID string, req *UpdateDocumentContentRequest) (*DocumentPreview, error) {
+	if req == nil {
+		return nil, fmt.Errorf("请求无效")
+	}
+	if len(req.Content) > MaxFileSize {
+		return nil, fmt.Errorf("正文超过大小限制（%dMB）", MaxFileSize/(1024*1024))
+	}
+
+	var kb model.KnowledgeBase
+	if err := s.db.Where("id = ? AND user_id = ?", kbID, userID).First(&kb).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, fmt.Errorf("知识库不存在")
+		}
+		return nil, fmt.Errorf("查询知识库失败")
+	}
+
+	var doc model.Document
+	if err := s.db.Where("id = ? AND knowledge_base_id = ?", docID, kbID).First(&doc).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, fmt.Errorf("文档不存在")
+		}
+		return nil, fmt.Errorf("查询文档失败")
+	}
+
+	switch doc.FileType {
+	case AllowedFileTypeTXT, AllowedFileTypeMD, AllowedFileTypeHTML:
+	default:
+		return nil, fmt.Errorf("该格式不支持在线编辑")
+	}
+
+	if err := writeDocumentContent(doc.FilePath, req.Content); err != nil {
+		return nil, err
+	}
+
+	now := time.Now()
+	size := int64(len([]byte(req.Content)))
+	if err := s.db.Model(&doc).Updates(map[string]any{
+		"file_size":  size,
+		"updated_at": now,
+		"error":      "",
+	}).Error; err != nil {
+		return nil, fmt.Errorf("更新文档元数据失败")
+	}
+	doc.FileSize = size
+	doc.UpdatedAt = now
+
+	reparse := true
+	if req.Reparse != nil {
+		reparse = *req.Reparse
+	}
+	if reparse {
+		if _, err := s.ReparseDocument(ctx, userID, kbID, docID); err != nil {
+			slog.Warn("保存正文后重新解析失败", "doc_id", docID, "error", err.Error())
+			return nil, fmt.Errorf("正文已保存，但重新解析失败: %w", err)
+		}
+	}
+
+	return s.GetDocument(userID, kbID, docID)
 }
 
 // DeleteDocument 删除文档
@@ -886,22 +952,42 @@ func saveUploadedFile(file *multipart.FileHeader, destPath string) error {
 	return nil
 }
 
-func readDocumentContent(filePath, fileType string) (string, error) {
+func readDocumentRaw(filePath string) (string, error) {
 	content, err := os.ReadFile(filePath)
 	if err != nil {
 		return "", fmt.Errorf("读取文件失败: %w", err)
 	}
+	return string(content), nil
+}
+
+func writeDocumentContent(filePath, content string) error {
+	if filePath == "" {
+		return fmt.Errorf("文件路径为空")
+	}
+	if err := os.MkdirAll(filepath.Dir(filePath), 0o755); err != nil {
+		return fmt.Errorf("创建目录失败: %w", err)
+	}
+	if err := os.WriteFile(filePath, []byte(content), 0o644); err != nil {
+		return fmt.Errorf("写入文件失败: %w", err)
+	}
+	return nil
+}
+
+func readDocumentContent(filePath, fileType string) (string, error) {
+	content, err := readDocumentRaw(filePath)
+	if err != nil {
+		return "", err
+	}
 
 	switch fileType {
 	case AllowedFileTypeTXT, AllowedFileTypeMD:
-		return string(content), nil
+		return content, nil
 	case AllowedFileTypeHTML:
-		text := stripHTMLTags(string(content))
-		return text, nil
+		return stripHTMLTags(content), nil
 	case AllowedFileTypePDF, AllowedFileTypeDOCX:
-		return string(content), nil
+		return content, nil
 	default:
-		return string(content), nil
+		return content, nil
 	}
 }
 

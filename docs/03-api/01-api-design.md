@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-15 | v1.51 | 知识库目录 GET/POST /knowledge/folders；KB 支持 folder_id | orjrs |
 | 2026-11-15 | v1.50 | GET 知识库文档详情（含文本预览 content） | orjrs |
 | 2026-11-14 | v1.49 | 修 AgentChat 匿名 struct 推错表，对话「查询 Agent 失败」 | orjrs |
 | 2026-11-13 | v1.48 | 修 execute panic：执行 ID 改 UUID；LLM 无 user prompt 时用上下文兜底 | orjrs |
@@ -51,6 +52,12 @@
 | 2026-08-15 | v1.2 | GET /v1/models 改为返回已启用供应商的 default_model（不再写死 GPT 列表） | orjrs |
 | 2026-04-09 | v1.1 | 新增文档上传接口、语义检索接口实现说明 | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] 知识库目录（2026-11-15）
+
+- **接口**：`GET/POST /api/v1/knowledge/folders`（须在 `/:id` 之前注册）
+- **KB**：创建/更新可选 `folder_id`；列表按目录分组展示
+- **前端**：创建表单 = 目录下拉 +「+」新建目录
 
 ## [变更] 知识库文档预览接口（2026-11-15）
 

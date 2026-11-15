@@ -50,6 +50,64 @@ func NewKnowledgeService(pythonClient *ServiceClient) *KnowledgeService {
 	}
 }
 
+// ListFolders 知识库目录列表
+func (s *KnowledgeService) ListFolders(userID string) ([]model.KnowledgeFolder, error) {
+	var folders []model.KnowledgeFolder
+	if err := s.db.Where("user_id = ?", userID).Order("sort_order ASC, created_at ASC").Find(&folders).Error; err != nil {
+		return nil, fmt.Errorf("查询目录失败")
+	}
+	return folders, nil
+}
+
+// CreateFolder 创建知识库目录
+func (s *KnowledgeService) CreateFolder(userID string, req *CreateFolderRequest) (*model.KnowledgeFolder, error) {
+	name := strings.TrimSpace(req.Name)
+	if name == "" {
+		return nil, fmt.Errorf("目录名称不能为空")
+	}
+	if len([]rune(name)) > 50 {
+		return nil, fmt.Errorf("目录名称不能超过 50 字")
+	}
+
+	var n int64
+	if err := s.db.Model(&model.KnowledgeFolder{}).
+		Where("user_id = ? AND name = ?", userID, name).
+		Count(&n).Error; err != nil {
+		return nil, fmt.Errorf("查询目录失败")
+	}
+	if n > 0 {
+		return nil, fmt.Errorf("目录已存在")
+	}
+
+	folder := model.KnowledgeFolder{
+		ID:        generateID(),
+		UserID:    userID,
+		Name:      name,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+	if err := s.db.Create(&folder).Error; err != nil {
+		return nil, fmt.Errorf("创建目录失败")
+	}
+	return &folder, nil
+}
+
+func (s *KnowledgeService) ensureFolderOwned(userID, folderID string) error {
+	if folderID == "" {
+		return nil
+	}
+	var n int64
+	if err := s.db.Model(&model.KnowledgeFolder{}).
+		Where("id = ? AND user_id = ?", folderID, userID).
+		Count(&n).Error; err != nil {
+		return fmt.Errorf("查询目录失败")
+	}
+	if n == 0 {
+		return fmt.Errorf("目录不存在")
+	}
+	return nil
+}
+
 // ListKnowledgeBases 获取知识库列表
 func (s *KnowledgeService) ListKnowledgeBases(userID string) ([]model.KnowledgeBase, error) {
 	var kbs []model.KnowledgeBase
@@ -61,9 +119,14 @@ func (s *KnowledgeService) ListKnowledgeBases(userID string) ([]model.KnowledgeB
 
 // CreateKnowledgeBase 创建知识库
 func (s *KnowledgeService) CreateKnowledgeBase(userID string, req *CreateKBRequest) (*model.KnowledgeBase, error) {
+	if err := s.ensureFolderOwned(userID, req.FolderID); err != nil {
+		return nil, err
+	}
+
 	kb := model.KnowledgeBase{
 		ID:             generateID(),
 		UserID:         userID,
+		FolderID:       req.FolderID,
 		Name:           req.Name,
 		Description:    req.Description,
 		VectorDB:       req.VectorDB,
@@ -115,6 +178,12 @@ func (s *KnowledgeService) UpdateKnowledgeBase(userID, kbID string, req *UpdateK
 	}
 	if req.Description != "" {
 		kb.Description = req.Description
+	}
+	if req.FolderID != nil {
+		if err := s.ensureFolderOwned(userID, *req.FolderID); err != nil {
+			return nil, err
+		}
+		kb.FolderID = *req.FolderID
 	}
 	if req.VectorDB != "" {
 		kb.VectorDB = req.VectorDB

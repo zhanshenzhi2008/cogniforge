@@ -16,6 +16,33 @@ func NewKnowledgeHandler(pythonClient *ServiceClient) *KnowledgeHandler {
 	}
 }
 
+// ListFolders 知识库目录列表
+func (h *KnowledgeHandler) ListFolders(c *gin.Context) {
+	userID := c.GetString("user_id")
+	folders, err := h.service.ListFolders(userID)
+	if err != nil {
+		response.InternalError(c, err.Error())
+		return
+	}
+	response.Success(c, folders)
+}
+
+// CreateFolder 创建知识库目录
+func (h *KnowledgeHandler) CreateFolder(c *gin.Context) {
+	userID := c.GetString("user_id")
+	var req CreateFolderRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "请求参数无效: "+err.Error())
+		return
+	}
+	folder, err := h.service.CreateFolder(userID, &req)
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+	response.Created(c, folder)
+}
+
 // ListKnowledgeBases 获取知识库列表
 func (h *KnowledgeHandler) ListKnowledgeBases(c *gin.Context) {
 	userID := c.GetString("user_id")
@@ -42,7 +69,7 @@ func (h *KnowledgeHandler) CreateKnowledgeBase(c *gin.Context) {
 
 	kb, err := h.service.CreateKnowledgeBase(userID, &req)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		response.BadRequest(c, err.Error())
 		return
 	}
 	response.Created(c, kb)
@@ -195,6 +222,8 @@ func (h *KnowledgeHandler) SearchKnowledge(c *gin.Context) {
 func (h *KnowledgeHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	kbs := rg.Group("/knowledge-bases")
 	{
+		kbs.GET("/folders", h.ListFolders)
+		kbs.POST("/folders", h.CreateFolder)
 		kbs.GET("", h.ListKnowledgeBases)
 		kbs.POST("", h.CreateKnowledgeBase)
 		kbs.GET("/:id", h.GetKnowledgeBase)

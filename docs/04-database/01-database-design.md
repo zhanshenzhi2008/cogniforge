@@ -3,6 +3,7 @@
 ## [变更记录]
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|---------|--------|
+| 2026-11-15 | v1.23 | 知识库目录 knowledge_folders；knowledge_bases.folder_id | orjrs |
 | 2026-10-26 | v1.22 | W3：executions.wait_until；Redis resume 锁键落地 | orjrs |
 | 2026-10-26 | v1.21 | 工作流增强：node_runs / checkpoints；executions 增 waiting 等 | orjrs |
 | 2026-10-17 | v1.20 | prompts：source_type/id/name + uk_prompts_user_source | orjrs |
@@ -23,6 +24,12 @@
 | 2026-08-16 | v1.2 | Redis 键统一 `cogniforge:` 前缀；多项目用前缀隔离，不拆 db0/db1 | orjrs |
 | 2026-08-15 | v1.1 | 落地模型配置 Redis 键（当时为 `cf:modelcfg:*`） | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] 知识库目录（2026-11-15）
+
+- **新表 `knowledge_folders`**：`id` / `user_id` / `name` / `sort_order`；唯一索引 `uk_kb_folder_user_name`
+- **扩展 `knowledge_bases.folder_id`**：可空，索引 `idx_kb_folder_id`；空表示未分类
+- **AutoMigrate**：`cmd/server/main.go` 增加 `KnowledgeFolder`
 
 ## [变更] W3 wait_until + resume 锁（2026-10-26）
 

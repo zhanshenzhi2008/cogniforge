@@ -10,10 +10,26 @@ import (
 // Knowledge Base Models - 知识库
 // =============================================================================
 
+// KnowledgeFolder 知识库目录（用户侧分组）
+type KnowledgeFolder struct {
+	ID        string         `gorm:"primaryKey;type:varchar(64)" json:"id"`
+	UserID    string         `gorm:"type:varchar(64);not null;uniqueIndex:uk_kb_folder_user_name;index:idx_kb_folder_user" json:"user_id"`
+	Name      string         `gorm:"type:varchar(100);not null;uniqueIndex:uk_kb_folder_user_name" json:"name"`
+	SortOrder int            `gorm:"default:0" json:"sort_order"`
+	CreatedAt time.Time      `json:"created_at"`
+	UpdatedAt time.Time      `json:"updated_at"`
+	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
+}
+
+func (KnowledgeFolder) TableName() string {
+	return "knowledge_folders"
+}
+
 // KnowledgeBase 知识库表
 type KnowledgeBase struct {
 	ID             string         `gorm:"primaryKey;type:varchar(64)" json:"id"`
 	UserID         string         `gorm:"type:varchar(64);not null;index" json:"user_id"`
+	FolderID       string         `gorm:"type:varchar(64);index:idx_kb_folder_id" json:"folder_id"` // 空=未分类
 	Name           string         `gorm:"type:varchar(255);not null" json:"name"`
 	Description    string         `gorm:"type:text" json:"description"`
 	VectorDB       string         `gorm:"type:varchar(50);default:'pgvector'" json:"vector_db"` // pgvector, chroma, qdrant, weaviate

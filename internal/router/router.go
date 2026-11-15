@@ -137,6 +137,8 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 			// 知识库路由（简化路径）
 			kb := authenticated.Group("/knowledge")
 			{
+				kb.GET("/folders", knowledgeHandler.ListFolders)
+				kb.POST("/folders", knowledgeHandler.CreateFolder)
 				kb.GET("", knowledgeHandler.ListKnowledgeBases)
 				kb.POST("", knowledgeHandler.CreateKnowledgeBase)
 				kb.GET("/:id", knowledgeHandler.GetKnowledgeBase)

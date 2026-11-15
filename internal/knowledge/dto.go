@@ -11,16 +11,22 @@ import (
 type CreateKBRequest struct {
 	Name           string `json:"name" binding:"required"`
 	Description    string `json:"description"`
+	FolderID       string `json:"folder_id"`
 	VectorDB       string `json:"vector_db"`
 	EmbeddingModel string `json:"embedding_model"`
 }
 
 type UpdateKBRequest struct {
-	Name           string `json:"name"`
-	Description    string `json:"description"`
-	VectorDB       string `json:"vector_db"`
-	EmbeddingModel string `json:"embedding_model"`
-	Status         string `json:"status"`
+	Name           string  `json:"name"`
+	Description    string  `json:"description"`
+	FolderID       *string `json:"folder_id"` // nil=不改；""=移到未分类
+	VectorDB       string  `json:"vector_db"`
+	EmbeddingModel string  `json:"embedding_model"`
+	Status         string  `json:"status"`
+}
+
+type CreateFolderRequest struct {
+	Name string `json:"name" binding:"required"`
 }
 
 type ReparseDocumentRequest struct {

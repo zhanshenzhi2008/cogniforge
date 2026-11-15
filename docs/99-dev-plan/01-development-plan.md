@@ -4,6 +4,9 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-15 | v1.126 | 客服场景验收：KB 解析、ORD 对话、退款工作流、评估 6/6（跨仓） | orjrs |
+| 2026-11-15 | v1.125 | AI：pgvector 回滚/维度重建；生产启用智谱向量默认（跨仓） | orjrs |
+| 2026-11-15 | v1.124 | AI：上传路径对齐 + local embedder 缺包回退 Go（跨仓） | orjrs |
 | 2026-11-15 | v1.123 | 客服政策知识库已建；AI pgvector 密码特殊字符连库失败（跨仓） | orjrs |
 | 2026-11-14 | v1.122 | 修 Agent 对话「查询 Agent 失败」：匿名 struct 推错表名 | orjrs |
 | 2026-11-13 | v1.121 | 修工作流执行空 500：generateID 溢出 panic；LLM 仅 system 时兜底 user | orjrs |
@@ -123,7 +126,28 @@
 | 2026-04-17 | v1.3 | 阶段九用户管理与个人设置完成（用户CRUD、个人设置、会话管理、RBAC权限系统） | orjrs |
 > 注：任务状态变更直接在下方任务表格中更新即可，无需额外记录。
 
+## [变更] 客服场景验收（2026-11-15）
+
+- **变更原因**：按清单自测 Agent+KB+工作流+评估
+- **结果**：知识库「客服政策」5 文档 completed；Agent 勾选 KB 测 ORD-10086/10087；工作流至审批+通知；评估集「客服政策与边界」6/6 pass
+- **遗留**：工作流 end 节点偶发停在 running（见 known-issues §10）
+
+## [变更] pgvector 回滚/维度重建（跨仓，2026-11-15）
+
+- **变更原因**：解析后连接报 `transaction is aborted`；换智谱 embedding-3（2048 维）后与旧表维度冲突
+- **包含代码**：`cogniforge-ai/services/rag/vector_store/pgvector_store.py`
+- **影响范围**：知识库解析/检索；部署后需重传或重新解析文档
+- **运维**：生产启用智谱为向量默认（`embedding-3`）
+
+## [变更] AI 上传路径对齐 + local embedder 回退（跨仓，2026-11-15）
+
+- **变更原因**：客服政策知识库 5 篇文档解析失败；路径落在宿主机 `/opt/data/cogniforge/uploads`，容器只挂 `/app/uploads`；`EMBEDDER_TYPE=local` 时镜像无 sentence-transformers
+- **包含代码**：`cogniforge-ai` `app/routers/rag.py`、`services/rag/embedding/__init__.py`、`docker-compose-ai.yml`
+- **影响范围**：知识库解析/检索；部署后需对失败文档「重新解析」
+- **跨仓**：本仓文档 `03-known-issues.md` §8
+
 ## [变更] Agent 对话查询失败（2026-11-14）
+
 
 - **变更原因**：`POST /agents/:id/chat` 返回「查询 Agent 失败」，而 `GET /agents/:id` 正常
 - **根因**：`AgentChat` 用匿名 struct + Select，GORM 无法走 `agents` 表名

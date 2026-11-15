@@ -242,7 +242,36 @@ RAG 默认走 Go `POST /api/v1/embeddings`，上游是当前启用的 `ai_provid
 
 **修复**：`cogniforge-ai/services/rag/vector_store/pgvector_store.py` 改为 `psycopg2.connect(host=…, password=…)` 关键字参数。
 
-**状态**：🟡 代码已改，待合并部署；部署后对失败文档点「重新解析」
+**状态**：🟢 已修复并部署（2026-11-15）
+
+### 8. 知识库上传路径与本地 embedder 缺失（2026-11-15）
+
+**问题描述**：文档重新解析报文件不存在（路径落在 `/opt/data/cogniforge/uploads/...`，容器内实际挂载为 `/app/uploads`）。检索报 `sentence-transformers is required`（生产 `.env` 设了 `EMBEDDER_TYPE=local` 但镜像未装该包）。
+
+**修复**（`cogniforge-ai`）：
+- `resolve_file_path` 将宿主机/相对 `uploads/...` 统一映射到 `/app/uploads`
+- compose 双挂 `./data/uploads` → `/app/uploads` 与 `/opt/data/cogniforge/uploads`
+- `create_embedder(local)` 在缺包时回退 Go embedder
+
+**状态**：🟢 路径/回退已部署（2026-11-15）
+
+### 9. pgvector 事务毒化与向量维度不一致（2026-11-15）
+
+**问题描述**：解析或检索连续报 `current transaction is aborted`。共享 DB 连接在插入失败后未 `rollback`；换 embedding 模型后维度与旧表不一致也会插入失败；HNSW 建索引失败时若 `rollback` 会把刚建的集合表一并撤销。
+
+**修复**（`cogniforge-ai`）：出错回滚；维度变化时重建集合；搜索结果 score/metadata 映射修正；建表先 `commit`，索引失败不再毁掉表。
+
+**配套运维**：生产需配置「向量默认」供应商（智谱 `embedding-3` 等），仅 DeepSeek 对话不够。
+
+**状态**：🟢 已部署；客服政策知识库 5 文档解析成功
+
+### 10. 工作流 resume 后 end 节点可能停在 running（2026-11-15）
+
+**问题描述**：`客服接待与退款审批` 在 wait 审批通过后，`llm-notify` 成功，但 `end-1` 长期 `running`，执行状态未落到 `completed`。
+
+**影响**：业务路径（接待→审批→通知）已跑通；终态展示不准。
+
+**状态**：🟡 待查 resume/end 收尾
 
 ---
 

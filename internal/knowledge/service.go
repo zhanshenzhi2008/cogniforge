@@ -540,15 +540,20 @@ func (s *KnowledgeService) PreviewChunks(ctx context.Context, userID, kbID strin
 	defer os.Remove(destPath)
 
 	resolved := resolveParseOptions(&kb, opts)
-	return s.pythonClient.PreviewChunks(&PreviewChunksRequest{
+	aiPath := toSharedUploadPath(destPath)
+	result, err := s.pythonClient.PreviewChunks(&PreviewChunksRequest{
 		Context:      ctx,
-		FilePath:     destPath,
+		FilePath:     aiPath,
 		ChunkSize:    resolved.ChunkSize,
 		ChunkOverlap: resolved.ChunkOverlap,
 		SplitMode:    resolved.SplitMode,
 		Separator:    resolved.SplitSeparator,
 		MaxChunks:    20,
 	})
+	if err != nil {
+		return nil, fmt.Errorf("预览分块失败（请确认 PDF 可提取文字且 AI 服务可读上传目录）: %w", err)
+	}
+	return result, nil
 }
 
 // SearchKnowledge 知识库检索（HTTP 入口，带 Gin trace）
@@ -688,7 +693,7 @@ func (s *KnowledgeService) processDocumentAsync(docID, parentTraceID string) {
 	// 调用 Python 服务进行文档处理和向量化
 	result, err := s.pythonClient.ProcessDocument(&ProcessRequest{
 		Context:        ctx,
-		FilePath:       doc.FilePath,
+		FilePath:       toSharedUploadPath(doc.FilePath),
 		DocumentID:     docID,
 		CollectionName: doc.KnowledgeBaseID,
 		Metadata: map[string]interface{}{
@@ -931,6 +936,30 @@ func ensureUploadDir(userID, kbID string) (string, error) {
 		return "", fmt.Errorf("创建上传目录失败: %w", err)
 	}
 	return dir, nil
+}
+
+// toSharedUploadPath 把本地上传路径转成 AI 容器可读形式（uploads/... 或 /app/uploads/...）。
+func toSharedUploadPath(localPath string) string {
+	s := filepath.ToSlash(strings.TrimSpace(localPath))
+	if s == "" {
+		return s
+	}
+	for _, prefix := range []string{
+		"/app/uploads/",
+		"/opt/data/cogniforge/uploads/",
+		"/opt/project/cogniforge/data/uploads/",
+	} {
+		if strings.HasPrefix(s, prefix) {
+			return "uploads/" + strings.TrimPrefix(s, prefix)
+		}
+	}
+	if strings.HasPrefix(s, "uploads/") {
+		return s
+	}
+	if idx := strings.Index(s, "/uploads/"); idx >= 0 {
+		return "uploads/" + s[idx+len("/uploads/"):]
+	}
+	return s
 }
 
 func saveUploadedFile(file *multipart.FileHeader, destPath string) error {

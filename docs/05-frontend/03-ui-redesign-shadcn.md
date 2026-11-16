@@ -4,6 +4,8 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-16 | v1.81 | 模型页可配 Jina/Firecrawl；网页入库可选抓取引擎 | orjrs |
+| 2026-11-16 | v1.80 | 上传三步：数据源（本地/网页/文本）→ 分段 → 确认表 | orjrs |
 | 2026-11-16 | v1.79 | 上传弹窗去掉重置；操作进页脚分层 | orjrs |
 | 2026-11-16 | v1.77 | 检索测试：方式芯片 + 右侧栏切换 Top-K | orjrs |
 | 2026-11-16 | v1.76 | 「设置」第三标签；检索方式 + 分模式 Rerank | orjrs |
@@ -84,6 +86,19 @@
 | 2026-08-12 | v1.0 | 全新 UI 方向：Vue3 + Nuxt3 + Tailwind4 + shadcn-vue；保留 Vue Flow；接口与 CI/CD 不变 | orjrs |
 
 > 注：任务状态变更直接在下方任务表格中更新即可，无需额外记录。
+
+## [变更] 模型页 Jina / Firecrawl + 网页引擎（2026-11-16）
+
+- **变更原因**：网页入库要用外部 Reader，Key 进模型页
+- **变更前 vs 变更后**：~~仅对话/向量用途~~ → 用途增加「网页抓取」；厂商增加 Jina Reader / Firecrawl；知识库网页源可选 auto/jina/firecrawl/basic
+- **包含代码**：`cogniforge-web/pages/models.vue`、`useProviders.ts`、`pages/knowledge/[id].vue`、i18n
+- **后续 TODO（约一周后，目标 2026-11-23）**：Crawl4AI 独立服务 UI/部署；本期不做
+
+## [变更] 上传三步数据源向导（2026-11-16）
+
+- **变更原因**：入库不只本地文件；需要网页与自定义文本，并在上传前核对列表
+- **变更前 vs 变更后**：~~两步：选择文件 → 本次分段~~ → 三步：选择数据源（本地多文件可删 / 网页 URL / 自定义 md|txt）→ 本次分段预览 → 确认上传表（名称 / 状态 / 删除）
+- **包含代码**：`cogniforge-web/pages/knowledge/[id].vue`、`composables/useKnowledgeBases.ts`、i18n；后端 `documents/text`、`documents/url`
 
 ## [变更] 上传弹窗页脚分层（2026-11-16）
 

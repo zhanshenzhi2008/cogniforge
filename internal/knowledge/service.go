@@ -6,6 +6,7 @@ import (
 	"io"
 	"log/slog"
 	"mime/multipart"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -18,6 +19,7 @@ import (
 	"cogniforge/internal/database"
 	"cogniforge/internal/model"
 	"cogniforge/internal/trace"
+	"cogniforge/internal/webfetch"
 )
 
 const (
@@ -517,6 +519,169 @@ func (s *KnowledgeService) UploadDocument(ctx context.Context, userID, kbID stri
 		s.processDocumentAsync(docID, trace.GetTraceIDFromContext(ctx))
 	}()
 
+	return &doc, nil
+}
+
+// CreateDocumentFromText 把自定义文本写成 md/txt 后入库并异步解析
+func (s *KnowledgeService) CreateDocumentFromText(ctx context.Context, userID, kbID string, req *CreateTextDocumentRequest) (*model.Document, error) {
+	name := strings.TrimSpace(req.Name)
+	content := strings.TrimSpace(req.Content)
+	if name == "" {
+		return nil, fmt.Errorf("请填写名称")
+	}
+	if content == "" {
+		return nil, fmt.Errorf("请填写正文")
+	}
+	if len(content) > MaxFileSize {
+		return nil, fmt.Errorf("正文过长，单文件最多约 %dMB", MaxFileSize/(1024*1024))
+	}
+
+	fileType := strings.ToLower(strings.TrimSpace(req.FileType))
+	if fileType != AllowedFileTypeTXT {
+		fileType = AllowedFileTypeMD
+	}
+	ext := "." + fileType
+	if !strings.HasSuffix(strings.ToLower(name), ext) {
+		name = name + ext
+	}
+
+	opts := &ParseOptions{
+		ChunkSize:      req.ChunkSize,
+		ChunkOverlap:   req.ChunkOverlap,
+		SplitMode:      req.SplitMode,
+		SplitSeparator: req.SplitSeparator,
+	}
+	return s.createDocumentFromBytes(ctx, userID, kbID, name, fileType, []byte(content), opts, map[string]interface{}{
+		"source": "text",
+	})
+}
+
+// CreateDocumentFromURL 抓取网页后入库（Jina / Firecrawl / 简易 GET）
+func (s *KnowledgeService) CreateDocumentFromURL(ctx context.Context, userID, kbID string, req *CreateURLDocumentRequest) (*model.Document, error) {
+	rawURL := strings.TrimSpace(req.URL)
+	if rawURL == "" {
+		return nil, fmt.Errorf("请填写网页地址")
+	}
+	parsed, err := url.Parse(rawURL)
+	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" {
+		return nil, fmt.Errorf("网页地址无效，请使用 http:// 或 https:// 开头")
+	}
+
+	fetched, err := webfetch.Fetch(ctx, s.db, userID, parsed.String(), req.Engine)
+	if err != nil {
+		return nil, err
+	}
+
+	fileType := AllowedFileTypeHTML
+	ext := ".html"
+	if fetched.FileType == "md" || fetched.FileType == AllowedFileTypeMD {
+		fileType = AllowedFileTypeMD
+		ext = ".md"
+	}
+
+	name := strings.TrimSpace(req.Name)
+	if name == "" {
+		name = parsed.Host
+		if base := filepath.Base(parsed.Path); base != "" && base != "/" && base != "." {
+			name = base
+		}
+	}
+	lowerName := strings.ToLower(name)
+	if !strings.HasSuffix(lowerName, ext) {
+		for _, old := range []string{".html", ".htm", ".md"} {
+			if strings.HasSuffix(lowerName, old) {
+				name = name[:len(name)-len(old)]
+				break
+			}
+		}
+		if strings.TrimSpace(name) == "" {
+			name = parsed.Host
+		}
+		name = name + ext
+	}
+
+	opts := &ParseOptions{
+		ChunkSize:      req.ChunkSize,
+		ChunkOverlap:   req.ChunkOverlap,
+		SplitMode:      req.SplitMode,
+		SplitSeparator: req.SplitSeparator,
+	}
+	return s.createDocumentFromBytes(ctx, userID, kbID, name, fileType, fetched.Content, opts, map[string]interface{}{
+		"source": "web",
+		"url":    parsed.String(),
+		"engine": fetched.Engine,
+	})
+}
+
+func (s *KnowledgeService) createDocumentFromBytes(
+	ctx context.Context,
+	userID, kbID, displayName, fileType string,
+	data []byte,
+	opts *ParseOptions,
+	extraMeta map[string]interface{},
+) (*model.Document, error) {
+	var kb model.KnowledgeBase
+	if err := s.db.Where("id = ? AND user_id = ?", kbID, userID).First(&kb).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, fmt.Errorf("知识库不存在")
+		}
+		return nil, fmt.Errorf("查询知识库失败")
+	}
+	if len(data) == 0 {
+		return nil, fmt.Errorf("内容为空")
+	}
+	if int64(len(data)) > MaxFileSize {
+		return nil, fmt.Errorf("文件大小不能超过 %dMB", MaxFileSize/(1024*1024))
+	}
+
+	dir, err := ensureUploadDir(s.userDirName(userID), kbStorageKey(&kb))
+	if err != nil {
+		return nil, fmt.Errorf("创建上传目录失败")
+	}
+
+	docID := generateDocID()
+	ext := "." + fileType
+	destPath := filepath.Join(dir, docID+ext)
+	if err := os.WriteFile(destPath, data, 0o644); err != nil {
+		return nil, fmt.Errorf("保存文件失败: %w", err)
+	}
+
+	resolved := resolveParseOptions(&kb, opts)
+	meta := model.JSONBMap{
+		"chunk_size":      resolved.ChunkSize,
+		"chunk_overlap":   resolved.ChunkOverlap,
+		"split_mode":      resolved.SplitMode,
+		"split_separator": resolved.SplitSeparator,
+	}
+	for k, v := range extraMeta {
+		meta[k] = v
+	}
+
+	doc := model.Document{
+		ID:              docID,
+		KnowledgeBaseID: kbID,
+		UserID:          userID,
+		Name:            displayName,
+		FileName:        displayName,
+		FileSize:        int64(len(data)),
+		FileType:        fileType,
+		FilePath:        destPath,
+		Status:          "pending",
+		ChunkCount:      0,
+		VectorCount:     0,
+		Metadata:        meta,
+		CreatedAt:       time.Now(),
+		UpdatedAt:       time.Now(),
+	}
+	if err := s.db.Create(&doc).Error; err != nil {
+		os.Remove(destPath)
+		return nil, fmt.Errorf("创建文档记录失败")
+	}
+	s.db.Model(&kb).Update("doc_count", gorm.Expr("doc_count + 1"))
+
+	go func() {
+		s.processDocumentAsync(docID, trace.GetTraceIDFromContext(ctx))
+	}()
 	return &doc, nil
 }
 

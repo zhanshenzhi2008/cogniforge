@@ -4,6 +4,8 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-16 | v1.63 | 网页入库支持 engine（jina/firecrawl/basic）；模型能力加 web_fetch | orjrs |
+| 2026-11-16 | v1.62 | POST documents/text、documents/url：自定义文本与网页入库 | orjrs |
 | 2026-11-16 | v1.61 | POST search 可传 search_mode / rerank（引擎后续接） | orjrs |
 | 2026-11-16 | v1.60 | PUT 知识库可更新 search_mode 与分模式 rerank_* | orjrs |
 | 2026-11-16 | v1.59 | 知识库文件目录改用库名（storage_dir），检索 ID 不变 | orjrs |
@@ -93,6 +95,24 @@
 - **请求**：`{ "content": "...", "reparse": true }`（`reparse` 默认 true）
 - **限制**：仅 `md` / `txt` / `html`；覆盖磁盘文件并更新 `file_size`；默认触发重新解析
 - **GET 详情**：增加 `editable`；HTML 返回原文（不再剥标签）
+
+## [变更] 网页抓取 Jina / Firecrawl（2026-11-16）
+
+- **变更原因**：简易 GET 不够用；Key 要进「模型」页统一管理
+- **模型能力**：`capabilities` 增加 `web_fetch`；厂商键 `jina`、`firecrawl`（不进对话 modelcfg）
+- **接口**：`POST .../documents/url` 增加可选 `engine`：`auto`|`jina`|`firecrawl`|`basic`；auto 顺序 Firecrawl→Jina→简易 GET
+- **测连**：Jina 试读 example.com；Firecrawl 查 credit-usage
+- **包含代码**：`internal/webfetch`、`internal/model/capability.go`、`provider.go`、`provider/service.go`、`knowledge/service.go`
+- **后续 TODO（约一周后，目标 2026-11-23）**：Crawl4AI 独立服务（同仓 `crawl/` + 第二容器）；本期不做
+
+## [变更] 自定义文本 / 网页入库（2026-11-16）
+
+- **变更原因**：上传向导支持三种数据源：本地文件、网页 URL、自定义 Markdown/纯文本
+- **接口**：
+  - `POST /api/v1/knowledge/{kb_id}/documents/text`：`name` + `content` + 可选 `file_type`（`md`|`txt`）与分段参数；写成文件后异步解析
+  - `POST /api/v1/knowledge/{kb_id}/documents/url`：`url` + 可选 `name` 与分段参数；服务端抓取 HTML 后入库
+- **前端**：知识库详情「添加内容」三步向导第三步确认后按项调用 upload / text / url
+- **包含代码**：`internal/knowledge/dto.go`、`service.go`、`handler.go`、`router.go`
 
 ## [变更] 检索请求可带 search_mode（2026-11-16）
 
@@ -1471,6 +1491,45 @@ POST /api/v1/knowledge/{kb_id}/documents/preview
       ]
     }
   }
+
+---
+
+POST /api/v1/knowledge/{kb_id}/documents/text
+描述: 自定义文本入库（写成 md/txt 后异步解析）
+认证: JWT
+请求 JSON:
+  {
+    "name": "会议纪要.md",
+    "content": "# 标题\n正文…",
+    "file_type": "md",
+    "chunk_size": 512,
+    "chunk_overlap": 50,
+    "split_mode": "recursive",
+    "split_separator": "\n\n"
+  }
+说明: `file_type` 仅 `md`|`txt`，默认 `md`；名称无后缀时自动补上；分段字段同 upload
+响应: 同 upload（文档对象，status=pending）
+
+---
+
+POST /api/v1/knowledge/{kb_id}/documents/url
+描述: 抓取网页正文后入库（Jina/Firecrawl 出 md；basic 出 html；异步解析）
+认证: JWT
+请求 JSON:
+  {
+    "url": "https://example.com/article",
+    "name": "可选显示名",
+    "engine": "auto",
+    "chunk_size": 512,
+    "chunk_overlap": 50,
+    "split_mode": "recursive",
+    "split_separator": "\n\n"
+  }
+说明:
+  - 仅允许 http/https；单页内容受文件大小上限约束；未填 name 时用 host 或路径末段
+  - `engine`：`auto`（默认，Firecrawl→Jina→basic）| `jina` | `firecrawl` | `basic`
+  - Jina/Firecrawl 的 API Key 在「模型」页配置（capabilities 含 `web_fetch`）
+响应: 同 upload（文档对象，status=pending；metadata 含 engine）
 
 ---
 

@@ -3,6 +3,7 @@
 ## [变更记录]
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|---------|--------|
+| 2026-11-16 | v1.28 | ai_providers.capabilities 支持 web_fetch（Jina/Firecrawl） | orjrs |
 | 2026-11-16 | v1.27 | knowledge_bases 增加检索方式与分模式 Rerank 开关 | orjrs |
 | 2026-11-16 | v1.26 | knowledge_bases.storage_dir：文件目录用知识库名 | orjrs |
 | 2026-11-15 | v1.25 | ai_providers owner/scope；user_settings 个人默认供应商 | orjrs |
@@ -28,6 +29,14 @@
 | 2026-08-16 | v1.2 | Redis 键统一 `cogniforge:` 前缀；多项目用前缀隔离，不拆 db0/db1 | orjrs |
 | 2026-08-15 | v1.1 | 落地模型配置 Redis 键（当时为 `cf:modelcfg:*`） | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] ai_providers 网页抓取能力（2026-11-16）
+
+- **变更原因**：Jina Reader / Firecrawl 的 API Key 与模型 Key 同表管理
+- **字段语义**：`ai_providers.capabilities` 除 `chat` / `embedding` 外支持 `web_fetch`
+- **厂商键**：`jina`、`firecrawl`（种子行可自动初始化，默认未启用）
+- **说明**：此类配置**不**写入 `cogniforge:modelcfg:snapshot`（对话热缓存仍只含 chat）
+- **包含代码**：`internal/model/capability.go`、`provider.go`、`internal/webfetch`
 
 ## [变更] 知识库检索方式字段（2026-11-16）
 

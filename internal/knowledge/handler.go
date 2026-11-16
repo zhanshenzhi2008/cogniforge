@@ -222,6 +222,40 @@ func (h *KnowledgeHandler) UploadDocument(c *gin.Context) {
 	response.Created(c, doc)
 }
 
+// CreateTextDocument 自定义文本入库
+func (h *KnowledgeHandler) CreateTextDocument(c *gin.Context) {
+	userID := c.GetString("user_id")
+	kbID := c.Param("id")
+	var req CreateTextDocumentRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "请提供名称和正文")
+		return
+	}
+	doc, err := h.service.CreateDocumentFromText(c.Request.Context(), userID, kbID, &req)
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+	response.Created(c, doc)
+}
+
+// CreateURLDocument 网页抓取入库
+func (h *KnowledgeHandler) CreateURLDocument(c *gin.Context) {
+	userID := c.GetString("user_id")
+	kbID := c.Param("id")
+	var req CreateURLDocumentRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "请提供网页地址")
+		return
+	}
+	doc, err := h.service.CreateDocumentFromURL(c.Request.Context(), userID, kbID, &req)
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+	response.Created(c, doc)
+}
+
 // PreviewChunks 上传前预览分块（不入库）
 func (h *KnowledgeHandler) PreviewChunks(c *gin.Context) {
 	userID := c.GetString("user_id")
@@ -277,6 +311,8 @@ func (h *KnowledgeHandler) RegisterRoutes(rg *gin.RouterGroup) {
 		kbs.PUT("/:id/documents/:docId/content", h.UpdateDocumentContent)
 		kbs.DELETE("/:id/documents/:docId", h.DeleteDocument)
 		kbs.POST("/:id/documents/upload", h.UploadDocument)
+		kbs.POST("/:id/documents/text", h.CreateTextDocument)
+		kbs.POST("/:id/documents/url", h.CreateURLDocument)
 		kbs.POST("/:id/documents/preview", h.PreviewChunks)
 		kbs.POST("/:id/documents/reparse", h.ReparseDocument)
 		kbs.POST("/:id/search", h.SearchKnowledge)

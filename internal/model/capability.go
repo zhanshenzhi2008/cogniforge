@@ -5,6 +5,8 @@ import "strings"
 const (
 	CapChat      = "chat"
 	CapEmbedding = "embedding"
+	// CapWebFetch 网页抓取类服务（Jina Reader / Firecrawl），不进对话 modelcfg
+	CapWebFetch = "web_fetch"
 )
 
 func SplitCapabilities(raw string) []string {
@@ -16,7 +18,7 @@ func SplitCapabilities(raw string) []string {
 	var out []string
 	for _, p := range strings.Split(raw, ",") {
 		p = strings.ToLower(strings.TrimSpace(p))
-		if p != CapChat && p != CapEmbedding {
+		if p != CapChat && p != CapEmbedding && p != CapWebFetch {
 			continue
 		}
 		if _, ok := seen[p]; ok {
@@ -33,8 +35,8 @@ func SplitCapabilities(raw string) []string {
 
 func JoinCapabilities(caps []string) string {
 	parts := SplitCapabilities(strings.Join(caps, ","))
-	ordered := make([]string, 0, 2)
-	for _, want := range []string{CapChat, CapEmbedding} {
+	ordered := make([]string, 0, 3)
+	for _, want := range []string{CapChat, CapEmbedding, CapWebFetch} {
 		for _, p := range parts {
 			if p == want {
 				ordered = append(ordered, p)

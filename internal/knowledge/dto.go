@@ -76,6 +76,29 @@ type ReparseDocumentRequest struct {
 	DocumentID string `json:"document_id" binding:"required"`
 }
 
+// CreateTextDocumentRequest 自定义文本入库（md/txt）
+type CreateTextDocumentRequest struct {
+	Name           string `json:"name" binding:"required"`
+	Content        string `json:"content" binding:"required"`
+	FileType       string `json:"file_type"` // md | txt，默认 md
+	ChunkSize      int    `json:"chunk_size,omitempty"`
+	ChunkOverlap   int    `json:"chunk_overlap,omitempty"`
+	SplitMode      string `json:"split_mode,omitempty"`
+	SplitSeparator string `json:"split_separator,omitempty"`
+}
+
+// CreateURLDocumentRequest 抓取网页正文后入库
+type CreateURLDocumentRequest struct {
+	URL            string `json:"url" binding:"required"`
+	Name           string `json:"name"`
+	// Engine: auto | jina | firecrawl | basic；空=auto（优先 Firecrawl→Jina→简易 GET）
+	Engine         string `json:"engine,omitempty"`
+	ChunkSize      int    `json:"chunk_size,omitempty"`
+	ChunkOverlap   int    `json:"chunk_overlap,omitempty"`
+	SplitMode      string `json:"split_mode,omitempty"`
+	SplitSeparator string `json:"split_separator,omitempty"`
+}
+
 // DocumentPreview 文档详情 + 可预览正文（文本类）
 type DocumentPreview struct {
 	model.Document

@@ -515,23 +515,52 @@ func (s *Service) testConnection(p *model.AIProvider, updateStatus bool) (*TestR
 		return &TestResult{Success: false, Message: "failed to decrypt api key"}, nil
 	}
 
-	testURL := p.BaseURL
-	if testURL == "" {
-		testURL = "https://api.openai.com/v1/models"
-	}
-	if testURL[len(testURL)-1] == '/' {
-		testURL = testURL + "models"
-	} else {
-		testURL = testURL + "/models"
+	client := &http.Client{Timeout: 20 * time.Second}
+	var req *http.Request
+
+	switch strings.ToLower(strings.TrimSpace(p.Provider)) {
+	case string(model.ProviderJina):
+		base := strings.TrimRight(strings.TrimSpace(p.BaseURL), "/")
+		if base == "" {
+			base = "https://r.jina.ai"
+		}
+		req, err = http.NewRequest("GET", base+"/https://example.com", nil)
+		if err != nil {
+			return &TestResult{Success: false, Message: err.Error()}, nil
+		}
+		req.Header.Set("Accept", "text/markdown")
+		if apiKey != "" {
+			req.Header.Set("Authorization", "Bearer "+apiKey)
+		}
+	case string(model.ProviderFirecrawl):
+		base := strings.TrimRight(strings.TrimSpace(p.BaseURL), "/")
+		if base == "" {
+			base = "https://api.firecrawl.dev"
+		}
+		req, err = http.NewRequest("GET", base+"/v1/team/credit-usage", nil)
+		if err != nil {
+			return &TestResult{Success: false, Message: err.Error()}, nil
+		}
+		req.Header.Set("Authorization", "Bearer "+apiKey)
+		req.Header.Set("Content-Type", "application/json")
+	default:
+		testURL := p.BaseURL
+		if testURL == "" {
+			testURL = "https://api.openai.com/v1/models"
+		}
+		if testURL[len(testURL)-1] == '/' {
+			testURL = testURL + "models"
+		} else {
+			testURL = testURL + "/models"
+		}
+		req, err = http.NewRequest("GET", testURL, nil)
+		if err != nil {
+			return &TestResult{Success: false, Message: err.Error()}, nil
+		}
+		req.Header.Set("Authorization", "Bearer "+apiKey)
+		req.Header.Set("Content-Type", "application/json")
 	}
 
-	client := &http.Client{Timeout: 15 * time.Second}
-	req, err := http.NewRequest("GET", testURL, nil)
-	if err != nil {
-		return &TestResult{Success: false, Message: err.Error()}, nil
-	}
-	req.Header.Set("Authorization", "Bearer "+apiKey)
-	req.Header.Set("Content-Type", "application/json")
 	for k, v := range p.ExtraHeaders {
 		req.Header.Set(k, fmt.Sprintf("%v", v))
 	}

@@ -4,6 +4,8 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-16 | v1.161 | 网页抓取接 Jina/Firecrawl；Key 进模型页 web_fetch（跨仓） | orjrs |
+| 2026-11-16 | v1.160 | 知识库上传三步：text/url 入库 + Web 数据源向导（跨仓） | orjrs |
 | 2026-11-16 | v1.159 | Web：上传弹窗操作进页脚分层（跨仓） | orjrs |
 | 2026-11-16 | v1.157 | Web：检索测试可切换检索方式（跨仓） | orjrs |
 | 2026-11-16 | v1.156 | 知识库设置改为检索方式 + Rerank；Web 第三标签（跨仓） | orjrs |
@@ -156,6 +158,19 @@
 | 2026-04-11 | v1.2 | 阶段八监控中心完成（请求日志中间件、日志列表 API、用量统计 API、监控仪表板页面） | orjrs |
 | 2026-04-17 | v1.3 | 阶段九用户管理与个人设置完成（用户CRUD、个人设置、会话管理、RBAC权限系统） | orjrs |
 > 注：任务状态变更直接在下方任务表格中更新即可，无需额外记录。
+
+## [变更] 网页抓取 Jina / Firecrawl（跨仓，2026-11-16）
+
+- **变更原因**：简易 GET 不够；Key 要和模型页统一；Crawl4AI 先不做
+- **变更后**：`capabilities` 增加 `web_fetch`；模型页可配 Jina / Firecrawl API Key；`documents/url` 支持 `engine`。见 API v1.63、前端设计 v1.81
+- **包含代码**：`internal/webfetch`、`internal/model/*`、`internal/provider/service.go`、Web `models.vue` / `[id].vue`
+- **后续 TODO（约一周后，目标 2026-11-23）**：`cogniforge-ai` 同仓加 `crawl/` + `Dockerfile.crawl` + compose 第二服务（Crawl4AI），Go 再接该服务；本期不做
+
+## [变更] 上传三步数据源向导（跨仓，2026-11-16）
+
+- **变更原因**：入库需要本地文件、网页、自定义文本，并在上传前确认列表
+- **变更后**：Go 新增 `POST .../documents/text`、`.../documents/url`；Web 三步：选择数据源 → 本次分段 → 确认上传（名称/状态/删除）。见 API v1.62、前端设计 v1.80
+- **包含代码**：`internal/knowledge/*`、`cogniforge-web/pages/knowledge/[id].vue`、`useKnowledgeBases.ts`
 
 ## [变更] 上传弹窗页脚分层（跨仓，2026-11-16）
 

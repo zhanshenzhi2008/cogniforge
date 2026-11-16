@@ -12,6 +12,10 @@ func TestHasCapability(t *testing.T) {
 	assert.True(t, HasCapability("chat,embedding", CapEmbedding))
 	assert.False(t, HasCapability("chat", CapEmbedding))
 	assert.Equal(t, "chat,embedding", JoinCapabilities([]string{"embedding", "chat", "chat"}))
+	assert.True(t, HasCapability(CapWebFetch, CapWebFetch))
+	assert.Equal(t, CapWebFetch, JoinCapabilities([]string{CapWebFetch}))
+	assert.Equal(t, "chat,web_fetch", JoinCapabilities([]string{CapWebFetch, CapChat}))
+	assert.False(t, HasCapability(CapWebFetch, CapChat))
 }
 
 func TestEmbeddingModelName(t *testing.T) {

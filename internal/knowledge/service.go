@@ -138,6 +138,7 @@ func (s *KnowledgeService) CreateKnowledgeBase(userID string, req *CreateKBReque
 		SplitSeparator: "\n\n",
 		RagTopK:        5,
 		RagMinScore:    0.3,
+		SearchMode:     "semantic",
 		Visibility:     "private",
 		Status:         "active",
 		Metadata:       model.JSONBMap{},
@@ -777,6 +778,18 @@ func applyCreateParseDefaults(kb *model.KnowledgeBase, req *CreateKBRequest) {
 	if req.RagMinScore != nil && *req.RagMinScore >= 0 {
 		kb.RagMinScore = *req.RagMinScore
 	}
+	if req.SearchMode != "" {
+		kb.SearchMode = normalizeSearchMode(req.SearchMode)
+	}
+	if req.RerankSemantic != nil {
+		kb.RerankSemantic = *req.RerankSemantic
+	}
+	if req.RerankKeyword != nil {
+		kb.RerankKeyword = *req.RerankKeyword
+	}
+	if req.RerankHybrid != nil {
+		kb.RerankHybrid = *req.RerankHybrid
+	}
 	if req.Visibility != "" {
 		// 阶段三：暂仅 private；org 等后续 ACL
 		kb.Visibility = "private"
@@ -802,6 +815,18 @@ func applyUpdateParseDefaults(kb *model.KnowledgeBase, req *UpdateKBRequest) {
 	if req.RagMinScore != nil && *req.RagMinScore >= 0 {
 		kb.RagMinScore = *req.RagMinScore
 	}
+	if req.SearchMode != "" {
+		kb.SearchMode = normalizeSearchMode(req.SearchMode)
+	}
+	if req.RerankSemantic != nil {
+		kb.RerankSemantic = *req.RerankSemantic
+	}
+	if req.RerankKeyword != nil {
+		kb.RerankKeyword = *req.RerankKeyword
+	}
+	if req.RerankHybrid != nil {
+		kb.RerankHybrid = *req.RerankHybrid
+	}
 	if req.Visibility != "" {
 		kb.Visibility = "private"
 	}
@@ -815,6 +840,17 @@ func normalizeSplitMode(mode string) string {
 		return "separator"
 	default:
 		return "recursive"
+	}
+}
+
+func normalizeSearchMode(mode string) string {
+	switch strings.ToLower(strings.TrimSpace(mode)) {
+	case "keyword", "fulltext", "bm25":
+		return "keyword"
+	case "hybrid", "mix":
+		return "hybrid"
+	default:
+		return "semantic"
 	}
 }
 

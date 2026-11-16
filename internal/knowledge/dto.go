@@ -18,9 +18,13 @@ type CreateKBRequest struct {
 	ChunkOverlap   *int    `json:"chunk_overlap"`
 	SplitMode      string  `json:"split_mode"`
 	SplitSeparator string  `json:"split_separator"`
-	RagTopK        *int    `json:"rag_top_k"`
+	RagTopK        *int     `json:"rag_top_k"`
 	RagMinScore    *float64 `json:"rag_min_score"`
-	Visibility     string  `json:"visibility"`
+	SearchMode     string   `json:"search_mode"`
+	RerankSemantic *bool    `json:"rerank_semantic"`
+	RerankKeyword  *bool    `json:"rerank_keyword"`
+	RerankHybrid   *bool    `json:"rerank_hybrid"`
+	Visibility     string   `json:"visibility"`
 }
 
 type UpdateKBRequest struct {
@@ -35,6 +39,10 @@ type UpdateKBRequest struct {
 	SplitSeparator *string  `json:"split_separator"`
 	RagTopK        *int     `json:"rag_top_k"`
 	RagMinScore    *float64 `json:"rag_min_score"`
+	SearchMode     string   `json:"search_mode"`
+	RerankSemantic *bool    `json:"rerank_semantic"`
+	RerankKeyword  *bool    `json:"rerank_keyword"`
+	RerankHybrid   *bool    `json:"rerank_hybrid"`
 	Visibility     string   `json:"visibility"`
 	Status         string   `json:"status"`
 }
@@ -91,6 +99,9 @@ type SearchRequest struct {
 	CollectionName string          `json:"collection_name"`
 	TopK           int             `json:"top_k"`
 	MinScore       float64         `json:"min_score"`
+	// SearchMode / Rerank：测试与对话可覆盖库配置；关键字/混合/Rerank 引擎后续接入
+	SearchMode string `json:"search_mode,omitempty"`
+	Rerank     *bool  `json:"rerank,omitempty"`
 }
 
 // ============ 响应结构 ============

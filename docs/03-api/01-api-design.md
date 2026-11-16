@@ -4,6 +4,8 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-16 | v1.61 | POST search 可传 search_mode / rerank（引擎后续接） | orjrs |
+| 2026-11-16 | v1.60 | PUT 知识库可更新 search_mode 与分模式 rerank_* | orjrs |
 | 2026-11-16 | v1.59 | 知识库文件目录改用库名（storage_dir），检索 ID 不变 | orjrs |
 | 2026-11-15 | v1.58 | providers：scope/owner 可见性；个人默认；按用户解析生效配置 | orjrs |
 | 2026-11-15 | v1.57 | 预览分块：路径规范化；空 PDF/缺文件可读错误 | orjrs |
@@ -92,11 +94,24 @@
 - **限制**：仅 `md` / `txt` / `html`；覆盖磁盘文件并更新 `file_size`；默认触发重新解析
 - **GET 详情**：增加 `editable`；HTML 返回原文（不再剥标签）
 
+## [变更] 检索请求可带 search_mode（2026-11-16）
+
+- **变更原因**：检索测试要临时覆盖库配置
+- **接口**：`POST /api/v1/knowledge/{id}/search` 可选 `search_mode`、`rerank`；当前仍走向量检索，字段先透传落日志/后续接引擎
+- **前端**：检索测试右侧栏保存后带上这些参数
+
+## [变更] 知识库检索方式配置（2026-11-16）
+
+- **变更原因**：设置页改为检索方式（语义 / 关键字 / 混合）+ 各方式 Rerank 开关
+- **接口**：`PUT /api/v1/knowledge/{id}` 增加可选 `search_mode`、`rerank_semantic`、`rerank_keyword`、`rerank_hybrid`；仍可更新 `rag_top_k` / `rag_min_score`
+- **说明**：关键字/混合引擎与 Rerank 执行后续接入；配置先持久化
+- **前端**：知识库详情第三标签「设置」
+
 ## [变更] 知识库设置默认值与权限占位（2026-11-15）
 
 - **变更原因**：库级默认分段/检索需可配置；ACL 先占位
 - **接口**：`PUT /api/v1/knowledge/{id}` 可更新 `chunk_*` / `split_*` / `rag_top_k` / `rag_min_score` / `visibility`（当前强制 `private`）
-- **前端**：抽屉「设置」页编辑并保存
+- **前端**：~~抽屉「设置」页编辑并保存~~（2026-11-16：设置标签改为检索方式）
 
 ## [变更] 检索默认 Top-K / 最低分（2026-11-15）
 

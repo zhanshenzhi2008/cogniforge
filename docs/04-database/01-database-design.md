@@ -3,6 +3,7 @@
 ## [变更记录]
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|---------|--------|
+| 2026-11-16 | v1.27 | knowledge_bases 增加检索方式与分模式 Rerank 开关 | orjrs |
 | 2026-11-16 | v1.26 | knowledge_bases.storage_dir：文件目录用知识库名 | orjrs |
 | 2026-11-15 | v1.25 | ai_providers owner/scope；user_settings 个人默认供应商 | orjrs |
 | 2026-11-15 | v1.24 | knowledge_bases 默认分段/检索/可见性字段 | orjrs |
@@ -27,6 +28,15 @@
 | 2026-08-16 | v1.2 | Redis 键统一 `cogniforge:` 前缀；多项目用前缀隔离，不拆 db0/db1 | orjrs |
 | 2026-08-15 | v1.1 | 落地模型配置 Redis 键（当时为 `cf:modelcfg:*`） | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] 知识库检索方式字段（2026-11-16）
+
+- **变更原因**：设置页改为选语义 / 关键字 / 混合，并按方式配置是否 Rerank
+- **扩展 `knowledge_bases`**（GORM AutoMigrate）：
+  - `search_mode` VARCHAR(32) 默认 `semantic`（`semantic` | `keyword` | `hybrid`）
+  - `rerank_semantic` / `rerank_keyword` / `rerank_hybrid` BOOL 默认 false
+- **说明**：关键字与混合检索引擎、Rerank 执行后续接入；字段先落库供前端保存
+- **包含代码**：`internal/model/kb.go`、`internal/knowledge/dto.go` / `service.go`
 
 ## [变更] 模型供应商 Scope + 个人偏好（2026-11-15）
 

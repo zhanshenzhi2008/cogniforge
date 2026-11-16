@@ -28,9 +28,10 @@ func (KnowledgeFolder) TableName() string {
 // KnowledgeBase 知识库表
 type KnowledgeBase struct {
 	ID             string         `gorm:"primaryKey;type:varchar(64)" json:"id"`
-	UserID         string         `gorm:"type:varchar(64);not null;index" json:"user_id"`
+	UserID         string         `gorm:"type:varchar(64);not null;index;index:idx_kb_user_storage,priority:1" json:"user_id"`
 	FolderID       string         `gorm:"type:varchar(64);index:idx_kb_folder_id" json:"folder_id"` // 空=未分类
 	Name           string         `gorm:"type:varchar(255);not null" json:"name"`
+	StorageDir     string         `gorm:"type:varchar(120);index:idx_kb_user_storage,priority:2" json:"storage_dir"` // 文件目录名，取知识库名；检索仍用 ID
 	Description    string         `gorm:"type:text" json:"description"`
 	VectorDB       string         `gorm:"type:varchar(50);default:'pgvector'" json:"vector_db"` // pgvector, chroma, qdrant, weaviate
 	EmbeddingModel string         `gorm:"type:varchar(100);default:'text-embedding-ada-002'" json:"embedding_model"`

@@ -3,6 +3,7 @@
 ## [变更记录]
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|---------|--------|
+| 2026-11-16 | v1.26 | knowledge_bases.storage_dir：文件目录用知识库名 | orjrs |
 | 2026-11-15 | v1.25 | ai_providers owner/scope；user_settings 个人默认供应商 | orjrs |
 | 2026-11-15 | v1.24 | knowledge_bases 默认分段/检索/可见性字段 | orjrs |
 | 2026-11-15 | v1.23 | 知识库目录 knowledge_folders；knowledge_bases.folder_id | orjrs |
@@ -40,6 +41,13 @@
   - `preferred_chat_provider_id` VARCHAR(64) 可空
   - `preferred_embedding_provider_id` VARCHAR(64) 可空
 - **解析顺序**（对话/向量）：用户偏好（且对该用户可见）→ 全站 public 默认 → 该用户可见的启用条目中优先
+
+## [变更] 知识库文件目录用库名（2026-11-16）
+
+- **变更原因**：上传文件原先落在 `uploads/documents/{用户}/{知识库ID}/`，磁盘上看不出是哪个库
+- **扩展 `knowledge_bases.storage_dir`**：VARCHAR(120)，创建时取知识库名（去掉不能当目录的符号）；同名再加 `-2`。改名时连目录和文档路径一起改
+- **路径**：`uploads/documents/{用户名}/{storage_dir}/文件`。用户名已全局唯一，改名时连这一层目录和文档路径一起改。检索集合仍用知识库 ID
+- **旧库**：`storage_dir` 为空时仍用 ID 目录，不搬历史文件
 
 ## [变更] 知识库默认分段与检索字段（2026-11-15）
 

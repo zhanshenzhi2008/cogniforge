@@ -12,6 +12,7 @@ import (
 	"gorm.io/gorm"
 
 	"cogniforge/internal/database"
+	"cogniforge/internal/knowledge"
 	"cogniforge/internal/model"
 	"cogniforge/internal/util"
 )
@@ -29,6 +30,14 @@ var (
 	ErrPasswordUnchanged = errors.New("新旧密码不能相同")
 	ErrPasswordWeak      = errors.New("密码强度不足")
 )
+
+func isUniqueViolation(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "unique") || strings.Contains(msg, "duplicate")
+}
 
 // ListUsers 获取用户列表（管理员）
 func (s *UserService) ListUsers(req *ListUsersRequest) (*ListUsersResponse, error) {
@@ -99,6 +108,9 @@ func (s *UserService) CreateUser(req *CreateUserRequest) (*model.User, error) {
 	}
 
 	if err := s.db.Create(&user).Error; err != nil {
+		if isUniqueViolation(err) {
+			return nil, fmt.Errorf("邮箱或用户名已被使用")
+		}
 		return nil, fmt.Errorf("创建用户失败")
 	}
 
@@ -148,6 +160,9 @@ func (s *UserService) UpdateUser(userID string, req *UpdateUserRequest) (*model.
 		var clash model.User
 		if err := s.db.Where("name = ? AND id <> ?", name, userID).First(&clash).Error; err == nil {
 			return nil, fmt.Errorf("该用户名已被使用")
+		}
+		if err := knowledge.RelocateUserUploadRoot(s.db, userID, user.Name, name); err != nil {
+			return nil, err
 		}
 		updates["name"] = name
 	}
@@ -250,6 +265,9 @@ func (s *UserService) UpdateCurrentUser(userID string, req *UpdateUserRequest) (
 		var clash model.User
 		if err := s.db.Where("name = ? AND id <> ?", name, userID).First(&clash).Error; err == nil {
 			return nil, fmt.Errorf("该用户名已被使用")
+		}
+		if err := knowledge.RelocateUserUploadRoot(s.db, userID, user.Name, name); err != nil {
+			return nil, err
 		}
 		updates["name"] = name
 	}

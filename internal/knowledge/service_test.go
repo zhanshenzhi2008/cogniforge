@@ -397,6 +397,13 @@ func TestKnowledgeService_Search(t *testing.T) {
 	database.DB.Where("user_id = ?", userID).Delete(&model.KnowledgeBase{})
 }
 
+func TestSanitizeStorageDir(t *testing.T) {
+	assert.Equal(t, "客服政策", sanitizeStorageDir("  客服政策  "))
+	assert.Equal(t, "a-b", sanitizeStorageDir("a/b"))
+	assert.Equal(t, "kb", sanitizeStorageDir(".."))
+	assert.Equal(t, "kb", sanitizeStorageDir("   "))
+}
+
 func TestEnsureUploadDir(t *testing.T) {
 	dir, err := ensureUploadDir("user123", "kb456")
 	assert.NoError(t, err)

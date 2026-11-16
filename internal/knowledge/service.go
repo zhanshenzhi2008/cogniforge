@@ -151,6 +151,11 @@ func (s *KnowledgeService) CreateKnowledgeBase(userID string, req *CreateKBReque
 	if kb.EmbeddingModel == "" {
 		kb.EmbeddingModel = "text-embedding-ada-002"
 	}
+	storageDir, err := s.allocStorageDir(userID, kb.Name, "")
+	if err != nil {
+		return nil, err
+	}
+	kb.StorageDir = storageDir
 	applyCreateParseDefaults(&kb, req)
 
 	if err := s.db.Create(&kb).Error; err != nil {
@@ -182,8 +187,16 @@ func (s *KnowledgeService) UpdateKnowledgeBase(userID, kbID string, req *UpdateK
 		return nil, fmt.Errorf("查询知识库失败")
 	}
 
-	if req.Name != "" {
+	if req.Name != "" && req.Name != kb.Name {
+		newDir, err := s.allocStorageDir(userID, req.Name, kb.ID)
+		if err != nil {
+			return nil, err
+		}
+		if err := s.moveUploadDir(userID, kb.StorageDir, newDir, kb.ID); err != nil {
+			return nil, err
+		}
 		kb.Name = req.Name
+		kb.StorageDir = newDir
 	}
 	if req.Description != "" {
 		kb.Description = req.Description
@@ -453,7 +466,7 @@ func (s *KnowledgeService) UploadDocument(ctx context.Context, userID, kbID stri
 		return nil, fmt.Errorf("不支持的文件类型，支持：PDF、TXT、MD、DOCX、HTML")
 	}
 
-	dir, err := ensureUploadDir(userID, kbID)
+	dir, err := ensureUploadDir(s.userDirName(userID), kbStorageKey(&kb))
 	if err != nil {
 		return nil, fmt.Errorf("创建上传目录失败")
 	}
@@ -523,7 +536,7 @@ func (s *KnowledgeService) PreviewChunks(ctx context.Context, userID, kbID strin
 		return nil, fmt.Errorf("不支持的文件类型，支持：PDF、TXT、MD、DOCX、HTML")
 	}
 
-	dir, err := ensureUploadDir(userID, kbID)
+	dir, err := ensureUploadDir(s.userDirName(userID), kbStorageKey(&kb))
 	if err != nil {
 		return nil, fmt.Errorf("创建上传目录失败")
 	}
@@ -930,8 +943,170 @@ func metaString(meta model.JSONBMap, key string) (string, bool) {
 	return s, ok && s != ""
 }
 
-func ensureUploadDir(userID, kbID string) (string, error) {
-	dir := filepath.Join(UploadsDir, DocumentsDir, userID, kbID)
+func kbStorageKey(kb *model.KnowledgeBase) string {
+	if kb != nil && strings.TrimSpace(kb.StorageDir) != "" {
+		return kb.StorageDir
+	}
+	if kb != nil && kb.ID != "" {
+		return kb.ID
+	}
+	return "kb"
+}
+
+func sanitizeStorageDir(name string) string {
+	name = strings.TrimSpace(name)
+	var b strings.Builder
+	for _, r := range name {
+		switch r {
+		case '/', '\\', ':', '*', '?', '"', '<', '>', '|', '\n', '\r', '\t':
+			b.WriteRune('-')
+		default:
+			if r < 32 {
+				b.WriteRune('-')
+			} else {
+				b.WriteRune(r)
+			}
+		}
+	}
+	s := strings.Trim(b.String(), " .-")
+	for strings.Contains(s, "--") {
+		s = strings.ReplaceAll(s, "--", "-")
+	}
+	if s == "" || s == "." || s == ".." {
+		s = "kb"
+	}
+	rs := []rune(s)
+	if len(rs) > 80 {
+		s = string(rs[:80])
+		s = strings.TrimRight(s, " .-")
+	}
+	if s == "" {
+		return "kb"
+	}
+	return s
+}
+
+func (s *KnowledgeService) allocStorageDir(userID, name, excludeID string) (string, error) {
+	base := sanitizeStorageDir(name)
+	candidate := base
+	for i := 2; i < 1000; i++ {
+		q := s.db.Model(&model.KnowledgeBase{}).Where("user_id = ? AND storage_dir = ?", userID, candidate)
+		if excludeID != "" {
+			q = q.Where("id <> ?", excludeID)
+		}
+		var n int64
+		if err := q.Count(&n).Error; err != nil {
+			return "", fmt.Errorf("检查存储目录失败")
+		}
+		if n == 0 {
+			return candidate, nil
+		}
+		candidate = fmt.Sprintf("%s-%d", base, i)
+	}
+	return "", fmt.Errorf("存储目录重名过多")
+}
+
+func (s *KnowledgeService) moveUploadDir(userID, oldDir, newDir, kbID string) error {
+	if oldDir == "" || oldDir == newDir {
+		return nil
+	}
+	oldPath := filepath.Join(UploadsDir, DocumentsDir, s.userDirName(userID), oldDir)
+	newPath := filepath.Join(UploadsDir, DocumentsDir, s.userDirName(userID), newDir)
+	info, err := os.Stat(oldPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return fmt.Errorf("读取存储目录失败")
+	}
+	if !info.IsDir() {
+		return nil
+	}
+	if _, err := os.Stat(newPath); err == nil {
+		return fmt.Errorf("存储目录已存在")
+	}
+	if err := os.MkdirAll(filepath.Dir(newPath), 0o755); err != nil {
+		return fmt.Errorf("创建存储目录失败")
+	}
+	if err := os.Rename(oldPath, newPath); err != nil {
+		return fmt.Errorf("重命名存储目录失败")
+	}
+	var docs []model.Document
+	if err := s.db.Where("knowledge_base_id = ?", kbID).Find(&docs).Error; err != nil {
+		return fmt.Errorf("查询文档失败")
+	}
+	oldPrefix := filepath.Clean(oldPath)
+	newPrefix := filepath.Clean(newPath)
+	for _, d := range docs {
+		p := filepath.Clean(d.FilePath)
+		if !strings.HasPrefix(p, oldPrefix) {
+			continue
+		}
+		np := newPrefix + strings.TrimPrefix(p, oldPrefix)
+		if err := s.db.Model(&model.Document{}).Where("id = ?", d.ID).Update("file_path", np).Error; err != nil {
+			return fmt.Errorf("更新文档路径失败")
+		}
+	}
+	return nil
+}
+
+func (s *KnowledgeService) userDirName(userID string) string {
+	var u model.User
+	if err := s.db.Select("name").Where("id = ?", userID).First(&u).Error; err != nil {
+		return sanitizeStorageDir(userID)
+	}
+	if strings.TrimSpace(u.Name) == "" {
+		return sanitizeStorageDir(userID)
+	}
+	return sanitizeStorageDir(u.Name)
+}
+
+// RelocateUserUploadRoot 用户改名时，把 uploads/documents/{旧用户名} 改成新用户名，并改文档路径。
+func RelocateUserUploadRoot(db *gorm.DB, userID, oldName, newName string) error {
+	oldSeg := sanitizeStorageDir(oldName)
+	newSeg := sanitizeStorageDir(newName)
+	if oldSeg == newSeg {
+		return nil
+	}
+	oldPath := filepath.Join(UploadsDir, DocumentsDir, oldSeg)
+	newPath := filepath.Join(UploadsDir, DocumentsDir, newSeg)
+	info, err := os.Stat(oldPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return fmt.Errorf("读取用户目录失败")
+	}
+	if !info.IsDir() {
+		return nil
+	}
+	if _, err := os.Stat(newPath); err == nil {
+		return fmt.Errorf("用户目录已存在")
+	}
+	if err := os.Rename(oldPath, newPath); err != nil {
+		return fmt.Errorf("重命名用户目录失败")
+	}
+	var docs []model.Document
+	if err := db.Where("user_id = ?", userID).Find(&docs).Error; err != nil {
+		return fmt.Errorf("查询文档失败")
+	}
+	oldPrefix := filepath.Clean(oldPath)
+	newPrefix := filepath.Clean(newPath)
+	for _, d := range docs {
+		p := filepath.Clean(d.FilePath)
+		if !strings.HasPrefix(p, oldPrefix) {
+			continue
+		}
+		np := newPrefix + strings.TrimPrefix(p, oldPrefix)
+		if err := db.Model(&model.Document{}).Where("id = ?", d.ID).Update("file_path", np).Error; err != nil {
+			return fmt.Errorf("更新文档路径失败")
+		}
+	}
+	return nil
+}
+
+func ensureUploadDir(userDir, dirName string) (string, error) {
+	dir := filepath.Join(UploadsDir, DocumentsDir, userDir, dirName)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return "", fmt.Errorf("创建上传目录失败: %w", err)
 	}

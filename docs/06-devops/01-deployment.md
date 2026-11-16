@@ -3,6 +3,7 @@
 ## [变更记录]
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|---------|--------|
+| 2026-11-16 | v1.41 | 前端 Nginx 请求体上限 60MB，避免知识库预览/上传 413 | orjrs |
 | 2026-10-18 | v1.40 | CD：关 provenance/sbom；部署去掉 image prune（修 pull 失败） | orjrs |
 | 2026-10-17 | v1.39 | Go 监听端口改名 COGNIFORGE_PORT（兼容旧 PORT） | orjrs |
 | 2026-10-17 | v1.38 | compose 去掉写死 environment，业务配置一律 .env | orjrs |
@@ -17,6 +18,13 @@
 | 2026-08-16 | v1.29 | 前端 Docker 钉 pnpm@9，避免 ERR_PNPM_IGNORED_BUILDS | orjrs |
 | 2026-08-15 | v1.28 | 模型配置走 Redis；cogniforge-ai 增加 REDIS_HOST | orjrs |
 | 2026-08-15 | v1.27 | Python LLM 回调 Go；cogniforge-ai 增加 COGNIFORGE_API_URL | orjrs |
+
+## [变更] 前端 Nginx 放宽上传体（2026-11-16）
+
+- **变更原因**：知识库「预览分块」把整个文件 POST 到 `/api/`。Nginx 默认 1MB，更大的文件直接 413，请求到不了 Go
+- **变更前 vs 变更后**：~~`client_max_body_size` 未设置（默认 1m）~~ → `60m`。业务上限仍是 Go 的 50MB，多出的空间给 multipart 边界
+- **包含代码**：`cogniforge-web/nginx.conf`
+- **影响范围**：下次前端镜像部署后生效。超过 50MB 的文件仍会被拒绝，页面会写明原因
 
 ## [变更] CD 关闭镜像 attestation + 部署时禁 prune（2026-10-18）
 

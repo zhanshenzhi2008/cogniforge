@@ -19,8 +19,8 @@ import (
 	"cogniforge/internal/capability/memory"
 	"cogniforge/internal/model"
 	"cogniforge/internal/capability/provider"
-	"cogniforge/internal/quota"
-	"cogniforge/internal/response"
+	"cogniforge/internal/governance/quota"
+	"cogniforge/internal/shared/response"
 )
 
 // pythonServiceURL is set from config.RAG.PythonServiceURL.

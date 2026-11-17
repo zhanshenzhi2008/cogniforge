@@ -3,7 +3,7 @@ package skillimport
 import (
 	"io"
 
-	"cogniforge/internal/response"
+	"cogniforge/internal/shared/response"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )

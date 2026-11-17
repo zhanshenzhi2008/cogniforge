@@ -15,8 +15,8 @@ import (
 	agentmodel "cogniforge/internal/model"
 	promptpkg "cogniforge/internal/prompt"
 	"cogniforge/internal/capability/provider"
-	"cogniforge/internal/quota"
-	"cogniforge/internal/response"
+	"cogniforge/internal/governance/quota"
+	"cogniforge/internal/shared/response"
 	"cogniforge/internal/capability/skill"
 )
 

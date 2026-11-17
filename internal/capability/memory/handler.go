@@ -4,7 +4,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
-	"cogniforge/internal/response"
+	"cogniforge/internal/shared/response"
 )
 
 type MemoryHandler struct {

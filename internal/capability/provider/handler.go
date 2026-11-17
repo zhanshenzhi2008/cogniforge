@@ -6,7 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"cogniforge/internal/model"
-	"cogniforge/internal/response"
+	"cogniforge/internal/shared/response"
 )
 
 // Handler HTTP处理层

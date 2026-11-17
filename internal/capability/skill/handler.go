@@ -4,7 +4,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
-	"cogniforge/internal/response"
+	"cogniforge/internal/shared/response"
 )
 
 // Handler SKILL HTTP 处理

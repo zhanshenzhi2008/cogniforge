@@ -5,7 +5,7 @@ import (
 	"gorm.io/gorm"
 
 	"cogniforge/internal/model"
-	"cogniforge/internal/response"
+	"cogniforge/internal/shared/response"
 )
 
 // Handler MCP HTTP 处理

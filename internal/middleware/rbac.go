@@ -8,7 +8,7 @@ import (
 
 	"cogniforge/internal/infra/database"
 	"cogniforge/internal/model"
-	"cogniforge/internal/response"
+	"cogniforge/internal/shared/response"
 )
 
 // 注意：model 用于数据库模型，response 用于 HTTP 响应

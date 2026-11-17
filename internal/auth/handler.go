@@ -7,7 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"cogniforge/internal/response"
+	"cogniforge/internal/shared/response"
 )
 
 type AuthHandler struct {

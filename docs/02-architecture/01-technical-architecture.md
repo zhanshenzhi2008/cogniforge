@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-17 | v4.15 | 分层：governance（含评测）+ orchestration + shared | orjrs |
 | 2026-11-17 | v4.14 | 单体分层起步：infra 迁入；详见 02-layering.md | orjrs |
 | 2026-10-26 | v4.13 | 工作流 W1：workflow_node_runs + current_node 持久化 | orjrs |
 | 2026-10-26 | v4.12 | 工作流 W0：LLM/Agent 节点经 NewEngineWithDeps 接真实 Chat | orjrs |

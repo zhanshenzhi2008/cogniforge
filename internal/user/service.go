@@ -14,7 +14,7 @@ import (
 	"cogniforge/internal/infra/database"
 	"cogniforge/internal/capability/knowledge"
 	"cogniforge/internal/model"
-	"cogniforge/internal/util"
+	"cogniforge/internal/shared/util"
 )
 
 type UserService struct {

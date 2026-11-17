@@ -17,7 +17,7 @@ import (
 	"cogniforge/internal/infra/mail"
 	"cogniforge/internal/middleware"
 	"cogniforge/internal/model"
-	"cogniforge/internal/util"
+	"cogniforge/internal/shared/util"
 )
 
 type AuthService struct {

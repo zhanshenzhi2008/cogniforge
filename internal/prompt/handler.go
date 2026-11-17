@@ -7,7 +7,7 @@ import (
 	"gorm.io/gorm"
 
 	"cogniforge/internal/model"
-	"cogniforge/internal/response"
+	"cogniforge/internal/shared/response"
 )
 
 type Handler struct {

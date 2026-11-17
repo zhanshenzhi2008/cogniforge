@@ -1,4 +1,5 @@
-// Package shared 公共薄层：统一响应、少量工具函数等跨层无业务语义代码。
+// Package shared 公共薄层：跨层无业务语义的小工具。
 //
-// 依赖规则：尽量不依赖业务；禁止变成大杂烩。后续 response / util 可迁入本目录。
+// 子包：response（统一 HTTP 响应）、util（用户名等工具）。
+// 依赖规则：尽量不依赖业务；禁止变成大杂烩。
 package shared

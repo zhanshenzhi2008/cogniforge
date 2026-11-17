@@ -8,11 +8,11 @@ import (
 
 	"gorm.io/gorm"
 
-	"cogniforge/internal/chat"
+	"cogniforge/internal/runtime/chat"
 	"cogniforge/internal/orchestration/engine/core"
 	"cogniforge/internal/capability/mcp"
 	"cogniforge/internal/model"
-	promptpkg "cogniforge/internal/prompt"
+	promptpkg "cogniforge/internal/app/prompt"
 	"cogniforge/internal/governance/quota"
 	"cogniforge/internal/capability/skill"
 )

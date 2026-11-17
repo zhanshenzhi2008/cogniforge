@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-17 | v4.16 | 分层：runtime/app 迁入；infra 收 middleware/config 等 | orjrs |
 | 2026-11-17 | v4.15 | 分层：governance（含评测）+ orchestration + shared | orjrs |
 | 2026-11-17 | v4.14 | 单体分层起步：infra 迁入；详见 02-layering.md | orjrs |
 | 2026-10-26 | v4.13 | 工作流 W1：workflow_node_runs + current_node 持久化 | orjrs |

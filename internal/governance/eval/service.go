@@ -9,10 +9,10 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
-	"cogniforge/internal/chat"
+	"cogniforge/internal/runtime/chat"
 	"cogniforge/internal/capability/mcp"
 	"cogniforge/internal/model"
-	"cogniforge/internal/prompt"
+	"cogniforge/internal/app/prompt"
 )
 
 type Service struct {

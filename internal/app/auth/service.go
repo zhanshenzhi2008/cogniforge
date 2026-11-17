@@ -15,7 +15,7 @@ import (
 
 	"cogniforge/internal/infra/database"
 	"cogniforge/internal/infra/mail"
-	"cogniforge/internal/middleware"
+	"cogniforge/internal/infra/middleware"
 	"cogniforge/internal/model"
 	"cogniforge/internal/shared/util"
 )

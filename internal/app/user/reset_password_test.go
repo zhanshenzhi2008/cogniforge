@@ -11,8 +11,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"cogniforge/internal/auth"
-	"cogniforge/internal/user"
+	"cogniforge/internal/app/auth"
+	"cogniforge/internal/app/user"
 )
 
 func setupResetPasswordRouter() *gin.Engine {

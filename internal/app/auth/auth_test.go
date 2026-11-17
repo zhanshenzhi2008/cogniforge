@@ -10,8 +10,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 
-	"cogniforge/internal/auth"
-	"cogniforge/internal/middleware"
+	"cogniforge/internal/app/auth"
+	"cogniforge/internal/infra/middleware"
 )
 
 func init() {

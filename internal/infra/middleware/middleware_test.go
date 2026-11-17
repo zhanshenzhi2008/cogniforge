@@ -7,7 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"cogniforge/internal/middleware"
+	"cogniforge/internal/infra/middleware"
 	"github.com/stretchr/testify/assert"
 )
 

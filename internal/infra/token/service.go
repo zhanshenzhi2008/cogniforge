@@ -10,7 +10,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/redis/go-redis/v9"
 
-	"cogniforge/internal/middleware"
+	"cogniforge/internal/infra/middleware"
 )
 
 const (

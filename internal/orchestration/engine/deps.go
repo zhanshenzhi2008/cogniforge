@@ -3,7 +3,7 @@ package engine
 import (
 	"gorm.io/gorm"
 
-	"cogniforge/internal/chat"
+	"cogniforge/internal/runtime/chat"
 	"cogniforge/internal/capability/mcp"
 	"cogniforge/internal/governance/quota"
 )

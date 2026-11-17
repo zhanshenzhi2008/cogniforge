@@ -1,4 +1,4 @@
-package user_test
+package auth_test
 
 import (
 	"bytes"
@@ -9,11 +9,11 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"cogniforge/internal/auth"
+	"cogniforge/internal/app/auth"
 )
 
-// registerUserAndGetToken 注册用户并返回 token
-func registerUserAndGetToken(t *testing.T, router *gin.Engine, email, password, name string) string {
+// registerAndGetToken 注册用户并返回 token（共享辅助函数）
+func registerAndGetToken(t *testing.T, router *gin.Engine, email, password, name string) string {
 	reqBody := auth.RegisterRequest{
 		Email:    email,
 		Password: password,
@@ -27,17 +27,19 @@ func registerUserAndGetToken(t *testing.T, router *gin.Engine, email, password, 
 	if w.Code != http.StatusCreated {
 		t.Fatalf("Failed to register user: status %d, body: %s", w.Code, w.Body.String())
 	}
-	return extractToken(w.Body.Bytes())
+	return extractTokenFromResponse(w.Body.Bytes())
 }
 
-// extractToken 从响应中提取 token
-func extractToken(body []byte) string {
+// extractTokenFromResponse 从响应中提取 token
+func extractTokenFromResponse(body []byte) string {
 	var resp map[string]interface{}
 	json.Unmarshal(body, &resp)
+
 	if data, ok := resp["data"].(map[string]interface{}); ok {
 		if token, ok := data["token"].(string); ok {
 			return token
 		}
 	}
+
 	return ""
 }

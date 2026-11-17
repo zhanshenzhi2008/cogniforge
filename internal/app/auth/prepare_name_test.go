@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"cogniforge/internal/auth"
+	"cogniforge/internal/app/auth"
 	"cogniforge/internal/infra/database"
 	"cogniforge/internal/model"
 )

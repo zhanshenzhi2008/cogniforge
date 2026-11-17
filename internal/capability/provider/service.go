@@ -14,7 +14,7 @@ import (
 
 	"cogniforge/internal/infra/crypto"
 	"cogniforge/internal/model"
-	"cogniforge/internal/modelcache"
+	"cogniforge/internal/infra/modelcache"
 )
 
 // Service 业务逻辑层

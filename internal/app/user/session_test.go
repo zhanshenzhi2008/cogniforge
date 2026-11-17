@@ -10,9 +10,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 
-	"cogniforge/internal/auth"
-	"cogniforge/internal/middleware"
-	"cogniforge/internal/user"
+	"cogniforge/internal/app/auth"
+	"cogniforge/internal/infra/middleware"
+	"cogniforge/internal/app/user"
 )
 
 func setupSessionRouter() *gin.Engine {

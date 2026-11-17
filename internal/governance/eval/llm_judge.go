@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"cogniforge/internal/chat"
+	"cogniforge/internal/runtime/chat"
 	"cogniforge/internal/model"
 )
 

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"cogniforge/internal/chat"
+	"cogniforge/internal/runtime/chat"
 	"cogniforge/internal/orchestration/engine/core"
 	"cogniforge/internal/governance/quota"
 )

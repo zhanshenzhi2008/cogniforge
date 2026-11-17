@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"testing"
 
-	"cogniforge/internal/config"
+	"cogniforge/internal/infra/config"
 	"cogniforge/internal/model"
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"

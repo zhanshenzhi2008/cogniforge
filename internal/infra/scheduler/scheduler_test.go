@@ -7,7 +7,7 @@ import (
 	"github.com/robfig/cron/v3"
 	"github.com/stretchr/testify/assert"
 
-	"cogniforge/internal/scheduler"
+	"cogniforge/internal/infra/scheduler"
 )
 
 func TestScheduledWorkflow_Struct(t *testing.T) {

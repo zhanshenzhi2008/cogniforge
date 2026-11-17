@@ -8,7 +8,7 @@ import (
 
 	"github.com/redis/go-redis/v9"
 
-	"cogniforge/internal/config"
+	"cogniforge/internal/infra/config"
 )
 
 func redisAddr(cfg *config.Config) string {

@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-17 | v1.165 | develop：runtime/app 迁入；infra 收 middleware/config 等 | orjrs |
 | 2026-11-17 | v1.164 | develop：governance（含 eval）+ orchestration + shared | orjrs |
 | 2026-11-17 | v1.163 | develop：capability 包迁入（provider/memory/mcp/knowledge…） | orjrs |
 | 2026-11-17 | v1.162 | develop 启动单体分层：infra 物理迁入；release-20261117 备份 | orjrs |
@@ -161,6 +162,12 @@
 | 2026-04-11 | v1.2 | 阶段八监控中心完成（请求日志中间件、日志列表 API、用量统计 API、监控仪表板页面） | orjrs |
 | 2026-04-17 | v1.3 | 阶段九用户管理与个人设置完成（用户CRUD、个人设置、会话管理、RBAC权限系统） | orjrs |
 > 注：任务状态变更直接在下方任务表格中更新即可，无需额外记录。
+
+## [变更] runtime + app + infra 边界收口（2026-11-17）
+
+- **变更原因**：执行循环进 runtime；账号/提示词/路由进 app；中间件与配置进 infra
+- **变更后**：`runtime/{chat,agent}`；`app/{auth,user,prompt,router}`；`infra` 增补 middleware/config/token/modelcache/scheduler
+- **包含代码**：见 `docs/02-architecture/02-layering.md` v1.3
 
 ## [变更] governance + orchestration + shared（2026-11-17）
 

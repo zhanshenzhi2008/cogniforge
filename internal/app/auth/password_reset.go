@@ -15,7 +15,7 @@ import (
 
 	"cogniforge/internal/infra/mail"
 	"cogniforge/internal/model"
-	"cogniforge/internal/user"
+	"cogniforge/internal/app/user"
 )
 
 const (

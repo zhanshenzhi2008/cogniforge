@@ -9,9 +9,9 @@ import (
 
 	"cogniforge/internal/auth"
 	"cogniforge/internal/config"
-	"cogniforge/internal/crypto"
-	"cogniforge/internal/database"
-	"cogniforge/internal/logger"
+	"cogniforge/internal/infra/crypto"
+	"cogniforge/internal/infra/database"
+	"cogniforge/internal/infra/logger"
 	"cogniforge/internal/middleware"
 	"cogniforge/internal/model"
 	"cogniforge/internal/router"

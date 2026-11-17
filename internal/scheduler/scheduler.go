@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"cogniforge/internal/database"
+	"cogniforge/internal/infra/database"
 	"cogniforge/internal/engine"
 	"cogniforge/internal/model"
 	"github.com/robfig/cron/v3"

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"cogniforge/internal/httpclient"
+	"cogniforge/internal/infra/httpclient"
 )
 
 // ServiceClient 是知识库服务调用 Python RAG 服务的客户端。

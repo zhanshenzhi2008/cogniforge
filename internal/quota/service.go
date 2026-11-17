@@ -10,7 +10,7 @@ import (
 
 	"cogniforge/internal/model"
 	"cogniforge/internal/response"
-	"cogniforge/internal/trace"
+	"cogniforge/internal/infra/trace"
 )
 
 const (

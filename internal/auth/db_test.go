@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"cogniforge/internal/database"
+	"cogniforge/internal/infra/database"
 	"cogniforge/internal/model"
 )
 

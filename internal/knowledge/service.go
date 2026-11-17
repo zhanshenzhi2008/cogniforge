@@ -16,9 +16,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
-	"cogniforge/internal/database"
+	"cogniforge/internal/infra/database"
 	"cogniforge/internal/model"
-	"cogniforge/internal/trace"
+	"cogniforge/internal/infra/trace"
 	"cogniforge/internal/webfetch"
 )
 

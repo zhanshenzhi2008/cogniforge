@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"time"
 
-	"cogniforge/internal/trace"
+	"cogniforge/internal/infra/trace"
 )
 
 // Client 是封装了 trace 自动注入的通用 HTTP Client。

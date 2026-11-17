@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"cogniforge/internal/trace"
+	"cogniforge/internal/infra/trace"
 )
 
 type ExecutionContext struct {

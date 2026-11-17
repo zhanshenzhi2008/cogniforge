@@ -12,7 +12,7 @@ import (
 
 	"cogniforge/internal/auth"
 	"cogniforge/internal/config"
-	"cogniforge/internal/mail"
+	"cogniforge/internal/infra/mail"
 	"cogniforge/internal/model"
 )
 

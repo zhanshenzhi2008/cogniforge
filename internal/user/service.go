@@ -11,7 +11,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 
-	"cogniforge/internal/database"
+	"cogniforge/internal/infra/database"
 	"cogniforge/internal/knowledge"
 	"cogniforge/internal/model"
 	"cogniforge/internal/util"

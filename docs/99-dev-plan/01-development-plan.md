@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-17 | v1.162 | develop 启动单体分层：infra 物理迁入；release-20261117 备份 | orjrs |
 | 2026-11-16 | v1.161 | 网页抓取接 Jina/Firecrawl；Key 进模型页 web_fetch（跨仓） | orjrs |
 | 2026-11-16 | v1.160 | 知识库上传三步：text/url 入库 + Web 数据源向导（跨仓） | orjrs |
 | 2026-11-16 | v1.159 | Web：上传弹窗操作进页脚分层（跨仓） | orjrs |
@@ -158,6 +159,13 @@
 | 2026-04-11 | v1.2 | 阶段八监控中心完成（请求日志中间件、日志列表 API、用量统计 API、监控仪表板页面） | orjrs |
 | 2026-04-17 | v1.3 | 阶段九用户管理与个人设置完成（用户CRUD、个人设置、会话管理、RBAC权限系统） | orjrs |
 > 注：任务状态变更直接在下方任务表格中更新即可，无需额外记录。
+
+## [变更] develop 启动单体分层（2026-11-17）
+
+- **变更原因**：要按 Agent 平台理清依赖，但不拆微服务、不新建仓
+- **分支**：`release-20261117` 备份迁移前 main；改动只在 `develop`；测通后再合 `main`
+- **变更后**：新增 `docs/02-architecture/02-layering.md`；`internal/infra/{database,crypto,logger,httpclient,trace,mail}`；层占位 `capability` / `runtime` / `app` / `shared`
+- **包含代码**：`internal/infra/*`、层 `doc.go`、分层文档
 
 ## [变更] 网页抓取 Jina / Firecrawl（跨仓，2026-11-16）
 

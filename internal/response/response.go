@@ -5,7 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"cogniforge/internal/trace"
+	"cogniforge/internal/infra/trace"
 )
 
 // =============================================================================

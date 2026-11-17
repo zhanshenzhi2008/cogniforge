@@ -8,7 +8,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 
-	"cogniforge/internal/database"
+	"cogniforge/internal/infra/database"
 	"cogniforge/internal/engine"
 	"cogniforge/internal/model"
 )

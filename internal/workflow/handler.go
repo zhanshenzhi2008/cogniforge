@@ -4,7 +4,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"cogniforge/internal/response"
-	"cogniforge/internal/trace"
+	"cogniforge/internal/infra/trace"
 )
 
 type WorkflowHandler struct {

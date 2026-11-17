@@ -11,7 +11,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
-	"cogniforge/internal/mail"
+	"cogniforge/internal/infra/mail"
 	"cogniforge/internal/model"
 )
 

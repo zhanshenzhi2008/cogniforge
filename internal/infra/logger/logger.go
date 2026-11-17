@@ -8,7 +8,7 @@ import (
 	"os"
 	"runtime"
 
-	"cogniforge/internal/trace"
+	"cogniforge/internal/infra/trace"
 )
 
 type consoleHandler struct {

@@ -6,7 +6,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"cogniforge/internal/database"
+	"cogniforge/internal/infra/database"
 	"cogniforge/internal/model"
 )
 

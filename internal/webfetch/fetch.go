@@ -14,7 +14,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"cogniforge/internal/crypto"
+	"cogniforge/internal/infra/crypto"
 	"cogniforge/internal/model"
 )
 

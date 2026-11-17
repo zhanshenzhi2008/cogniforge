@@ -8,7 +8,7 @@ import (
 	"gorm.io/gorm"
 
 	"cogniforge/internal/chat"
-	"cogniforge/internal/database"
+	"cogniforge/internal/infra/database"
 	"cogniforge/internal/knowledge"
 	"cogniforge/internal/mcp"
 	"cogniforge/internal/memory"

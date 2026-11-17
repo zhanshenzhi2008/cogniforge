@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"cogniforge/internal/auth"
-	"cogniforge/internal/database"
+	"cogniforge/internal/infra/database"
 	"cogniforge/internal/model"
 )
 

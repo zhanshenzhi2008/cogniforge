@@ -12,7 +12,7 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
-	"cogniforge/internal/crypto"
+	"cogniforge/internal/infra/crypto"
 	"cogniforge/internal/model"
 	"cogniforge/internal/modelcache"
 )

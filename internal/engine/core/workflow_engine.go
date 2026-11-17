@@ -8,7 +8,7 @@ import (
 	"log/slog"
 	"time"
 
-	"cogniforge/internal/database"
+	"cogniforge/internal/infra/database"
 	"cogniforge/internal/model"
 
 	"github.com/google/uuid"

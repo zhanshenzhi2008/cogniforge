@@ -13,7 +13,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 
-	"cogniforge/internal/mail"
+	"cogniforge/internal/infra/mail"
 	"cogniforge/internal/model"
 	"cogniforge/internal/user"
 )

@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"cogniforge/internal/database"
+	"cogniforge/internal/infra/database"
 	"cogniforge/internal/model"
 )
 

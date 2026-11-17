@@ -11,9 +11,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
-	"cogniforge/internal/database"
+	"cogniforge/internal/infra/database"
 	"cogniforge/internal/model"
-	"cogniforge/internal/trace"
+	"cogniforge/internal/infra/trace"
 )
 
 func RequestLogger() gin.HandlerFunc {

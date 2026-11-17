@@ -4,7 +4,7 @@ import (
 	"gorm.io/gorm"
 
 	"cogniforge/internal/chat"
-	"cogniforge/internal/mcp"
+	"cogniforge/internal/capability/mcp"
 	"cogniforge/internal/quota"
 )
 

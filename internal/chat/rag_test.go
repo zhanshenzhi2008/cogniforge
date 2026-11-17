@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"cogniforge/internal/knowledge"
+	"cogniforge/internal/capability/knowledge"
 )
 
 type mockRAGSearcher struct {

@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"cogniforge/internal/mcp"
+	"cogniforge/internal/capability/mcp"
 )
 
 func TestInjectMCPTools_WebSearch(t *testing.T) {

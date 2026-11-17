@@ -12,7 +12,7 @@ import (
 	"gorm.io/gorm"
 
 	"cogniforge/internal/infra/database"
-	"cogniforge/internal/knowledge"
+	"cogniforge/internal/capability/knowledge"
 	"cogniforge/internal/model"
 	"cogniforge/internal/util"
 )

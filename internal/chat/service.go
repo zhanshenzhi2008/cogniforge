@@ -13,7 +13,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"cogniforge/internal/model"
-	"cogniforge/internal/provider"
+	"cogniforge/internal/capability/provider"
 )
 
 type ChatService struct {

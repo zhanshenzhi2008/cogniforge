@@ -19,7 +19,7 @@ import (
 	"cogniforge/internal/infra/database"
 	"cogniforge/internal/model"
 	"cogniforge/internal/infra/trace"
-	"cogniforge/internal/webfetch"
+	"cogniforge/internal/capability/webfetch"
 )
 
 const (

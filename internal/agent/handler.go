@@ -9,15 +9,15 @@ import (
 
 	"cogniforge/internal/chat"
 	"cogniforge/internal/infra/database"
-	"cogniforge/internal/knowledge"
-	"cogniforge/internal/mcp"
-	"cogniforge/internal/memory"
+	"cogniforge/internal/capability/knowledge"
+	"cogniforge/internal/capability/mcp"
+	"cogniforge/internal/capability/memory"
 	agentmodel "cogniforge/internal/model"
 	promptpkg "cogniforge/internal/prompt"
-	"cogniforge/internal/provider"
+	"cogniforge/internal/capability/provider"
 	"cogniforge/internal/quota"
 	"cogniforge/internal/response"
-	"cogniforge/internal/skill"
+	"cogniforge/internal/capability/skill"
 )
 
 // GetBuiltInSkill 在 skill 包里单独导出（避免循环引用）

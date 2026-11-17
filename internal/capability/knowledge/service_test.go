@@ -276,10 +276,18 @@ func TestCalculateTextSimilarity(t *testing.T) {
 
 // ============ Service Tests (DB Required) ============
 
-func TestKnowledgeService_CRUD(t *testing.T) {
+func requireDB(t *testing.T) {
+	t.Helper()
 	if testing.Short() {
 		t.Skip("Skipping DB test in short mode")
 	}
+	if database.DB == nil {
+		t.Skip("database not initialized")
+	}
+}
+
+func TestKnowledgeService_CRUD(t *testing.T) {
+	requireDB(t)
 
 	userID := "test_kb_crud"
 	database.DB.Where("user_id = ?", userID).Delete(&model.KnowledgeBase{})
@@ -320,9 +328,7 @@ func TestKnowledgeService_CRUD(t *testing.T) {
 }
 
 func TestKnowledgeService_List(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping DB test in short mode")
-	}
+	requireDB(t)
 
 	userID := "test_kb_list"
 	database.DB.Where("user_id = ?", userID).Delete(&model.KnowledgeBase{})
@@ -347,9 +353,7 @@ func TestKnowledgeService_List(t *testing.T) {
 }
 
 func TestKnowledgeService_Defaults(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping DB test in short mode")
-	}
+	requireDB(t)
 
 	userID := "test_kb_defaults"
 	database.DB.Where("user_id = ?", userID).Delete(&model.KnowledgeBase{})
@@ -368,9 +372,7 @@ func TestKnowledgeService_Defaults(t *testing.T) {
 }
 
 func TestKnowledgeService_Search(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping DB test in short mode")
-	}
+	requireDB(t)
 
 	userID := "test_kb_search"
 	database.DB.Where("user_id = ?", userID).Delete(&model.KnowledgeBase{})

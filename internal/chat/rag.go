@@ -7,7 +7,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"cogniforge/internal/knowledge"
+	"cogniforge/internal/capability/knowledge"
 )
 
 const (

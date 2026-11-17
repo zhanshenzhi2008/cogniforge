@@ -10,11 +10,11 @@ import (
 
 	"cogniforge/internal/chat"
 	"cogniforge/internal/engine/core"
-	"cogniforge/internal/mcp"
+	"cogniforge/internal/capability/mcp"
 	"cogniforge/internal/model"
 	promptpkg "cogniforge/internal/prompt"
 	"cogniforge/internal/quota"
-	"cogniforge/internal/skill"
+	"cogniforge/internal/capability/skill"
 )
 
 type AgentNodeConfig struct {

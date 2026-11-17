@@ -7,7 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"cogniforge/internal/mcp"
+	"cogniforge/internal/capability/mcp"
 )
 
 // SetMCPRegistry 注入 MCP Registry（Playground / 共享工具执行）

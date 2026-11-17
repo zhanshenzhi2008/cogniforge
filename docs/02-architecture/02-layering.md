@@ -4,7 +4,13 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-17 | v1.1 | capability：provider/memory/mcp/skill/knowledge/webfetch 迁入 | orjrs |
 | 2026-11-17 | v1.0 | develop 启动分层：文档 + infra 物理迁入 | orjrs |
+
+## [变更] capability 包迁入（2026-11-17）
+
+- **变更原因**：能力层与业务 HTTP 用例分离
+- **变更后**：`internal/capability/{provider,memory,mcp,skill,skillimport,knowledge,webfetch}`
 
 ## [变更] develop 启动分层（2026-11-17）
 
@@ -43,7 +49,8 @@ model               持久化实体（跨层共享，暂保持顶层）
 |--------|--------|------|
 | `infra/database` `infra/crypto` `infra/logger` `infra/httpclient` `infra/trace` `infra/mail` | infra | ✅ 已迁 |
 | `config` `middleware` `token` `modelcache` | infra / 边界 | 待定（下一轮） |
-| `provider` `memory` `mcp` `skill` `skillimport` `knowledge` `webfetch` | capability | 待迁 |
+| `capability/provider` `memory` `mcp` `skill` `skillimport` `knowledge` `webfetch` | capability | ✅ 已迁 |
+| ~~顶层 provider/memory/mcp/…~~ | — | ~~已迁到 capability~~（2026-11-17） |
 | `engine` `workflow` | orchestration | 待迁/改名 |
 | `chat` `agent` 执行内核 | runtime | 待抽 |
 | `chat` `agent` `workflow` `knowledge` `auth` `user`… 的 HTTP | app | 待整理 |
@@ -61,7 +68,7 @@ model               持久化实体（跨层共享，暂保持顶层）
 ## 4. 迁移节奏
 
 1. ✅ infra 搬家 + 本文档  
-2. capability 搬家（provider/memory/mcp/…）  
+2. ✅ capability 搬家（provider/memory/mcp/…）  
 3. orchestration 目录收敛（engine/workflow）  
 4. runtime 抽出执行循环；Memory 调用关系钉死  
 5. app 收敛 handler；shared 收 response/util  

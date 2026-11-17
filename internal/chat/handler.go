@@ -14,11 +14,11 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
-	"cogniforge/internal/knowledge"
-	"cogniforge/internal/mcp"
-	"cogniforge/internal/memory"
+	"cogniforge/internal/capability/knowledge"
+	"cogniforge/internal/capability/mcp"
+	"cogniforge/internal/capability/memory"
 	"cogniforge/internal/model"
-	"cogniforge/internal/provider"
+	"cogniforge/internal/capability/provider"
 	"cogniforge/internal/quota"
 	"cogniforge/internal/response"
 )

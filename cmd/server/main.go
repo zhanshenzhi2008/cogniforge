@@ -15,7 +15,7 @@ import (
 	"cogniforge/internal/middleware"
 	"cogniforge/internal/model"
 	"cogniforge/internal/router"
-	"cogniforge/internal/util"
+	"cogniforge/internal/shared/util"
 )
 
 func main() {

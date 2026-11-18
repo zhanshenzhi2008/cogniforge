@@ -4,6 +4,8 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-18 | v1.169 | capability CRUD HTTP 迁入 app；单测全绿 | orjrs |
+| 2026-11-18 | v1.168 | chat/agent HTTP 迁入 app；执行核留 runtime | orjrs |
 | 2026-11-18 | v1.167 | 锁定 provider/memory 留 capability；context 由 runtime 组装 | orjrs |
 | 2026-11-17 | v1.166 | develop：gateway 层（JWT/CORS/RBAC 门禁/HTTP 限流）；配额实现仍在 governance | orjrs |
 | 2026-11-17 | v1.165 | develop：runtime/app 迁入；infra 收 middleware/config 等 | orjrs |
@@ -164,6 +166,18 @@
 | 2026-04-11 | v1.2 | 阶段八监控中心完成（请求日志中间件、日志列表 API、用量统计 API、监控仪表板页面） | orjrs |
 | 2026-04-17 | v1.3 | 阶段九用户管理与个人设置完成（用户CRUD、个人设置、会话管理、RBAC权限系统） | orjrs |
 > 注：任务状态变更直接在下方任务表格中更新即可，无需额外记录。
+
+## [变更] capability CRUD HTTP → app（2026-11-18）
+
+- **变更原因**：handler 与能力实现分离
+- **变更后**：`app/{provider,memory,mcp,skill,skillimport,knowledge}`；capability 无 HTTP。见分层文档 v1.7
+- **包含代码**：上述 app 包、`app/router`、`provider.ToResponseFor` 导出
+
+## [变更] chat/agent HTTP → app（2026-11-18）
+
+- **变更原因**：handler 与执行核分离
+- **变更后**：`app/{chat,agent}`；`runtime/{chat,agent}` 只留执行核。见分层文档 v1.6
+- **包含代码**：`internal/app/{chat,agent}`、`internal/app/router`、runtime 导出辅助函数
 
 ## [变更] 锁定 Memory / Provider 归属（2026-11-18）
 

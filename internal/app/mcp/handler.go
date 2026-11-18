@@ -6,24 +6,26 @@ import (
 
 	"cogniforge/internal/model"
 	"cogniforge/internal/shared/response"
+
+	capmcp "cogniforge/internal/capability/mcp"
 )
 
 // Handler MCP HTTP 处理
 type Handler struct {
-	svc      *Service
-	registry *Registry
+	svc      *capmcp.Service
+	registry *capmcp.Registry
 }
 
 // NewHandler 创建 MCP Handler
 func NewHandler(db *gorm.DB) *Handler {
 	return &Handler{
-		svc:      NewService(db),
-		registry: NewRegistry(),
+		svc:      capmcp.NewService(db),
+		registry: capmcp.NewRegistry(),
 	}
 }
 
 // Registry 返回 registry 实例（供其他模块使用）
-func (h *Handler) Registry() *Registry {
+func (h *Handler) Registry() *capmcp.Registry {
 	return h.registry
 }
 
@@ -63,7 +65,7 @@ func (h *Handler) ListServers(c *gin.Context) {
 // CreateServer 创建 MCP Server
 func (h *Handler) CreateServer(c *gin.Context) {
 	userID := c.GetString("user_id")
-	var req CreateServerRequest
+	var req capmcp.CreateServerRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, err.Error())
 		return
@@ -97,7 +99,7 @@ func (h *Handler) UpdateServer(c *gin.Context) {
 	userID := c.GetString("user_id")
 	serverID := c.Param("id")
 
-	var req UpdateServerRequest
+	var req capmcp.UpdateServerRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, err.Error())
 		return
@@ -212,7 +214,7 @@ func (h *Handler) TestTool(c *gin.Context) {
 	}
 
 	// 内置工具直接执行
-	executor := NewBuiltInExecutor()
+	executor := capmcp.NewBuiltInExecutor()
 	result, err := executor.Execute(tool.Name, req.Args)
 	if err != nil {
 		response.InternalError(c, "工具执行失败: "+err.Error())

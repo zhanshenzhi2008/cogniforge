@@ -4,11 +4,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -17,36 +15,37 @@ import (
 	"cogniforge/internal/capability/knowledge"
 	"cogniforge/internal/capability/mcp"
 	"cogniforge/internal/capability/memory"
-	"cogniforge/internal/model"
 	"cogniforge/internal/capability/provider"
 	"cogniforge/internal/governance/quota"
+	"cogniforge/internal/model"
+	rtchat "cogniforge/internal/runtime/chat"
 	"cogniforge/internal/shared/response"
 )
 
-// pythonServiceURL is set from config.RAG.PythonServiceURL.
-var pythonServiceURL string
-
-// SetPythonURL sets the Python service URL (called from router setup).
-func SetPythonURL(url string) { pythonServiceURL = strings.TrimRight(url, "/") }
 type ChatHandler struct {
-	service     *ChatService
-	conv        *ConversationService
+	service     *rtchat.ChatService
+	conv        *rtchat.ConversationService
 	quota       *quota.Service
-	rag         RAGSearcher
+	rag         rtchat.RAGSearcher
 	mcpRegistry *mcp.Registry
 }
 
 func NewChatHandler(providerSvc *provider.Service, db *gorm.DB, quotaSvc *quota.Service) *ChatHandler {
 	return &ChatHandler{
-		service: NewChatService(providerSvc),
-		conv:    NewConversationService(db),
+		service: rtchat.NewChatService(providerSvc),
+		conv:    rtchat.NewConversationService(db),
 		quota:   quotaSvc,
 	}
 }
 
 // SetRAGSearcher 注入知识库检索（阶段十三 13.2）
-func (h *ChatHandler) SetRAGSearcher(s RAGSearcher) {
+func (h *ChatHandler) SetRAGSearcher(s rtchat.RAGSearcher) {
 	h.rag = s
+}
+
+// SetMCPRegistry 注入 MCP Registry（Playground / 共享工具执行）
+func (h *ChatHandler) SetMCPRegistry(reg *mcp.Registry) {
+	h.mcpRegistry = reg
 }
 
 // SetKnowledgeService 便捷注入 KnowledgeService
@@ -54,7 +53,7 @@ func (h *ChatHandler) SetKnowledgeService(s *knowledge.KnowledgeService) {
 	h.rag = s
 }
 
-func (h *ChatHandler) Service() *ChatService {
+func (h *ChatHandler) Service() *rtchat.ChatService {
 	return h.service
 }
 
@@ -82,7 +81,7 @@ func (h *ChatHandler) gate(c *gin.Context, source string) bool {
 	return true
 }
 
-func (h *ChatHandler) commit(c *gin.Context, source, model string, usage *ChatUsage, status string, started time.Time) {
+func (h *ChatHandler) commit(c *gin.Context, source, model string, usage *rtchat.ChatUsage, status string, started time.Time) {
 	if h.quota == nil {
 		return
 	}
@@ -115,7 +114,7 @@ func (h *ChatHandler) refund(c *gin.Context) {
 }
 
 func (h *ChatHandler) Chat(c *gin.Context) {
-	var req ChatRequest
+	var req rtchat.ChatRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, "Invalid request: "+err.Error())
 		return
@@ -125,9 +124,9 @@ func (h *ChatHandler) Chat(c *gin.Context) {
 		return
 	}
 	// 服务端滑动窗口裁剪（阶段十四 14.1）
-	windowMsgs := toWindowMessages(req.Messages)
+	windowMsgs := rtchat.ToWindowMessages(req.Messages)
 	windowMsgs = memory.ApplyWindow(windowMsgs, req.MemoryTurns, req.MaxInputTokens)
-	req.Messages = fromWindowMessages(windowMsgs)
+	req.Messages = rtchat.FromWindowMessages(windowMsgs)
 	req.UserID = c.GetString("user_id")
 	if !h.gate(c, "playground") {
 		return
@@ -136,7 +135,7 @@ func (h *ChatHandler) Chat(c *gin.Context) {
 	resp, err := h.service.Chat(&req)
 	if err != nil {
 		h.refund(c)
-		if WriteNoActiveProvider(c, err) {
+		if rtchat.WriteNoActiveProvider(c, err) {
 			return
 		}
 		h.commit(c, "playground", req.Model, nil, "error", started)
@@ -149,7 +148,7 @@ func (h *ChatHandler) Chat(c *gin.Context) {
 }
 
 func (h *ChatHandler) ChatStream(c *gin.Context) {
-	var req ChatRequest
+	var req rtchat.ChatRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, "Invalid request: "+err.Error())
 		return
@@ -174,7 +173,7 @@ func (h *ChatHandler) ChatStream(c *gin.Context) {
 		}
 	}
 
-	lastUserContent := lastUserQuery(req.Messages)
+	lastUserContent := rtchat.LastUserQuery(req.Messages)
 
 	// --- 阶段十四 14.4：长期记忆检索 ---
 	longTermBlocks := []string{}
@@ -184,22 +183,22 @@ func (h *ChatHandler) ChatStream(c *gin.Context) {
 
 	// --- 阶段十三 13.2：RAG 检索注入（失败降级） ---
 	ragBlocks := []string{}
-	kbIDs := resolveRAGKnowledgeBaseIDs(c.Request.Context(), h.rag, userID, &req, convRagKBIDs)
+	kbIDs := rtchat.ResolveRAGKnowledgeBaseIDs(c.Request.Context(), h.rag, userID, &req, convRagKBIDs)
 	if len(kbIDs) > 0 && lastUserContent != "" {
-		ragOpts := resolveRAGOptions(&req)
-		ragBlocks = retrieveRAGFragments(c.Request.Context(), h.rag, userID, kbIDs, lastUserContent, ragOpts)
+		ragOpts := rtchat.ResolveRAGOptions(&req)
+		ragBlocks = rtchat.RetrieveRAGFragments(c.Request.Context(), h.rag, userID, kbIDs, lastUserContent, ragOpts)
 	}
 
 	// 组装完整 messages：[摘要?] + [长期记忆] + [RAG] + [历史] + [本轮]
-	fullMsgs := buildFullMessages(existingSummary, longTermBlocks, ragBlocks, existingMsgs, req.Messages)
+	fullMsgs := rtchat.BuildFullMessages(existingSummary, longTermBlocks, ragBlocks, existingMsgs, req.Messages)
 
 	// --- 阶段十四 14.1：服务端滑动窗口裁剪 ---
 	turns := req.MemoryTurns
 	if turns == 0 {
 		turns = 10
 	}
-	trimmed := memory.ApplyWindow(toWindowMessages(fullMsgs), turns, req.MaxInputTokens)
-	trimmedMsgs := fromWindowMessages(trimmed)
+	trimmed := memory.ApplyWindow(rtchat.ToWindowMessages(fullMsgs), turns, req.MaxInputTokens)
+	trimmedMsgs := rtchat.FromWindowMessages(trimmed)
 	req.Messages = trimmedMsgs
 
 	// --- 配额闸门 ---
@@ -209,12 +208,12 @@ func (h *ChatHandler) ChatStream(c *gin.Context) {
 	started := time.Now()
 
 	// Playground 可选 MCP：有 mcp_servers 时先工具循环，再 SSE 最终回复
-	InjectMCPTools(&req, h.mcpRegistry, req.McpServers, c.GetString("user_id"))
+	rtchat.InjectMCPTools(&req, h.mcpRegistry, req.McpServers, c.GetString("user_id"))
 	if len(req.Tools) > 0 {
-		chatResp, err := h.service.ChatWithTools(&req, NewMCPToolExecutor(h.mcpRegistry))
+		chatResp, err := h.service.ChatWithTools(&req, rtchat.NewMCPToolExecutor(h.mcpRegistry))
 		if err != nil {
 			h.refund(c)
-			if WriteNoActiveProvider(c, err) {
+			if rtchat.WriteNoActiveProvider(c, err) {
 				return
 			}
 			h.commit(c, "playground", req.Model, nil, "error", started)
@@ -236,7 +235,7 @@ func (h *ChatHandler) ChatStream(c *gin.Context) {
 		}
 		usage := chatResp.Usage
 		h.commit(c, "playground", req.Model, &usage, "ok", started)
-		WriteResponseSSE(c, chatResp)
+		rtchat.WriteResponseSSE(c, chatResp)
 		go h.saveConversationAsync(userID, req.ConversationID, req.Model,
 			existingMsgs, existingSummary, trimmedMsgs, fullMsgs)
 		return
@@ -246,7 +245,7 @@ func (h *ChatHandler) ChatStream(c *gin.Context) {
 	usage, err := h.service.ChatStream(c, &req)
 	if err != nil {
 		h.refund(c)
-		if WriteNoActiveProvider(c, err) {
+		if rtchat.WriteNoActiveProvider(c, err) {
 			return
 		}
 		h.commit(c, "playground", req.Model, nil, "error", started)
@@ -264,16 +263,9 @@ func (h *ChatHandler) ChatStream(c *gin.Context) {
 		existingMsgs, existingSummary, trimmedMsgs, fullMsgs)
 }
 
-func WriteNoActiveProvider(c *gin.Context, err error) bool {
-	if err == nil || !errors.Is(err, ErrNoActiveProvider) || c.Writer.Written() {
-		return false
-	}
-	response.FailWithHTTPStatus(c, http.StatusServiceUnavailable, response.CodeNoActiveProvider, err.Error())
-	return true
-}
 
 func (h *ChatHandler) Embeddings(c *gin.Context) {
-	var req EmbeddingsRequest
+	var req rtchat.EmbeddingsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, "Invalid request: "+err.Error())
 		return
@@ -286,7 +278,7 @@ func (h *ChatHandler) Embeddings(c *gin.Context) {
 
 	resp, err := h.service.Embeddings(&req)
 	if err != nil {
-		if WriteNoActiveProvider(c, err) {
+		if rtchat.WriteNoActiveProvider(c, err) {
 			return
 		}
 		slog.Error("Embeddings failed", "error", err, "model", req.Model)
@@ -306,55 +298,9 @@ func (h *ChatHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	h.RegisterPublicRoutes(rg)
 }
 
-// ============ memory.WindowMessage 与 ChatMessage 互转 ============
 
-func toWindowMessages(in []ChatMessage) []memory.WindowMessage {
-	out := make([]memory.WindowMessage, len(in))
-	for i, m := range in {
-		out[i] = memory.WindowMessage{Role: m.Role, Content: m.Content}
-	}
-	return out
-}
 
-func fromWindowMessages(in []memory.WindowMessage) []ChatMessage {
-	out := make([]ChatMessage, len(in))
-	for i, m := range in {
-		out[i] = ChatMessage{Role: m.Role, Content: m.Content}
-	}
-	return out
-}
-
-// buildFullMessages 组装完整 messages：[摘要?] + [长期记忆] + [RAG?] + [历史] + [本轮]
-func buildFullMessages(summary string, longTermBlocks, ragBlocks []string, history []model.ConversationMessage, current []ChatMessage) []ChatMessage {
-	var msgs []ChatMessage
-	if summary != "" {
-		msgs = append(msgs, ChatMessage{
-			Role:    "system",
-			Content: "【对话摘要】" + summary,
-		})
-	}
-	if len(longTermBlocks) > 0 {
-		var b strings.Builder
-		b.WriteString("【你的笔记本】以下是你之前记录的重要信息，回答时可参考（但不要复述）：\n")
-		for i, block := range longTermBlocks {
-			b.WriteString(fmt.Sprintf("%d. %s\n", i+1, block))
-		}
-		msgs = append(msgs, ChatMessage{Role: "system", Content: b.String()})
-	}
-	if ragPrompt := buildRAGSystemPrompt(ragBlocks); ragPrompt != "" {
-		msgs = append(msgs, ChatMessage{Role: "system", Content: ragPrompt})
-	}
-	for _, m := range history {
-		msgs = append(msgs, ChatMessage{Role: m.Role, Content: m.Content})
-	}
-	for _, m := range current {
-		msgs = append(msgs, m)
-	}
-	return msgs
-}
-
-// saveConversationAsync 异步保存消息到 conversation，更新摘要（阶段十四 14.3）
-func (h *ChatHandler) saveConversationAsync(userID, conversationID, model string, existingMsgs []model.ConversationMessage, existingSummary string, trimmedMsgs, fullMsgs []ChatMessage) {
+func (h *ChatHandler) saveConversationAsync(userID, conversationID, model string, existingMsgs []model.ConversationMessage, existingSummary string, trimmedMsgs, fullMsgs []rtchat.ChatMessage) {
 	if conversationID == "" || userID == "" {
 		return
 	}
@@ -362,7 +308,7 @@ func (h *ChatHandler) saveConversationAsync(userID, conversationID, model string
 	defer cancel()
 
 	// 追加本轮 user 消息到历史
-	newMsgs := append(existingMsgs, toConversationMessages(trimmedMsgs)...)
+	newMsgs := append(existingMsgs, rtchat.ToConversationMessages(trimmedMsgs)...)
 
 	// 若 fullMsgs 比 trimmedMsgs 长，说明发生了裁剪，发给 Python 摘要
 	var newSummary string
@@ -376,9 +322,8 @@ func (h *ChatHandler) saveConversationAsync(userID, conversationID, model string
 	h.conv.UpdateSummary(ctx, userID, conversationID, newMsgs, newSummary)
 }
 
-// summarizeAsync 调用 Python /api/memory/summarize 生成摘要（降级时不阻塞）
-func (h *ChatHandler) summarizeAsync(ctx context.Context, existingSummary string, trimmedMsgs, fullMsgs []ChatMessage) string {
-	if pythonServiceURL == "" {
+func (h *ChatHandler) summarizeAsync(ctx context.Context, existingSummary string, trimmedMsgs, fullMsgs []rtchat.ChatMessage) string {
+	if rtchat.PythonURL() == "" {
 		return existingSummary
 	}
 
@@ -397,7 +342,7 @@ func (h *ChatHandler) summarizeAsync(ctx context.Context, existingSummary string
 		"existing_summary": existingSummary,
 	}
 	body, _ := json.Marshal(payload)
-	url := pythonServiceURL + "/api/memory/summarize"
+	url := rtchat.PythonURL() + "/api/memory/summarize"
 	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(body))
 	if err != nil {
 		slog.Warn("summarize request build failed", "error", err)
@@ -429,39 +374,8 @@ func (h *ChatHandler) summarizeAsync(ctx context.Context, existingSummary string
 	return result.Summary
 }
 
-func toConversationMessages(msgs []ChatMessage) []model.ConversationMessage {
-	out := make([]model.ConversationMessage, len(msgs))
-	for i, m := range msgs {
-		out[i] = model.ConversationMessage{
-			Role:    m.Role,
-			Content: toStringContent(m.Content),
-		}
-	}
-	return out
-}
-
-func toStringContent(content any) string {
-	switch v := content.(type) {
-	case string:
-		return v
-	case []any:
-		var b strings.Builder
-		for _, part := range v {
-			if m, ok := part.(map[string]any); ok {
-				if t, ok := m["text"].(string); ok {
-					b.WriteString(t)
-				}
-			}
-		}
-		return b.String()
-	default:
-		return ""
-	}
-}
-
-// searchLongTermMemory 调用 Python /api/memory/search 检索长期记忆（阶段十四 14.4）
 func (h *ChatHandler) searchLongTermMemory(ctx context.Context, userID, query, agentID string) []string {
-	if pythonServiceURL == "" {
+	if rtchat.PythonURL() == "" {
 		return nil
 	}
 	payload := map[string]any{
@@ -474,7 +388,7 @@ func (h *ChatHandler) searchLongTermMemory(ctx context.Context, userID, query, a
 		payload["agent_id"] = agentID
 	}
 	body, _ := json.Marshal(payload)
-	url := pythonServiceURL + "/api/memory/search"
+	url := rtchat.PythonURL() + "/api/memory/search"
 	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(body))
 	if err != nil {
 		return nil

@@ -10,11 +10,6 @@ import (
 	"cogniforge/internal/capability/mcp"
 )
 
-// SetMCPRegistry 注入 MCP Registry（Playground / 共享工具执行）
-func (h *ChatHandler) SetMCPRegistry(reg *mcp.Registry) {
-	h.mcpRegistry = reg
-}
-
 // toolUseSystemHint 有 MCP 工具时注入，避免模型套用「去 App 开联网」话术而不调工具
 const toolUseSystemHint = "你可以使用函数工具获取实时信息。用户询问天气、新闻、股价、比分等时效性问题时，必须先调用相应工具（如 web_search_search），再根据工具返回结果作答。禁止让用户去官方 App 开启联网或自行搜索；禁止声称自己无法获取实时信息（除非工具已返回失败）。"
 

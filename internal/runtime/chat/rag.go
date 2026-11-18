@@ -49,6 +49,11 @@ type RAGSearcher interface {
 	ResolveKBIDsForDocuments(ctx context.Context, userID string, docIDs []string) []string
 }
 
+// LastUserQuery 取最后一条用户消息文本
+func LastUserQuery(msgs []ChatMessage) string {
+	return lastUserQuery(msgs)
+}
+
 func lastUserQuery(msgs []ChatMessage) string {
 	for i := len(msgs) - 1; i >= 0; i-- {
 		if msgs[i].Role == "user" {
@@ -91,6 +96,11 @@ func buildRAGSystemPrompt(fragments []string) string {
 	return sb.String()
 }
 
+// ResolveRAGOptions 解析单次 RAG 参数
+func ResolveRAGOptions(req *ChatRequest) RAGOptions {
+	return resolveRAGOptions(req)
+}
+
 func resolveRAGOptions(req *ChatRequest) RAGOptions {
 	opt := ragDefaults
 	if req != nil {
@@ -128,7 +138,11 @@ func approxTokens(s string) int {
 	return (n + 3) / 4
 }
 
-// retrieveRAGFragments 对多个知识库做 Top-K 检索；失败降级为空，不阻断对话
+// RetrieveRAGFragments 对多个知识库做 Top-K 检索；失败降级为空，不阻断对话
+func RetrieveRAGFragments(ctx context.Context, searcher RAGSearcher, userID string, kbIDs []string, query string, opts RAGOptions) []string {
+	return retrieveRAGFragments(ctx, searcher, userID, kbIDs, query, opts)
+}
+
 func retrieveRAGFragments(ctx context.Context, searcher RAGSearcher, userID string, kbIDs []string, query string, opts RAGOptions) []string {
 	if searcher == nil || userID == "" || query == "" || len(kbIDs) == 0 {
 		return nil
@@ -166,6 +180,11 @@ func retrieveRAGFragments(ctx context.Context, searcher RAGSearcher, userID stri
 		}
 	}
 	return fragments
+}
+
+// ResolveRAGKnowledgeBaseIDs 合并请求/会话/附件对应的知识库 ID
+func ResolveRAGKnowledgeBaseIDs(ctx context.Context, searcher RAGSearcher, userID string, req *ChatRequest, convKBIDs []string) []string {
+	return resolveRAGKnowledgeBaseIDs(ctx, searcher, userID, req, convKBIDs)
 }
 
 func resolveRAGKnowledgeBaseIDs(ctx context.Context, searcher RAGSearcher, userID string, req *ChatRequest, convKBIDs []string) []string {

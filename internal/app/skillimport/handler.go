@@ -6,17 +6,19 @@ import (
 	"cogniforge/internal/shared/response"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
+
+	capimport "cogniforge/internal/capability/skillimport"
 )
 
 // Handler 导入 HTTP 处理
 type Handler struct {
-	svc *Service
+	svc *capimport.Service
 }
 
 // NewHandler 创建 Import Handler
 func NewHandler(db *gorm.DB) *Handler {
 	return &Handler{
-		svc: NewService(db),
+		svc: capimport.NewService(db),
 	}
 }
 
@@ -65,8 +67,8 @@ func (h *Handler) ImportSkillFromFile(c *gin.Context) {
 	}
 	defer file.Close()
 
-	cfg := LoadSecurityConfig()
-	vResult := ValidateMultipartFile(header, cfg)
+	cfg := capimport.LoadSecurityConfig()
+	vResult := capimport.ValidateMultipartFile(header, cfg)
 	if !vResult.Valid {
 		response.BadRequest(c, vResult.Errors[0])
 		return

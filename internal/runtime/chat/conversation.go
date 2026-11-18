@@ -19,8 +19,11 @@ const (
 )
 
 var (
-	errConversationNotFound = errors.New("对话不存在")
-	errMessageQueueTooLong  = errors.New("排队最多 5 条")
+	ErrConversationNotFound = errors.New("对话不存在")
+	ErrMessageQueueTooLong  = errors.New("排队最多 5 条")
+	// 兼容包内旧名
+	errConversationNotFound = ErrConversationNotFound
+	errMessageQueueTooLong  = ErrMessageQueueTooLong
 )
 
 type ConversationService struct {

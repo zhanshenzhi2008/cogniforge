@@ -7,17 +7,18 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
-	"cogniforge/internal/runtime/chat"
-	"cogniforge/internal/infra/database"
+	"cogniforge/internal/app/prompt"
 	"cogniforge/internal/capability/knowledge"
 	"cogniforge/internal/capability/mcp"
 	"cogniforge/internal/capability/memory"
-	agentmodel "cogniforge/internal/model"
-	promptpkg "cogniforge/internal/app/prompt"
 	"cogniforge/internal/capability/provider"
-	"cogniforge/internal/governance/quota"
-	"cogniforge/internal/shared/response"
 	"cogniforge/internal/capability/skill"
+	"cogniforge/internal/governance/quota"
+	"cogniforge/internal/infra/database"
+	agentmodel "cogniforge/internal/model"
+	rtagent "cogniforge/internal/runtime/agent"
+	rtchat "cogniforge/internal/runtime/chat"
+	"cogniforge/internal/shared/response"
 )
 
 // GetBuiltInSkill 在 skill 包里单独导出（避免循环引用）
@@ -26,18 +27,18 @@ func getBuiltInSkill(id string) *agentmodel.Skill {
 }
 
 type AgentHandler struct {
-	service     *AgentService
+	service     *rtagent.AgentService
 	providerSvc *provider.Service
-	chatSvc     *chat.ChatService
+	chatSvc     *rtchat.ChatService
 	quota       *quota.Service
 	mcpRegistry *mcp.Registry
 	skillSvc    *skill.Service
-	rag         chat.RAGSearcher
+	rag         rtchat.RAGSearcher
 }
 
-func NewAgentHandler(providerSvc *provider.Service, chatSvc *chat.ChatService, quotaSvc *quota.Service) *AgentHandler {
+func NewAgentHandler(providerSvc *provider.Service, chatSvc *rtchat.ChatService, quotaSvc *quota.Service) *AgentHandler {
 	return &AgentHandler{
-		service:     NewAgentService(),
+		service:     rtagent.NewAgentService(),
 		providerSvc: providerSvc,
 		chatSvc:     chatSvc,
 		quota:       quotaSvc,
@@ -67,7 +68,7 @@ func (h *AgentHandler) ListAgents(c *gin.Context) {
 
 func (h *AgentHandler) CreateAgent(c *gin.Context) {
 	userID := c.GetString("user_id")
-	var req CreateAgentRequest
+	var req rtagent.CreateAgentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, err.Error())
 		return
@@ -98,7 +99,7 @@ func (h *AgentHandler) GetAgent(c *gin.Context) {
 func (h *AgentHandler) UpdateAgent(c *gin.Context) {
 	userID := c.GetString("user_id")
 	agentID := c.Param("id")
-	var req UpdateAgentRequest
+	var req rtagent.UpdateAgentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, err.Error())
 		return
@@ -149,11 +150,11 @@ func (h *AgentHandler) AgentChat(c *gin.Context) {
 
 	var req struct {
 		Model               string                   `json:"model"`
-		Messages            []chat.ChatMessage       `json:"messages" binding:"required"`
+		Messages            []rtchat.ChatMessage       `json:"messages" binding:"required"`
 		Stream              bool                     `json:"stream"`
 		Temperature         *float64                 `json:"temperature,omitempty"`
 		MaxTokens           *int                     `json:"max_tokens,omitempty"`
-		Attachments         []chat.MessageAttachment `json:"attachments,omitempty"`
+		Attachments         []rtchat.MessageAttachment `json:"attachments,omitempty"`
 		RAGKnowledgeBaseIDs []string                 `json:"rag_kb_ids,omitempty"`
 		RAGTopK             *int                     `json:"rag_top_k,omitempty"`
 		RAGMinScore         *float64                 `json:"rag_min_score,omitempty"`
@@ -189,7 +190,7 @@ func (h *AgentHandler) AgentChat(c *gin.Context) {
 	// 优先级：绑定 Prompt（已发布当前版）> Skill > 内联 system_prompt
 	systemPrompt := dbAgent.SystemPrompt
 	if dbAgent.PromptID != "" {
-		rendered, err := promptpkg.NewService(database.DB).ResolvePublishedContent(userID, dbAgent.PromptID, req.Variables)
+		rendered, err := prompt.NewService(database.DB).ResolvePublishedContent(userID, dbAgent.PromptID, req.Variables)
 		if err != nil {
 			response.BadRequest(c, err.Error())
 			return
@@ -209,16 +210,16 @@ func (h *AgentHandler) AgentChat(c *gin.Context) {
 	if systemPrompt == "" {
 		systemPrompt = "You are a helpful AI assistant."
 	}
-	messages := append([]chat.ChatMessage{{Role: "system", Content: systemPrompt}}, req.Messages...)
+	messages := append([]rtchat.ChatMessage{{Role: "system", Content: systemPrompt}}, req.Messages...)
 
-	ragReq := &chat.ChatRequest{
+	ragReq := &rtchat.ChatRequest{
 		Messages:            req.Messages,
 		Attachments:         req.Attachments,
 		RAGKnowledgeBaseIDs: req.RAGKnowledgeBaseIDs,
 		RAGTopK:             req.RAGTopK,
 		RAGMinScore:         req.RAGMinScore,
 	}
-	messages = chat.InjectRAGSystemIfNeeded(c.Request.Context(), h.rag, userID, ragReq, nil, messages)
+	messages = rtchat.InjectRAGSystemIfNeeded(c.Request.Context(), h.rag, userID, ragReq, nil, messages)
 
 	if h.quota != nil {
 		if err := h.quota.Allow(c.Request.Context(), userID, "agent"); err != nil {
@@ -228,7 +229,7 @@ func (h *AgentHandler) AgentChat(c *gin.Context) {
 	}
 	started := time.Now()
 
-	svcReq := &chat.ChatRequest{
+	svcReq := &rtchat.ChatRequest{
 		Model:               model,
 		Messages:            messages,
 		Stream:              req.Stream,
@@ -242,17 +243,17 @@ func (h *AgentHandler) AgentChat(c *gin.Context) {
 	}
 
 	// 阶段十五 15.2：按 Agent 勾选的 MCP Server 注入工具（含 HTTP 远程发现）
-	chat.InjectMCPTools(svcReq, h.mcpRegistry, []string(dbAgent.Tools), userID)
+	rtchat.InjectMCPTools(svcReq, h.mcpRegistry, []string(dbAgent.Tools), userID)
 	hasTools := len(svcReq.Tools) > 0
 
 	// 有工具时必须走工具循环（Playground 默认 stream=true，以前被 !stream 条件跳过）
 	if hasTools {
-		chatResp, err := h.chatSvc.ChatWithTools(svcReq, chat.NewMCPToolExecutor(h.mcpRegistry))
+		chatResp, err := h.chatSvc.ChatWithTools(svcReq, rtchat.NewMCPToolExecutor(h.mcpRegistry))
 		if err != nil {
 			if h.quota != nil {
 				h.quota.RefundRequest(c.Request.Context(), userID)
 			}
-			if chat.WriteNoActiveProvider(c, err) {
+			if rtchat.WriteNoActiveProvider(c, err) {
 				return
 			}
 			h.commitAgent(c, userID, model, nil, "error", started)
@@ -269,7 +270,7 @@ func (h *AgentHandler) AgentChat(c *gin.Context) {
 		}
 		h.commitAgent(c, userID, model, &chatResp.Usage, "ok", started)
 		if req.Stream {
-			chat.WriteResponseSSE(c, chatResp)
+			rtchat.WriteResponseSSE(c, chatResp)
 			return
 		}
 		response.Success(c, chatResp)
@@ -282,7 +283,7 @@ func (h *AgentHandler) AgentChat(c *gin.Context) {
 			if h.quota != nil {
 				h.quota.RefundRequest(c.Request.Context(), userID)
 			}
-			if chat.WriteNoActiveProvider(c, err) {
+			if rtchat.WriteNoActiveProvider(c, err) {
 				return
 			}
 			h.commitAgent(c, userID, model, nil, "error", started)
@@ -298,7 +299,7 @@ func (h *AgentHandler) AgentChat(c *gin.Context) {
 		if h.quota != nil {
 			h.quota.RefundRequest(c.Request.Context(), userID)
 		}
-		if chat.WriteNoActiveProvider(c, err) {
+		if rtchat.WriteNoActiveProvider(c, err) {
 			return
 		}
 		h.commitAgent(c, userID, model, nil, "error", started)
@@ -309,7 +310,7 @@ func (h *AgentHandler) AgentChat(c *gin.Context) {
 	response.Success(c, resp)
 }
 
-func (h *AgentHandler) commitAgent(c *gin.Context, userID, modelName string, usage *chat.ChatUsage, status string, started time.Time) {
+func (h *AgentHandler) commitAgent(c *gin.Context, userID, modelName string, usage *rtchat.ChatUsage, status string, started time.Time) {
 	if h.quota == nil || userID == "" {
 		return
 	}
@@ -344,7 +345,7 @@ func (h *AgentHandler) defaultModel(userID string) string {
 	return ""
 }
 
-func toWindowMessages(in []chat.ChatMessage) []memory.WindowMessage {
+func toWindowMessages(in []rtchat.ChatMessage) []memory.WindowMessage {
 	out := make([]memory.WindowMessage, len(in))
 	for i, m := range in {
 		out[i] = memory.WindowMessage{Role: m.Role, Content: m.Content}
@@ -352,10 +353,10 @@ func toWindowMessages(in []chat.ChatMessage) []memory.WindowMessage {
 	return out
 }
 
-func fromWindowMessages(in []memory.WindowMessage) []chat.ChatMessage {
-	out := make([]chat.ChatMessage, len(in))
+func fromWindowMessages(in []memory.WindowMessage) []rtchat.ChatMessage {
+	out := make([]rtchat.ChatMessage, len(in))
 	for i, m := range in {
-		out[i] = chat.ChatMessage{Role: m.Role, Content: m.Content}
+		out[i] = rtchat.ChatMessage{Role: m.Role, Content: m.Content}
 	}
 	return out
 }

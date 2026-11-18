@@ -7,27 +7,29 @@ import (
 
 	"cogniforge/internal/model"
 	"cogniforge/internal/shared/response"
+
+	capprovider "cogniforge/internal/capability/provider"
 )
 
 // Handler HTTP处理层
 type Handler struct {
-	service *Service
+	service *capprovider.Service
 }
 
 // NewHandler 创建 Handler
-func NewHandler(service *Service) *Handler {
+func NewHandler(service *capprovider.Service) *Handler {
 	return &Handler{service: service}
 }
 
-func (h *Handler) actor(c *gin.Context) Actor {
-	return ResolveActor(c.GetString("user_id"))
+func (h *Handler) actor(c *gin.Context) capprovider.Actor {
+	return capprovider.ResolveActor(c.GetString("user_id"))
 }
 
 func (h *Handler) writeErr(c *gin.Context, err error) bool {
 	if err == nil {
 		return false
 	}
-	forbidden, notFound, badRequest := MapServiceError(err)
+	forbidden, notFound, badRequest := capprovider.MapServiceError(err)
 	switch {
 	case forbidden:
 		response.Forbidden(c, err.Error())
@@ -50,9 +52,9 @@ func (h *Handler) ListProviders(c *gin.Context) {
 		return
 	}
 	prefChat, prefEmbed := h.service.PreferredIDs(actor.UserID)
-	safeList := make([]ProviderResponse, len(providers))
+	safeList := make([]capprovider.ProviderResponse, len(providers))
 	for i, p := range providers {
-		resp := toResponseFor(&p, actor, prefChat, prefEmbed)
+		resp := capprovider.ToResponseFor(&p, actor, prefChat, prefEmbed)
 		resp.APIKey = maskKey(resp.APIKey)
 		resp.ExtraHeaders = nil
 		safeList[i] = resp
@@ -69,7 +71,7 @@ func (h *Handler) GetProvider(c *gin.Context) {
 		return
 	}
 	prefChat, prefEmbed := h.service.PreferredIDs(actor.UserID)
-	resp := toResponseFor(p, actor, prefChat, prefEmbed)
+	resp := capprovider.ToResponseFor(p, actor, prefChat, prefEmbed)
 	resp.APIKey = maskKey(resp.APIKey)
 	response.Success(c, resp)
 }
@@ -77,7 +79,7 @@ func (h *Handler) GetProvider(c *gin.Context) {
 // CreateProvider 创建供应商
 func (h *Handler) CreateProvider(c *gin.Context) {
 	actor := h.actor(c)
-	var req CreateProviderRequest
+	var req capprovider.CreateProviderRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, err.Error())
 		return
@@ -86,7 +88,7 @@ func (h *Handler) CreateProvider(c *gin.Context) {
 	if h.writeErr(c, err) {
 		return
 	}
-	resp := toResponseFor(p, actor, "", "")
+	resp := capprovider.ToResponseFor(p, actor, "", "")
 	resp.APIKey = maskKey(resp.APIKey)
 	response.Created(c, resp)
 }
@@ -95,7 +97,7 @@ func (h *Handler) CreateProvider(c *gin.Context) {
 func (h *Handler) UpdateProvider(c *gin.Context) {
 	actor := h.actor(c)
 	id := c.Param("id")
-	req := new(UpdateProviderRequest)
+	req := new(capprovider.UpdateProviderRequest)
 	if err := c.ShouldBindJSON(req); err != nil {
 		response.BadRequest(c, err.Error())
 		return
@@ -105,7 +107,7 @@ func (h *Handler) UpdateProvider(c *gin.Context) {
 		return
 	}
 	prefChat, prefEmbed := h.service.PreferredIDs(actor.UserID)
-	resp := toResponseFor(p, actor, prefChat, prefEmbed)
+	resp := capprovider.ToResponseFor(p, actor, prefChat, prefEmbed)
 	resp.APIKey = maskKey(resp.APIKey)
 	response.Success(c, resp)
 }
@@ -124,7 +126,7 @@ func (h *Handler) DeleteProvider(c *gin.Context) {
 func (h *Handler) SetDefault(c *gin.Context) {
 	actor := h.actor(c)
 	id := c.Param("id")
-	var req SetDefaultRequest
+	var req capprovider.SetDefaultRequest
 	_ = c.ShouldBindJSON(&req)
 	personal := false
 	if req.Personal != nil {
@@ -173,7 +175,7 @@ func (h *Handler) GetActive(c *gin.Context) {
 		return
 	}
 	prefChat, prefEmbed := h.service.PreferredIDs(actor.UserID)
-	resp := toResponseFor(p, actor, prefChat, prefEmbed)
+	resp := capprovider.ToResponseFor(p, actor, prefChat, prefEmbed)
 	resp.APIKey = maskKey(resp.APIKey)
 	response.Success(c, resp)
 }

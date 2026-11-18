@@ -5,17 +5,19 @@ import (
 	"gorm.io/gorm"
 
 	"cogniforge/internal/shared/response"
+
+	capskill "cogniforge/internal/capability/skill"
 )
 
 // Handler SKILL HTTP 处理
 type Handler struct {
-	svc *Service
+	svc *capskill.Service
 }
 
 // NewHandler 创建 Skill Handler
 func NewHandler(db *gorm.DB) *Handler {
 	return &Handler{
-		svc: NewService(db),
+		svc: capskill.NewService(db),
 	}
 }
 
@@ -33,7 +35,7 @@ func (h *Handler) ListSkills(c *gin.Context) {
 // CreateSkill 创建自定义 SKILL
 func (h *Handler) CreateSkill(c *gin.Context) {
 	userID := c.GetString("user_id")
-	var req CreateSkillRequest
+	var req capskill.CreateSkillRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, err.Error())
 		return
@@ -65,7 +67,7 @@ func (h *Handler) UpdateSkill(c *gin.Context) {
 	userID := c.GetString("user_id")
 	skillID := c.Param("id")
 
-	var req UpdateSkillRequest
+	var req capskill.UpdateSkillRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, err.Error())
 		return

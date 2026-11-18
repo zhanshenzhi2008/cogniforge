@@ -7,27 +7,30 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
-	"cogniforge/internal/runtime/agent"
+	appagent "cogniforge/internal/app/agent"
 	"cogniforge/internal/app/auth"
-	"cogniforge/internal/runtime/chat"
+	appchat "cogniforge/internal/app/chat"
+	rtchat "cogniforge/internal/runtime/chat"
 	"cogniforge/internal/infra/config"
 	"cogniforge/internal/orchestration/engine"
 	"cogniforge/internal/governance/eval"
 	"cogniforge/internal/infra/httpclient"
+	appknowledge "cogniforge/internal/app/knowledge"
+	appmcp "cogniforge/internal/app/mcp"
+	appmemory "cogniforge/internal/app/memory"
+	appprovider "cogniforge/internal/app/provider"
+	appskill "cogniforge/internal/app/skill"
+	appskillimport "cogniforge/internal/app/skillimport"
 	"cogniforge/internal/capability/knowledge"
-	"cogniforge/internal/infra/mail"
-	"cogniforge/internal/capability/mcp"
-	"cogniforge/internal/capability/memory"
+	"cogniforge/internal/capability/provider"
 	"cogniforge/internal/gateway/middleware"
-	"cogniforge/internal/model"
+	"cogniforge/internal/infra/mail"
 	"cogniforge/internal/infra/modelcache"
+	"cogniforge/internal/model"
 	"cogniforge/internal/governance/monitor"
 	"cogniforge/internal/app/prompt"
-	"cogniforge/internal/capability/provider"
 	"cogniforge/internal/governance/quota"
 	"cogniforge/internal/governance/rbac"
-	"cogniforge/internal/capability/skill"
-	"cogniforge/internal/capability/skillimport"
 	"cogniforge/internal/infra/token"
 	"cogniforge/internal/app/user"
 	"cogniforge/internal/orchestration/workflow"
@@ -49,7 +52,7 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 	_ = db.AutoMigrate(&model.UserSettings{})
 	providerSvc.RepairVendorLabels()
 	providerSvc.RefreshCache()
-	providerHandler := provider.NewHandler(providerSvc)
+	providerHandler := appprovider.NewHandler(providerSvc)
 
 	authSvc := auth.NewAuthServiceWithDeps(db, rdb, buildMailer(cfg))
 	authHandler := auth.NewAuthHandlerWithService(authSvc)
@@ -63,18 +66,18 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 	quotaSvc.EnsureDefaultPolicy()
 	quotaHandler := quota.NewHandler(quotaSvc)
 
-	chat.SetPythonURL(cfg.RAG.PythonServiceURL)
-	chat.SetRAGDefaults(cfg.RAG.TopK, cfg.RAG.MinScore, cfg.RAG.MaxTokens)
-	chatHandler := chat.NewChatHandler(providerSvc, db, quotaSvc)
-	memoryHandler := memory.NewMemoryHandler(db)
+	rtchat.SetPythonURL(cfg.RAG.PythonServiceURL)
+	rtchat.SetRAGDefaults(cfg.RAG.TopK, cfg.RAG.MinScore, cfg.RAG.MaxTokens)
+	chatHandler := appchat.NewChatHandler(providerSvc, db, quotaSvc)
+	memoryHandler := appmemory.NewMemoryHandler(db)
 	pythonClient := knowledge.NewServiceClient(httpclient.NewClient(cfg.RAG.PythonServiceURL))
 	knowledgeSvc := knowledge.NewKnowledgeService(pythonClient)
 	chatHandler.SetKnowledgeService(knowledgeSvc)
-	knowledgeHandler := knowledge.NewKnowledgeHandler(pythonClient)
-	agentHandler := agent.NewAgentHandler(providerSvc, chatHandler.Service(), quotaSvc)
+	knowledgeHandler := appknowledge.NewKnowledgeHandler(pythonClient)
+	agentHandler := appagent.NewAgentHandler(providerSvc, chatHandler.Service(), quotaSvc)
 	agentHandler.SetKnowledgeService(knowledgeSvc)
 	monitorHandler := monitor.NewMonitorHandler()
-	mcpHandler := mcp.NewHandler(db)
+	mcpHandler := appmcp.NewHandler(db)
 	// 关键：Registry 必须注入，否则 Agent/Playground 勾选工具也不会生效
 	chatHandler.SetMCPRegistry(mcpHandler.Registry())
 	agentHandler.SetMCPRegistry(mcpHandler.Registry())
@@ -88,11 +91,11 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 	wfSvc := workflow.NewWorkflowServiceWithDeps(wfEngine, rdb)
 	workflow.StartWaitTimeoutScanner(wfSvc, 30*time.Second)
 	workflowHandler := workflow.NewWorkflowHandlerWithService(wfSvc)
-	skillHandler := skill.NewHandler(db)
+	skillHandler := appskill.NewHandler(db)
 	evalHandler := eval.NewHandler(db, chatHandler.Service())
 	evalHandler.SetMCPRegistry(mcpHandler.Registry())
 	promptHandler := prompt.NewHandler(db)
-	importHandler := skillimport.NewHandler(db)
+	importHandler := appskillimport.NewHandler(db)
 	rbacHandler := rbac.NewRBACHandler()
 	tokenSvc := token.NewService(rdb)
 	tokenHandler := token.NewHandler(tokenSvc)

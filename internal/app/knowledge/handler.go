@@ -6,15 +6,17 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"cogniforge/internal/shared/response"
+
+	capkb "cogniforge/internal/capability/knowledge"
 )
 
 type KnowledgeHandler struct {
-	service *KnowledgeService
+	service *capkb.KnowledgeService
 }
 
-func NewKnowledgeHandler(pythonClient *ServiceClient) *KnowledgeHandler {
+func NewKnowledgeHandler(pythonClient *capkb.ServiceClient) *KnowledgeHandler {
 	return &KnowledgeHandler{
-		service: NewKnowledgeService(pythonClient),
+		service: capkb.NewKnowledgeService(pythonClient),
 	}
 }
 
@@ -32,7 +34,7 @@ func (h *KnowledgeHandler) ListFolders(c *gin.Context) {
 // CreateFolder 创建知识库目录
 func (h *KnowledgeHandler) CreateFolder(c *gin.Context) {
 	userID := c.GetString("user_id")
-	var req CreateFolderRequest
+	var req capkb.CreateFolderRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, "请求参数无效: "+err.Error())
 		return
@@ -59,7 +61,7 @@ func (h *KnowledgeHandler) ListKnowledgeBases(c *gin.Context) {
 // CreateKnowledgeBase 创建知识库
 func (h *KnowledgeHandler) CreateKnowledgeBase(c *gin.Context) {
 	userID := c.GetString("user_id")
-	var req CreateKBRequest
+	var req capkb.CreateKBRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, "请求参数无效: "+err.Error())
 		return
@@ -95,7 +97,7 @@ func (h *KnowledgeHandler) UpdateKnowledgeBase(c *gin.Context) {
 	userID := c.GetString("user_id")
 	kbID := c.Param("id")
 
-	var req UpdateKBRequest
+	var req capkb.UpdateKBRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, "请求参数无效: "+err.Error())
 		return
@@ -155,7 +157,7 @@ func (h *KnowledgeHandler) UpdateDocumentContent(c *gin.Context) {
 	kbID := c.Param("id")
 	docID := c.Param("docId")
 
-	var req UpdateDocumentContentRequest
+	var req capkb.UpdateDocumentContentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, "请求参数无效: "+err.Error())
 		return
@@ -188,7 +190,7 @@ func (h *KnowledgeHandler) ReparseDocument(c *gin.Context) {
 	userID := c.GetString("user_id")
 	kbID := c.Param("id")
 
-	var req ReparseDocumentRequest
+	var req capkb.ReparseDocumentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, "请求参数无效: "+err.Error())
 		return
@@ -226,7 +228,7 @@ func (h *KnowledgeHandler) UploadDocument(c *gin.Context) {
 func (h *KnowledgeHandler) CreateTextDocument(c *gin.Context) {
 	userID := c.GetString("user_id")
 	kbID := c.Param("id")
-	var req CreateTextDocumentRequest
+	var req capkb.CreateTextDocumentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, "请提供名称和正文")
 		return
@@ -243,7 +245,7 @@ func (h *KnowledgeHandler) CreateTextDocument(c *gin.Context) {
 func (h *KnowledgeHandler) CreateURLDocument(c *gin.Context) {
 	userID := c.GetString("user_id")
 	kbID := c.Param("id")
-	var req CreateURLDocumentRequest
+	var req capkb.CreateURLDocumentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, "请提供网页地址")
 		return
@@ -281,7 +283,7 @@ func (h *KnowledgeHandler) SearchKnowledge(c *gin.Context) {
 	userID := c.GetString("user_id")
 	kbID := c.Param("id")
 
-	var req SearchRequest
+	var req capkb.SearchRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, "请提供检索关键词")
 		return
@@ -319,8 +321,8 @@ func (h *KnowledgeHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	}
 }
 
-func parseOptionsFromForm(c *gin.Context) *ParseOptions {
-	opts := &ParseOptions{}
+func parseOptionsFromForm(c *gin.Context) *capkb.ParseOptions {
+	opts := &capkb.ParseOptions{}
 	has := false
 	if v := c.PostForm("chunk_size"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 {

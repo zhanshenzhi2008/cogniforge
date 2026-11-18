@@ -79,10 +79,11 @@ type TestResult struct {
 // ===================== 辅助函数 =====================
 
 func toResponse(p *model.AIProvider) ProviderResponse {
-	return toResponseFor(p, Actor{}, "", "")
+	return ToResponseFor(p, Actor{}, "", "")
 }
 
-func toResponseFor(p *model.AIProvider, actor Actor, prefChat, prefEmbed string) ProviderResponse {
+// ToResponseFor 组装对外 Provider 响应（按 actor 脱敏）。
+func ToResponseFor(p *model.AIProvider, actor Actor, prefChat, prefEmbed string) ProviderResponse {
 	scope := p.Scope
 	if scope == "" {
 		scope = model.ProviderScopePublic

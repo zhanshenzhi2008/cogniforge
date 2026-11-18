@@ -5,14 +5,16 @@ import (
 	"gorm.io/gorm"
 
 	"cogniforge/internal/shared/response"
+
+	capmemory "cogniforge/internal/capability/memory"
 )
 
 type MemoryHandler struct {
-	svc *MemoryService
+	svc *capmemory.MemoryService
 }
 
 func NewMemoryHandler(db *gorm.DB) *MemoryHandler {
-	return &MemoryHandler{svc: NewMemoryService(db)}
+	return &MemoryHandler{svc: capmemory.NewMemoryService(db)}
 }
 
 func (h *MemoryHandler) RegisterRoutes(rg *gin.RouterGroup) {

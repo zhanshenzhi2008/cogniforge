@@ -4,12 +4,30 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-18 | v1.7 | capability CRUD HTTP 迁入 app；能力实现留 capability | orjrs |
+| 2026-11-18 | v1.6 | chat/agent HTTP handler 迁入 app；执行核留 runtime | orjrs |
 | 2026-11-18 | v1.5 | 锁定：provider/memory 留 capability；context 由 runtime 组装 | orjrs |
 | 2026-11-17 | v1.4 | 增 gateway：边缘鉴权/限流中间件迁入；配额实现仍在 governance | orjrs |
 | 2026-11-17 | v1.3 | runtime/app 迁入；infra 收 middleware/config/token 等 | orjrs |
 | 2026-11-17 | v1.2 | 增 governance；orchestration/shared 物理迁入 | orjrs |
 | 2026-11-17 | v1.1 | capability：provider/memory/mcp/skill/knowledge/webfetch 迁入 | orjrs |
 | 2026-11-17 | v1.0 | develop 启动分层：文档 + infra 物理迁入 | orjrs |
+
+## [变更] capability CRUD HTTP → app（2026-11-18）
+
+- **变更原因**：能力实现可复用；HTTP 用例属 app
+- **变更后**：`app/{provider,memory,mcp,skill,skillimport,knowledge}`；`capability/*` 只留 Service/Registry
+- **影响范围**：router；对外 API 不变
+
+## [变更] chat/agent handler → app（2026-11-18）
+
+- **变更原因**：HTTP 用例属 app；执行核属 runtime，避免同包混杂
+- **变更后**：
+  - `app/chat`：ChatHandler / 会话 HTTP
+  - `app/agent`：AgentHandler HTTP
+  - `runtime/chat`：ChatService、会话存储、RAG/MCP 注入、SSE 工具
+  - `runtime/agent`：AgentService + DTO
+- **影响范围**：router import；对外 API 不变
 
 ## [变更] 锁定 Memory / Provider 归属（2026-11-18）
 
@@ -67,13 +85,14 @@
 ```text
 gateway             CORS / JWT 校验 / RBAC 门禁 / HTTP 限流中间件
   ↓
-app                 auth / user / prompt / router
+app                 auth / user / prompt / chat / agent /
+                    provider / memory / mcp / skill / skillimport / knowledge / router
   ↓
-runtime             chat / agent（执行循环；用 Memory；内嵌业务配额 Allow）
+runtime             chat / agent 执行核（拼 context、工具循环；内嵌业务配额 Allow）
 orchestration       engine / workflow
 governance          monitor / quota / rbac / eval（评测）
   ↓
-capability          provider / memory / mcp / skill / knowledge / webfetch …
+capability          provider / memory / mcp / skill / knowledge / webfetch …（无 HTTP）
   ↓
 infra               database / crypto / logger / httpclient / mail / trace /
                     config / token / modelcache / scheduler
@@ -88,11 +107,11 @@ interfaces          预留跨模块接口（暂顶层）
 |------|----|------|
 | `gateway` `gateway/middleware` | gateway | ✅ |
 | `infra/*`（无 middleware） | infra | ✅ |
-| `capability/*` | capability | ✅ |
+| `capability/*`（无 HTTP handler） | capability | ✅ |
 | `governance/*` | governance | ✅ |
 | `orchestration/*` | orchestration | ✅ |
-| `runtime/{chat,agent}` | runtime | ✅ |
-| `app/{auth,user,prompt,router}` | app | ✅ |
+| `runtime/{chat,agent}`（无 HTTP handler） | runtime | ✅ |
+| `app/{auth,user,prompt,chat,agent,provider,memory,mcp,skill,skillimport,knowledge,router}` | app | ✅ |
 | `shared/{response,util}` | shared | ✅ |
 | `model` `interfaces` | 共享/预留 | 暂顶层 |
 
@@ -113,9 +132,9 @@ interfaces          预留跨模块接口（暂顶层）
 
 ## 4. 后续
 
-1. chat/agent handler 与执行核再拆（handler → app）  
-2. `cogniforge-ai` 对齐 capability/runtime  
-3. e2e 绿后合 `main`  
+1. `cogniforge-ai` 目录/文档对齐（Python 侧 capability/runtime 概念）  
+2. e2e 绿后合 `main`  
+3. `model` / `interfaces` 是否下沉（可选）  
 
 ## 5. 分支
 

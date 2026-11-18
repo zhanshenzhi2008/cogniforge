@@ -13,7 +13,11 @@ import (
 	rtchat "cogniforge/internal/runtime/chat"
 	"cogniforge/internal/infra/config"
 	"cogniforge/internal/orchestration/engine"
-	"cogniforge/internal/governance/eval"
+	appeval "cogniforge/internal/app/eval"
+	appmonitor "cogniforge/internal/app/monitor"
+	appquota "cogniforge/internal/app/quota"
+	apprbac "cogniforge/internal/app/rbac"
+	apptoken "cogniforge/internal/app/token"
 	"cogniforge/internal/infra/httpclient"
 	appknowledge "cogniforge/internal/app/knowledge"
 	appmcp "cogniforge/internal/app/mcp"
@@ -27,10 +31,8 @@ import (
 	"cogniforge/internal/infra/mail"
 	"cogniforge/internal/infra/modelcache"
 	"cogniforge/internal/model"
-	"cogniforge/internal/governance/monitor"
 	"cogniforge/internal/app/prompt"
 	"cogniforge/internal/governance/quota"
-	"cogniforge/internal/governance/rbac"
 	"cogniforge/internal/infra/token"
 	"cogniforge/internal/app/user"
 	"cogniforge/internal/orchestration/workflow"
@@ -64,7 +66,7 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 	}
 	quotaSvc := quota.New(db, quotaStore)
 	quotaSvc.EnsureDefaultPolicy()
-	quotaHandler := quota.NewHandler(quotaSvc)
+	quotaHandler := appquota.NewHandler(quotaSvc)
 
 	rtchat.SetPythonURL(cfg.RAG.PythonServiceURL)
 	rtchat.SetRAGDefaults(cfg.RAG.TopK, cfg.RAG.MinScore, cfg.RAG.MaxTokens)
@@ -76,7 +78,7 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 	knowledgeHandler := appknowledge.NewKnowledgeHandler(pythonClient)
 	agentHandler := appagent.NewAgentHandler(providerSvc, chatHandler.Service(), quotaSvc)
 	agentHandler.SetKnowledgeService(knowledgeSvc)
-	monitorHandler := monitor.NewMonitorHandler()
+	monitorHandler := appmonitor.NewMonitorHandler()
 	mcpHandler := appmcp.NewHandler(db)
 	// 关键：Registry 必须注入，否则 Agent/Playground 勾选工具也不会生效
 	chatHandler.SetMCPRegistry(mcpHandler.Registry())
@@ -92,13 +94,13 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 	workflow.StartWaitTimeoutScanner(wfSvc, 30*time.Second)
 	workflowHandler := workflow.NewWorkflowHandlerWithService(wfSvc)
 	skillHandler := appskill.NewHandler(db)
-	evalHandler := eval.NewHandler(db, chatHandler.Service())
+	evalHandler := appeval.NewHandler(db, chatHandler.Service())
 	evalHandler.SetMCPRegistry(mcpHandler.Registry())
 	promptHandler := prompt.NewHandler(db)
 	importHandler := appskillimport.NewHandler(db)
-	rbacHandler := rbac.NewRBACHandler()
+	rbacHandler := apprbac.NewRBACHandler()
 	tokenSvc := token.NewService(rdb)
-	tokenHandler := token.NewHandler(tokenSvc)
+	tokenHandler := apptoken.NewHandler(tokenSvc)
 
 	api := r.Group("/api/v1")
 	{

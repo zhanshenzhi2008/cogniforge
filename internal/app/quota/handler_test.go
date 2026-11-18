@@ -9,7 +9,11 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
 
+	govquota "cogniforge/internal/governance/quota"
+	"cogniforge/internal/model"
 	"cogniforge/internal/shared/response"
 )
 
@@ -20,7 +24,7 @@ func init() {
 func TestHandler_Me_NewUserLimited(t *testing.T) {
 	db := testDB(t)
 	seedUser(t, db, "u-http", "user")
-	svc := New(db, NewMemoryStore())
+	svc := govquota.New(db, govquota.NewMemoryStore())
 	svc.EnsureDefaultPolicy()
 	h := NewHandler(svc)
 
@@ -37,16 +41,16 @@ func TestHandler_Me_NewUserLimited(t *testing.T) {
 
 	raw, err := json.Marshal(body.Data)
 	require.NoError(t, err)
-	var snap Snapshot
+	var snap govquota.Snapshot
 	require.NoError(t, json.Unmarshal(raw, &snap))
 	assert.False(t, snap.Unlimited)
-	assert.Equal(t, DefaultDailyRequests, snap.Day.RequestsLimit)
+	assert.Equal(t, govquota.DefaultDailyRequests, snap.Day.RequestsLimit)
 }
 
 func TestHandler_Me_AdminUnlimited(t *testing.T) {
 	db := testDB(t)
 	seedUser(t, db, "admin-http", "admin")
-	svc := New(db, NewMemoryStore())
+	svc := govquota.New(db, govquota.NewMemoryStore())
 	svc.EnsureDefaultPolicy()
 	h := NewHandler(svc)
 
@@ -61,7 +65,21 @@ func TestHandler_Me_AdminUnlimited(t *testing.T) {
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
 	raw, err := json.Marshal(body.Data)
 	require.NoError(t, err)
-	var snap Snapshot
+	var snap govquota.Snapshot
 	require.NoError(t, json.Unmarshal(raw, &snap))
 	assert.True(t, snap.Unlimited)
+}
+
+
+func testDB(t *testing.T) *gorm.DB {
+	t.Helper()
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&model.User{}, &model.QuotaPolicy{}, &model.LLMUsageEvent{}))
+	return db
+}
+
+func seedUser(t *testing.T, db *gorm.DB, id, role string) {
+	t.Helper()
+	require.NoError(t, db.Create(&model.User{ID: id, Email: id + "@t.local", Name: id, Password: "x", Role: role, Status: "active"}).Error)
 }

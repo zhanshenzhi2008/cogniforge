@@ -3,16 +3,17 @@ package monitor
 import (
 	"github.com/gin-gonic/gin"
 
+	govmon "cogniforge/internal/governance/monitor"
 	"cogniforge/internal/shared/response"
 )
 
 type MonitorHandler struct {
-	service *MonitorService
+	service *govmon.MonitorService
 }
 
 func NewMonitorHandler() *MonitorHandler {
 	return &MonitorHandler{
-		service: NewMonitorService(),
+		service: govmon.NewMonitorService(),
 	}
 }
 
@@ -21,7 +22,7 @@ func (h *MonitorHandler) ListRequestLogs(c *gin.Context) {
 	userID, _ := c.Get("user_id")
 	userIDStr := userID.(string)
 
-	var query RequestLogQuery
+	var query govmon.RequestLogQuery
 	if err := c.ShouldBindQuery(&query); err != nil {
 		response.BadRequest(c, "参数解析失败")
 		return
@@ -86,11 +87,11 @@ func (h *MonitorHandler) GetRealtimeStats(c *gin.Context) {
 
 // RegisterRoutes 注册路由
 func (h *MonitorHandler) RegisterRoutes(rg *gin.RouterGroup) {
-	monitor := rg.Group("/monitor")
+	m := rg.Group("/monitor")
 	{
-		monitor.GET("/logs", h.ListRequestLogs)
-		monitor.GET("/logs/:id", h.GetRequestLog)
-		monitor.GET("/stats", h.GetUsageStats)
-		monitor.GET("/stats/realtime", h.GetRealtimeStats)
+		m.GET("/logs", h.ListRequestLogs)
+		m.GET("/logs/:id", h.GetRequestLog)
+		m.GET("/stats", h.GetUsageStats)
+		m.GET("/stats/realtime", h.GetRealtimeStats)
 	}
 }

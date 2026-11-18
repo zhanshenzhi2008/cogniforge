@@ -3,15 +3,16 @@ package quota
 import (
 	"github.com/gin-gonic/gin"
 
+	govquota "cogniforge/internal/governance/quota"
 	"cogniforge/internal/model"
 	"cogniforge/internal/shared/response"
 )
 
 type Handler struct {
-	svc *Service
+	svc *govquota.Service
 }
 
-func NewHandler(svc *Service) *Handler {
+func NewHandler(svc *govquota.Service) *Handler {
 	return &Handler{svc: svc}
 }
 
@@ -19,8 +20,8 @@ func (h *Handler) Me(c *gin.Context) {
 	userID := c.GetString("user_id")
 	snap, err := h.svc.Me(c.Request.Context(), userID)
 	if err != nil {
-		if err == ErrUnavailable {
-			WriteError(c, err)
+		if err == govquota.ErrUnavailable {
+			govquota.WriteError(c, err)
 			return
 		}
 		response.InternalError(c, err.Error())
@@ -31,12 +32,12 @@ func (h *Handler) Me(c *gin.Context) {
 
 func (h *Handler) Usage(c *gin.Context) {
 	userID := c.GetString("user_id")
-	role, err := h.svc.loadUser(userID)
+	role, err := h.svc.LoadUser(userID)
 	if err != nil {
 		response.Unauthorized(c, "用户不存在")
 		return
 	}
-	q := UsageQuery{
+	q := govquota.UsageQuery{
 		Range:   c.DefaultQuery("range", "7d"),
 		Scope:   c.DefaultQuery("scope", "self"),
 		UserID:  userID,
@@ -135,10 +136,10 @@ func (h *Handler) PutUserPolicy(c *gin.Context) {
 		return
 	}
 	cur := model.QuotaPolicy{
-		DailyRequests:  DefaultDailyRequests,
-		DailyTokens:    DefaultDailyTokens,
-		MonthlyTokens:  DefaultMonthlyTokens,
-		RPM:            DefaultRPM,
+		DailyRequests:  govquota.DefaultDailyRequests,
+		DailyTokens:    govquota.DefaultDailyTokens,
+		MonthlyTokens:  govquota.DefaultMonthlyTokens,
+		RPM:            govquota.DefaultRPM,
 		AdminUnlimited: false,
 		Enabled:        true,
 	}

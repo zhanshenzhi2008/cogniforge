@@ -5,16 +5,17 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	govrbac "cogniforge/internal/governance/rbac"
 	"cogniforge/internal/shared/response"
 )
 
 type RBACHandler struct {
-	service *RBACService
+	service *govrbac.RBACService
 }
 
 func NewRBACHandler() *RBACHandler {
 	return &RBACHandler{
-		service: NewRBACService(),
+		service: govrbac.NewRBACService(),
 	}
 }
 
@@ -36,7 +37,7 @@ func (h *RBACHandler) ListPermissions(c *gin.Context) {
 
 // CreatePermission 创建权限
 func (h *RBACHandler) CreatePermission(c *gin.Context) {
-	var req CreatePermissionRequest
+	var req govrbac.CreatePermissionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, err.Error())
 		return
@@ -96,7 +97,7 @@ func (h *RBACHandler) GetRole(c *gin.Context) {
 
 // CreateRole 创建角色
 func (h *RBACHandler) CreateRole(c *gin.Context) {
-	var req CreateRoleRequest
+	var req govrbac.CreateRoleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, err.Error())
 		return
@@ -118,7 +119,7 @@ func (h *RBACHandler) UpdateRole(c *gin.Context) {
 		return
 	}
 
-	var req UpdateRoleRequest
+	var req govrbac.UpdateRoleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, err.Error())
 		return
@@ -166,7 +167,7 @@ func (h *RBACHandler) AssignRole(c *gin.Context) {
 		return
 	}
 
-	var req AssignRoleRequest
+	var req govrbac.AssignRoleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, err.Error())
 		return

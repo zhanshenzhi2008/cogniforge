@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-18 | v1.9 | governance/token HTTP 迁入 app；策略实现仍留原层 | orjrs |
 | 2026-11-18 | v1.8 | e2e 路径对齐分层；Go 全量单测 + Web Playwright 通过 | orjrs |
 | 2026-11-18 | v1.7 | capability CRUD HTTP 迁入 app；能力实现留 capability | orjrs |
 | 2026-11-18 | v1.6 | chat/agent HTTP handler 迁入 app；执行核留 runtime | orjrs |
@@ -13,6 +14,12 @@
 | 2026-11-17 | v1.2 | 增 governance；orchestration/shared 物理迁入 | orjrs |
 | 2026-11-17 | v1.1 | capability：provider/memory/mcp/skill/knowledge/webfetch 迁入 | orjrs |
 | 2026-11-17 | v1.0 | develop 启动分层：文档 + infra 物理迁入 | orjrs |
+
+## [变更] governance / token HTTP → app（2026-11-18）
+
+- **变更原因**：与 capability/runtime 一致，HTTP 一律进 app
+- **变更后**：`app/{quota,eval,monitor,rbac,token}`；governance / infra/token 无 handler
+- **影响范围**：router；对外 API 不变
 
 ## [变更] e2e 验收通过（2026-11-18）
 
@@ -93,16 +100,17 @@
 gateway             CORS / JWT 校验 / RBAC 门禁 / HTTP 限流中间件
   ↓
 app                 auth / user / prompt / chat / agent /
-                    provider / memory / mcp / skill / skillimport / knowledge / router
+                    provider / memory / mcp / skill / skillimport / knowledge /
+                    quota / eval / monitor / rbac / token / router
   ↓
 runtime             chat / agent 执行核（拼 context、工具循环；内嵌业务配额 Allow）
 orchestration       engine / workflow
-governance          monitor / quota / rbac / eval（评测）
+governance          monitor / quota / rbac / eval（无 HTTP）
   ↓
 capability          provider / memory / mcp / skill / knowledge / webfetch …（无 HTTP）
   ↓
 infra               database / crypto / logger / httpclient / mail / trace /
-                    config / token / modelcache / scheduler
+                    config / token（无 HTTP）/ modelcache / scheduler
 shared              response / util
 model               持久化实体（暂顶层）
 interfaces          预留跨模块接口（暂顶层）
@@ -115,10 +123,10 @@ interfaces          预留跨模块接口（暂顶层）
 | `gateway` `gateway/middleware` | gateway | ✅ |
 | `infra/*`（无 middleware） | infra | ✅ |
 | `capability/*`（无 HTTP handler） | capability | ✅ |
-| `governance/*` | governance | ✅ |
+| `governance/*`（无 HTTP handler） | governance | ✅ |
 | `orchestration/*` | orchestration | ✅ |
 | `runtime/{chat,agent}`（无 HTTP handler） | runtime | ✅ |
-| `app/{auth,user,prompt,chat,agent,provider,memory,mcp,skill,skillimport,knowledge,router}` | app | ✅ |
+| `app/{…,quota,eval,monitor,rbac,token,router}` | app | ✅ |
 | `shared/{response,util}` | shared | ✅ |
 | `model` `interfaces` | 共享/预留 | 暂顶层 |
 
@@ -139,9 +147,11 @@ interfaces          预留跨模块接口（暂顶层）
 
 ## 4. 后续
 
-1. ~~e2e 绿后合 `main`~~（本轮验收已绿，合入进行中）  
-2. `cogniforge-ai` 物理目录对齐（可选；文档已有映射）  
-3. `model` / `interfaces` 是否下沉（可选）  
+1. ~~e2e 绿后合 `main`~~  
+2. ~~governance/token HTTP → app~~  
+3. `cogniforge-ai` 物理目录对齐（可选；文档已有映射）  
+4. `model` / `interfaces` 是否下沉（可选）  
+5. Crawl4AI（约 2026-11-23）  
 
 ## 5. 分支
 

@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"cogniforge/internal/app/auth"
-	"cogniforge/internal/infra/middleware"
+	"cogniforge/internal/gateway/middleware"
 	"cogniforge/internal/app/user"
 )
 

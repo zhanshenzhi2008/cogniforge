@@ -18,7 +18,7 @@ import (
 	"cogniforge/internal/infra/mail"
 	"cogniforge/internal/capability/mcp"
 	"cogniforge/internal/capability/memory"
-	"cogniforge/internal/infra/middleware"
+	"cogniforge/internal/gateway/middleware"
 	"cogniforge/internal/model"
 	"cogniforge/internal/infra/modelcache"
 	"cogniforge/internal/governance/monitor"

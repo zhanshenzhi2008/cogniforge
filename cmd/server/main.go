@@ -12,7 +12,7 @@ import (
 	"cogniforge/internal/infra/crypto"
 	"cogniforge/internal/infra/database"
 	"cogniforge/internal/infra/logger"
-	"cogniforge/internal/infra/middleware"
+	"cogniforge/internal/gateway/middleware"
 	"cogniforge/internal/model"
 	"cogniforge/internal/app/router"
 	"cogniforge/internal/shared/util"

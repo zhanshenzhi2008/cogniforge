@@ -4,6 +4,8 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-18 | v1.167 | 锁定 provider/memory 留 capability；context 由 runtime 组装 | orjrs |
+| 2026-11-17 | v1.166 | develop：gateway 层（JWT/CORS/RBAC 门禁/HTTP 限流）；配额实现仍在 governance | orjrs |
 | 2026-11-17 | v1.165 | develop：runtime/app 迁入；infra 收 middleware/config 等 | orjrs |
 | 2026-11-17 | v1.164 | develop：governance（含 eval）+ orchestration + shared | orjrs |
 | 2026-11-17 | v1.163 | develop：capability 包迁入（provider/memory/mcp/knowledge…） | orjrs |
@@ -163,11 +165,24 @@
 | 2026-04-17 | v1.3 | 阶段九用户管理与个人设置完成（用户CRUD、个人设置、会话管理、RBAC权限系统） | orjrs |
 > 注：任务状态变更直接在下方任务表格中更新即可，无需额外记录。
 
+## [变更] 锁定 Memory / Provider 归属（2026-11-18）
+
+- **变更原因**：确认不把对话相关一律塞进 runtime；积木与执行循环分开
+- **变更后**：provider/memory 留 `capability`；context 不单独立包，由 runtime 组装。见分层文档 v1.5
+- **包含代码**：`docs/02-architecture/02-layering.md`；`internal/{runtime,capability}/doc.go`
+
+## [变更] gateway 边缘鉴权与限流（2026-11-17）
+
+- **变更原因**：JWT/CORS/RBAC 门禁/HTTP 限流属请求入口，不应堆在 infra；登录业务与配额策略仍分属 app / governance
+- **变更后**：`gateway/middleware`；`gateway.RateLimit` / `RateLimitFromQuota`；chat 路径不挂网关限流以免双重扣次
+- **包含代码**：见 `docs/02-architecture/02-layering.md` v1.4
+
 ## [变更] runtime + app + infra 边界收口（2026-11-17）
 
 - **变更原因**：执行循环进 runtime；账号/提示词/路由进 app；中间件与配置进 infra
 - **变更后**：`runtime/{chat,agent}`；`app/{auth,user,prompt,router}`；`infra` 增补 middleware/config/token/modelcache/scheduler
 - **包含代码**：见 `docs/02-architecture/02-layering.md` v1.3
+
 
 ## [变更] governance + orchestration + shared（2026-11-17）
 

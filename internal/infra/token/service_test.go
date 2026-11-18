@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"cogniforge/internal/infra/middleware"
+	"cogniforge/internal/gateway/middleware"
 )
 
 // TestService_Issue 无 Redis 时签发

@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"cogniforge/internal/app/auth"
-	"cogniforge/internal/infra/middleware"
+	"cogniforge/internal/gateway/middleware"
 	"cogniforge/internal/app/user"
 )
 

@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-18 | v1.8 | e2e 路径对齐分层；Go 全量单测 + Web Playwright 通过 | orjrs |
 | 2026-11-18 | v1.7 | capability CRUD HTTP 迁入 app；能力实现留 capability | orjrs |
 | 2026-11-18 | v1.6 | chat/agent HTTP handler 迁入 app；执行核留 runtime | orjrs |
 | 2026-11-18 | v1.5 | 锁定：provider/memory 留 capability；context 由 runtime 组装 | orjrs |
@@ -12,6 +13,12 @@
 | 2026-11-17 | v1.2 | 增 governance；orchestration/shared 物理迁入 | orjrs |
 | 2026-11-17 | v1.1 | capability：provider/memory/mcp/skill/knowledge/webfetch 迁入 | orjrs |
 | 2026-11-17 | v1.0 | develop 启动分层：文档 + infra 物理迁入 | orjrs |
+
+## [变更] e2e 验收通过（2026-11-18）
+
+- **变更原因**：分层后旧脚本仍指向 `internal/chat` 等旧路径
+- **变更后**：`scripts/e2e-memory-test.sh` 对齐 app/runtime/capability；Go `go test ./...` 绿；Web `pnpm test:e2e` 12 passed
+- **影响范围**：测试脚本；准备合 `main`
 
 ## [变更] capability CRUD HTTP → app（2026-11-18）
 
@@ -132,8 +139,8 @@ interfaces          预留跨模块接口（暂顶层）
 
 ## 4. 后续
 
-1. `cogniforge-ai` 目录/文档对齐（Python 侧 capability/runtime 概念）  
-2. e2e 绿后合 `main`  
+1. ~~e2e 绿后合 `main`~~（本轮验收已绿，合入进行中）  
+2. `cogniforge-ai` 物理目录对齐（可选；文档已有映射）  
 3. `model` / `interfaces` 是否下沉（可选）  
 
 ## 5. 分支

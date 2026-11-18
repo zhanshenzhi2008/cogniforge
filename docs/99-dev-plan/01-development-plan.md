@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-18 | v1.170 | e2e 路径对齐分层；Go 全测 + Web Playwright 12 通过；准备合 main | orjrs |
 | 2026-11-18 | v1.169 | capability CRUD HTTP 迁入 app；单测全绿 | orjrs |
 | 2026-11-18 | v1.168 | chat/agent HTTP 迁入 app；执行核留 runtime | orjrs |
 | 2026-11-18 | v1.167 | 锁定 provider/memory 留 capability；context 由 runtime 组装 | orjrs |
@@ -166,6 +167,12 @@
 | 2026-04-11 | v1.2 | 阶段八监控中心完成（请求日志中间件、日志列表 API、用量统计 API、监控仪表板页面） | orjrs |
 | 2026-04-17 | v1.3 | 阶段九用户管理与个人设置完成（用户CRUD、个人设置、会话管理、RBAC权限系统） | orjrs |
 > 注：任务状态变更直接在下方任务表格中更新即可，无需额外记录。
+
+## [变更] e2e 验收与合 main 准备（2026-11-18）
+
+- **变更原因**：分层后脚本路径过期；需验收后再合生产分支
+- **变更后**：`scripts/e2e-memory-test.sh` 对齐新目录；Go 全量单测通过；Web Playwright 12/12
+- **包含代码**：`scripts/e2e-memory-test.sh`；分层文档 v1.8
 
 ## [变更] capability CRUD HTTP → app（2026-11-18）
 

@@ -10,9 +10,9 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
-	"cogniforge/internal/auth"
-	"cogniforge/internal/config"
-	"cogniforge/internal/mail"
+	"cogniforge/internal/app/auth"
+	"cogniforge/internal/infra/config"
+	"cogniforge/internal/infra/mail"
 	"cogniforge/internal/model"
 )
 

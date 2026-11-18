@@ -7,15 +7,15 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 
-	"cogniforge/internal/auth"
-	"cogniforge/internal/config"
-	"cogniforge/internal/crypto"
-	"cogniforge/internal/database"
-	"cogniforge/internal/logger"
-	"cogniforge/internal/middleware"
+	"cogniforge/internal/app/auth"
+	"cogniforge/internal/infra/config"
+	"cogniforge/internal/infra/crypto"
+	"cogniforge/internal/infra/database"
+	"cogniforge/internal/infra/logger"
+	"cogniforge/internal/gateway/middleware"
 	"cogniforge/internal/model"
-	"cogniforge/internal/router"
-	"cogniforge/internal/util"
+	"cogniforge/internal/app/router"
+	"cogniforge/internal/shared/util"
 )
 
 func main() {

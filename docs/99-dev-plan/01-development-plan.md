@@ -4,6 +4,15 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-18 | v1.170 | e2e 路径对齐分层；Go 全测 + Web Playwright 12 通过；准备合 main | orjrs |
+| 2026-11-18 | v1.169 | capability CRUD HTTP 迁入 app；单测全绿 | orjrs |
+| 2026-11-18 | v1.168 | chat/agent HTTP 迁入 app；执行核留 runtime | orjrs |
+| 2026-11-18 | v1.167 | 锁定 provider/memory 留 capability；context 由 runtime 组装 | orjrs |
+| 2026-11-17 | v1.166 | develop：gateway 层（JWT/CORS/RBAC 门禁/HTTP 限流）；配额实现仍在 governance | orjrs |
+| 2026-11-17 | v1.165 | develop：runtime/app 迁入；infra 收 middleware/config 等 | orjrs |
+| 2026-11-17 | v1.164 | develop：governance（含 eval）+ orchestration + shared | orjrs |
+| 2026-11-17 | v1.163 | develop：capability 包迁入（provider/memory/mcp/knowledge…） | orjrs |
+| 2026-11-17 | v1.162 | develop 启动单体分层：infra 物理迁入；release-20261117 备份 | orjrs |
 | 2026-11-16 | v1.161 | 网页抓取接 Jina/Firecrawl；Key 进模型页 web_fetch（跨仓） | orjrs |
 | 2026-11-16 | v1.160 | 知识库上传三步：text/url 入库 + Web 数据源向导（跨仓） | orjrs |
 | 2026-11-16 | v1.159 | Web：上传弹窗操作进页脚分层（跨仓） | orjrs |
@@ -158,6 +167,56 @@
 | 2026-04-11 | v1.2 | 阶段八监控中心完成（请求日志中间件、日志列表 API、用量统计 API、监控仪表板页面） | orjrs |
 | 2026-04-17 | v1.3 | 阶段九用户管理与个人设置完成（用户CRUD、个人设置、会话管理、RBAC权限系统） | orjrs |
 > 注：任务状态变更直接在下方任务表格中更新即可，无需额外记录。
+
+## [变更] e2e 验收与合 main 准备（2026-11-18）
+
+- **变更原因**：分层后脚本路径过期；需验收后再合生产分支
+- **变更后**：`scripts/e2e-memory-test.sh` 对齐新目录；Go 全量单测通过；Web Playwright 12/12
+- **包含代码**：`scripts/e2e-memory-test.sh`；分层文档 v1.8
+
+## [变更] capability CRUD HTTP → app（2026-11-18）
+
+- **变更原因**：handler 与能力实现分离
+- **变更后**：`app/{provider,memory,mcp,skill,skillimport,knowledge}`；capability 无 HTTP。见分层文档 v1.7
+- **包含代码**：上述 app 包、`app/router`、`provider.ToResponseFor` 导出
+
+## [变更] chat/agent HTTP → app（2026-11-18）
+
+- **变更原因**：handler 与执行核分离
+- **变更后**：`app/{chat,agent}`；`runtime/{chat,agent}` 只留执行核。见分层文档 v1.6
+- **包含代码**：`internal/app/{chat,agent}`、`internal/app/router`、runtime 导出辅助函数
+
+## [变更] 锁定 Memory / Provider 归属（2026-11-18）
+
+- **变更原因**：确认不把对话相关一律塞进 runtime；积木与执行循环分开
+- **变更后**：provider/memory 留 `capability`；context 不单独立包，由 runtime 组装。见分层文档 v1.5
+- **包含代码**：`docs/02-architecture/02-layering.md`；`internal/{runtime,capability}/doc.go`
+
+## [变更] gateway 边缘鉴权与限流（2026-11-17）
+
+- **变更原因**：JWT/CORS/RBAC 门禁/HTTP 限流属请求入口，不应堆在 infra；登录业务与配额策略仍分属 app / governance
+- **变更后**：`gateway/middleware`；`gateway.RateLimit` / `RateLimitFromQuota`；chat 路径不挂网关限流以免双重扣次
+- **包含代码**：见 `docs/02-architecture/02-layering.md` v1.4
+
+## [变更] runtime + app + infra 边界收口（2026-11-17）
+
+- **变更原因**：执行循环进 runtime；账号/提示词/路由进 app；中间件与配置进 infra
+- **变更后**：`runtime/{chat,agent}`；`app/{auth,user,prompt,router}`；`infra` 增补 middleware/config/token/modelcache/scheduler
+- **包含代码**：见 `docs/02-architecture/02-layering.md` v1.3
+
+
+## [变更] governance + orchestration + shared（2026-11-17）
+
+- **变更原因**：监控/配额/权限/评测同属治理；编排与公共响应继续收敛
+- **变更后**：`governance/{monitor,quota,rbac,eval}`（评测在此）；`orchestration/{engine,workflow}`；`shared/{response,util}`
+- **包含代码**：见 `docs/02-architecture/02-layering.md` v1.2
+
+## [变更] develop 启动单体分层（2026-11-17）
+
+- **变更原因**：要按 Agent 平台理清依赖，但不拆微服务、不新建仓
+- **分支**：`release-20261117` 备份迁移前 main；改动只在 `develop`；测通后再合 `main`
+- **变更后**：新增 `docs/02-architecture/02-layering.md`；`internal/infra/{database,crypto,logger,httpclient,trace,mail}`；层占位 `capability` / `runtime` / `app` / `shared`
+- **包含代码**：`internal/infra/*`、层 `doc.go`、分层文档
 
 ## [变更] 网页抓取 Jina / Firecrawl（跨仓，2026-11-16）
 

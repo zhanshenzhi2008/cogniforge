@@ -1,0 +1,267 @@
+package router
+
+import (
+	"strings"
+	"time"
+
+	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
+
+	appagent "cogniforge/internal/app/agent"
+	"cogniforge/internal/app/auth"
+	appchat "cogniforge/internal/app/chat"
+	rtchat "cogniforge/internal/runtime/chat"
+	"cogniforge/internal/infra/config"
+	"cogniforge/internal/orchestration/engine"
+	"cogniforge/internal/governance/eval"
+	"cogniforge/internal/infra/httpclient"
+	appknowledge "cogniforge/internal/app/knowledge"
+	appmcp "cogniforge/internal/app/mcp"
+	appmemory "cogniforge/internal/app/memory"
+	appprovider "cogniforge/internal/app/provider"
+	appskill "cogniforge/internal/app/skill"
+	appskillimport "cogniforge/internal/app/skillimport"
+	"cogniforge/internal/capability/knowledge"
+	"cogniforge/internal/capability/provider"
+	"cogniforge/internal/gateway/middleware"
+	"cogniforge/internal/infra/mail"
+	"cogniforge/internal/infra/modelcache"
+	"cogniforge/internal/model"
+	"cogniforge/internal/governance/monitor"
+	"cogniforge/internal/app/prompt"
+	"cogniforge/internal/governance/quota"
+	"cogniforge/internal/governance/rbac"
+	"cogniforge/internal/infra/token"
+	"cogniforge/internal/app/user"
+	"cogniforge/internal/orchestration/workflow"
+)
+
+// SetupRoutes 配置所有路由
+func SetupRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
+	// 健康检查
+	r.GET("/health", healthHandler)
+	r.GET("/ready", readyHandler)
+	r.GET("/live", liveHandler)
+
+	// 初始化各模块 Handler
+	rdb := modelcache.DialRedis(cfg)
+	providerRepo := provider.NewRepository(db)
+	mc := modelcache.NewFromRedis(rdb)
+	providerSvc := provider.NewService(providerRepo, mc)
+	_ = model.MigrateProviders(db)
+	_ = db.AutoMigrate(&model.UserSettings{})
+	providerSvc.RepairVendorLabels()
+	providerSvc.RefreshCache()
+	providerHandler := appprovider.NewHandler(providerSvc)
+
+	authSvc := auth.NewAuthServiceWithDeps(db, rdb, buildMailer(cfg))
+	authHandler := auth.NewAuthHandlerWithService(authSvc)
+	userHandler := user.NewUserHandler()
+
+	var quotaStore quota.Store
+	if rdb != nil {
+		quotaStore = quota.NewRedisStore(rdb)
+	}
+	quotaSvc := quota.New(db, quotaStore)
+	quotaSvc.EnsureDefaultPolicy()
+	quotaHandler := quota.NewHandler(quotaSvc)
+
+	rtchat.SetPythonURL(cfg.RAG.PythonServiceURL)
+	rtchat.SetRAGDefaults(cfg.RAG.TopK, cfg.RAG.MinScore, cfg.RAG.MaxTokens)
+	chatHandler := appchat.NewChatHandler(providerSvc, db, quotaSvc)
+	memoryHandler := appmemory.NewMemoryHandler(db)
+	pythonClient := knowledge.NewServiceClient(httpclient.NewClient(cfg.RAG.PythonServiceURL))
+	knowledgeSvc := knowledge.NewKnowledgeService(pythonClient)
+	chatHandler.SetKnowledgeService(knowledgeSvc)
+	knowledgeHandler := appknowledge.NewKnowledgeHandler(pythonClient)
+	agentHandler := appagent.NewAgentHandler(providerSvc, chatHandler.Service(), quotaSvc)
+	agentHandler.SetKnowledgeService(knowledgeSvc)
+	monitorHandler := monitor.NewMonitorHandler()
+	mcpHandler := appmcp.NewHandler(db)
+	// 关键：Registry 必须注入，否则 Agent/Playground 勾选工具也不会生效
+	chatHandler.SetMCPRegistry(mcpHandler.Registry())
+	agentHandler.SetMCPRegistry(mcpHandler.Registry())
+	// 阶段十八 W0：工作流 LLM/Agent 节点走真实 Chat / ChatWithTools
+	wfEngine := engine.NewEngineWithDeps(engine.AIDeps{
+		Chat:  chatHandler.Service(),
+		MCP:   mcpHandler.Registry(),
+		Quota: quotaSvc,
+		DB:    db,
+	})
+	wfSvc := workflow.NewWorkflowServiceWithDeps(wfEngine, rdb)
+	workflow.StartWaitTimeoutScanner(wfSvc, 30*time.Second)
+	workflowHandler := workflow.NewWorkflowHandlerWithService(wfSvc)
+	skillHandler := appskill.NewHandler(db)
+	evalHandler := eval.NewHandler(db, chatHandler.Service())
+	evalHandler.SetMCPRegistry(mcpHandler.Registry())
+	promptHandler := prompt.NewHandler(db)
+	importHandler := appskillimport.NewHandler(db)
+	rbacHandler := rbac.NewRBACHandler()
+	tokenSvc := token.NewService(rdb)
+	tokenHandler := token.NewHandler(tokenSvc)
+
+	api := r.Group("/api/v1")
+	{
+		// 认证相关（公开接口）
+		authHandler.RegisterRoutes(api)
+
+		// API Key 路由（简化路径）
+		authKeys := api.Group("/keys")
+		authKeys.Use(middleware.AuthRequired())
+		{
+			authKeys.GET("", authHandler.ListApiKeys)
+			authKeys.POST("", authHandler.CreateApiKey)
+			authKeys.DELETE("/:id", authHandler.DeleteApiKey)
+		}
+
+		// 模型列表 / embeddings 公开；对话 completions 可选登录（Python 回调不带 JWT）
+		chatHandler.RegisterPublicRoutes(api)
+		api.POST("/chat/completions", middleware.AuthOptional(), chatHandler.Chat)
+
+		// 需要认证的路由
+		authenticated := api.Group("")
+		authenticated.Use(middleware.AuthRequired())
+		{
+			authenticated.POST("/chat/stream", chatHandler.ChatStream)
+			quotaHandler.RegisterUserRoutes(authenticated)
+
+			// LLM 临时凭证（阶段十四：Chat 记忆，Python 直调用）
+			tokenHandler.RegisterRoutes(authenticated)
+
+			// 聊天历史
+			chatHandler.RegisterConversationRoutes(authenticated)
+
+			// 用户管理
+			userHandler.RegisterRoutes(authenticated)
+
+			// 工作流
+			workflowHandler.RegisterRoutes(authenticated)
+
+			// 知识库
+			knowledgeHandler.RegisterRoutes(authenticated)
+
+			// 知识库路由（简化路径）
+			kb := authenticated.Group("/knowledge")
+			{
+				kb.GET("/folders", knowledgeHandler.ListFolders)
+				kb.POST("/folders", knowledgeHandler.CreateFolder)
+				kb.GET("", knowledgeHandler.ListKnowledgeBases)
+				kb.POST("", knowledgeHandler.CreateKnowledgeBase)
+				kb.GET("/:id", knowledgeHandler.GetKnowledgeBase)
+				kb.PUT("/:id", knowledgeHandler.UpdateKnowledgeBase)
+				kb.DELETE("/:id", knowledgeHandler.DeleteKnowledgeBase)
+				kb.GET("/:id/documents", knowledgeHandler.ListDocuments)
+				kb.GET("/:id/documents/:docId", knowledgeHandler.GetDocument)
+				kb.PUT("/:id/documents/:docId/content", knowledgeHandler.UpdateDocumentContent)
+				kb.DELETE("/:id/documents/:docId", knowledgeHandler.DeleteDocument)
+				kb.POST("/:id/documents/upload", knowledgeHandler.UploadDocument)
+				kb.POST("/:id/documents/text", knowledgeHandler.CreateTextDocument)
+				kb.POST("/:id/documents/url", knowledgeHandler.CreateURLDocument)
+				kb.POST("/:id/documents/preview", knowledgeHandler.PreviewChunks)
+				kb.POST("/:id/documents/reparse", knowledgeHandler.ReparseDocument)
+				kb.POST("/:id/search", knowledgeHandler.SearchKnowledge)
+			}
+
+			// AI 供应商配置
+			providerHandler.RegisterRoutes(authenticated)
+
+			// Agent
+			agentHandler.RegisterRoutes(authenticated)
+
+			// MCP Server 管理（阶段十五 15.1）
+			mcpHandler.RegisterRoutes(authenticated)
+
+			// SKILL 管理（阶段十五 15.3）
+			skillHandler.RegisterRoutes(authenticated)
+
+			// SKILL 导入（Markdown / ZIP）
+			importHandler.RegisterRoutes(authenticated)
+
+			// 设计评估体系（阶段十六）
+			evalHandler.RegisterRoutes(authenticated)
+
+			// 提示词工程（阶段十七）
+			promptHandler.RegisterRoutes(authenticated)
+
+			// 长期记忆 CRUD（阶段十四 14.5）
+			memoryHandler.RegisterRoutes(authenticated)
+
+			// 监控
+			monitorHandler.RegisterRoutes(authenticated)
+		}
+
+		// 管理员路由
+		admin := api.Group("")
+		admin.Use(middleware.AuthRequired())
+		admin.Use(middleware.RequireAdmin())
+		{
+			// RBAC
+			rbacHandler.RegisterRoutes(admin)
+
+			// 管理员路由（简化路径）
+			admin.GET("/admin/users", userHandler.GetUsers)
+			admin.POST("/admin/users", userHandler.CreateUser)
+			admin.GET("/admin/users/:id", userHandler.GetUser)
+			admin.PUT("/admin/users/:id", userHandler.UpdateUser)
+			admin.DELETE("/admin/users/:id", userHandler.DeleteUser)
+			admin.PATCH("/admin/users/:id/status", userHandler.UpdateUserStatus)
+			admin.POST("/admin/users/:id/reset-password", userHandler.AdminResetPassword)
+			admin.POST("/admin/users/:id/roles", rbacHandler.AssignRole)
+			admin.GET("/admin/users/:id/role", rbacHandler.GetUserRole)
+			quotaHandler.RegisterAdminRoutes(admin)
+		}
+	}
+}
+
+// ============ 健康检查 ============
+
+func healthHandler(c *gin.Context) {
+	c.JSON(200, gin.H{
+		"status":    "ok",
+		"timestamp": "2024-01-01T00:00:00Z",
+		"version":   "1.0.0",
+	})
+}
+
+func readyHandler(c *gin.Context) {
+	c.JSON(200, gin.H{"status": "ready"})
+}
+
+func liveHandler(c *gin.Context) {
+	c.JSON(200, gin.H{"status": "alive"})
+}
+
+func buildMailer(cfg *config.Config) mail.Sender {
+	if cfg == nil {
+		return mail.Nop{}
+	}
+	provider := strings.ToLower(strings.TrimSpace(cfg.Mail.Provider))
+	switch provider {
+	case "", "smtp", "qq", "163":
+		s := mail.NewSMTP(
+			cfg.Mail.SMTPHost,
+			cfg.Mail.SMTPPort,
+			cfg.Mail.SMTPUser,
+			cfg.Mail.SMTPPassword,
+			cfg.Mail.From,
+		)
+		if s.Enabled() {
+			return s
+		}
+	case "resend":
+		r := mail.NewResend(cfg.Mail.APIKey, cfg.Mail.From)
+		if r.Enabled() {
+			return r
+		}
+	}
+	// 兜底：哪种配齐用哪种
+	s := mail.NewSMTP(cfg.Mail.SMTPHost, cfg.Mail.SMTPPort, cfg.Mail.SMTPUser, cfg.Mail.SMTPPassword, cfg.Mail.From)
+	if s.Enabled() {
+		return s
+	}
+	r := mail.NewResend(cfg.Mail.APIKey, cfg.Mail.From)
+	if r.Enabled() {
+		return r
+	}
+	return mail.Nop{}
+}

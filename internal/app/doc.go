@@ -3,6 +3,8 @@
 // 子包：
 //   - auth / user / prompt
 //   - chat / agent（执行核在 runtime）
-//   - provider / memory / mcp / skill / skillimport / knowledge（能力 CRUD HTTP；实现在 capability）
+//   - provider / memory / mcp / skill / skillimport / knowledge（能力实现在 capability）
+//   - quota / eval / monitor / rbac（策略实现在 governance）
+//   - token（签发实现在 infra/token）
 //   - router
 package app

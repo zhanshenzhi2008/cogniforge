@@ -2,15 +2,17 @@ package token
 
 import (
 	"github.com/gin-gonic/gin"
+
+	infratoken "cogniforge/internal/infra/token"
 )
 
 // Handler HTTP 路由封装
 type Handler struct {
-	svc *Service
+	svc *infratoken.Service
 }
 
 // NewHandler 创建 handler
-func NewHandler(svc *Service) *Handler {
+func NewHandler(svc *infratoken.Service) *Handler {
 	return &Handler{svc: svc}
 }
 

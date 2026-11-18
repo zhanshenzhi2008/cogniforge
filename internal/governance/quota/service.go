@@ -155,6 +155,11 @@ func nextMonth(t time.Time) time.Time {
 	return time.Date(y, m+1, 1, 0, 0, 0, 0, t.Location())
 }
 
+// LoadUser 返回用户角色（供 app 层 HTTP 使用）。
+func (s *Service) LoadUser(userID string) (role string, err error) {
+	return s.loadUser(userID)
+}
+
 func (s *Service) loadUser(userID string) (role string, err error) {
 	if s.db == nil {
 		return "user", nil

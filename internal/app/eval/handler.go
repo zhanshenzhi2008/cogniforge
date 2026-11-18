@@ -4,17 +4,18 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
-	"cogniforge/internal/runtime/chat"
 	"cogniforge/internal/capability/mcp"
+	goveval "cogniforge/internal/governance/eval"
+	"cogniforge/internal/runtime/chat"
 	"cogniforge/internal/shared/response"
 )
 
 type Handler struct {
-	svc *Service
+	svc *goveval.Service
 }
 
 func NewHandler(db *gorm.DB, chatSvc *chat.ChatService) *Handler {
-	return &Handler{svc: NewService(db, chatSvc)}
+	return &Handler{svc: goveval.NewService(db, chatSvc)}
 }
 
 // SetMCPRegistry 评估跑 Agent 时注入工具（与 Agent 聊天同源 Registry）
@@ -32,7 +33,7 @@ func (h *Handler) ListSuites(c *gin.Context) {
 }
 
 func (h *Handler) CreateSuite(c *gin.Context) {
-	var req CreateSuiteRequest
+	var req goveval.CreateSuiteRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, err.Error())
 		return
@@ -55,7 +56,7 @@ func (h *Handler) GetSuite(c *gin.Context) {
 }
 
 func (h *Handler) UpdateSuite(c *gin.Context) {
-	var req UpdateSuiteRequest
+	var req goveval.UpdateSuiteRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, err.Error())
 		return
@@ -86,7 +87,7 @@ func (h *Handler) ListCases(c *gin.Context) {
 }
 
 func (h *Handler) CreateCase(c *gin.Context) {
-	var req CreateCaseRequest
+	var req goveval.CreateCaseRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, err.Error())
 		return
@@ -100,7 +101,7 @@ func (h *Handler) CreateCase(c *gin.Context) {
 }
 
 func (h *Handler) UpdateCase(c *gin.Context) {
-	var req UpdateCaseRequest
+	var req goveval.UpdateCaseRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, err.Error())
 		return
@@ -122,7 +123,7 @@ func (h *Handler) DeleteCase(c *gin.Context) {
 }
 
 func (h *Handler) CreateRun(c *gin.Context) {
-	var req CreateRunRequest
+	var req goveval.CreateRunRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, err.Error())
 		return
@@ -132,7 +133,7 @@ func (h *Handler) CreateRun(c *gin.Context) {
 		response.BadRequest(c, err.Error())
 		return
 	}
-	response.Success(c, RunDetailResponse{Run: run, Results: results})
+	response.Success(c, goveval.RunDetailResponse{Run: run, Results: results})
 }
 
 func (h *Handler) ListRuns(c *gin.Context) {
@@ -150,7 +151,7 @@ func (h *Handler) GetRun(c *gin.Context) {
 		response.NotFound(c, err.Error())
 		return
 	}
-	response.Success(c, RunDetailResponse{Run: run, Results: results})
+	response.Success(c, goveval.RunDetailResponse{Run: run, Results: results})
 }
 
 func (h *Handler) RegisterRoutes(rg *gin.RouterGroup) {

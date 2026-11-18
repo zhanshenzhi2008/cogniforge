@@ -12,7 +12,7 @@ import (
 	"cogniforge/internal/orchestration/engine/core"
 	"cogniforge/internal/capability/mcp"
 	"cogniforge/internal/model"
-	promptpkg "cogniforge/internal/app/prompt"
+	capprompt "cogniforge/internal/capability/prompt"
 	"cogniforge/internal/governance/quota"
 	"cogniforge/internal/capability/skill"
 )
@@ -193,7 +193,7 @@ func (e *AgentNodeExecutor) Execute(ctx *core.ExecutionContext, config json.RawM
 func (e *AgentNodeExecutor) resolveSystemPrompt(userID string, ag *model.Agent, vars map[string]string) string {
 	systemPrompt := ag.SystemPrompt
 	if ag.PromptID != "" {
-		rendered, err := promptpkg.NewService(e.DB).ResolvePublishedContent(userID, ag.PromptID, vars)
+		rendered, err := capprompt.NewService(e.DB).ResolvePublishedContent(userID, ag.PromptID, vars)
 		if err == nil && rendered != "" {
 			systemPrompt = rendered
 		}

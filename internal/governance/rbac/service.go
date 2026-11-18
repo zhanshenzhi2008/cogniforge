@@ -235,6 +235,60 @@ func (s *RBACService) GetUserRole(userID string) (*UserRoleResponse, error) {
 	return &UserRoleResponse{Role: user.Role}, nil
 }
 
+// IsAdmin 用户是否为系统管理员角色。
+func (s *RBACService) IsAdmin(userID string) (bool, error) {
+	role, err := s.GetUserRole(userID)
+	if err != nil {
+		return false, err
+	}
+	return role.Role == "admin", nil
+}
+
+// HasRole 用户角色码是否匹配。
+func (s *RBACService) HasRole(userID, roleCode string) (bool, error) {
+	role, err := s.GetUserRole(userID)
+	if err != nil {
+		return false, err
+	}
+	return role.Role == roleCode, nil
+}
+
+// UserHasPermission 检查用户是否拥有指定权限（admin 视为拥有全部）。
+func (s *RBACService) UserHasPermission(userID, permissionCode string) (bool, error) {
+	ok, err := s.IsAdmin(userID)
+	if err != nil {
+		return false, err
+	}
+	if ok {
+		return true, nil
+	}
+	var count int64
+	err = s.db.Model(&model.RolePermission{}).
+		Joins("JOIN permissions ON permissions.id = role_permissions.permission_id").
+		Joins("JOIN users ON users.role = (SELECT code FROM roles WHERE id = role_permissions.role_id)").
+		Where("users.id = ? AND permissions.code = ? AND role_permissions.deleted_at IS NULL", userID, permissionCode).
+		Count(&count).Error
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return false, err
+	}
+	return count > 0, nil
+}
+
+// ListUserPermissionCodes 返回用户全部权限码（不含 admin 隐式全量展开）。
+func (s *RBACService) ListUserPermissionCodes(userID string) ([]string, error) {
+	var permissions []string
+	err := s.db.Model(&model.Permission{}).
+		Select("permissions.code").
+		Joins("JOIN role_permissions rp ON rp.permission_id = permissions.id").
+		Joins("JOIN users ON users.role = (SELECT code FROM roles WHERE id = rp.role_id)").
+		Where("users.id = ? AND rp.deleted_at IS NULL", userID).
+		Pluck("code", &permissions).Error
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return nil, err
+	}
+	return permissions, nil
+}
+
 // ============ 默认数据初始化 ============
 
 // InitDefaultRoles 初始化默认角色和权限

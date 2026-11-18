@@ -7,7 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
-	"cogniforge/internal/app/prompt"
+	capprompt "cogniforge/internal/capability/prompt"
 	"cogniforge/internal/capability/knowledge"
 	"cogniforge/internal/capability/mcp"
 	"cogniforge/internal/capability/memory"
@@ -190,7 +190,7 @@ func (h *AgentHandler) AgentChat(c *gin.Context) {
 	// 优先级：绑定 Prompt（已发布当前版）> Skill > 内联 system_prompt
 	systemPrompt := dbAgent.SystemPrompt
 	if dbAgent.PromptID != "" {
-		rendered, err := prompt.NewService(database.DB).ResolvePublishedContent(userID, dbAgent.PromptID, req.Variables)
+		rendered, err := capprompt.NewService(database.DB).ResolvePublishedContent(userID, dbAgent.PromptID, req.Variables)
 		if err != nil {
 			response.BadRequest(c, err.Error())
 			return

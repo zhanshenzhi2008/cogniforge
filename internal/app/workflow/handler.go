@@ -3,22 +3,23 @@ package workflow
 import (
 	"github.com/gin-gonic/gin"
 
-	"cogniforge/internal/shared/response"
+	orchwf "cogniforge/internal/orchestration/workflow"
 	"cogniforge/internal/infra/trace"
+	"cogniforge/internal/shared/response"
 )
 
 type WorkflowHandler struct {
-	service *WorkflowService
+	service *orchwf.WorkflowService
 }
 
 func NewWorkflowHandler() *WorkflowHandler {
-	return NewWorkflowHandlerWithService(NewWorkflowService())
+	return NewWorkflowHandlerWithService(orchwf.NewWorkflowService())
 }
 
 // NewWorkflowHandlerWithService 注入带 AI 依赖的 WorkflowService
-func NewWorkflowHandlerWithService(svc *WorkflowService) *WorkflowHandler {
+func NewWorkflowHandlerWithService(svc *orchwf.WorkflowService) *WorkflowHandler {
 	if svc == nil {
-		svc = NewWorkflowService()
+		svc = orchwf.NewWorkflowService()
 	}
 	return &WorkflowHandler{service: svc}
 }
@@ -48,7 +49,7 @@ func (h *WorkflowHandler) CreateWorkflow(c *gin.Context) {
 		return
 	}
 
-	var req CreateWorkflowRequest
+	var req orchwf.CreateWorkflowRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, "请求参数无效: "+err.Error())
 		return
@@ -90,7 +91,7 @@ func (h *WorkflowHandler) UpdateWorkflow(c *gin.Context) {
 	}
 
 	workflowID := c.Param("id")
-	var req UpdateWorkflowRequest
+	var req orchwf.UpdateWorkflowRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, "请求参数无效: "+err.Error())
 		return
@@ -132,7 +133,7 @@ func (h *WorkflowHandler) ExecuteWorkflow(c *gin.Context) {
 	}
 
 	workflowID := c.Param("id")
-	var req ExecuteWorkflowRequest
+	var req orchwf.ExecuteWorkflowRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		req.Input = make(map[string]any)
 	}
@@ -240,7 +241,7 @@ func (h *WorkflowHandler) ResumeWorkflowExecution(c *gin.Context) {
 		return
 	}
 	executionID := c.Param("executionId")
-	var req ResumeExecutionRequest
+	var req orchwf.ResumeExecutionRequest
 	_ = c.ShouldBindJSON(&req)
 	result, err := h.service.ResumeExecution(userID, executionID, &req)
 	if err != nil {
@@ -258,7 +259,7 @@ func (h *WorkflowHandler) ApproveWorkflowExecution(c *gin.Context) {
 		return
 	}
 	executionID := c.Param("executionId")
-	var req ApproveExecutionRequest
+	var req orchwf.ApproveExecutionRequest
 	_ = c.ShouldBindJSON(&req)
 	result, err := h.service.ApproveExecution(userID, executionID, &req)
 	if err != nil {
@@ -276,7 +277,7 @@ func (h *WorkflowHandler) RejectWorkflowExecution(c *gin.Context) {
 		return
 	}
 	executionID := c.Param("executionId")
-	var req RejectExecutionRequest
+	var req orchwf.RejectExecutionRequest
 	_ = c.ShouldBindJSON(&req)
 	if err := h.service.RejectExecution(userID, executionID, &req); err != nil {
 		response.BadRequest(c, err.Error())
@@ -293,7 +294,7 @@ func (h *WorkflowHandler) CallbackWorkflowExecution(c *gin.Context) {
 		return
 	}
 	executionID := c.Param("executionId")
-	var req CallbackExecutionRequest
+	var req orchwf.CallbackExecutionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, "action 必填（approve|reject）")
 		return
@@ -319,7 +320,7 @@ func (h *WorkflowHandler) DebugWorkflow(c *gin.Context) {
 	}
 
 	workflowID := c.Param("id")
-	var req DebugWorkflowRequest
+	var req orchwf.DebugWorkflowRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		req.Input = make(map[string]any)
 	}

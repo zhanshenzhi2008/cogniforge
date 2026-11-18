@@ -6,20 +6,21 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
+	capprompt "cogniforge/internal/capability/prompt"
 	"cogniforge/internal/model"
 	"cogniforge/internal/shared/response"
 )
 
 type Handler struct {
-	svc *Service
+	svc *capprompt.Service
 }
 
 func NewHandler(db *gorm.DB) *Handler {
-	return &Handler{svc: NewService(db)}
+	return &Handler{svc: capprompt.NewService(db)}
 }
 
 // Service 暴露给 eval / agent 复用解析逻辑
-func (h *Handler) Service() *Service { return h.svc }
+func (h *Handler) Service() *capprompt.Service { return h.svc }
 
 func (h *Handler) List(c *gin.Context) {
 	list, err := h.svc.List(c.GetString("user_id"))
@@ -31,7 +32,7 @@ func (h *Handler) List(c *gin.Context) {
 }
 
 func (h *Handler) Create(c *gin.Context) {
-	var req CreatePromptRequest
+	var req capprompt.CreatePromptRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, err.Error())
 		return
@@ -41,7 +42,7 @@ func (h *Handler) Create(c *gin.Context) {
 		response.BadRequest(c, err.Error())
 		return
 	}
-	response.Created(c, PromptDetail{Prompt: p, CurrentVersion: ver})
+	response.Created(c, capprompt.PromptDetail{Prompt: p, CurrentVersion: ver})
 }
 
 func (h *Handler) Get(c *gin.Context) {
@@ -50,11 +51,11 @@ func (h *Handler) Get(c *gin.Context) {
 		response.NotFound(c, err.Error())
 		return
 	}
-	response.Success(c, PromptDetail{Prompt: p, CurrentVersion: ver})
+	response.Success(c, capprompt.PromptDetail{Prompt: p, CurrentVersion: ver})
 }
 
 func (h *Handler) Update(c *gin.Context) {
-	var req UpdatePromptRequest
+	var req capprompt.UpdatePromptRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, err.Error())
 		return
@@ -85,7 +86,7 @@ func (h *Handler) ListVersions(c *gin.Context) {
 }
 
 func (h *Handler) CreateVersion(c *gin.Context) {
-	var req CreateVersionRequest
+	var req capprompt.CreateVersionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, err.Error())
 		return
@@ -121,11 +122,11 @@ func (h *Handler) PublishVersion(c *gin.Context) {
 		response.BadRequest(c, err.Error())
 		return
 	}
-	response.Success(c, PromptDetail{Prompt: p, CurrentVersion: ver})
+	response.Success(c, capprompt.PromptDetail{Prompt: p, CurrentVersion: ver})
 }
 
 func (h *Handler) SetCurrentVersion(c *gin.Context) {
-	var req SetCurrentVersionRequest
+	var req capprompt.SetCurrentVersionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, err.Error())
 		return
@@ -139,7 +140,7 @@ func (h *Handler) SetCurrentVersion(c *gin.Context) {
 }
 
 func (h *Handler) Render(c *gin.Context) {
-	var req RenderRequest
+	var req capprompt.RenderRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, err.Error())
 		return
@@ -153,7 +154,7 @@ func (h *Handler) Render(c *gin.Context) {
 }
 
 func (h *Handler) Import(c *gin.Context) {
-	var req ImportRequest
+	var req capprompt.ImportRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, err.Error())
 		return
@@ -170,7 +171,7 @@ func (h *Handler) Import(c *gin.Context) {
 		response.BadRequest(c, err.Error())
 		return
 	}
-	response.Created(c, PromptDetail{Prompt: p, CurrentVersion: ver})
+	response.Created(c, capprompt.PromptDetail{Prompt: p, CurrentVersion: ver})
 }
 
 func (h *Handler) ListUsages(c *gin.Context) {

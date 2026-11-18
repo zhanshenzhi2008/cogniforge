@@ -35,7 +35,8 @@ import (
 	"cogniforge/internal/governance/quota"
 	"cogniforge/internal/infra/token"
 	"cogniforge/internal/app/user"
-	"cogniforge/internal/orchestration/workflow"
+	appwf "cogniforge/internal/app/workflow"
+	orchwf "cogniforge/internal/orchestration/workflow"
 )
 
 // SetupRoutes 配置所有路由
@@ -90,9 +91,9 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 		Quota: quotaSvc,
 		DB:    db,
 	})
-	wfSvc := workflow.NewWorkflowServiceWithDeps(wfEngine, rdb)
-	workflow.StartWaitTimeoutScanner(wfSvc, 30*time.Second)
-	workflowHandler := workflow.NewWorkflowHandlerWithService(wfSvc)
+	wfSvc := orchwf.NewWorkflowServiceWithDeps(wfEngine, rdb)
+	orchwf.StartWaitTimeoutScanner(wfSvc, 30*time.Second)
+	workflowHandler := appwf.NewWorkflowHandlerWithService(wfSvc)
 	skillHandler := appskill.NewHandler(db)
 	evalHandler := appeval.NewHandler(db, chatHandler.Service())
 	evalHandler.SetMCPRegistry(mcpHandler.Registry())

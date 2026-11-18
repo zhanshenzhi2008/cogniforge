@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-18 | v1.10 | workflow HTTP→app；prompt 领域→capability；gateway RBAC 委托 governance | orjrs |
 | 2026-11-18 | v1.9 | governance/token HTTP 迁入 app；策略实现仍留原层 | orjrs |
 | 2026-11-18 | v1.8 | e2e 路径对齐分层；Go 全量单测 + Web Playwright 通过 | orjrs |
 | 2026-11-18 | v1.7 | capability CRUD HTTP 迁入 app；能力实现留 capability | orjrs |
@@ -14,6 +15,15 @@
 | 2026-11-17 | v1.2 | 增 governance；orchestration/shared 物理迁入 | orjrs |
 | 2026-11-17 | v1.1 | capability：provider/memory/mcp/skill/knowledge/webfetch 迁入 | orjrs |
 | 2026-11-17 | v1.0 | develop 启动分层：文档 + infra 物理迁入 | orjrs |
+
+## [变更] 分层收口优化（2026-11-18）
+
+- **变更原因**：workflow HTTP 仍在 orchestration；eval 依赖 app/prompt；gateway RBAC 自查库
+- **变更后**：
+  - `app/workflow`；orchestration 只留引擎/服务
+  - `capability/prompt`（领域）；`app/prompt` 仅 HTTP
+  - gateway 门禁调用 `governance/rbac.UserHasPermission` 等
+- **影响范围**：router / eval / agent 节点；对外 API 不变
 
 ## [变更] governance / token HTTP → app（2026-11-18）
 
@@ -99,15 +109,15 @@
 ```text
 gateway             CORS / JWT 校验 / RBAC 门禁 / HTTP 限流中间件
   ↓
-app                 auth / user / prompt / chat / agent /
+app                 auth / user / prompt(HTTP) / chat / agent / workflow /
                     provider / memory / mcp / skill / skillimport / knowledge /
                     quota / eval / monitor / rbac / token / router
   ↓
 runtime             chat / agent 执行核（拼 context、工具循环；内嵌业务配额 Allow）
-orchestration       engine / workflow
-governance          monitor / quota / rbac / eval（无 HTTP）
+orchestration       engine / workflow（无 HTTP）
+governance          monitor / quota / rbac / eval（无 HTTP；权限真相）
   ↓
-capability          provider / memory / mcp / skill / knowledge / webfetch …（无 HTTP）
+capability          provider / memory / mcp / skill / knowledge / webfetch / prompt …
   ↓
 infra               database / crypto / logger / httpclient / mail / trace /
                     config / token（无 HTTP）/ modelcache / scheduler
@@ -122,11 +132,11 @@ interfaces          预留跨模块接口（暂顶层）
 |------|----|------|
 | `gateway` `gateway/middleware` | gateway | ✅ |
 | `infra/*`（无 middleware） | infra | ✅ |
-| `capability/*`（无 HTTP handler） | capability | ✅ |
-| `governance/*`（无 HTTP handler） | governance | ✅ |
-| `orchestration/*` | orchestration | ✅ |
+| `capability/*`（含 prompt；无 HTTP） | capability | ✅ |
+| `governance/*`（无 HTTP；RBAC 供 gateway 调用） | governance | ✅ |
+| `orchestration/*`（无 HTTP handler） | orchestration | ✅ |
 | `runtime/{chat,agent}`（无 HTTP handler） | runtime | ✅ |
-| `app/{…,quota,eval,monitor,rbac,token,router}` | app | ✅ |
+| `app/{…,workflow,quota,eval,monitor,rbac,token,router}` | app | ✅ |
 | `shared/{response,util}` | shared | ✅ |
 | `model` `interfaces` | 共享/预留 | 暂顶层 |
 
@@ -147,11 +157,11 @@ interfaces          预留跨模块接口（暂顶层）
 
 ## 4. 后续
 
-1. ~~e2e 绿后合 `main`~~  
-2. ~~governance/token HTTP → app~~  
-3. `cogniforge-ai` 物理目录对齐（可选；文档已有映射）  
-4. `model` / `interfaces` 是否下沉（可选）  
-5. Crawl4AI（约 2026-11-23）  
+1. ~~e2e 绿 / 合 main / HTTP 收口 / prompt 下沉 / RBAC 委托~~  
+2. `cogniforge-ai` 物理目录对齐（可选）  
+3. `model` / `interfaces` 是否下沉（可选）  
+4. Crawl4AI（约 2026-11-23）  
+5. 可选：`app/admin` 收拢 monitor/rbac 等管理 API  
 
 ## 5. 分支
 

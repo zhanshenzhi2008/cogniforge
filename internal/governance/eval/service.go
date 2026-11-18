@@ -12,7 +12,7 @@ import (
 	"cogniforge/internal/runtime/chat"
 	"cogniforge/internal/capability/mcp"
 	"cogniforge/internal/model"
-	"cogniforge/internal/app/prompt"
+	capprompt "cogniforge/internal/capability/prompt"
 )
 
 type Service struct {
@@ -259,7 +259,7 @@ func (s *Service) CreateAndExecuteRun(userID, suiteID string, req *CreateRunRequ
 	systemPrompt := "You are a helpful assistant for evaluation. Answer concisely."
 	modelName := strings.TrimSpace(req.TargetID)
 	var toolServerIDs []string
-	promptSvc := prompt.NewService(s.db)
+	promptSvc := capprompt.NewService(s.db)
 	if tt == model.EvalTargetAgent {
 		var ag struct {
 			Model        string
@@ -295,7 +295,7 @@ func (s *Service) CreateAndExecuteRun(userID, suiteID string, req *CreateRunRequ
 		}
 		var p model.Prompt
 		_ = s.db.Where("id = ? AND user_id = ?", ver.PromptID, userID).First(&p).Error
-		rendered, err := prompt.RenderContent(ver.Content, req.Variables, p.Variables, true)
+		rendered, err := capprompt.RenderContent(ver.Content, req.Variables, p.Variables, true)
 		if err != nil {
 			return nil, nil, err
 		}

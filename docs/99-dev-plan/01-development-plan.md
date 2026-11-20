@@ -4,6 +4,10 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-20 | v1.176 | Web：共用 CfChatPanel + 重复代码 backlog（跨仓） | orjrs |
+| 2026-11-20 | v1.175 | 智能体工作室未做能力列入后续 TODO（跨仓） | orjrs |
+| 2026-11-20 | v1.174 | Web：智能体工作室 + 卡片列表切换（跨仓） | orjrs |
+| 2026-11-20 | v1.173 | Web：新建智能体改为 `/agents/new` 页面（跨仓） | orjrs |
 | 2026-11-18 | v1.172 | workflow→app；prompt→capability；gateway RBAC 委托 governance | orjrs |
 | 2026-11-18 | v1.171 | governance/token HTTP 迁入 app，策略实现留原层 | orjrs |
 | 2026-11-18 | v1.170 | e2e 路径对齐分层；Go 全测 + Web Playwright 12 通过；准备合 main | orjrs |
@@ -171,6 +175,27 @@
 | 2026-04-11 | v1.2 | 阶段八监控中心完成（请求日志中间件、日志列表 API、用量统计 API、监控仪表板页面） | orjrs |
 | 2026-04-17 | v1.3 | 阶段九用户管理与个人设置完成（用户CRUD、个人设置、会话管理、RBAC权限系统） | orjrs |
 > 注：任务状态变更直接在下方任务表格中更新即可，无需额外记录。
+
+## [变更] 共用聊天面板 + 去重 backlog（2026-11-20）
+
+- **变更原因**：Web 对话页与工作室聊天重复；列表删除/空态等可共用
+- **影响范围**：`cogniforge-web`；文档跨仓同步
+- **行为**：见前端设计 v1.87、Web 开发计划 v1.68
+- **后续去重**：见下方「后续待办 · 前端组件去重」
+
+## [变更] 智能体工作室后续 TODO（2026-11-20）
+
+- **变更原因**：工作室骨架已上，截图未做能力需进 backlog，避免漏排
+- **影响范围**：文档；实现落在 `cogniforge-web`（部分需 Go API）
+- **后续 TODO**：见 Web 开发计划 v1.67；摘要见下方「后续待办 · 智能体工作室」
+- **文档**：前端设计 v1.86
+
+## [变更] 智能体工作室 + 卡片列表（2026-11-20）
+
+- **变更原因**：Web 智能体新建/编辑对齐左配置右构建预览；列表卡片化并可切表格
+- **影响范围**：仅 `cogniforge-web`（本仓文档跨仓同步）
+- **行为**：见前端设计 v1.85、Web 开发计划 v1.66；公共 `CfViewModeToggle`、`AgentStudio`
+- **包含代码**：`cogniforge-web/components/AgentStudio.vue`、`CfViewModeToggle.vue`、`pages/agents/*`
 
 ## [变更] 分层收口优化（2026-11-18）
 
@@ -1951,6 +1976,39 @@ composables/
 - [x] ~~准备 Python 开发环境~~（cogniforge-ai FastAPI 已落地）
 - [x] 排队消息带附件（2026-10-12）
 - [ ] 生产环境人工验收：PDF 附件问答；可选 code_execute 容器强隔离
+
+### 智能体工作室（对照竞品截图未做，2026-11-20）
+
+**优先（可接现有能力）**
+
+- [ ] 工作室绑定知识库（多选 + 可选使用者鉴权；对话 `rag_kb_ids`）
+- [ ] 对话开场白 + 预设问题（Agent 字段；预览/Playground 首屏）
+- [ ] 预览区文件上传开关（对齐 Playground attachments）
+- [ ] 提示词 `/` 插变量、`@` 插技能/工具/知识库
+- [ ] 「了解更多」链到帮助文档
+- [ ] 顶栏「对话日志」（该 Agent 历史会话 → Playground）
+- [ ] 配置版本历史（时钟：快照 / 回滚；需后端版本表）
+
+**中期**
+
+- [ ] 顶栏「发布渠道」（嵌入 / API / 第三方 IM）
+- [ ] 「猜你想问」（可与预设问题合并设计）
+
+**远期**
+
+- [ ] 虚拟机（套餐门禁 + 沙箱）
+- [ ] 语音播放（可先浏览器 TTS）
+- [ ] 语音输入（浏览器 STT / 云 ASR）
+
+### 前端组件去重（2026-11-20）
+
+- [x] `CfChatPanel`：对话页 + 智能体工作室共用消息区/输入框
+- [x] `useChatStream` + `mapChatHttpError`：通用 `/chat/stream`
+- [ ] Playground 选 Agent 时改走 `useAgentChat`（去掉内联 agent SSE）
+- [ ] `CfConfirmModal`：各列表删除确认
+- [ ] `CfEmptyState` / `CfLoadingState`
+- [ ] `CfFieldHelp`：表单帮助图标
+- [ ] 可选 `CfResourceCard`；MCP/知识库复用 `CfViewModeToggle`（按需）
 
 ---
 ---

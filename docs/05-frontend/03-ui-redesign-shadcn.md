@@ -4,6 +4,10 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-20 | v1.87 | 共用 CfChatPanel；跨模块重复代码 backlog | orjrs |
+| 2026-11-20 | v1.86 | 智能体工作室未做能力列入后续 TODO | orjrs |
+| 2026-11-20 | v1.85 | 智能体工作室左配置右构建/预览；列表卡片+公共视图切换 | orjrs |
+| 2026-11-20 | v1.84 | 新建智能体改为独立页 `/agents/new`，不再弹窗 | orjrs |
 | 2026-11-19 | v1.83 | 模型页可勾 Rerank；知识库开启 Rerank 后选已配置模型 | orjrs |
 | 2026-11-19 | v1.82 | 三种检索卡内 TopK/最低分；混合加语义↔关键词权重滑条 | orjrs |
 | 2026-11-16 | v1.81 | 模型页可配 Jina/Firecrawl；网页入库可选抓取引擎 | orjrs |
@@ -107,6 +111,37 @@
 - **变更原因**：按钮和内容挤在一起；重置多余
 - **变更前 vs 变更后**：~~内容区底部一排返回/重置/上传~~ → 去掉重置；返回与下一步/上传进 CfModal 页脚，顶部分隔线
 - **包含代码**：`cogniforge-web/pages/knowledge/[id].vue`
+
+## [变更] 共用聊天面板 CfChatPanel（2026-11-20）
+
+- **变更原因**：工作室构建/预览与对话页聊天 UI、SSE 发送重复
+- **变更后**：`CfChatPanel` 共用消息区+输入框；`useChatStream` 管 `/chat/stream`；`useAgentChat` 管 Agent 对话；错误码 `mapChatHttpError`
+- **后续去重**：`CfConfirmModal` / `CfEmptyState` / `CfFieldHelp` / Playground 改走 `useAgentChat` 等见 Web 开发计划 v1.68
+- **包含代码**：`cogniforge-web/components/CfChatPanel.vue`、`useChatStream.ts`、`AgentStudio.vue`、`playground.vue`、`prompts.vue`
+
+## [变更] 智能体工作室后续 TODO（2026-11-20）
+
+- **变更原因**：本期只做工作室骨架与列表卡片；截图其余能力需明确 backlog
+- **后续 TODO**：
+  - 优先：绑定知识库、开场白/预设问、预览附件上传、`/` `@` 提示词增强、「了解更多」文档链、对话日志、配置版本历史
+  - 中期：发布渠道、猜你想问
+  - 远期：虚拟机、语音播放/输入（依赖套餐或运行时）
+- **详见**：`cogniforge-web/docs/99-dev-plan/01-development-plan.md` v1.67；主仓开发计划「后续待办」
+
+## [变更] 智能体工作室与卡片列表（2026-11-20）
+
+- **变更原因**：对齐常见 Agent 配置体验（左配置 / 右构建预览）；列表默认卡片并支持切换
+- **变更前 vs 变更后**：
+  - ~~弹窗编辑 / 简单新建页~~ → `/agents/new` 与 `/agents/:id` 共用 `AgentStudio`：左侧模型/提示词/技能/工具/状态，右侧「构建」「预览」+ 悬浮说明
+  - ~~仅表格列表~~ → 默认卡片；公共组件 `CfViewModeToggle`（模型页复用）可切列表
+- **能力取舍**：虚拟机/语音/发布渠道等未做，见 v1.86 TODO；构建对话辅助写提示词，预览需先保存后试聊
+- **包含代码**：`components/AgentStudio.vue`、`CfViewModeToggle.vue`、`pages/agents/*`、`pages/models.vue`
+
+## [变更] 新建智能体改独立页（2026-11-20）
+
+- **变更原因**：新建表单字段多，弹窗空间不够，改为完整页面
+- **变更前 vs 变更后**：~~列表页弹窗创建~~ → `/agents/new` 独立页；编辑进 `/agents/:id`（`AgentStudio`）；路由结构为 `pages/agents/index.vue` + `new.vue` + `[id].vue`
+- **包含代码**：`cogniforge-web/pages/agents/index.vue`、`pages/agents/new.vue`、`pages/agents/[id].vue`
 
 ## [变更] Rerank 可选已配置模型（2026-11-19）
 

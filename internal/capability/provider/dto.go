@@ -14,6 +14,7 @@ type CreateProviderRequest struct {
 	APIKey         string                 `json:"api_key" binding:"required"`
 	DefaultModel   string                 `json:"default_model"`
 	EmbeddingModel string                 `json:"embedding_model"`
+	RerankModel    string                 `json:"rerank_model"`
 	Capabilities   []string               `json:"capabilities"`
 	ExtraHeaders   map[string]interface{} `json:"extra_headers"`
 	IsEnabled      bool                   `json:"is_enabled"`
@@ -28,6 +29,7 @@ type UpdateProviderRequest struct {
 	APIKey         *string                `json:"api_key"`
 	DefaultModel   *string                `json:"default_model"`
 	EmbeddingModel *string                `json:"embedding_model"`
+	RerankModel    *string                `json:"rerank_model"`
 	Capabilities   []string               `json:"capabilities"`
 	ExtraHeaders   map[string]interface{} `json:"extra_headers"`
 	IsEnabled      *bool                  `json:"is_enabled"`
@@ -50,6 +52,7 @@ type ProviderResponse struct {
 	BaseURL            string                 `json:"base_url"`
 	DefaultModel       string                 `json:"default_model"`
 	EmbeddingModel     string                 `json:"embedding_model"`
+	RerankModel        string                 `json:"rerank_model"`
 	Capabilities       []string               `json:"capabilities"`
 	ExtraHeaders       map[string]interface{} `json:"extra_headers"`
 	OwnerUserID        string                 `json:"owner_user_id"`
@@ -95,6 +98,7 @@ func ToResponseFor(p *model.AIProvider, actor Actor, prefChat, prefEmbed string)
 		BaseURL:            p.BaseURL,
 		DefaultModel:       p.DefaultModel,
 		EmbeddingModel:     p.EmbeddingModel,
+		RerankModel:        p.RerankModel,
 		Capabilities:       model.SplitCapabilities(p.Capabilities),
 		ExtraHeaders:       p.ExtraHeaders,
 		OwnerUserID:        p.OwnerUserID,

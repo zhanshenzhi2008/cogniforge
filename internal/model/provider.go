@@ -22,7 +22,8 @@ type AIProvider struct {
 	APIKey             string         `gorm:"type:varchar(500);not null" json:"api_key"`         // API密钥
 	DefaultModel       string         `gorm:"type:varchar(100)" json:"default_model"`            // 对话默认模型
 	EmbeddingModel     string         `gorm:"type:varchar(100)" json:"embedding_model"`          // 向量模型；空则对话模型不当向量用
-	Capabilities       string         `gorm:"type:varchar(64);default:chat" json:"capabilities"` // chat,embedding,web_fetch
+	RerankModel        string         `gorm:"type:varchar(100)" json:"rerank_model"`             // 重排序模型；空且仅 rerank 能力时可用 default_model
+	Capabilities       string         `gorm:"type:varchar(64);default:chat" json:"capabilities"` // chat,embedding,web_fetch,rerank
 	ExtraHeaders       JSONBMap       `gorm:"type:jsonb" json:"extra_headers"`                   // 额外请求头（如OpenRouter的HTTP-Referer）
 	OwnerUserID        string         `gorm:"type:varchar(64);index:idx_owner_user_id" json:"owner_user_id"` // 创建者
 	Scope              string         `gorm:"type:varchar(20);default:'private';index:idx_scope" json:"scope"` // private | public
@@ -201,6 +202,19 @@ var DefaultProviders = []AIProvider{
 		Priority:     85,
 		Status:       "active",
 	},
+	{
+		ID:           "jina-rerank",
+		Provider:     string(ProviderJina),
+		Name:         "Jina Reranker",
+		BaseURL:      "https://api.jina.ai/v1",
+		DefaultModel: "jina-reranker-v2-base-multilingual",
+		RerankModel:  "jina-reranker-v2-base-multilingual",
+		Capabilities: CapRerank,
+		IsEnabled:    false,
+		IsDefault:    false,
+		Priority:     90,
+		Status:       "active",
+	},
 }
 
 // MigrateProviders 迁移 AIProvider 表，并回填 owner/scope（旧数据曾全站共用 → public）
@@ -301,6 +315,7 @@ func VendorURLHints() []VendorURLHint {
 		{Host: "127.0.0.1:11434", Provider: string(ProviderOllama)},
 		{Host: "api.xty.app", Provider: string(ProviderAICore)},
 		{Host: "r.jina.ai", Provider: string(ProviderJina)},
+		{Host: "api.jina.ai", Provider: string(ProviderJina)},
 		{Host: "api.firecrawl.dev", Provider: string(ProviderFirecrawl)},
 		{Host: "api.openai.com", Provider: string(ProviderOpenAI)},
 	}

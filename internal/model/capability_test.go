@@ -16,6 +16,9 @@ func TestHasCapability(t *testing.T) {
 	assert.Equal(t, CapWebFetch, JoinCapabilities([]string{CapWebFetch}))
 	assert.Equal(t, "chat,web_fetch", JoinCapabilities([]string{CapWebFetch, CapChat}))
 	assert.False(t, HasCapability(CapWebFetch, CapChat))
+	assert.True(t, HasCapability(CapRerank, CapRerank))
+	assert.Equal(t, CapRerank, JoinCapabilities([]string{CapRerank}))
+	assert.Equal(t, "chat,rerank", JoinCapabilities([]string{CapRerank, CapChat}))
 }
 
 func TestEmbeddingModelName(t *testing.T) {
@@ -27,4 +30,15 @@ func TestEmbeddingModelName(t *testing.T) {
 	p.EmbeddingModel = "text-embedding-3-small"
 	p.Capabilities = CapChat + "," + CapEmbedding
 	assert.Equal(t, "text-embedding-3-small", EmbeddingModelName(p))
+}
+
+func TestRerankModelName(t *testing.T) {
+	p := &AIProvider{DefaultModel: "deepseek-chat", Capabilities: CapChat}
+	assert.Empty(t, RerankModelName(p))
+	p.Capabilities = CapRerank
+	p.DefaultModel = "jina-reranker-v2-base-multilingual"
+	assert.Equal(t, "jina-reranker-v2-base-multilingual", RerankModelName(p))
+	p.RerankModel = "jina-reranker-v2-base-multilingual"
+	p.Capabilities = CapChat + "," + CapRerank
+	assert.Equal(t, "jina-reranker-v2-base-multilingual", RerankModelName(p))
 }

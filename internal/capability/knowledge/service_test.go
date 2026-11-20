@@ -406,6 +406,49 @@ func TestSanitizeStorageDir(t *testing.T) {
 	assert.Equal(t, "kb", sanitizeStorageDir("   "))
 }
 
+func TestApplyRetrievalConfig_PerModeAndHybridWeight(t *testing.T) {
+	kb := &model.KnowledgeBase{
+		RagTopK: 5, RagMinScore: 0.3,
+		RagTopKSemantic: 5, RagMinScoreSemantic: 0.3,
+		RagTopKKeyword: 5, RagMinScoreKeyword: 0.3,
+		RagTopKHybrid: 5, RagMinScoreHybrid: 0.3,
+		HybridSemanticWeight: 0.7,
+		SearchMode: "semantic",
+	}
+	semTop, kwTop, hyTop := 3, 8, 12
+	semMin, kwMin, hyMin := 0.2, 0.4, 0.5
+	weight := 0.65
+	applyRetrievalConfig(kb, retrievalConfigPatch{
+		RagTopKSemantic: &semTop, RagMinScoreSemantic: &semMin,
+		RagTopKKeyword: &kwTop, RagMinScoreKeyword: &kwMin,
+		RagTopKHybrid: &hyTop, RagMinScoreHybrid: &hyMin,
+		HybridSemanticWeight: &weight,
+		SearchMode:           "hybrid",
+	})
+	assert.Equal(t, "hybrid", kb.SearchMode)
+	assert.Equal(t, 3, kb.RagTopKSemantic)
+	assert.Equal(t, 8, kb.RagTopKKeyword)
+	assert.Equal(t, 12, kb.RagTopKHybrid)
+	assert.Equal(t, 0.65, kb.HybridSemanticWeight)
+	assert.Equal(t, 12, kb.RagTopK)
+	assert.Equal(t, 0.5, kb.RagMinScore)
+}
+
+func TestResolveModeRetrievalParams(t *testing.T) {
+	kb := &model.KnowledgeBase{
+		RagTopK: 5, RagMinScore: 0.3,
+		RagTopKSemantic: 4, RagMinScoreSemantic: 0.25,
+		RagTopKKeyword: 9, RagMinScoreKeyword: 0.45,
+		RagTopKHybrid: 7, RagMinScoreHybrid: 0.35,
+	}
+	topK, minScore := resolveModeRetrievalParams(kb, "keyword", 0, 0)
+	assert.Equal(t, 9, topK)
+	assert.Equal(t, 0.45, minScore)
+	topK, minScore = resolveModeRetrievalParams(kb, "semantic", 2, 0.1)
+	assert.Equal(t, 2, topK)
+	assert.Equal(t, 0.1, minScore)
+}
+
 func TestEnsureUploadDir(t *testing.T) {
 	dir, err := ensureUploadDir("user123", "kb456")
 	assert.NoError(t, err)

@@ -14,6 +14,8 @@
 | 2026-11-17 | v1.165 | develop：runtime/app 迁入；infra 收 middleware/config 等 | orjrs |
 | 2026-11-17 | v1.164 | develop：governance（含 eval）+ orchestration + shared | orjrs |
 | 2026-11-17 | v1.163 | develop：capability 包迁入（provider/memory/mcp/knowledge…） | orjrs |
+| 2026-11-19 | v1.164 | Rerank 可选已配置 rerank 模型（跨仓 Web） | orjrs |
+| 2026-11-19 | v1.163 | 知识库：分模式 TopK/阈值 + 混合权重（跨仓 Web） | orjrs |
 | 2026-11-17 | v1.162 | develop 启动单体分层：infra 物理迁入；release-20261117 备份 | orjrs |
 | 2026-11-16 | v1.161 | 网页抓取接 Jina/Firecrawl；Key 进模型页 web_fetch（跨仓） | orjrs |
 | 2026-11-16 | v1.160 | 知识库上传三步：text/url 入库 + Web 数据源向导（跨仓） | orjrs |

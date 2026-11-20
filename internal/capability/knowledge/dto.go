@@ -18,33 +18,53 @@ type CreateKBRequest struct {
 	ChunkOverlap   *int    `json:"chunk_overlap"`
 	SplitMode      string  `json:"split_mode"`
 	SplitSeparator string  `json:"split_separator"`
-	RagTopK        *int     `json:"rag_top_k"`
-	RagMinScore    *float64 `json:"rag_min_score"`
-	SearchMode     string   `json:"search_mode"`
-	RerankSemantic *bool    `json:"rerank_semantic"`
-	RerankKeyword  *bool    `json:"rerank_keyword"`
-	RerankHybrid   *bool    `json:"rerank_hybrid"`
-	Visibility     string   `json:"visibility"`
+	RagTopK              *int     `json:"rag_top_k"`
+	RagMinScore          *float64 `json:"rag_min_score"`
+	RagTopKSemantic      *int     `json:"rag_top_k_semantic"`
+	RagMinScoreSemantic  *float64 `json:"rag_min_score_semantic"`
+	RagTopKKeyword       *int     `json:"rag_top_k_keyword"`
+	RagMinScoreKeyword   *float64 `json:"rag_min_score_keyword"`
+	RagTopKHybrid        *int     `json:"rag_top_k_hybrid"`
+	RagMinScoreHybrid    *float64 `json:"rag_min_score_hybrid"`
+	HybridSemanticWeight *float64 `json:"hybrid_semantic_weight"`
+	SearchMode               string   `json:"search_mode"`
+	RerankSemantic           *bool    `json:"rerank_semantic"`
+	RerankKeyword            *bool    `json:"rerank_keyword"`
+	RerankHybrid             *bool    `json:"rerank_hybrid"`
+	RerankProviderSemantic   *string  `json:"rerank_provider_semantic"`
+	RerankProviderKeyword    *string  `json:"rerank_provider_keyword"`
+	RerankProviderHybrid     *string  `json:"rerank_provider_hybrid"`
+	Visibility               string   `json:"visibility"`
 }
 
 type UpdateKBRequest struct {
-	Name           string   `json:"name"`
-	Description    string   `json:"description"`
-	FolderID       *string  `json:"folder_id"` // nil=不改；""=移到未分类
-	VectorDB       string   `json:"vector_db"`
-	EmbeddingModel string   `json:"embedding_model"`
-	ChunkSize      *int     `json:"chunk_size"`
-	ChunkOverlap   *int     `json:"chunk_overlap"`
-	SplitMode      string   `json:"split_mode"`
-	SplitSeparator *string  `json:"split_separator"`
-	RagTopK        *int     `json:"rag_top_k"`
-	RagMinScore    *float64 `json:"rag_min_score"`
-	SearchMode     string   `json:"search_mode"`
-	RerankSemantic *bool    `json:"rerank_semantic"`
-	RerankKeyword  *bool    `json:"rerank_keyword"`
-	RerankHybrid   *bool    `json:"rerank_hybrid"`
-	Visibility     string   `json:"visibility"`
-	Status         string   `json:"status"`
+	Name                     string   `json:"name"`
+	Description              string   `json:"description"`
+	FolderID                 *string  `json:"folder_id"` // nil=不改；""=移到未分类
+	VectorDB                 string   `json:"vector_db"`
+	EmbeddingModel           string   `json:"embedding_model"`
+	ChunkSize                *int     `json:"chunk_size"`
+	ChunkOverlap             *int     `json:"chunk_overlap"`
+	SplitMode                string   `json:"split_mode"`
+	SplitSeparator           *string  `json:"split_separator"`
+	RagTopK                  *int     `json:"rag_top_k"`
+	RagMinScore              *float64 `json:"rag_min_score"`
+	RagTopKSemantic          *int     `json:"rag_top_k_semantic"`
+	RagMinScoreSemantic      *float64 `json:"rag_min_score_semantic"`
+	RagTopKKeyword           *int     `json:"rag_top_k_keyword"`
+	RagMinScoreKeyword       *float64 `json:"rag_min_score_keyword"`
+	RagTopKHybrid            *int     `json:"rag_top_k_hybrid"`
+	RagMinScoreHybrid        *float64 `json:"rag_min_score_hybrid"`
+	HybridSemanticWeight     *float64 `json:"hybrid_semantic_weight"`
+	SearchMode               string   `json:"search_mode"`
+	RerankSemantic           *bool    `json:"rerank_semantic"`
+	RerankKeyword            *bool    `json:"rerank_keyword"`
+	RerankHybrid             *bool    `json:"rerank_hybrid"`
+	RerankProviderSemantic   *string  `json:"rerank_provider_semantic"`
+	RerankProviderKeyword    *string  `json:"rerank_provider_keyword"`
+	RerankProviderHybrid     *string  `json:"rerank_provider_hybrid"`
+	Visibility               string   `json:"visibility"`
+	Status                   string   `json:"status"`
 }
 
 // ParseOptions 上传/预览分段参数
@@ -123,8 +143,10 @@ type SearchRequest struct {
 	TopK           int             `json:"top_k"`
 	MinScore       float64         `json:"min_score"`
 	// SearchMode / Rerank：测试与对话可覆盖库配置；关键字/混合/Rerank 引擎后续接入
-	SearchMode string `json:"search_mode,omitempty"`
-	Rerank     *bool  `json:"rerank,omitempty"`
+	SearchMode           string   `json:"search_mode,omitempty"`
+	Rerank               *bool    `json:"rerank,omitempty"`
+	RerankProviderID     string   `json:"rerank_provider_id,omitempty"`
+	HybridSemanticWeight *float64 `json:"hybrid_semantic_weight,omitempty"`
 }
 
 // ============ 响应结构 ============

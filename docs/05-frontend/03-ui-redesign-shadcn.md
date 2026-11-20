@@ -4,6 +4,8 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-19 | v1.83 | 模型页可勾 Rerank；知识库开启 Rerank 后选已配置模型 | orjrs |
+| 2026-11-19 | v1.82 | 三种检索卡内 TopK/最低分；混合加语义↔关键词权重滑条 | orjrs |
 | 2026-11-16 | v1.81 | 模型页可配 Jina/Firecrawl；网页入库可选抓取引擎 | orjrs |
 | 2026-11-16 | v1.80 | 上传三步：数据源（本地/网页/文本）→ 分段 → 确认表 | orjrs |
 | 2026-11-16 | v1.79 | 上传弹窗去掉重置；操作进页脚分层 | orjrs |
@@ -105,6 +107,18 @@
 - **变更原因**：按钮和内容挤在一起；重置多余
 - **变更前 vs 变更后**：~~内容区底部一排返回/重置/上传~~ → 去掉重置；返回与下一步/上传进 CfModal 页脚，顶部分隔线
 - **包含代码**：`cogniforge-web/pages/knowledge/[id].vue`
+
+## [变更] Rerank 可选已配置模型（2026-11-19）
+
+- **变更原因**：开启 Rerank 不能只开关，必须指定 rerank 类型模型
+- **变更前 vs 变更后**：~~仅 Rerank 开关~~ → 模型页用途可勾「Rerank」并填模型名；知识库设置/检索测试在开启 Rerank 后下拉选择已启用且带 `rerank` 能力的配置
+- **包含代码**：`cogniforge-web/pages/models.vue`、`pages/knowledge/[id].vue`、`composables/useProviders.ts`、`useKnowledgeBases.ts`、`i18n/messages.ts`
+
+## [变更] 分模式 TopK / 阈值与混合权重 UI（2026-11-19）
+
+- **变更原因**：混合检索要有权重；三种检索各自要有 Top-K 与 score 阈值
+- **变更前 vs 变更后**：~~设置页下方单独一组 Top-K / 最低分；混合无权重~~ → 每种检索卡片内各自 Top-K / 最低分；混合卡片增加蓝/青双色权重滑条（语义 + 关键词 = 1）；检索测试右侧栏选中某方式后同样展示
+- **包含代码**：`cogniforge-web/pages/knowledge/[id].vue`、`composables/useKnowledgeBases.ts`、`i18n/messages.ts`
 
 ## [变更] 检索测试切换检索方式（2026-11-16）
 

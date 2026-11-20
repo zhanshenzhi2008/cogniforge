@@ -242,6 +242,7 @@ func (s *Service) CreateFor(req *CreateProviderRequest, actor Actor) (*model.AIP
 		APIKey:         encryptedKey,
 		DefaultModel:   req.DefaultModel,
 		EmbeddingModel: req.EmbeddingModel,
+		RerankModel:    req.RerankModel,
 		Capabilities:   model.JoinCapabilities(req.Capabilities),
 		OwnerUserID:    actor.UserID,
 		Scope:          scope,
@@ -301,6 +302,9 @@ func (s *Service) UpdateFor(id string, req *UpdateProviderRequest, actor Actor) 
 	}
 	if req.EmbeddingModel != nil {
 		p.EmbeddingModel = *req.EmbeddingModel
+	}
+	if req.RerankModel != nil {
+		p.RerankModel = *req.RerankModel
 	}
 	if req.Capabilities != nil {
 		p.Capabilities = model.JoinCapabilities(req.Capabilities)

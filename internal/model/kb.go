@@ -40,15 +40,27 @@ type KnowledgeBase struct {
 	ChunkOverlap   int            `gorm:"default:50" json:"chunk_overlap"`
 	SplitMode      string         `gorm:"type:varchar(32);default:'recursive'" json:"split_mode"` // recursive | fixed | separator
 	SplitSeparator string         `gorm:"type:varchar(64);default:''" json:"split_separator"`
-	// 检索参数
+	// 检索参数（兼容字段：与当前 search_mode 对应的 TopK / 阈值同步）
 	RagTopK     int     `gorm:"default:5" json:"rag_top_k"`
 	RagMinScore float64 `gorm:"type:double precision;default:0.3" json:"rag_min_score"`
+	// 三种检索各自的 TopK / 最低分
+	RagTopKSemantic     int     `gorm:"default:5" json:"rag_top_k_semantic"`
+	RagMinScoreSemantic float64 `gorm:"type:double precision;default:0.3" json:"rag_min_score_semantic"`
+	RagTopKKeyword      int     `gorm:"default:5" json:"rag_top_k_keyword"`
+	RagMinScoreKeyword  float64 `gorm:"type:double precision;default:0.3" json:"rag_min_score_keyword"`
+	RagTopKHybrid       int     `gorm:"default:5" json:"rag_top_k_hybrid"`
+	RagMinScoreHybrid   float64 `gorm:"type:double precision;default:0.3" json:"rag_min_score_hybrid"`
+	// 混合检索：语义权重（关键词权重 = 1 - 本值）
+	HybridSemanticWeight float64 `gorm:"type:double precision;default:0.7" json:"hybrid_semantic_weight"`
 	// 检索方式：semantic | keyword | hybrid（实际混合/关键字引擎后续接入，先落配置）
 	SearchMode string `gorm:"type:varchar(32);default:'semantic'" json:"search_mode"`
-	// 各检索方式是否开启 Rerank
-	RerankSemantic bool `gorm:"default:false" json:"rerank_semantic"`
-	RerankKeyword  bool `gorm:"default:false" json:"rerank_keyword"`
-	RerankHybrid   bool `gorm:"default:false" json:"rerank_hybrid"`
+	// 各检索方式是否开启 Rerank，以及选用的 Rerank 供应商（须具备 rerank 能力）
+	RerankSemantic           bool   `gorm:"default:false" json:"rerank_semantic"`
+	RerankKeyword            bool   `gorm:"default:false" json:"rerank_keyword"`
+	RerankHybrid             bool   `gorm:"default:false" json:"rerank_hybrid"`
+	RerankProviderSemantic   string `gorm:"type:varchar(64);default:''" json:"rerank_provider_semantic"`
+	RerankProviderKeyword    string `gorm:"type:varchar(64);default:''" json:"rerank_provider_keyword"`
+	RerankProviderHybrid     string `gorm:"type:varchar(64);default:''" json:"rerank_provider_hybrid"`
 	// 可见性占位（阶段三）：private | org（暂仅 private）
 	Visibility string `gorm:"type:varchar(32);default:'private'" json:"visibility"`
 	Status     string `gorm:"type:varchar(50);default:'active'" json:"status"`

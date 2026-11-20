@@ -3,6 +3,8 @@
 ## [变更记录]
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|---------|--------|
+| 2026-11-19 | v1.30 | capabilities 增 rerank；ai_providers.rerank_model；KB 分模式 rerank_provider_* | orjrs |
+| 2026-11-19 | v1.29 | knowledge_bases：分模式 TopK/min_score + 混合语义权重 | orjrs |
 | 2026-11-16 | v1.28 | ai_providers.capabilities 支持 web_fetch（Jina/Firecrawl） | orjrs |
 | 2026-11-16 | v1.27 | knowledge_bases 增加检索方式与分模式 Rerank 开关 | orjrs |
 | 2026-11-16 | v1.26 | knowledge_bases.storage_dir：文件目录用知识库名 | orjrs |
@@ -29,6 +31,29 @@
 | 2026-08-16 | v1.2 | Redis 键统一 `cogniforge:` 前缀；多项目用前缀隔离，不拆 db0/db1 | orjrs |
 | 2026-08-15 | v1.1 | 落地模型配置 Redis 键（当时为 `cf:modelcfg:*`） | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] Rerank 能力与知识库可选模型（2026-11-19）
+
+- **变更原因**：开启 Rerank 后必须指定模型管理里已配置且能力含 `rerank` 的供应商
+- **扩展 `ai_providers`**：
+  - `capabilities` 支持 `rerank`
+  - `rerank_model` VARCHAR(100)（纯 rerank 供应商可回落到 `default_model`）
+  - 种子：`jina-rerank`（默认未启用）
+- **扩展 `knowledge_bases`**：
+  - `rerank_provider_semantic` / `rerank_provider_keyword` / `rerank_provider_hybrid` VARCHAR(64)
+- **校验**：开启对应 `rerank_*` 时必须选中可用、已启用、可见且带 `rerank` 能力的供应商
+- **包含代码**：`internal/model/capability.go`、`provider.go`、`kb.go`；`internal/capability/provider/*`、`knowledge/service.go`
+
+## [变更] 知识库分模式检索参数与混合权重（2026-11-19）
+
+- **变更原因**：语义 / 关键字 / 混合各自需要 Top-K 与最低分；混合检索需要语义↔关键词权重
+- **扩展 `knowledge_bases`**（GORM AutoMigrate）：
+  - `rag_top_k_semantic` / `rag_min_score_semantic`（默认 5 / 0.3）
+  - `rag_top_k_keyword` / `rag_min_score_keyword`（默认 5 / 0.3）
+  - `rag_top_k_hybrid` / `rag_min_score_hybrid`（默认 5 / 0.3）
+  - `hybrid_semantic_weight` DOUBLE 默认 0.7（关键词权重 = 1 − 本值）
+- **兼容**：`rag_top_k` / `rag_min_score` 仍保留，保存时与当前 `search_mode` 对应模式同步；旧客户端只传这两项时会写到三种模式
+- **包含代码**：`internal/model/kb.go`、`internal/capability/knowledge/dto.go` / `service.go`
 
 ## [变更] ai_providers 网页抓取能力（2026-11-16）
 

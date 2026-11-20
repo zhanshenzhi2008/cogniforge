@@ -138,14 +138,21 @@ func (s *KnowledgeService) CreateKnowledgeBase(userID string, req *CreateKBReque
 		ChunkOverlap:   50,
 		SplitMode:      "recursive",
 		SplitSeparator: "\n\n",
-		RagTopK:        5,
-		RagMinScore:    0.3,
-		SearchMode:     "semantic",
-		Visibility:     "private",
-		Status:         "active",
-		Metadata:       model.JSONBMap{},
-		CreatedAt:      time.Now(),
-		UpdatedAt:      time.Now(),
+		RagTopK:              5,
+		RagMinScore:          0.3,
+		RagTopKSemantic:      5,
+		RagMinScoreSemantic:  0.3,
+		RagTopKKeyword:       5,
+		RagMinScoreKeyword:   0.3,
+		RagTopKHybrid:        5,
+		RagMinScoreHybrid:    0.3,
+		HybridSemanticWeight: 0.7,
+		SearchMode:           "semantic",
+		Visibility:           "private",
+		Status:               "active",
+		Metadata:             model.JSONBMap{},
+		CreatedAt:            time.Now(),
+		UpdatedAt:            time.Now(),
 	}
 
 	if kb.VectorDB == "" {
@@ -217,6 +224,9 @@ func (s *KnowledgeService) UpdateKnowledgeBase(userID, kbID string, req *UpdateK
 		kb.EmbeddingModel = req.EmbeddingModel
 	}
 	applyUpdateParseDefaults(&kb, req)
+	if err := s.validateKBRerankProviders(userID, &kb); err != nil {
+		return nil, err
+	}
 	if req.Status != "" {
 		kb.Status = req.Status
 	}
@@ -753,27 +763,14 @@ func (s *KnowledgeService) SearchByUser(ctx context.Context, userID, kbID string
 
 	startTime := time.Now()
 
-	topK := req.TopK
-	if topK <= 0 {
-		if kb.RagTopK > 0 {
-			topK = kb.RagTopK
-		} else {
-			topK = 5
-		}
+	mode := normalizeSearchMode(req.SearchMode)
+	if req.SearchMode == "" {
+		mode = normalizeSearchMode(kb.SearchMode)
 	}
-	if topK > 20 {
-		topK = 20
-	}
-	minScore := req.MinScore
-	if minScore <= 0 {
-		if kb.RagMinScore > 0 {
-			minScore = kb.RagMinScore
-		} else {
-			minScore = 0.3
-		}
-	}
-	if minScore > 1 {
-		minScore = 1
+	topK, minScore := resolveModeRetrievalParams(&kb, mode, req.TopK, req.MinScore)
+	_ = clampHybridSemanticWeight(kb.HybridSemanticWeight)
+	if req.HybridSemanticWeight != nil {
+		_ = clampHybridSemanticWeight(*req.HybridSemanticWeight)
 	}
 
 	pythonResp, err := s.pythonClient.Search(&SearchRequest{
@@ -782,6 +779,7 @@ func (s *KnowledgeService) SearchByUser(ctx context.Context, userID, kbID string
 		CollectionName: kbID,
 		TopK:           topK,
 		MinScore:       minScore,
+		SearchMode:     mode,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("检索失败: %w", err)
@@ -937,15 +935,18 @@ func applyCreateParseDefaults(kb *model.KnowledgeBase, req *CreateKBRequest) {
 	if req.SplitSeparator != "" {
 		kb.SplitSeparator = req.SplitSeparator
 	}
-	if req.RagTopK != nil && *req.RagTopK > 0 {
-		kb.RagTopK = *req.RagTopK
-	}
-	if req.RagMinScore != nil && *req.RagMinScore >= 0 {
-		kb.RagMinScore = *req.RagMinScore
-	}
-	if req.SearchMode != "" {
-		kb.SearchMode = normalizeSearchMode(req.SearchMode)
-	}
+	applyRetrievalConfig(kb, retrievalConfigPatch{
+		RagTopK:              req.RagTopK,
+		RagMinScore:          req.RagMinScore,
+		RagTopKSemantic:      req.RagTopKSemantic,
+		RagMinScoreSemantic:  req.RagMinScoreSemantic,
+		RagTopKKeyword:       req.RagTopKKeyword,
+		RagMinScoreKeyword:   req.RagMinScoreKeyword,
+		RagTopKHybrid:        req.RagTopKHybrid,
+		RagMinScoreHybrid:    req.RagMinScoreHybrid,
+		HybridSemanticWeight: req.HybridSemanticWeight,
+		SearchMode:           req.SearchMode,
+	})
 	if req.RerankSemantic != nil {
 		kb.RerankSemantic = *req.RerankSemantic
 	}
@@ -954,6 +955,15 @@ func applyCreateParseDefaults(kb *model.KnowledgeBase, req *CreateKBRequest) {
 	}
 	if req.RerankHybrid != nil {
 		kb.RerankHybrid = *req.RerankHybrid
+	}
+	if req.RerankProviderSemantic != nil {
+		kb.RerankProviderSemantic = strings.TrimSpace(*req.RerankProviderSemantic)
+	}
+	if req.RerankProviderKeyword != nil {
+		kb.RerankProviderKeyword = strings.TrimSpace(*req.RerankProviderKeyword)
+	}
+	if req.RerankProviderHybrid != nil {
+		kb.RerankProviderHybrid = strings.TrimSpace(*req.RerankProviderHybrid)
 	}
 	if req.Visibility != "" {
 		// 阶段三：暂仅 private；org 等后续 ACL
@@ -974,15 +984,18 @@ func applyUpdateParseDefaults(kb *model.KnowledgeBase, req *UpdateKBRequest) {
 	if req.SplitSeparator != nil {
 		kb.SplitSeparator = *req.SplitSeparator
 	}
-	if req.RagTopK != nil && *req.RagTopK > 0 {
-		kb.RagTopK = *req.RagTopK
-	}
-	if req.RagMinScore != nil && *req.RagMinScore >= 0 {
-		kb.RagMinScore = *req.RagMinScore
-	}
-	if req.SearchMode != "" {
-		kb.SearchMode = normalizeSearchMode(req.SearchMode)
-	}
+	applyRetrievalConfig(kb, retrievalConfigPatch{
+		RagTopK:              req.RagTopK,
+		RagMinScore:          req.RagMinScore,
+		RagTopKSemantic:      req.RagTopKSemantic,
+		RagMinScoreSemantic:  req.RagMinScoreSemantic,
+		RagTopKKeyword:       req.RagTopKKeyword,
+		RagMinScoreKeyword:   req.RagMinScoreKeyword,
+		RagTopKHybrid:        req.RagTopKHybrid,
+		RagMinScoreHybrid:    req.RagMinScoreHybrid,
+		HybridSemanticWeight: req.HybridSemanticWeight,
+		SearchMode:           req.SearchMode,
+	})
 	if req.RerankSemantic != nil {
 		kb.RerankSemantic = *req.RerankSemantic
 	}
@@ -992,9 +1005,217 @@ func applyUpdateParseDefaults(kb *model.KnowledgeBase, req *UpdateKBRequest) {
 	if req.RerankHybrid != nil {
 		kb.RerankHybrid = *req.RerankHybrid
 	}
+	if req.RerankProviderSemantic != nil {
+		kb.RerankProviderSemantic = strings.TrimSpace(*req.RerankProviderSemantic)
+	}
+	if req.RerankProviderKeyword != nil {
+		kb.RerankProviderKeyword = strings.TrimSpace(*req.RerankProviderKeyword)
+	}
+	if req.RerankProviderHybrid != nil {
+		kb.RerankProviderHybrid = strings.TrimSpace(*req.RerankProviderHybrid)
+	}
 	if req.Visibility != "" {
 		kb.Visibility = "private"
 	}
+}
+
+func (s *KnowledgeService) validateKBRerankProviders(userID string, kb *model.KnowledgeBase) error {
+	checks := []struct {
+		on  bool
+		id  string
+		tag string
+	}{
+		{kb.RerankSemantic, kb.RerankProviderSemantic, "语义"},
+		{kb.RerankKeyword, kb.RerankProviderKeyword, "关键字"},
+		{kb.RerankHybrid, kb.RerankProviderHybrid, "混合"},
+	}
+	for _, c := range checks {
+		if !c.on {
+			continue
+		}
+		if strings.TrimSpace(c.id) == "" {
+			return fmt.Errorf("%s检索已开启 Rerank，请选择 Rerank 模型", c.tag)
+		}
+		if err := s.ensureRerankProvider(userID, c.id); err != nil {
+			return err
+		}
+	}
+	// 未开启时若仍写了 id，也校验合法性（避免脏数据）
+	for _, id := range []string{kb.RerankProviderSemantic, kb.RerankProviderKeyword, kb.RerankProviderHybrid} {
+		if strings.TrimSpace(id) == "" {
+			continue
+		}
+		if err := s.ensureRerankProvider(userID, id); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *KnowledgeService) ensureRerankProvider(userID, providerID string) error {
+	providerID = strings.TrimSpace(providerID)
+	if providerID == "" {
+		return nil
+	}
+	var p model.AIProvider
+	if err := s.db.Where("id = ?", providerID).First(&p).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return fmt.Errorf("Rerank 模型不存在")
+		}
+		return fmt.Errorf("查询 Rerank 模型失败")
+	}
+	if !p.IsEnabled {
+		return fmt.Errorf("Rerank 模型未启用，请先在「模型」页启用")
+	}
+	if !model.HasCapability(p.Capabilities, model.CapRerank) {
+		return fmt.Errorf("所选配置不是 Rerank 类型模型")
+	}
+	if !model.ProviderVisibleTo(&p, userID, false) {
+		return fmt.Errorf("无权使用该 Rerank 模型")
+	}
+	return nil
+}
+
+type retrievalConfigPatch struct {
+	RagTopK              *int
+	RagMinScore          *float64
+	RagTopKSemantic      *int
+	RagMinScoreSemantic  *float64
+	RagTopKKeyword       *int
+	RagMinScoreKeyword   *float64
+	RagTopKHybrid        *int
+	RagMinScoreHybrid    *float64
+	HybridSemanticWeight *float64
+	SearchMode           string
+}
+
+func applyRetrievalConfig(kb *model.KnowledgeBase, patch retrievalConfigPatch) {
+	if patch.SearchMode != "" {
+		kb.SearchMode = normalizeSearchMode(patch.SearchMode)
+	}
+
+	legacyOnly := patch.RagTopK != nil || patch.RagMinScore != nil
+	modeSpecific := patch.RagTopKSemantic != nil || patch.RagMinScoreSemantic != nil ||
+		patch.RagTopKKeyword != nil || patch.RagMinScoreKeyword != nil ||
+		patch.RagTopKHybrid != nil || patch.RagMinScoreHybrid != nil
+
+	if patch.RagTopKSemantic != nil && *patch.RagTopKSemantic > 0 {
+		kb.RagTopKSemantic = clampTopK(*patch.RagTopKSemantic)
+	}
+	if patch.RagMinScoreSemantic != nil && *patch.RagMinScoreSemantic >= 0 {
+		kb.RagMinScoreSemantic = clampMinScore(*patch.RagMinScoreSemantic)
+	}
+	if patch.RagTopKKeyword != nil && *patch.RagTopKKeyword > 0 {
+		kb.RagTopKKeyword = clampTopK(*patch.RagTopKKeyword)
+	}
+	if patch.RagMinScoreKeyword != nil && *patch.RagMinScoreKeyword >= 0 {
+		kb.RagMinScoreKeyword = clampMinScore(*patch.RagMinScoreKeyword)
+	}
+	if patch.RagTopKHybrid != nil && *patch.RagTopKHybrid > 0 {
+		kb.RagTopKHybrid = clampTopK(*patch.RagTopKHybrid)
+	}
+	if patch.RagMinScoreHybrid != nil && *patch.RagMinScoreHybrid >= 0 {
+		kb.RagMinScoreHybrid = clampMinScore(*patch.RagMinScoreHybrid)
+	}
+	if patch.HybridSemanticWeight != nil {
+		kb.HybridSemanticWeight = clampHybridSemanticWeight(*patch.HybridSemanticWeight)
+	}
+
+	// 旧客户端只传 rag_top_k / rag_min_score：同步到三种模式
+	if legacyOnly && !modeSpecific {
+		if patch.RagTopK != nil && *patch.RagTopK > 0 {
+			v := clampTopK(*patch.RagTopK)
+			kb.RagTopK = v
+			kb.RagTopKSemantic = v
+			kb.RagTopKKeyword = v
+			kb.RagTopKHybrid = v
+		}
+		if patch.RagMinScore != nil && *patch.RagMinScore >= 0 {
+			v := clampMinScore(*patch.RagMinScore)
+			kb.RagMinScore = v
+			kb.RagMinScoreSemantic = v
+			kb.RagMinScoreKeyword = v
+			kb.RagMinScoreHybrid = v
+		}
+	}
+
+	syncLegacyRetrievalFromMode(kb)
+}
+
+func syncLegacyRetrievalFromMode(kb *model.KnowledgeBase) {
+	topK, minScore := modeRetrievalDefaults(kb, kb.SearchMode)
+	kb.RagTopK = topK
+	kb.RagMinScore = minScore
+	if kb.HybridSemanticWeight < 0 || kb.HybridSemanticWeight > 1 {
+		kb.HybridSemanticWeight = 0.7
+	}
+}
+
+func modeRetrievalDefaults(kb *model.KnowledgeBase, mode string) (int, float64) {
+	topK := 0
+	minScore := 0.0
+	switch normalizeSearchMode(mode) {
+	case "keyword":
+		topK, minScore = kb.RagTopKKeyword, kb.RagMinScoreKeyword
+	case "hybrid":
+		topK, minScore = kb.RagTopKHybrid, kb.RagMinScoreHybrid
+	default:
+		topK, minScore = kb.RagTopKSemantic, kb.RagMinScoreSemantic
+	}
+	if topK <= 0 {
+		topK = kb.RagTopK
+	}
+	if topK <= 0 {
+		topK = 5
+	}
+	if minScore <= 0 {
+		minScore = kb.RagMinScore
+	}
+	if minScore <= 0 {
+		minScore = 0.3
+	}
+	return clampTopK(topK), clampMinScore(minScore)
+}
+
+func resolveModeRetrievalParams(kb *model.KnowledgeBase, mode string, reqTopK int, reqMinScore float64) (int, float64) {
+	topK, minScore := modeRetrievalDefaults(kb, mode)
+	if reqTopK > 0 {
+		topK = clampTopK(reqTopK)
+	}
+	if reqMinScore > 0 {
+		minScore = clampMinScore(reqMinScore)
+	}
+	return topK, minScore
+}
+
+func clampTopK(v int) int {
+	if v < 1 {
+		return 1
+	}
+	if v > 20 {
+		return 20
+	}
+	return v
+}
+
+func clampMinScore(v float64) float64 {
+	if v < 0 {
+		return 0
+	}
+	if v > 1 {
+		return 1
+	}
+	return v
+}
+
+func clampHybridSemanticWeight(v float64) float64 {
+	if v < 0 {
+		return 0
+	}
+	if v > 1 {
+		return 1
+	}
+	return v
 }
 
 func normalizeSplitMode(mode string) string {

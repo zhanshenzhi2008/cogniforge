@@ -4,6 +4,8 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-19 | v1.65 | providers 支持 rerank 能力/模型；KB 可绑分模式 rerank_provider_* | orjrs |
+| 2026-11-19 | v1.64 | PUT/POST 知识库分模式 TopK/min_score + hybrid_semantic_weight；search 可传权重 | orjrs |
 | 2026-11-16 | v1.63 | 网页入库支持 engine（jina/firecrawl/basic）；模型能力加 web_fetch | orjrs |
 | 2026-11-16 | v1.62 | POST documents/text、documents/url：自定义文本与网页入库 | orjrs |
 | 2026-11-16 | v1.61 | POST search 可传 search_mode / rerank（引擎后续接） | orjrs |
@@ -113,6 +115,26 @@
   - `POST /api/v1/knowledge/{kb_id}/documents/url`：`url` + 可选 `name` 与分段参数；服务端抓取 HTML 后入库
 - **前端**：知识库详情「添加内容」三步向导第三步确认后按项调用 upload / text / url
 - **包含代码**：`internal/knowledge/dto.go`、`service.go`、`handler.go`、`router.go`
+
+## [变更] Rerank 模型选择（2026-11-19）
+
+- **变更原因**：开启 Rerank 须选用模型管理里已配置且 `capabilities` 含 `rerank` 的供应商
+- **接口**：
+  - `POST` / `PUT /api/v1/providers`：可选 `rerank_model`；`capabilities` 可含 `rerank`
+  - `PUT /api/v1/knowledge/{id}`：可选 `rerank_provider_semantic` / `rerank_provider_keyword` / `rerank_provider_hybrid`；开启对应 `rerank_*` 时必填且须校验通过
+  - `POST /api/v1/knowledge/{id}/search`：可选 `rerank_provider_id`（测试覆盖）
+- **说明**：Rerank 执行引擎后续接入；配置与校验先落地
+- **包含代码**：`internal/capability/provider/*`、`knowledge/*`；Web `pages/models.vue`、`pages/knowledge/[id].vue`
+
+## [变更] 分模式 TopK / 最低分与混合权重（2026-11-19）
+
+- **变更原因**：三种检索各自要有 Top-K、score 阈值；混合检索要有语义/关键词权重
+- **接口**：
+  - `POST` / `PUT /api/v1/knowledge`：可选 `rag_top_k_semantic` / `rag_min_score_semantic`、`rag_top_k_keyword` / `rag_min_score_keyword`、`rag_top_k_hybrid` / `rag_min_score_hybrid`、`hybrid_semantic_weight`（0～1，关键词权重 = 1 − 本值）
+  - `POST /api/v1/knowledge/{id}/search`：可选 `hybrid_semantic_weight`；未传 `top_k` / `min_score` 时按请求或库的 `search_mode` 取对应模式默认
+- **兼容**：仍可只传 `rag_top_k` / `rag_min_score`（会同步到三种模式）；保存后兼容字段与当前 `search_mode` 对齐
+- **说明**：关键字/混合引擎与权重融合后续接入；配置先持久化
+- **包含代码**：`internal/capability/knowledge/dto.go`、`service.go`；Web `pages/knowledge/[id].vue`
 
 ## [变更] 检索请求可带 search_mode（2026-11-16）
 

@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-23 | v4.17 | 多 Agent：orchestration/team + app/team（CRUD）；agent_teams | orjrs |
 | 2026-11-17 | v4.16 | 分层：runtime/app 迁入；infra 收 middleware/config 等 | orjrs |
 | 2026-11-17 | v4.15 | 分层：governance（含评测）+ orchestration + shared | orjrs |
 | 2026-11-17 | v4.14 | 单体分层起步：infra 迁入；详见 02-layering.md | orjrs |
@@ -24,6 +25,12 @@
 | 2026-04-27 | v3.0 | 后端从 handler 目录重构为业务模块化架构；新增 auth/user/chat/workflow/knowledge/agent 等独立模块，遵循 DTO → Service → Handler 分层模式 | orjrs |
 | 2026-04-04 | v2.0 | 后端架构由 gateway 独立目录收敛为 monolith；删除 go-standards/dev-environment rules；rules 文档变更记录规范 | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] 多 Agent 小队层（2026-11-23）
+
+- **变更原因**：阶段十九；在 orchestration 增加 Team，不新开第三套编排引擎
+- **变更后**：`orchestration/team`（RunState/CRUD 服务）；`app/team` HTTP `/api/v1/teams`；表 `agent_teams`
+- **详规**：`docs/01-requirements/11-multi-agent-framework-design.md`
 
 ## [变更] 单体分层起步（2026-11-17）
 

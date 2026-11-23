@@ -3,6 +3,7 @@
 ## [变更记录]
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|---------|--------|
+| 2026-11-23 | v1.31 | agent_teams：多 Agent 小队表（mode/supervisor/members/config） | orjrs |
 | 2026-11-19 | v1.30 | capabilities 增 rerank；ai_providers.rerank_model；KB 分模式 rerank_provider_* | orjrs |
 | 2026-11-19 | v1.29 | knowledge_bases：分模式 TopK/min_score + 混合语义权重 | orjrs |
 | 2026-11-16 | v1.28 | ai_providers.capabilities 支持 web_fetch（Jina/Firecrawl） | orjrs |
@@ -31,6 +32,13 @@
 | 2026-08-16 | v1.2 | Redis 键统一 `cogniforge:` 前缀；多项目用前缀隔离，不拆 db0/db1 | orjrs |
 | 2026-08-15 | v1.1 | 落地模型配置 Redis 键（当时为 `cf:modelcfg:*`） | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] agent_teams 多 Agent 小队（2026-11-23）
+
+- **变更原因**：阶段十九多 Agent；小队说明书落库，执行状态仍走 checkpoint / RunState
+- **表**：`agent_teams`（GORM 模型 `model.AgentTeam`，启动 AutoMigrate）
+- **字段**：`mode`（pipeline/supervisor/handoff）、`supervisor_agent_id`、`member_agent_ids` JSONB、`workflow_id` 可选、`config`（max_depth/max_steps）
+- **设计**：`docs/01-requirements/11-multi-agent-framework-design.md`
 
 ## [变更] Rerank 能力与知识库可选模型（2026-11-19）
 
@@ -510,6 +518,33 @@ CREATE INDEX idx_api_key_status ON cf_api_keys(status);
 ---
 
 ### 2.3 Agent服务
+
+#### 2.3.0 Agent 小队表 (agent_teams)
+
+现网表名无 `cf_` 前缀，与 `agents` 一致。
+
+```sql
+CREATE TABLE agent_teams (
+    id VARCHAR(64) PRIMARY KEY,
+    user_id VARCHAR(64) NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    mode VARCHAR(32) NOT NULL DEFAULT 'supervisor', -- pipeline | supervisor | handoff
+    supervisor_agent_id VARCHAR(64),
+    member_agent_ids JSONB DEFAULT '[]',
+    workflow_id VARCHAR(64),
+    config JSONB DEFAULT '{"max_depth":8,"max_steps":40}',
+    status VARCHAR(50) DEFAULT 'active',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    deleted_at TIMESTAMP WITH TIME ZONE
+);
+
+CREATE INDEX idx_agent_teams_user_id ON agent_teams(user_id);
+CREATE INDEX idx_agent_teams_supervisor ON agent_teams(supervisor_agent_id);
+CREATE INDEX idx_agent_teams_workflow ON agent_teams(workflow_id);
+CREATE INDEX idx_agent_teams_status ON agent_teams(status);
+```
 
 #### 2.3.1 Agent表 (cf_agents)
 

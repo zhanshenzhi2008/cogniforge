@@ -4,6 +4,9 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-23 | v1.68 | team chat 可回传 `run_state`，handoff 后换人设续聊 | orjrs |
+| 2026-11-23 | v1.67 | `POST /teams/:id/chat`：主管对话 + delegate/handoff | orjrs |
+| 2026-11-23 | v1.66 | 多 Agent 小队 CRUD：`/api/v1/teams` | orjrs |
 | 2026-11-19 | v1.65 | providers 支持 rerank 能力/模型；KB 可绑分模式 rerank_provider_* | orjrs |
 | 2026-11-19 | v1.64 | PUT/POST 知识库分模式 TopK/min_score + hybrid_semantic_weight；search 可传权重 | orjrs |
 | 2026-11-16 | v1.63 | 网页入库支持 engine（jina/firecrawl/basic）；模型能力加 web_fetch | orjrs |
@@ -1104,7 +1107,58 @@ paths: "**/*.py"                    # 可选：路径过滤
 
 ---
 
+## [变更] 多 Agent 小队 CRUD（2026-11-23）
+
+- **路径**：`/api/v1/teams`（JWT）
+- **方法**：`GET` 列表、`POST` 创建、`GET/PUT/DELETE /:id`
+- **体字段**：`name`、`mode`（pipeline|supervisor|handoff）、`supervisor_agent_id`、`member_agent_ids`、`workflow_id`、`config`
+- **约束**：supervisor 模式必须有主管；成员/主管须属当前用户
+- **已做 chat**：`POST /api/v1/teams/:id/chat`（主管工具循环；`delegate_to_agent` / `handoff_to_agent`；返回 `response` + `run_state`）
+- **未做**：持久化 run、handoff 后自动换人设续聊、前端小队页、`/run` 任务型
+- **代码**：`app/team`、`orchestration/team`、`model.AgentTeam`
+
 ## 5. Agent接口
+
+### 4.0 小队管理（多 Agent）
+
+```yaml
+接口组: /api/v1/teams
+认证: JWT
+
+GET /api/v1/teams
+描述: 小队列表
+
+POST /api/v1/teams
+描述: 创建小队
+请求体:
+  {
+    "name": "调研写作队",
+    "mode": "supervisor",
+    "supervisor_agent_id": "agent_xxx",
+    "member_agent_ids": ["agent_yyy", "agent_zzz"],
+    "config": { "max_depth": 8, "max_steps": 40 }
+  }
+
+GET /api/v1/teams/{id}
+PUT /api/v1/teams/{id}
+DELETE /api/v1/teams/{id}
+
+POST /api/v1/teams/{id}/chat
+描述: 小队预览对话（入口多为主管；可委派/交接）
+请求体:
+  {
+    "messages": [{"role":"user","content":"写一份竞品摘要"}],
+    "stream": false,
+    "goal": "可选总目标",
+    "run_state": null
+  }
+说明: 上一轮返回的 run_state 原样回传，则按 active_agent_id 换人设续聊（handoff 后生效）
+响应 data:
+  {
+    "response": { "...": "ChatResponse" },
+    "run_state": { "active_agent_id": "...", "delegate_history": [], "handoff_history": [] }
+  }
+```
 
 ### 4.1 Agent管理
 

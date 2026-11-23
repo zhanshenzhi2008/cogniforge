@@ -4,6 +4,9 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-23 | v1.180 | 阶段十九 M2：/teams/:id/chat + delegate/handoff | orjrs |
+| 2026-11-23 | v1.179 | 阶段十九 M1 起步：agent_teams + /teams CRUD + RunState | orjrs |
+| 2026-11-23 | v1.178 | 多 Agent 框架设计草案（阶段十九 M0，仅文档） | orjrs |
 | 2026-11-23 | v1.177 | Web：工作室构建对话固化提示词+工具（跨仓） | orjrs |
 | 2026-11-20 | v1.176 | Web：共用 CfChatPanel + 重复代码 backlog（跨仓） | orjrs |
 | 2026-11-20 | v1.175 | 智能体工作室未做能力列入后续 TODO（跨仓） | orjrs |
@@ -176,6 +179,26 @@
 | 2026-04-11 | v1.2 | 阶段八监控中心完成（请求日志中间件、日志列表 API、用量统计 API、监控仪表板页面） | orjrs |
 | 2026-04-17 | v1.3 | 阶段九用户管理与个人设置完成（用户CRUD、个人设置、会话管理、RBAC权限系统） | orjrs |
 > 注：任务状态变更直接在下方任务表格中更新即可，无需额外记录。
+
+## [变更] 阶段十九 M2 小队 chat（2026-11-23）
+
+- **落地**：`POST /teams/:id/chat`；编排工具 `delegate_to_agent` / `handoff_to_agent`；响应含 `run_state`
+- **下一步**：run 持久化、handoff 续聊、Web 小队页
+- **文档**：需求 11 v0.3；API v1.67
+
+## [变更] 阶段十九 M1 起步（2026-11-23）
+
+- **变更原因**：多 Agent 从设计进入实现
+- **落地**：`agent_teams`；`GET/POST/PUT/DELETE /api/v1/teams`；`orchestration/team.RunState`（handoff/delegate 门禁）
+- **下一步**：~~Team chat / delegate~~（M2 已起步）→ Web 小队页
+- **文档**：需求 11 v0.2；库表 v1.31；API v1.66
+
+## [变更] 多 Agent 框架设计草案（2026-11-23）
+
+- **变更原因**：用户需要「一队智能体协作」；现网仅有单 Agent + 工作流串行 Agent 节点
+- **范围**：~~仅设计，不写代码~~（2026-11-23）→ M1 已开工
+- **文档**：`docs/01-requirements/11-multi-agent-framework-design.md`（阶段十九 M0）
+- **路线摘要**：Pipeline（已有）→ Supervisor → Handoff；编排真相仍是工作流 checkpoint
 
 ## [变更] 工作室构建固化配置（2026-11-23）
 

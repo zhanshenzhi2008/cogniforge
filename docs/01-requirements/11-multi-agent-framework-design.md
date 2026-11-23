@@ -4,15 +4,35 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-23 | v0.6 | §12 落地：软失败+可选重试、team_id 落 chat、Redis run_state、Web 续聊 | orjrs |
+| 2026-11-23 | v0.5 | 拍板 §12 四问：隐形展开、预览落 chat、编排原语、工人失败回主管 | orjrs |
 | 2026-11-23 | v0.4 | chat 回传 run_state；handoff 后按 active 换人设 | orjrs |
 | 2026-11-23 | v0.3 | M2 起步：POST /teams/:id/chat + delegate/handoff 工具 | orjrs |
 | 2026-11-23 | v0.2 | M1 起步：agent_teams 表 + Team CRUD + RunState/handoff 原语 | orjrs |
 | 2026-11-23 | v0.1 | 立项：模式分层、与现有工作流关系、参考来源、分期不做清单 | orjrs |
 
+## [变更] §12 拍板项落地（2026-11-23）
+
+- **变更原因**：§12 已定稿，补齐预览落库、Redis 续聊、工人软失败
+- **已落地**：
+  - 工人失败 → 工具结果字符串回传主管（不硬断）；`config.worker_retry_once` 可选同人再试 1 次
+  - `chat_conversations.team_id`；`POST /teams/:id/chat` 写会话并回 `conversation_id`
+  - Redis `cogniforge:team:run:{user}:{team}:{session}`（TTL 24h）；无 body `run_state` 时按 conversation 加载
+  - Web 小队预览：带 `conversation_id` 续聊、拉历史、展示工人失败提示
+- **未做**：画布 `team` 节点、`/teams/:id/run` 任务型、自动换人
+- **代码**：`orchestration/team/{chat,store}.go`、`app/team/handler.go`、`model/conversation.go`；Web `useTeams` / `pages/teams`
+
+## [变更] 开放问题拍板（2026-11-23）
+
+- **变更原因**：实现前四问需定稿，避免预览落库、工作流绑定、失败策略各写各的
+- **影响范围**：小队预览存档、Team↔工作流关系、`delegate`/`handoff` 实现口径、工人失败默认行为；后续改 `chat_conversations` / Team chat / config
+- **变更前 vs 变更后**：~~§12 四问待定~~ → 已拍板（见 §12）；§13 总结表补四行
+- **代码**：~~本期仅文档；实现跟拍板另排期~~（2026-11-23）→ v0.6 已落地预览落 chat / 软失败 / Redis
+
 ## [变更] run_state 回传换人设（2026-11-23）
 
 - **已落地**：请求可带上一轮 `run_state`；`ResumeRunState` 校验成员后按 `active_agent_id` 加载人设；Web 预览回传
-- **未做**：服务端 Redis 持久化 run、画布 Team 节点
+- **未做**：~~服务端 Redis 持久化 run~~（2026-11-23 已跟）→ 画布 Team 节点仍待
 - **代码**：`ResumeRunState`；handler/useTeams/teams 页
 
 ## [变更] M2 起步：小队 chat + 编排工具（2026-11-23）
@@ -176,7 +196,7 @@ Run / Execution（已有工作流执行，可挂 Team）
 | 新增 `team`（或 `supervisor`） | 绑定 Team 配置，内部走 B/C |
 | 可选边属性 `handoff` | 条件满足时切换 active agent（也可用工具触发，不必画边） |
 
-一期也可：**Team 不进画布**，只在「小队」页配置，执行时引擎内部展开成临时图——降低前端成本，但可观测性要靠 `node_runs` 打出子步骤。
+**已拍板（默认）**：**Team 不强制进画布**（隐形展开）。只在「小队」页配置，执行时引擎内部展开；可观测性靠 `run_state` / 子步骤日志（挂 execution 后写 `node_runs`）。`workflow_id` 可选；要精细控制时再绑可见图或画布 `team` 节点。
 
 ### 6.2 共享状态（Run State）最小字段
 
@@ -225,7 +245,7 @@ Run / Execution（已有工作流执行，可挂 Team）
 | supervisor_agent_id | 可空（pipeline 不需要） |
 | member_agent_ids | JSON 数组 |
 | config | JSON：max_depth、是否允许并行、入口话术等 |
-| workflow_id | 可选：绑定一张展开后的工作流 |
+| workflow_id | 可选：绑定一张展开后的工作流（**非必须**；默认隐形展开，见 §12.1） |
 | status | active / disabled |
 
 ### 8.2 API（示意）
@@ -245,10 +265,10 @@ POST       /api/v1/teams/:id/run       # 非对话任务型（可选，可与 wo
 
 | 对象 | 构建 | 预览 |
 |------|------|------|
-| 单 Agent | 现状：对话填左栏 → 固化 | 现状：像用户试聊 |
-| Team | 后期：对话生成成员角色与模式（可选） | 小队预览：能看到「当前是谁在答」 |
+| 单 Agent | 现状：对话填左栏 → 固化 | 现状：像用户试聊；历史 → `chat_conversations` |
+| Team | 后期：对话生成成员角色与模式（可选） | 小队预览：能看到「当前是谁在答」；历史同样落 `chat_conversations`（标 `team_id`） |
 
-一期 Team 可先做表单配置，不做「对话建队」。
+一期 Team 可先做表单配置，不做「对话建队」。预览与正式 execution 职责见 §12.2。
 
 ---
 
@@ -275,12 +295,53 @@ POST       /api/v1/teams/:id/run       # 非对话任务型（可选，可与 wo
 
 ---
 
-## 12. 开放问题（实现前需拍板）
+## 12. 已拍板决策（原开放问题）
 
-1. Team 是否必须绑定一张可见工作流，还是允许「隐形展开」？  
-2. 预览小队时，会话历史存在 `chat_conversations` 还是仅 execution？  
-3. `delegate_to_agent` 算工具调用（进 MCP 风格）还是编排原语（引擎内置）？**建议：编排原语**，工具列表里可对主管暴露同名能力。  
-4. 工人失败：主管重试 / 换人 / 整 run 失败——默认策略？  
+> ~~实现前需拍板~~（2026-11-23）→ 下列四条已定稿。
+
+### 12.1 Team ↔ 可见工作流
+
+| 决定 | 说明 |
+|------|------|
+| **默认隐形展开** | Team 不强制绑定可见工作流；小队页配置即可跑 |
+| `workflow_id` | **可选**；Pipeline 可后期「一键生成线性图」；Supervisor 一期不必落成 Vue Flow 图 |
+| 画布 | `team` 节点 / 精细控制为增强项，非预览门槛 |
+
+**产品口径**：Team = 小队说明书；工作流 = 精细编排。
+
+### 12.2 预览会话存哪
+
+| 决定 | 说明 |
+|------|------|
+| **预览** | 落 `chat_conversations`（与单 Agent 预览一致：左侧历史、回显） |
+| **标识** | 用 `team_id`（metadata 或新列）标小队会话；消息可带 `active_agent_id` / 委派摘要 |
+| **任务真相** | 正式 run / 可恢复仍走 `workflow_executions` + checkpoint；**不**用聊天 JSONB 当编排 checkpoint |
+| **禁止一期** | 预览与 execution 双写全文 |
+
+### 12.3 `delegate_to_agent` / `handoff_to_agent`
+
+| 决定 | 说明 |
+|------|------|
+| **引擎真相** | **编排原语**（`orchestration/team` 拦截）：深度门禁、成员校验、工人隔离、写 `run_state` |
+| **对模型** | 工具列表暴露同名 function，便于主管决策（已有 `OrchestrationToolSpecs`） |
+| **禁止** | 做成用户可配 MCP / 进通用工具市场（门禁可被绕过） |
+
+### 12.4 工人失败默认策略
+
+```text
+工人失败 → ① 结果（含 error）回传主管（软失败，默认）
+         → 可选 ② 同人自动重试 ≤1（仅瞬时类，config 可开）
+         → 主管可再 delegate（计入 depth）
+         → 触达 max_depth / max_steps → ④ 整 run failed
+自动换人 = 默认关（可选 fallback 名单后期再开）
+```
+
+| 策略 | 默认 |
+|------|------|
+| 失败回传主管 | **开** |
+| 同人瞬时重试 ≤1 | 可选，默认建议开 1 次或关（实现时写进 `config`） |
+| 自动换人 | **关** |
+| 超限额整 run 失败 | **开**（硬闸门） |
 
 ---
 
@@ -289,7 +350,11 @@ POST       /api/v1/teams/:id/run       # 非对话任务型（可选，可与 wo
 | 项 | 决定 |
 |----|------|
 | 定位 | 在现有 Agent + 工作流上加 **Team + Supervisor/Handoff** |
-| 真相源 | 继续 `workflow_executions` + checkpoint |
+| 真相源 | 继续 `workflow_executions` + checkpoint（正式任务）；预览历史另见下 |
+| Team↔工作流 | **默认隐形展开**；`workflow_id` 可选 |
+| 预览存档 | **`chat_conversations`**（标 `team_id`）；不当 checkpoint |
+| delegate/handoff | **编排原语** + 工具壳暴露给主管 |
+| 工人失败 | **回传主管**；可选瞬时同人重试；超限额整 run 失败；自动换人默认关 |
 | 一期模式 | Pipeline 说清楚 + Supervisor；Handoff 紧随 |
 | 参考主轴 | LangGraph 状态图思想、OpenAI Handoff、Anthropic Orchestrator–Workers |
-| 代码 | **先设计、后排期**；落地时再改库表/API/前端文档版本号 |
+| 代码 | M1/M2 + §12 跟拍已落地；画布 `team` 节点 / `/run` 仍待 |

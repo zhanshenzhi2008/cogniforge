@@ -6,12 +6,15 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 
 	"cogniforge/internal/capability/mcp"
 	"cogniforge/internal/capability/skill"
 	"cogniforge/internal/governance/quota"
 	"cogniforge/internal/infra/database"
+	"cogniforge/internal/model"
 	orchteam "cogniforge/internal/orchestration/team"
 	rtchat "cogniforge/internal/runtime/chat"
 	"cogniforge/internal/shared/response"
@@ -19,28 +22,41 @@ import (
 
 // Handler 小队 HTTP
 type Handler struct {
-	svc   *orchteam.Service
-	chat  *rtchat.ChatService
-	mcp   *mcp.Registry
-	quota *quota.Service
-	skill *skill.Service
+	svc     *orchteam.Service
+	chat    *rtchat.ChatService
+	conv    *rtchat.ConversationService
+	runs    *orchteam.RunStore
+	mcp     *mcp.Registry
+	quota   *quota.Service
+	skill   *skill.Service
 }
 
 func NewHandler(chatSvc *rtchat.ChatService, quotaSvc *quota.Service) *Handler {
 	return &Handler{
 		svc:   orchteam.NewService(),
 		chat:  chatSvc,
+		conv:  rtchat.NewConversationService(database.DB),
 		quota: quotaSvc,
 		skill: skill.NewService(database.DB),
 	}
 }
 
 func NewHandlerWithService(svc *orchteam.Service, chatSvc *rtchat.ChatService, quotaSvc *quota.Service) *Handler {
-	return &Handler{svc: svc, chat: chatSvc, quota: quotaSvc, skill: skill.NewService(database.DB)}
+	return &Handler{
+		svc:   svc,
+		chat:  chatSvc,
+		conv:  rtchat.NewConversationService(database.DB),
+		quota: quotaSvc,
+		skill: skill.NewService(database.DB),
+	}
 }
 
 func (h *Handler) SetMCPRegistry(reg *mcp.Registry) {
 	h.mcp = reg
+}
+
+func (h *Handler) SetRedis(rdb *redis.Client) {
+	h.runs = orchteam.NewRunStore(rdb)
 }
 
 func (h *Handler) List(c *gin.Context) {
@@ -136,10 +152,11 @@ func (h *Handler) Chat(c *gin.Context) {
 	}
 
 	var req struct {
-		Messages []rtchat.ChatMessage `json:"messages" binding:"required"`
-		Stream   bool                 `json:"stream"`
-		Goal     string               `json:"goal"`
-		RunState *orchteam.RunState   `json:"run_state"` // 客户端回传，handoff 后换人设续聊
+		Messages       []rtchat.ChatMessage `json:"messages" binding:"required"`
+		Stream         bool                 `json:"stream"`
+		Goal           string               `json:"goal"`
+		RunState       *orchteam.RunState   `json:"run_state"`
+		ConversationID string               `json:"conversation_id"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, err.Error())
@@ -148,6 +165,14 @@ func (h *Handler) Chat(c *gin.Context) {
 	if len(req.Messages) == 0 {
 		response.BadRequest(c, "messages 不能为空")
 		return
+	}
+
+	prior := req.RunState
+	sessionKey := strings.TrimSpace(req.ConversationID)
+	if prior == nil && h.runs != nil && sessionKey != "" {
+		if loaded, loadErr := h.runs.Load(c.Request.Context(), userID, teamID, sessionKey); loadErr == nil && loaded != nil {
+			prior = loaded
+		}
 	}
 
 	if h.quota != nil {
@@ -164,7 +189,7 @@ func (h *Handler) Chat(c *gin.Context) {
 		DB:      database.DB,
 		Skill:   h.skill,
 	}
-	result, err := deps.RunChat(c.Request.Context(), userID, t, req.Messages, req.Goal, req.RunState)
+	result, err := deps.RunChat(c.Request.Context(), userID, t, req.Messages, req.Goal, prior)
 	if err != nil {
 		if h.quota != nil {
 			h.quota.RefundRequest(c.Request.Context(), userID)
@@ -184,15 +209,127 @@ func (h *Handler) Chat(c *gin.Context) {
 		h.commitTeam(c, userID, modelName, nil, "ok", started)
 	}
 
+	convID, persistErr := h.persistPreview(userID, teamID, sessionKey, modelName, req.Messages, result)
+	if persistErr != nil {
+		// 预览主路径已成功；落库失败不回滚对话
+		_ = persistErr
+	}
+	if h.runs != nil && result.RunState != nil {
+		key := convID
+		if key == "" {
+			key = sessionKey
+		}
+		if key != "" {
+			_ = h.runs.Save(c.Request.Context(), userID, teamID, key, result.RunState)
+		}
+	}
+
 	payload := gin.H{
-		"response":  result.Response,
-		"run_state": result.RunState,
+		"response":        result.Response,
+		"run_state":       result.RunState,
+		"conversation_id": convID,
 	}
 	if req.Stream && result.Response != nil {
 		rtchat.WriteResponseSSE(c, result.Response)
 		return
 	}
 	response.Success(c, payload)
+}
+
+func (h *Handler) persistPreview(
+	userID, teamID, conversationID, modelName string,
+	reqMsgs []rtchat.ChatMessage,
+	result *orchteam.ChatResult,
+) (string, error) {
+	if h.conv == nil || result == nil {
+		return conversationID, nil
+	}
+	active := ""
+	if result.RunState != nil {
+		active = result.RunState.ActiveAgentID
+	}
+	assistantText := ""
+	if result.Response != nil {
+		assistantText = extractChatText(result.Response)
+	}
+
+	var stored []model.ConversationMessage
+	for _, m := range reqMsgs {
+		if m.Role == "system" {
+			continue
+		}
+		stored = append(stored, model.ConversationMessage{
+			ID:            uuid.New().String(),
+			Role:          m.Role,
+			Content:       contentToString(m.Content),
+			ActiveAgentID: active,
+			Time:          time.Now().Format(time.RFC3339),
+		})
+	}
+	if assistantText != "" {
+		stored = append(stored, model.ConversationMessage{
+			ID:            uuid.New().String(),
+			Role:          "assistant",
+			Content:       assistantText,
+			ActiveAgentID: active,
+			Time:          time.Now().Format(time.RFC3339),
+		})
+	}
+
+	if conversationID != "" {
+		row, err := h.conv.Get(userID, conversationID)
+		if err != nil {
+			return "", err
+		}
+		if row.TeamID != "" && row.TeamID != teamID {
+			return "", nil
+		}
+		msgs := append([]model.ConversationMessage{}, row.Messages...)
+		// 请求里通常已含完整历史；以请求侧为准覆盖，避免重复叠加
+		if len(reqMsgs) > 0 {
+			msgs = stored
+		} else {
+			msgs = append(msgs, stored...)
+		}
+		updated, err := h.conv.Update(userID, conversationID, &rtchat.UpdateConversationRequest{
+			Messages: &msgs,
+			Model:    &modelName,
+			TeamID:   &teamID,
+		})
+		if err != nil {
+			return conversationID, err
+		}
+		return updated.ID, nil
+	}
+
+	created, err := h.conv.Create(userID, &rtchat.CreateConversationRequest{
+		TeamID:   teamID,
+		Model:    modelName,
+		Messages: stored,
+		Title:    "",
+	})
+	if err != nil {
+		return "", err
+	}
+	return created.ID, nil
+}
+
+func contentToString(v any) string {
+	switch x := v.(type) {
+	case string:
+		return x
+	case nil:
+		return ""
+	default:
+		return ""
+	}
+}
+
+func extractChatText(resp *rtchat.ChatResponse) string {
+	if resp == nil || len(resp.Choices) == 0 {
+		return ""
+	}
+	return contentToString(resp.Choices[0].Message.Content)
 }
 
 func (h *Handler) commitTeam(c *gin.Context, userID, modelName string, usage *rtchat.ChatUsage, status string, started time.Time) {

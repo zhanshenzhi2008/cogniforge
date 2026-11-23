@@ -3,6 +3,7 @@
 ## [变更记录]
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|---------|--------|
+| 2026-11-23 | v1.32 | chat_conversations.team_id；Redis cogniforge:team:run:*；config.worker_retry_once | orjrs |
 | 2026-11-23 | v1.31 | agent_teams：多 Agent 小队表（mode/supervisor/members/config） | orjrs |
 | 2026-11-19 | v1.30 | capabilities 增 rerank；ai_providers.rerank_model；KB 分模式 rerank_provider_* | orjrs |
 | 2026-11-19 | v1.29 | knowledge_bases：分模式 TopK/min_score + 混合语义权重 | orjrs |
@@ -33,11 +34,19 @@
 | 2026-08-15 | v1.1 | 落地模型配置 Redis 键（当时为 `cf:modelcfg:*`） | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
 
+## [变更] 小队预览落库 + Redis run_state（2026-11-23）
+
+- **变更原因**：设计 §12.2 / §12.4：预览历史标小队；续聊不丢 `run_state`
+- **表**：`chat_conversations.team_id`（`varchar(64)`，索引 `idx_chat_conv_team`）；`messages[].active_agent_id`（JSONB 内字段，无新列）
+- **Redis**：`cogniforge:team:run:{user_id}:{team_id}:{session_id}` → JSON `RunState`，TTL 24h（§5.1）
+- **config**：`agent_teams.config.worker_retry_once`（bool，默认 `false`）
+- **代码**：`model/conversation.go`、`orchestration/team/store.go`、`app/team/handler.go`
+
 ## [变更] agent_teams 多 Agent 小队（2026-11-23）
 
 - **变更原因**：阶段十九多 Agent；小队说明书落库，执行状态仍走 checkpoint / RunState
 - **表**：`agent_teams`（GORM 模型 `model.AgentTeam`，启动 AutoMigrate）
-- **字段**：`mode`（pipeline/supervisor/handoff）、`supervisor_agent_id`、`member_agent_ids` JSONB、`workflow_id` 可选、`config`（max_depth/max_steps）
+- **字段**：`mode`（pipeline/supervisor/handoff）、`supervisor_agent_id`、`member_agent_ids` JSONB、`workflow_id` 可选、`config`（max_depth/max_steps；后续含 `worker_retry_once`）
 - **设计**：`docs/01-requirements/11-multi-agent-framework-design.md`
 
 ## [变更] Rerank 能力与知识库可选模型（2026-11-19）
@@ -533,7 +542,7 @@ CREATE TABLE agent_teams (
     supervisor_agent_id VARCHAR(64),
     member_agent_ids JSONB DEFAULT '[]',
     workflow_id VARCHAR(64),
-    config JSONB DEFAULT '{"max_depth":8,"max_steps":40}',
+    config JSONB DEFAULT '{"max_depth":8,"max_steps":40,"worker_retry_once":false}',
     status VARCHAR(50) DEFAULT 'active',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -600,6 +609,7 @@ CREATE TABLE chat_conversations (
     id VARCHAR(64) PRIMARY KEY,
     user_id VARCHAR(64) NOT NULL,
     agent_id VARCHAR(64),
+    team_id VARCHAR(64),                             -- 小队预览会话（阶段十九 §12.2）；空=普通对话
     title VARCHAR(255),
     model VARCHAR(128),
     pinned BOOLEAN NOT NULL DEFAULT FALSE,
@@ -614,14 +624,16 @@ CREATE TABLE chat_conversations (
 
 CREATE INDEX idx_chat_conv_user ON chat_conversations(user_id);
 CREATE INDEX idx_chat_conv_agent ON chat_conversations(agent_id);
+CREATE INDEX idx_chat_conv_team ON chat_conversations(team_id);
 CREATE INDEX idx_chat_conv_pinned ON chat_conversations(pinned);
 CREATE INDEX idx_chat_conv_deleted ON chat_conversations(deleted_at);
 ```
 
-`messages` 元素：`{"id","role","content","images?","attachments?","time"}`。`images` 为附图 URL 数组（多为 data URL）；`attachments` 为文件引用 `{"id","name","file_type","status?","chunk_count?"}`。
+`messages` 元素：`{"id","role","content","images?","attachments?","active_agent_id?","time"}`。`images` 为附图 URL 数组（多为 data URL）；`attachments` 为文件引用 `{"id","name","file_type","status?","chunk_count?"}`；`active_agent_id` 为小队预览时当时应答角色。
 `message_queue` 元素：`{"id","content","images?","attachments?","status":"queued|sending","sort"}`，最多 5 条；`attachments` 同 messages 文件引用结构。
 `rag_knowledge_base_ids`：会话关联的知识库 ID 字符串数组，聊天时按此列表做 RAG 检索（13.2）。
 `summary`：窗口外消息被裁剪后，由 Python `/api/memory/summarize` 生成摘要，下次对话时作为 `system` 消息注入。
+`team_id`：非空表示小队预览会话；`GET /conversations?team_id=` 可按小队过滤。
 title 缺省取第一条用户消息前 40 字；无文字仅有图时为「图片对话」。列表排序：`pinned DESC, updated_at DESC`。
 
 ---
@@ -1181,6 +1193,9 @@ cogniforge:quota:rl:{userId}:{yyyyMMddHHmm} -> integer           # TTL 2min
 cogniforge:pwdreset:tok:{token} -> userId   # TTL 30m
 cogniforge:pwdreset:uid:{userId} -> token   # TTL 30m，同用户只保留最新令牌
 cogniforge:pwdreset:rl:{email} -> integer   # TTL 15m，同邮箱最多 3 次
+
+# 小队预览 run_state（2026-11-23；非 workflow checkpoint）
+cogniforge:team:run:{user_id}:{team_id}:{session_id} -> JSON RunState  # TTL 24h；session 多为 conversation_id
 ```
 
 ---

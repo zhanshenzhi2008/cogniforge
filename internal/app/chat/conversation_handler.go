@@ -11,7 +11,8 @@ import (
 
 func (h *ChatHandler) ListConversations(c *gin.Context) {
 	userID := c.GetString("user_id")
-	rows, err := h.conv.List(userID)
+	teamID := c.Query("team_id")
+	rows, err := h.conv.List(userID, teamID)
 	if err != nil {
 		response.InternalError(c, err.Error())
 		return

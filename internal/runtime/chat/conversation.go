@@ -38,6 +38,7 @@ type ConversationSummary struct {
 	ID        string    `json:"id"`
 	Title     string    `json:"title"`
 	AgentID   string    `json:"agent_id"`
+	TeamID    string    `json:"team_id,omitempty"`
 	Model     string    `json:"model"`
 	Pinned    bool      `json:"pinned"`
 	QueueLen  int       `json:"queue_len"`
@@ -48,6 +49,7 @@ type ConversationSummary struct {
 type CreateConversationRequest struct {
 	Title               string                        `json:"title"`
 	AgentID             string                        `json:"agent_id"`
+	TeamID              string                        `json:"team_id"`
 	Model               string                        `json:"model"`
 	Messages            []model.ConversationMessage   `json:"messages"`
 	MessageQueue        []model.ConversationQueueItem `json:"message_queue"`
@@ -57,6 +59,7 @@ type CreateConversationRequest struct {
 type UpdateConversationRequest struct {
 	Title               *string                        `json:"title"`
 	AgentID             *string                        `json:"agent_id"`
+	TeamID              *string                        `json:"team_id"`
 	Model               *string                        `json:"model"`
 	Pinned              *bool                          `json:"pinned"`
 	Messages            *[]model.ConversationMessage   `json:"messages"`
@@ -90,6 +93,7 @@ func toSummary(row model.ChatConversation) ConversationSummary {
 		ID:        row.ID,
 		Title:     row.Title,
 		AgentID:   row.AgentID,
+		TeamID:    row.TeamID,
 		Model:     row.Model,
 		Pinned:    row.Pinned,
 		QueueLen:  len(row.MessageQueue),
@@ -130,10 +134,13 @@ func normalizeMessageQueue(items []model.ConversationQueueItem) ([]model.Convers
 	return out, nil
 }
 
-func (s *ConversationService) List(userID string) ([]ConversationSummary, error) {
+func (s *ConversationService) List(userID string, teamID ...string) ([]ConversationSummary, error) {
+	q := s.db.Where("user_id = ?", userID)
+	if len(teamID) > 0 && strings.TrimSpace(teamID[0]) != "" {
+		q = q.Where("team_id = ?", strings.TrimSpace(teamID[0]))
+	}
 	var rows []model.ChatConversation
-	err := s.db.Where("user_id = ?", userID).
-		Select("id", "user_id", "agent_id", "title", "model", "pinned", "message_queue", "created_at", "updated_at").
+	err := q.Select("id", "user_id", "agent_id", "team_id", "title", "model", "pinned", "message_queue", "created_at", "updated_at").
 		Order("pinned DESC, updated_at DESC").
 		Limit(maxConversationList).
 		Find(&rows).Error
@@ -172,6 +179,7 @@ func (s *ConversationService) Create(userID string, req *CreateConversationReque
 		ID:                  newID(),
 		UserID:              userID,
 		AgentID:             strings.TrimSpace(req.AgentID),
+		TeamID:              strings.TrimSpace(req.TeamID),
 		Title:               title,
 		Model:               strings.TrimSpace(req.Model),
 		Messages:            msgs,
@@ -217,6 +225,9 @@ func (s *ConversationService) Update(userID, id string, req *UpdateConversationR
 	}
 	if req.AgentID != nil {
 		row.AgentID = strings.TrimSpace(*req.AgentID)
+	}
+	if req.TeamID != nil {
+		row.TeamID = strings.TrimSpace(*req.TeamID)
 	}
 	if req.Model != nil {
 		row.Model = strings.TrimSpace(*req.Model)

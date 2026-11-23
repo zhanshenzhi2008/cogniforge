@@ -4,11 +4,17 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|---------|--------|
+| 2026-11-23 | v1.5 | 增 orchestration/team、app/team（多 Agent 小队） | orjrs |
 | 2026-11-17 | v1.4 | 分层收口：runtime/app/governance/orchestration/capability/infra | orjrs |
 | 2026-11-17 | v1.3 | 单体分层：`internal/infra/*` 起步；详见 02-layering.md | orjrs |
 | 2026-10-15 | v1.2 | 新增 `internal/prompt/`；Web `/prompts`（跨仓 cogniforge-web） | orjrs |
 | 2026-08-18 | v1.1 | 配额落在 Go `internal/quota/`，不启用 Java billing 空目录 | orjrs |
 | 2026-03-16 | v1.0 | 初始规划 | orjrs |
+
+## [变更] 多 Agent 小队目录（2026-11-23）
+
+- **变更后**：`internal/orchestration/team/`（RunState + CRUD 服务）；`internal/app/team/`（HTTP）；`internal/model/team.go`
+- **路由**：`/api/v1/teams`
 
 ## [变更] 单体分层起步（2026-11-17）
 

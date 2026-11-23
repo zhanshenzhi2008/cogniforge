@@ -79,6 +79,7 @@ func MigrateTestDB(db *gorm.DB) {
 		&model.ApiKey{},
 		&model.UserSession{},
 		&model.Agent{},
+		&model.AgentTeam{},
 		&model.McpServer{},
 		&model.AgentMcpServer{},
 		&model.Skill{},

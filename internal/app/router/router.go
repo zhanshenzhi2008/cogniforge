@@ -10,6 +10,7 @@ import (
 	appagent "cogniforge/internal/app/agent"
 	"cogniforge/internal/app/auth"
 	appchat "cogniforge/internal/app/chat"
+	appteam "cogniforge/internal/app/team"
 	rtchat "cogniforge/internal/runtime/chat"
 	"cogniforge/internal/infra/config"
 	"cogniforge/internal/orchestration/engine"
@@ -52,7 +53,7 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 	mc := modelcache.NewFromRedis(rdb)
 	providerSvc := provider.NewService(providerRepo, mc)
 	_ = model.MigrateProviders(db)
-	_ = db.AutoMigrate(&model.UserSettings{})
+	_ = db.AutoMigrate(&model.UserSettings{}, &model.AgentTeam{})
 	providerSvc.RepairVendorLabels()
 	providerSvc.RefreshCache()
 	providerHandler := appprovider.NewHandler(providerSvc)
@@ -79,11 +80,13 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 	knowledgeHandler := appknowledge.NewKnowledgeHandler(pythonClient)
 	agentHandler := appagent.NewAgentHandler(providerSvc, chatHandler.Service(), quotaSvc)
 	agentHandler.SetKnowledgeService(knowledgeSvc)
+	teamHandler := appteam.NewHandler(chatHandler.Service(), quotaSvc)
 	monitorHandler := appmonitor.NewMonitorHandler()
 	mcpHandler := appmcp.NewHandler(db)
 	// 关键：Registry 必须注入，否则 Agent/Playground 勾选工具也不会生效
 	chatHandler.SetMCPRegistry(mcpHandler.Registry())
 	agentHandler.SetMCPRegistry(mcpHandler.Registry())
+	teamHandler.SetMCPRegistry(mcpHandler.Registry())
 	// 阶段十八 W0：工作流 LLM/Agent 节点走真实 Chat / ChatWithTools
 	wfEngine := engine.NewEngineWithDeps(engine.AIDeps{
 		Chat:  chatHandler.Service(),
@@ -170,6 +173,9 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 
 			// Agent
 			agentHandler.RegisterRoutes(authenticated)
+
+			// 多 Agent 小队（阶段十九：CRUD；chat/run 后续）
+			teamHandler.RegisterRoutes(authenticated)
 
 			// MCP Server 管理（阶段十五 15.1）
 			mcpHandler.RegisterRoutes(authenticated)

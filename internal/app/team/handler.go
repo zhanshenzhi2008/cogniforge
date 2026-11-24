@@ -236,6 +236,82 @@ func (h *Handler) Chat(c *gin.Context) {
 	response.Success(c, payload)
 }
 
+// Run 任务型小队执行（不落 chat 预览；正式可恢复任务仍建议走工作流 team 节点）
+func (h *Handler) Run(c *gin.Context) {
+	userID := c.GetString("user_id")
+	teamID := c.Param("id")
+	t, err := h.svc.Get(userID, teamID)
+	if err != nil {
+		if strings.Contains(err.Error(), "不存在") {
+			response.NotFound(c, err.Error())
+			return
+		}
+		response.InternalError(c, err.Error())
+		return
+	}
+	if t.Status != "" && t.Status != "active" {
+		response.BadRequest(c, "小队未启用")
+		return
+	}
+
+	var req struct {
+		Task     string             `json:"task"`
+		Goal     string             `json:"goal"`
+		RunState *orchteam.RunState `json:"run_state"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+	task := strings.TrimSpace(req.Task)
+	if task == "" {
+		task = strings.TrimSpace(req.Goal)
+	}
+	if task == "" {
+		response.BadRequest(c, "task 不能为空")
+		return
+	}
+
+	if h.quota != nil {
+		if err := h.quota.Allow(c.Request.Context(), userID, "team"); err != nil {
+			quota.WriteError(c, err)
+			return
+		}
+	}
+	started := time.Now()
+
+	deps := &orchteam.ChatDeps{
+		ChatSvc: h.chat,
+		MCP:     h.mcp,
+		DB:      database.DB,
+		Skill:   h.skill,
+	}
+	result, err := deps.RunTask(c.Request.Context(), userID, t, task, req.Goal, req.RunState)
+	if err != nil {
+		if h.quota != nil {
+			h.quota.RefundRequest(c.Request.Context(), userID)
+		}
+		if rtchat.WriteNoActiveProvider(c, err) {
+			return
+		}
+		h.commitTeam(c, userID, "", nil, "error", started)
+		response.FailWithHTTPStatus(c, http.StatusBadGateway, response.CodeAIProviderError, "AI provider error: "+err.Error())
+		return
+	}
+	modelName := ""
+	if result.Response != nil {
+		modelName = result.Response.Model
+		h.commitTeam(c, userID, modelName, &result.Response.Usage, "ok", started)
+	} else {
+		h.commitTeam(c, userID, modelName, nil, "ok", started)
+	}
+
+	response.Success(c, gin.H{
+		"response":  result.Response,
+		"run_state": result.RunState,
+	})
+}
+
 func (h *Handler) persistPreview(
 	userID, teamID, conversationID, modelName string,
 	reqMsgs []rtchat.ChatMessage,
@@ -362,5 +438,6 @@ func (h *Handler) RegisterRoutes(rg *gin.RouterGroup) {
 		teams.PUT("/:id", h.Update)
 		teams.DELETE("/:id", h.Delete)
 		teams.POST("/:id/chat", h.Chat)
+		teams.POST("/:id/run", h.Run)
 	}
 }

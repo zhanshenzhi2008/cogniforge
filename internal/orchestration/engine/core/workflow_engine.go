@@ -111,6 +111,24 @@ func vueDataToConfig(nodeType string, data map[string]any) json.RawMessage {
 		if v, ok := data["agentId"]; ok {
 			out["agent_id"] = v
 		}
+	case "team":
+		if v, ok := data["teamId"]; ok {
+			out["team_id"] = v
+		} else if v, ok := data["team_id"]; ok {
+			out["team_id"] = v
+		}
+		if v, ok := data["task"]; ok {
+			out["task"] = v
+		}
+		if v, ok := data["prompt"]; ok {
+			out["prompt"] = v
+			if _, has := out["task"]; !has {
+				out["task"] = v
+			}
+		}
+		if v, ok := data["goal"]; ok {
+			out["goal"] = v
+		}
 	default:
 		for k, v := range data {
 			if k == "label" {

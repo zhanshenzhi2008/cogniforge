@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-23 | v1.70 | `POST /teams/:id/run`；工作流节点类型 `team` | orjrs |
 | 2026-11-23 | v1.69 | team chat 落库 `conversation_id`；软失败；`GET conversations?team_id=` | orjrs |
 | 2026-11-23 | v1.68 | team chat 可回传 `run_state`，handoff 后换人设续聊 | orjrs |
 | 2026-11-23 | v1.67 | `POST /teams/:id/chat`：主管对话 + delegate/handoff | orjrs |
@@ -69,6 +70,13 @@
 | 2026-08-15 | v1.2 | GET /v1/models 改为返回已启用供应商的 default_model（不再写死 GPT 列表） | orjrs |
 | 2026-04-09 | v1.1 | 新增文档上传接口、语义检索接口实现说明 | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] 小队任务 /run + 画布 team 节点（2026-11-23）
+
+- **变更原因**：正式任务入口与可选画布绑定（设计 §6.1 / §8.2）
+- **接口**：`POST /api/v1/teams/:id/run`（`task`/`goal`/`run_state`；不落 chat）
+- **工作流**：节点类型 `team`（config：`team_id`、`task`/`prompt`、`goal`）；输出含 `content`、`run_state`
+- **代码**：`app/team/handler.go`、`orchestration/team/run.go`、`engine/nodes/team.go`
 
 ## [变更] 小队预览落库与软失败（2026-11-23）
 
@@ -1128,8 +1136,9 @@ paths: "**/*.py"                    # 可选：路径过滤
 - **约束**：supervisor 模式必须有主管；成员/主管须属当前用户
 - **已做 chat**：`POST /api/v1/teams/:id/chat`（主管工具循环；`delegate_to_agent` / `handoff_to_agent`；返回 `response` + `run_state` + `conversation_id`）
 - **已做续聊**：请求可带 `run_state` / `conversation_id`；Redis 存预览 run；工人失败软回传；`GET /conversations?team_id=`
-- **未做**：画布 Team 节点、`/run` 任务型
-- **代码**：`app/team`、`orchestration/team`、`model.AgentTeam`
+- **已做 run / 画布**：`POST /teams/:id/run`；工作流节点类型 `team`
+- **未做**：Pipeline 一键成图、并行工人
+- **代码**：`app/team`、`orchestration/team`、`engine/nodes/team.go`、`model.AgentTeam`
 
 ## 5. Agent接口
 
@@ -1177,6 +1186,20 @@ POST /api/v1/teams/{id}/chat
     "response": { "...": "ChatResponse" },
     "run_state": { "active_agent_id": "...", "delegate_history": [], "handoff_history": [] },
     "conversation_id": "uuid"
+  }
+
+POST /api/v1/teams/{id}/run
+描述: 任务型小队执行（不落 chat_conversations；可恢复任务请走工作流 team 节点）
+请求体:
+  {
+    "task": "写一份竞品摘要",
+    "goal": "可选总目标（空则用 task）",
+    "run_state": null
+  }
+响应 data:
+  {
+    "response": { "...": "ChatResponse" },
+    "run_state": { "active_agent_id": "...", "delegate_history": [], "handoff_history": [] }
   }
 ```
 

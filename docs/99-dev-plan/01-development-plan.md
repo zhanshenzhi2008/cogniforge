@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-23 | v1.182 | POST /teams/:id/run + 工作流 team 节点；跨仓画布绑定 | orjrs |
 | 2026-11-23 | v1.181 | §12 跟拍：软失败/team_id 落库/Redis run_state；跨仓 Web 续聊 | orjrs |
 | 2026-11-23 | v1.180 | 阶段十九 M2：/teams/:id/chat + delegate/handoff | orjrs |
 | 2026-11-23 | v1.179 | 阶段十九 M1 起步：agent_teams + /teams CRUD + RunState | orjrs |
@@ -181,11 +182,18 @@
 | 2026-04-17 | v1.3 | 阶段九用户管理与个人设置完成（用户CRUD、个人设置、会话管理、RBAC权限系统） | orjrs |
 > 注：任务状态变更直接在下方任务表格中更新即可，无需额外记录。
 
+## [变更] 阶段十九 /run + 画布 team（2026-11-23）
+
+- **落地**：`POST /teams/:id/run`（`RunTask`，不落 chat）；引擎 `team` 节点；Web 画布选小队+任务
+- **跨仓**：`workflows/[id].vue` 节点面板；`useTeams.run`
+- **下一步**：Pipeline 一键成图、并行工人
+- **文档**：需求 11 v0.7；API v1.70
+
 ## [变更] 阶段十九 §12 跟拍（2026-11-23）
 
 - **落地**：工人软失败 + `worker_retry_once`；`chat_conversations.team_id`；Redis `cogniforge:team:run:*`；chat 回 `conversation_id`
 - **跨仓**：Web 小队预览续聊 / 拉历史 / 失败提示
-- **下一步**：画布 `team` 节点、`/teams/:id/run`
+- **下一步**：~~画布 `team` 节点、`/teams/:id/run`~~（2026-11-23 已跟）
 - **文档**：需求 11 v0.6；库表 v1.32；API v1.69
 
 ## [变更] 阶段十九 M2 小队 chat（2026-11-23）

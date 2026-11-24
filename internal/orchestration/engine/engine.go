@@ -14,6 +14,7 @@ type (
 	EndNodeExecutor       = nodes.EndNodeExecutor
 	LLMNodeExecutor       = nodes.LLMNodeExecutor
 	AgentNodeExecutor     = nodes.AgentNodeExecutor
+	TeamNodeExecutor      = nodes.TeamNodeExecutor
 	WaitNodeExecutor      = nodes.WaitNodeExecutor
 	HTTPNodeExecutor      = nodes.HTTPNodeExecutor
 	CodeNodeExecutor      = nodes.CodeNodeExecutor
@@ -66,6 +67,12 @@ func NewEngineWithDeps(deps AIDeps) *WorkflowEngine {
 	engine.RegisterExecutor("end", &EndNodeExecutor{})
 	engine.RegisterExecutor("llm", &nodes.LLMNodeExecutor{Chat: deps.Chat, Quota: deps.Quota})
 	engine.RegisterExecutor("agent", &nodes.AgentNodeExecutor{
+		Chat:  deps.Chat,
+		MCP:   deps.MCP,
+		Quota: deps.Quota,
+		DB:    deps.DB,
+	})
+	engine.RegisterExecutor("team", &nodes.TeamNodeExecutor{
 		Chat:  deps.Chat,
 		MCP:   deps.MCP,
 		Quota: deps.Quota,

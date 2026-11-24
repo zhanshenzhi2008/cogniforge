@@ -53,7 +53,7 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 	mc := modelcache.NewFromRedis(rdb)
 	providerSvc := provider.NewService(providerRepo, mc)
 	_ = model.MigrateProviders(db)
-	_ = db.AutoMigrate(&model.UserSettings{}, &model.AgentTeam{})
+	_ = db.AutoMigrate(&model.UserSettings{}, &model.AgentTeam{}, &model.ChatConversation{})
 	providerSvc.RepairVendorLabels()
 	providerSvc.RefreshCache()
 	providerHandler := appprovider.NewHandler(providerSvc)
@@ -81,6 +81,7 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 	agentHandler := appagent.NewAgentHandler(providerSvc, chatHandler.Service(), quotaSvc)
 	agentHandler.SetKnowledgeService(knowledgeSvc)
 	teamHandler := appteam.NewHandler(chatHandler.Service(), quotaSvc)
+	teamHandler.SetRedis(rdb)
 	monitorHandler := appmonitor.NewMonitorHandler()
 	mcpHandler := appmcp.NewHandler(db)
 	// 关键：Registry 必须注入，否则 Agent/Playground 勾选工具也不会生效

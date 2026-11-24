@@ -238,9 +238,17 @@ func (e *compositeExecutor) delegate(call chat.ToolCall) (string, error) {
 		return "", err
 	}
 	summary, err := e.runWorker(workerID, task)
+	if err != nil && workerRetryOnce(e.team) {
+		summary, err = e.runWorker(workerID, task)
+	}
 	if err != nil {
-		_ = e.state // keep history
-		return "", err
+		// 软失败：回传主管，不中断工具循环（设计 §12.4）
+		msg := "工人执行失败（已回传，请改派或说明）：" + err.Error()
+		if n := len(e.state.DelegateHistory); n > 0 {
+			e.state.DelegateHistory[n-1].ResultSummary = truncate(msg, 500)
+		}
+		e.state.SetScratch("last_delegate_error_"+workerID, msg)
+		return msg, nil
 	}
 	// 回填摘要
 	if n := len(e.state.DelegateHistory); n > 0 {
@@ -248,6 +256,24 @@ func (e *compositeExecutor) delegate(call chat.ToolCall) (string, error) {
 	}
 	e.state.SetScratch("last_delegate_"+workerID, summary)
 	return summary, nil
+}
+
+func workerRetryOnce(t *model.AgentTeam) bool {
+	if t == nil || t.Config == nil {
+		return false
+	}
+	v, ok := t.Config["worker_retry_once"]
+	if !ok {
+		return false
+	}
+	switch x := v.(type) {
+	case bool:
+		return x
+	case string:
+		return strings.EqualFold(x, "true") || x == "1"
+	default:
+		return false
+	}
 }
 
 func (e *compositeExecutor) handoff(call chat.ToolCall) (string, error) {

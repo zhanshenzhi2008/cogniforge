@@ -37,7 +37,8 @@ func (AgentTeam) TableName() string {
 // TeamConfigDefaults 写入 Config 时的推荐默认（代码侧校验也用同一套）
 func TeamConfigDefaults() JSONBMap {
 	return JSONBMap{
-		"max_depth": 8,
-		"max_steps": 40,
+		"max_depth":         8,
+		"max_steps":         40,
+		"worker_retry_once": false, // 设计 §12.4：可选瞬时同人重试，默认关
 	}
 }

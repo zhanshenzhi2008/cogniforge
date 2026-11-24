@@ -4,6 +4,9 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-24 | v1.71 | `POST /teams/:id/expand-pipeline` 一键成图 | orjrs |
+| 2026-11-23 | v1.70 | `POST /teams/:id/run`；工作流节点类型 `team` | orjrs |
+| 2026-11-23 | v1.69 | team chat 落库 `conversation_id`；软失败；`GET conversations?team_id=` | orjrs |
 | 2026-11-23 | v1.68 | team chat 可回传 `run_state`，handoff 后换人设续聊 | orjrs |
 | 2026-11-23 | v1.67 | `POST /teams/:id/chat`：主管对话 + delegate/handoff | orjrs |
 | 2026-11-23 | v1.66 | 多 Agent 小队 CRUD：`/api/v1/teams` | orjrs |
@@ -68,6 +71,29 @@
 | 2026-08-15 | v1.2 | GET /v1/models 改为返回已启用供应商的 default_model（不再写死 GPT 列表） | orjrs |
 | 2026-04-09 | v1.1 | 新增文档上传接口、语义检索接口实现说明 | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] 小队一键展开流水线（2026-11-24）
+
+- **变更原因**：Pipeline 产品化：从小队成员生成线性工作流
+- **接口**：`POST /api/v1/teams/:id/expand-pipeline` → `{ team, workflow }`；回写 `team.workflow_id`
+- **行为**：`pipeline` 模式生成 Agent 链；其它模式生成单个 `team` 节点图；已绑定则更新 definition
+- **代码**：`orchestration/team/{pipeline,service}.go`、`app/team/handler.go`
+
+## [变更] 小队任务 /run + 画布 team 节点（2026-11-23）
+
+- **变更原因**：正式任务入口与可选画布绑定（设计 §6.1 / §8.2）
+- **接口**：`POST /api/v1/teams/:id/run`（`task`/`goal`/`run_state`；不落 chat）
+- **工作流**：节点类型 `team`（config：`team_id`、`task`/`prompt`、`goal`）；输出含 `content`、`run_state`
+- **代码**：`app/team/handler.go`、`orchestration/team/run.go`、`engine/nodes/team.go`
+
+## [变更] 小队预览落库与软失败（2026-11-23）
+
+- **变更原因**：设计 §12 跟拍：预览历史、续聊 run_state、工人失败回主管
+- **接口**：
+  - `POST /api/v1/teams/:id/chat`：可选 `conversation_id`；响应增 `conversation_id`；无 body `run_state` 时按会话从 Redis 加载
+  - `GET /api/v1/conversations?team_id=`：按小队过滤预览会话
+- **行为**：工人失败以工具结果字符串回传（软失败）；`config.worker_retry_once` 可选同人再试 1 次
+- **代码**：`app/team/handler.go`、`orchestration/team/{chat,store}.go`、`app/chat/conversation_handler.go`
 
 ## [变更] 知识库文件目录用库名（2026-11-16）
 
@@ -889,6 +915,8 @@ GET /v1/models/{model_id}
 
 GET /api/v1/conversations
 描述: 对话列表（不含 messages / message_queue 正文；置顶优先，再按 updated_at 倒序，最多 100 条）
+查询参数:
+  - team_id（可选）：只返回该小队的预览会话
 响应:
   {
     "code": 2000,
@@ -897,6 +925,7 @@ GET /api/v1/conversations
         "id": "uuid",
         "title": "今天天气怎么样",
         "agent_id": "",
+        "team_id": "",
         "model": "deepseek-chat",
         "pinned": true,
         "queue_len": 2,
@@ -1113,9 +1142,11 @@ paths: "**/*.py"                    # 可选：路径过滤
 - **方法**：`GET` 列表、`POST` 创建、`GET/PUT/DELETE /:id`
 - **体字段**：`name`、`mode`（pipeline|supervisor|handoff）、`supervisor_agent_id`、`member_agent_ids`、`workflow_id`、`config`
 - **约束**：supervisor 模式必须有主管；成员/主管须属当前用户
-- **已做 chat**：`POST /api/v1/teams/:id/chat`（主管工具循环；`delegate_to_agent` / `handoff_to_agent`；返回 `response` + `run_state`）
-- **未做**：持久化 run、handoff 后自动换人设续聊、前端小队页、`/run` 任务型
-- **代码**：`app/team`、`orchestration/team`、`model.AgentTeam`
+- **已做 chat**：`POST /api/v1/teams/:id/chat`（主管工具循环；`delegate_to_agent` / `handoff_to_agent`；返回 `response` + `run_state` + `conversation_id`）
+- **已做续聊**：请求可带 `run_state` / `conversation_id`；Redis 存预览 run；工人失败软回传；`GET /conversations?team_id=`
+- **已做 run / 画布**：`POST /teams/:id/run`；工作流节点类型 `team`；`POST /teams/:id/expand-pipeline`
+- **未做**：并行工人
+- **代码**：`app/team`、`orchestration/team`、`engine/nodes/team.go`、`model.AgentTeam`
 
 ## 5. Agent接口
 
@@ -1150,13 +1181,42 @@ POST /api/v1/teams/{id}/chat
     "messages": [{"role":"user","content":"写一份竞品摘要"}],
     "stream": false,
     "goal": "可选总目标",
+    "run_state": null,
+    "conversation_id": ""
+  }
+说明:
+  - 上一轮 `run_state` 原样回传 → 按 active_agent_id 换人设续聊（handoff 后生效）
+  - 不传 `run_state` 但带 `conversation_id` → 服务端从 Redis 加载预览 run_state
+  - 成功后写入 `chat_conversations`（标 team_id）并回 `conversation_id`
+  - 工人失败：工具结果字符串回传主管（软失败）；`config.worker_retry_once=true` 时可同人再试 1 次
+响应 data:
+  {
+    "response": { "...": "ChatResponse" },
+    "run_state": { "active_agent_id": "...", "delegate_history": [], "handoff_history": [] },
+    "conversation_id": "uuid"
+  }
+
+POST /api/v1/teams/{id}/run
+描述: 任务型小队执行（不落 chat_conversations；可恢复任务请走工作流 team 节点）
+请求体:
+  {
+    "task": "写一份竞品摘要",
+    "goal": "可选总目标（空则用 task）",
     "run_state": null
   }
-说明: 上一轮返回的 run_state 原样回传，则按 active_agent_id 换人设续聊（handoff 后生效）
 响应 data:
   {
     "response": { "...": "ChatResponse" },
     "run_state": { "active_agent_id": "...", "delegate_history": [], "handoff_history": [] }
+  }
+
+POST /api/v1/teams/{id}/expand-pipeline
+描述: 一键生成工作流并绑定 workflow_id（pipeline=成员线性 Agent 链；其它模式=team 节点）
+请求体: {}
+响应 data:
+  {
+    "team": { "id": "...", "workflow_id": "wf_xxx", "...": "..." },
+    "workflow": { "id": "wf_xxx", "name": "...", "definition": "{...}" }
   }
 ```
 

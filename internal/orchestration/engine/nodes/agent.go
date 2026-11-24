@@ -79,6 +79,12 @@ func (e *AgentNodeExecutor) Execute(ctx *core.ExecutionContext, config json.RawM
 			}
 		}
 	}
+	// 流水线：上一 Agent/LLM 写入的 last_agent_content（一键成图后的串联）
+	if userPrompt == "" {
+		if v, ok := ctx.GetVariable("last_agent_content"); ok {
+			userPrompt = fmt.Sprint(v)
+		}
+	}
 	if userPrompt == "" {
 		return nil, fmt.Errorf("Agent node: empty user prompt (set config.prompt or input.query)")
 	}
@@ -171,6 +177,7 @@ func (e *AgentNodeExecutor) Execute(ctx *core.ExecutionContext, config json.RawM
 		})
 	}
 
+	ctx.SetVariable("last_agent_content", content)
 	ctx.Logger.Logf(ctx.NodeID, "info", "Agent ok id=%s model=%s tools=%d latency=%dms", cfg.AgentID, modelOut, toolsUsed, latency)
 
 	return map[string]any{

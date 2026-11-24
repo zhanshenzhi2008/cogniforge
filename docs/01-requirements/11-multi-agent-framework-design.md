@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-24 | v0.8 | Pipeline 一键成图 expand-pipeline；Agent 串联吃上一步输出 | orjrs |
 | 2026-11-23 | v0.7 | POST /teams/:id/run；画布 team 节点绑定小队 | orjrs |
 | 2026-11-23 | v0.6 | §12 落地：软失败+可选重试、team_id 落 chat、Redis run_state、Web 续聊 | orjrs |
 | 2026-11-23 | v0.5 | 拍板 §12 四问：隐形展开、预览落 chat、编排原语、工人失败回主管 | orjrs |
@@ -12,6 +13,16 @@
 | 2026-11-23 | v0.2 | M1 起步：agent_teams 表 + Team CRUD + RunState/handoff 原语 | orjrs |
 | 2026-11-23 | v0.1 | 立项：模式分层、与现有工作流关系、参考来源、分期不做清单 | orjrs |
 
+## [变更] Pipeline 一键成图（2026-11-24）
+
+- **变更原因**：M1「从 Team 生成线性图」；用户能说清流水线 vs 单 Agent
+- **已落地**：
+  - `POST /api/v1/teams/:id/expand-pipeline`：pipeline → start→agent…→end；其它模式 → start→team→end；回写 `workflow_id`
+  - Agent 节点空 prompt 时接 `last_agent_content`（上一步输出）
+  - Web 小队卡「生成/打开流水线」
+- **未做**：并行工人、自动换人
+- **代码**：`orchestration/team/pipeline.go`、`service.ExpandToWorkflow`、`engine/nodes/agent.go`；Web `pages/teams`
+
 ## [变更] 任务型 /run + 画布 team 节点（2026-11-23）
 
 - **变更原因**：预览之外需要正式任务入口与可选画布绑定（§6.1 / §8.2）
@@ -19,7 +30,7 @@
   - `POST /api/v1/teams/:id/run`：`task`/`goal` → `RunTask`；**不**落 `chat_conversations`
   - 工作流节点类型 `team`：绑 `team_id` + 任务说明；引擎内 `TeamNodeExecutor` → `RunTask`；输出含 `content`/`run_state` 进 `node_runs`
   - Web 画布节点面板可选小队、填任务
-- **未做**：Pipeline 一键生成线性图、自动换人、team 节点 SSE 子步骤拆分
+- **未做**：~~Pipeline 一键生成线性图~~（2026-11-24 已跟）→ 自动换人、team 节点 SSE 子步骤拆分仍待
 - **代码**：`orchestration/team/run.go`、`engine/nodes/team.go`、`app/team/handler.go`；Web `workflows/[id].vue`
 
 ## [变更] §12 拍板项落地（2026-11-23）
@@ -368,4 +379,4 @@ POST       /api/v1/teams/:id/run       # 非对话任务型（可选，可与 wo
 | 工人失败 | **回传主管**；可选瞬时同人重试；超限额整 run 失败；自动换人默认关 |
 | 一期模式 | Pipeline 说清楚 + Supervisor；Handoff 紧随 |
 | 参考主轴 | LangGraph 状态图思想、OpenAI Handoff、Anthropic Orchestrator–Workers |
-| 代码 | M1/M2 + §12 + `/run` + 画布 `team` 已落地；Pipeline 一键成图 / 并行工人仍待 |
+| 代码 | M1–M3 主干 + `/run` + 画布 `team` + 一键成图已落地；并行工人仍待 |

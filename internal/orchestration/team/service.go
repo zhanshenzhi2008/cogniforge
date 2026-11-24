@@ -1,10 +1,12 @@
 package team
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 
 	"cogniforge/internal/infra/database"
@@ -213,6 +215,106 @@ func (s *Service) Delete(userID, id string) error {
 		return fmt.Errorf("小队不存在")
 	}
 	return nil
+}
+
+// ExpandResult 一键展开结果
+type ExpandResult struct {
+	Team     *model.AgentTeam `json:"team"`
+	Workflow *model.Workflow  `json:"workflow"`
+}
+
+// ExpandToWorkflow 从小队生成工作流图并回写 workflow_id。
+// pipeline → 成员线性 Agent 链；supervisor/handoff → 单个 team 节点。
+func (s *Service) ExpandToWorkflow(userID, teamID string) (*ExpandResult, error) {
+	t, err := s.Get(userID, teamID)
+	if err != nil {
+		return nil, err
+	}
+
+	names, err := s.agentNameMap(userID, pipelineAgentOrder(t))
+	if err != nil {
+		return nil, err
+	}
+
+	var def map[string]any
+	if t.Mode == model.TeamModePipeline {
+		def, err = BuildLinearPipelineDefinition(t, names)
+	} else {
+		def, err = BuildTeamNodeDefinition(t)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	defJSON, err := json.Marshal(def)
+	if err != nil {
+		return nil, fmt.Errorf("序列化工作流失败")
+	}
+
+	wfName := strings.TrimSpace(t.Name) + " · 流水线"
+	if t.Mode != model.TeamModePipeline {
+		wfName = strings.TrimSpace(t.Name) + " · 小队图"
+	}
+	desc := "由小队「" + t.Name + "」一键生成"
+
+	var wf model.Workflow
+	if t.WorkflowID != "" {
+		err = s.db.Where("id = ? AND user_id = ?", t.WorkflowID, userID).First(&wf).Error
+		if err == nil {
+			if err := s.db.Model(&wf).Updates(map[string]any{
+				"name":        wfName,
+				"description": desc,
+				"definition":  string(defJSON),
+				"version":     wf.Version + 1,
+			}).Error; err != nil {
+				return nil, fmt.Errorf("更新工作流失败")
+			}
+			_ = s.db.Where("id = ?", wf.ID).First(&wf)
+		} else if err != gorm.ErrRecordNotFound {
+			return nil, fmt.Errorf("查询工作流失败")
+		}
+	}
+
+	if wf.ID == "" {
+		wf = model.Workflow{
+			ID:          uuid.New().String(),
+			UserID:      userID,
+			Name:        wfName,
+			Description: desc,
+			Definition:  string(defJSON),
+			Status:      "draft",
+			Version:     1,
+		}
+		if err := s.db.Create(&wf).Error; err != nil {
+			return nil, fmt.Errorf("创建工作流失败")
+		}
+		t.WorkflowID = wf.ID
+		t.UpdatedAt = time.Now()
+		if err := s.db.Model(t).Updates(map[string]any{
+			"workflow_id": t.WorkflowID,
+			"updated_at":  t.UpdatedAt,
+		}).Error; err != nil {
+			return nil, fmt.Errorf("回写小队 workflow_id 失败")
+		}
+	}
+
+	return &ExpandResult{Team: t, Workflow: &wf}, nil
+}
+
+func (s *Service) agentNameMap(userID string, ids []string) (map[string]string, error) {
+	out := map[string]string{}
+	if len(ids) == 0 {
+		return out, nil
+	}
+	var rows []model.Agent
+	if err := s.db.Where("user_id = ? AND id IN ?", userID, ids).
+		Select("id", "name").Find(&rows).Error; err != nil {
+		return nil, fmt.Errorf("加载 Agent 名称失败")
+	}
+	for _, a := range rows {
+		out[a.ID] = a.Name
+	}
+	return out, nil
 }
 
 // InitRunState 根据小队配置生成 RunState（供 chat/run 与 checkpoint 使用）

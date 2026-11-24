@@ -439,5 +439,22 @@ func (h *Handler) RegisterRoutes(rg *gin.RouterGroup) {
 		teams.DELETE("/:id", h.Delete)
 		teams.POST("/:id/chat", h.Chat)
 		teams.POST("/:id/run", h.Run)
+		teams.POST("/:id/expand-pipeline", h.ExpandPipeline)
 	}
+}
+
+// ExpandPipeline 一键从小队生成工作流图并绑定 workflow_id
+func (h *Handler) ExpandPipeline(c *gin.Context) {
+	userID := c.GetString("user_id")
+	teamID := c.Param("id")
+	result, err := h.svc.ExpandToWorkflow(userID, teamID)
+	if err != nil {
+		if strings.Contains(err.Error(), "不存在") {
+			response.NotFound(c, err.Error())
+			return
+		}
+		response.BadRequest(c, err.Error())
+		return
+	}
+	response.Success(c, result)
 }

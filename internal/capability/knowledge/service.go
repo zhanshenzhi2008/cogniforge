@@ -768,18 +768,26 @@ func (s *KnowledgeService) SearchByUser(ctx context.Context, userID, kbID string
 		mode = normalizeSearchMode(kb.SearchMode)
 	}
 	topK, minScore := resolveModeRetrievalParams(&kb, mode, req.TopK, req.MinScore)
-	_ = clampHybridSemanticWeight(kb.HybridSemanticWeight)
+
+	hy := kb.HybridSemanticWeight
 	if req.HybridSemanticWeight != nil {
-		_ = clampHybridSemanticWeight(*req.HybridSemanticWeight)
+		hy = *req.HybridSemanticWeight
 	}
+	hy = clampHybridSemanticWeight(hy)
+	hyPtr := hy
+
+	rerank, rerankProv := resolveSearchRerank(&kb, mode, req)
 
 	pythonResp, err := s.pythonClient.Search(&SearchRequest{
-		Context:        ctx,
-		Query:          req.Query,
-		CollectionName: kbID,
-		TopK:           topK,
-		MinScore:       minScore,
-		SearchMode:     mode,
+		Context:              ctx,
+		Query:                req.Query,
+		CollectionName:       kbID,
+		TopK:                 topK,
+		MinScore:             minScore,
+		SearchMode:           mode,
+		Rerank:               rerank,
+		RerankProviderID:     rerankProv,
+		HybridSemanticWeight: &hyPtr,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("检索失败: %w", err)
@@ -1238,6 +1246,33 @@ func normalizeSearchMode(mode string) string {
 	default:
 		return "semantic"
 	}
+}
+
+// resolveSearchRerank：请求显式传了 rerank 则用请求；否则按当前检索方式取库默认
+func resolveSearchRerank(kb *model.KnowledgeBase, mode string, req *SearchRequest) (*bool, string) {
+	if kb == nil {
+		return req.Rerank, strings.TrimSpace(req.RerankProviderID)
+	}
+	var on bool
+	var prov string
+	switch mode {
+	case "keyword":
+		on, prov = kb.RerankKeyword, kb.RerankProviderKeyword
+	case "hybrid":
+		on, prov = kb.RerankHybrid, kb.RerankProviderHybrid
+	default:
+		on, prov = kb.RerankSemantic, kb.RerankProviderSemantic
+	}
+	rerank := req.Rerank
+	if rerank == nil {
+		v := on
+		rerank = &v
+	}
+	provID := strings.TrimSpace(req.RerankProviderID)
+	if provID == "" {
+		provID = strings.TrimSpace(prov)
+	}
+	return rerank, provID
 }
 
 func clampChunkSize(size int) int {

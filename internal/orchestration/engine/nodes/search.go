@@ -12,12 +12,16 @@ import (
 )
 
 // SearchNodeConfig 知识库检索节点（画布 type=search）
+// 空的 search_mode / top_k<=0 / min_score<=0 / rerank 未传 → 跟知识库默认
 type SearchNodeConfig struct {
-	KnowledgeBaseID string  `json:"knowledge_base_id"`
-	Query           string  `json:"query,omitempty"`
-	TopK            int     `json:"top_k,omitempty"`
-	MinScore        float64 `json:"min_score,omitempty"`
-	SearchMode      string  `json:"search_mode,omitempty"`
+	KnowledgeBaseID      string   `json:"knowledge_base_id"`
+	Query                string   `json:"query,omitempty"`
+	TopK                 int      `json:"top_k,omitempty"`
+	MinScore             float64  `json:"min_score,omitempty"`
+	SearchMode           string   `json:"search_mode,omitempty"`
+	Rerank               *bool    `json:"rerank,omitempty"`
+	RerankProviderID     string   `json:"rerank_provider_id,omitempty"`
+	HybridSemanticWeight *float64 `json:"hybrid_semantic_weight,omitempty"`
 }
 
 // KnowledgeSearcher 与 Chat RAG 共用的检索能力
@@ -71,10 +75,13 @@ func (e *SearchNodeExecutor) Execute(ctx *core.ExecutionContext, config json.Raw
 	defer cancel()
 
 	resp, err := e.Knowledge.SearchByUser(bg, userID, cfg.KnowledgeBaseID, &knowledge.SearchRequest{
-		Query:      query,
-		TopK:       cfg.TopK,
-		MinScore:   cfg.MinScore,
-		SearchMode: cfg.SearchMode,
+		Query:                query,
+		TopK:                 cfg.TopK,
+		MinScore:             cfg.MinScore,
+		SearchMode:           cfg.SearchMode,
+		Rerank:               cfg.Rerank,
+		RerankProviderID:     cfg.RerankProviderID,
+		HybridSemanticWeight: cfg.HybridSemanticWeight,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("Search node: %w", err)

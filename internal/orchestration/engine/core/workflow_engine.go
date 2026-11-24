@@ -155,6 +155,19 @@ func vueDataToConfig(nodeType string, data map[string]any) json.RawMessage {
 		} else if v, ok := data["search_mode"]; ok {
 			out["search_mode"] = v
 		}
+		if v, ok := data["rerank"]; ok {
+			out["rerank"] = v
+		}
+		if v, ok := data["rerankProviderId"]; ok {
+			out["rerank_provider_id"] = v
+		} else if v, ok := data["rerank_provider_id"]; ok {
+			out["rerank_provider_id"] = v
+		}
+		if v, ok := data["hybridSemanticWeight"]; ok {
+			out["hybrid_semantic_weight"] = v
+		} else if v, ok := data["hybrid_semantic_weight"]; ok {
+			out["hybrid_semantic_weight"] = v
+		}
 	default:
 		for k, v := range data {
 			if k == "label" {

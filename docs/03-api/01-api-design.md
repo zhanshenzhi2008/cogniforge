@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-24 | v1.73 | search 节点可覆盖 search_mode / rerank / hybrid_weight | orjrs |
 | 2026-11-24 | v1.72 | 工作流节点类型 `search`（知识库检索） | orjrs |
 | 2026-11-24 | v1.71 | `POST /teams/:id/expand-pipeline` 一键成图 | orjrs |
 | 2026-11-23 | v1.70 | `POST /teams/:id/run`；工作流节点类型 `team` | orjrs |
@@ -72,6 +73,12 @@
 | 2026-08-15 | v1.2 | GET /v1/models 改为返回已启用供应商的 default_model（不再写死 GPT 列表） | orjrs |
 | 2026-04-09 | v1.1 | 新增文档上传接口、语义检索接口实现说明 | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] search 节点检索覆盖（2026-11-24）
+
+- **原因**：仅 Top-K 不够；需与知识库检索测试对齐的覆盖项
+- **落地**：config 增 `search_mode` / `min_score` / `rerank` / `rerank_provider_id` / `hybrid_semantic_weight`；空则跟库默认
+- **影响**：工作流 search 与 `POST /knowledge/:id/search` 覆盖语义一致
 
 ## [变更] 工作流 search 知识库检索节点（2026-11-24）
 

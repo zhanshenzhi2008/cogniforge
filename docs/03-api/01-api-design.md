@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-24 | v1.72 | 工作流节点类型 `search`（知识库检索） | orjrs |
 | 2026-11-24 | v1.71 | `POST /teams/:id/expand-pipeline` 一键成图 | orjrs |
 | 2026-11-23 | v1.70 | `POST /teams/:id/run`；工作流节点类型 `team` | orjrs |
 | 2026-11-23 | v1.69 | team chat 落库 `conversation_id`；软失败；`GET conversations?team_id=` | orjrs |
@@ -71,6 +72,12 @@
 | 2026-08-15 | v1.2 | GET /v1/models 改为返回已启用供应商的 default_model（不再写死 GPT 列表） | orjrs |
 | 2026-04-09 | v1.1 | 新增文档上传接口、语义检索接口实现说明 | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] 工作流 search 知识库检索节点（2026-11-24）
+
+- **原因**：画布缺知识库检索节点；流程里无法先检索再交给 LLM/Agent
+- **落地**：节点类型 `search`；config：`knowledge_base_id` / `query` / `top_k`；引擎调用 `KnowledgeService.SearchByUser`；变量 `last_search_context`
+- **影响**：工作流 execute/debug 支持 search；前端面板需选知识库
 
 ## [变更] 小队一键展开流水线（2026-11-24）
 

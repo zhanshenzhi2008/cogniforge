@@ -90,10 +90,11 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 	teamHandler.SetMCPRegistry(mcpHandler.Registry())
 	// 阶段十八 W0：工作流 LLM/Agent 节点走真实 Chat / ChatWithTools
 	wfEngine := engine.NewEngineWithDeps(engine.AIDeps{
-		Chat:  chatHandler.Service(),
-		MCP:   mcpHandler.Registry(),
-		Quota: quotaSvc,
-		DB:    db,
+		Chat:      chatHandler.Service(),
+		MCP:       mcpHandler.Registry(),
+		Quota:     quotaSvc,
+		DB:        db,
+		Knowledge: knowledgeSvc,
 	})
 	wfSvc := orchwf.NewWorkflowServiceWithDeps(wfEngine, rdb)
 	orchwf.StartWaitTimeoutScanner(wfSvc, 30*time.Second)

@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-24 | v1.184 | 工作流 search 节点：知识库检索执行器 | orjrs |
 | 2026-11-24 | v1.183 | Pipeline 一键成图 expand-pipeline；跨仓小队页入口 | orjrs |
 | 2026-11-23 | v1.182 | POST /teams/:id/run + 工作流 team 节点；跨仓画布绑定 | orjrs |
 | 2026-11-23 | v1.181 | §12 跟拍：软失败/team_id 落库/Redis run_state；跨仓 Web 续聊 | orjrs |
@@ -182,6 +183,12 @@
 | 2026-04-11 | v1.2 | 阶段八监控中心完成（请求日志中间件、日志列表 API、用量统计 API、监控仪表板页面） | orjrs |
 | 2026-04-17 | v1.3 | 阶段九用户管理与个人设置完成（用户CRUD、个人设置、会话管理、RBAC权限系统） | orjrs |
 > 注：任务状态变更直接在下方任务表格中更新即可，无需额外记录。
+
+## [变更] 工作流知识库检索节点（2026-11-24）
+
+- **原因**：面板缺「知识库检索」；执行器未注册
+- **落地**：`SearchNodeExecutor` + 注入 Knowledge；跨仓 Web 面板加回 search 并配置 KB/query/topK
+- **含代码**：`nodes/search.go`、`engine.go`、`deps.go`、`router.go`、`vueDataToConfig`
 
 ## [变更] 阶段十九 Pipeline 一键成图（2026-11-24）
 

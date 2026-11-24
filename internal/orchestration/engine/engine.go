@@ -84,6 +84,7 @@ func NewEngineWithDeps(deps AIDeps) *WorkflowEngine {
 	engine.RegisterExecutor("http", nodes.NewHTTPNodeExecutor())
 	engine.RegisterExecutor("code", &CodeNodeExecutor{})
 	engine.RegisterExecutor("delay", &DelayNodeExecutor{})
+	engine.RegisterExecutor("search", &nodes.SearchNodeExecutor{Knowledge: deps.Knowledge})
 
 	return engine
 }

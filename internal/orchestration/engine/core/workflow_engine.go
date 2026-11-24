@@ -129,6 +129,32 @@ func vueDataToConfig(nodeType string, data map[string]any) json.RawMessage {
 		if v, ok := data["goal"]; ok {
 			out["goal"] = v
 		}
+	case "search":
+		if v, ok := data["knowledgeBaseId"]; ok {
+			out["knowledge_base_id"] = v
+		} else if v, ok := data["knowledge_base_id"]; ok {
+			out["knowledge_base_id"] = v
+		} else if v, ok := data["kbId"]; ok {
+			out["knowledge_base_id"] = v
+		}
+		if v, ok := data["query"]; ok {
+			out["query"] = v
+		}
+		if v, ok := data["topK"]; ok {
+			out["top_k"] = v
+		} else if v, ok := data["top_k"]; ok {
+			out["top_k"] = v
+		}
+		if v, ok := data["minScore"]; ok {
+			out["min_score"] = v
+		} else if v, ok := data["min_score"]; ok {
+			out["min_score"] = v
+		}
+		if v, ok := data["searchMode"]; ok {
+			out["search_mode"] = v
+		} else if v, ok := data["search_mode"]; ok {
+			out["search_mode"] = v
+		}
 	default:
 		for k, v := range data {
 			if k == "label" {

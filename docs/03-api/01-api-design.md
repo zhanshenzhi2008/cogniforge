@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-24 | v1.74 | 工作流 start 节点 `variables` 入参契约 | orjrs |
 | 2026-11-24 | v1.73 | search 节点可覆盖 search_mode / rerank / hybrid_weight | orjrs |
 | 2026-11-24 | v1.72 | 工作流节点类型 `search`（知识库检索） | orjrs |
 | 2026-11-24 | v1.71 | `POST /teams/:id/expand-pipeline` 一键成图 | orjrs |
@@ -73,6 +74,12 @@
 | 2026-08-15 | v1.2 | GET /v1/models 改为返回已启用供应商的 default_model（不再写死 GPT 列表） | orjrs |
 | 2026-04-09 | v1.1 | 新增文档上传接口、语义检索接口实现说明 | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] start 节点入参变量（2026-11-24）
+
+- **原因**：execute/debug 入参无结构约定
+- **落地**：`start` 节点 config.`variables[]`：`name` / `type` / `required` / `default` / `description`；缺省写入 input，必填缺失则失败
+- **影响**：调试与 API 调用可对齐同一契约
 
 ## [变更] search 节点检索覆盖（2026-11-24）
 

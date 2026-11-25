@@ -76,6 +76,10 @@ func vueDataToConfig(nodeType string, data map[string]any) json.RawMessage {
 	}
 	out := map[string]any{}
 	switch nodeType {
+	case "start":
+		if v, ok := data["variables"]; ok {
+			out["variables"] = v
+		}
 	case "wait":
 		if v, ok := data["waitReason"]; ok {
 			out["reason"] = v

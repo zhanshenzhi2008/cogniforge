@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-26 | v1.192 | 修复 resume 后 end 卡住 running；跳过节点不改写历史 | orjrs |
 | 2026-11-26 | v1.191 | 工作流优先级待办；画布线头拖拽连线（ProcessOn 风格）P0 | orjrs |
 | 2026-11-25 | v1.190 | 代办补金融扩展：知识密级 + 角色/人员最高可访问密级 | orjrs |
 | 2026-11-25 | v1.189 | 知识状态约定：草稿 / 审核 / 发布 / 废止 | orjrs |
@@ -190,6 +191,12 @@
 | 2026-04-11 | v1.2 | 阶段八监控中心完成（请求日志中间件、日志列表 API、用量统计 API、监控仪表板页面） | orjrs |
 | 2026-04-17 | v1.3 | 阶段九用户管理与个人设置完成（用户CRUD、个人设置、会话管理、RBAC权限系统） | orjrs |
 > 注：任务状态变更直接在下方任务表格中更新即可，无需额外记录。
+
+## [变更] 修复 resume 后 end 卡住（2026-11-26）
+
+- **原因**：known-issues §10；审批后 end node_run 停在 running、整次不 completed
+- **落地**：跳过已完成节点不改写历史；end 轻量输出；persist 失败回退写终态；Debug OnNodeStart 只改 current_node
+- **含代码**：`workflow_engine.go`、`start_end.go`、`workflow/service.go`、`resume_end_test.go`
 
 ## [变更] 工作流优先级待办 + 线头拖拽连线（2026-11-26）
 
@@ -2126,7 +2133,7 @@ composables/
 **P0**
 
 - [x] 画布线头拖拽连线（ProcessOn：从节点边缘圆点拖到目标；不用 + 号菜单出箭头）— Web
-- [ ] 修审批通过后 end 可能一直 `running`、整次不 `completed`（known-issues §10）
+- [x] 修审批通过后 end 可能一直 `running`、整次不 `completed`（known-issues §10）
 - [ ] 部署冒烟：执行 → 等待 → 审批 → 完成
 
 **P1**

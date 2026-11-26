@@ -591,6 +591,9 @@ func toJSONBMap(v any) model.JSONBMap {
 }
 
 func (e *WorkflowEngine) updateExecutionStatus(executionID, status string, output any, errorMsg string) {
+	if executionID == "" || database.DB == nil {
+		return
+	}
 	updates := map[string]any{"status": status}
 	if output != nil {
 		if outJSON, err := json.Marshal(output); err == nil {

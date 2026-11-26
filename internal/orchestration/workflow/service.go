@@ -132,6 +132,32 @@ func (s *WorkflowService) DeleteWorkflow(userID, workflowID string) error {
 	return nil
 }
 
+// CloneWorkflow 复制工作流定义（不含执行历史）；新副本固定 draft / version=1
+func (s *WorkflowService) CloneWorkflow(userID, workflowID string) (*model.Workflow, error) {
+	src, err := s.GetWorkflow(userID, workflowID)
+	if err != nil {
+		return nil, err
+	}
+	name := src.Name
+	if name == "" {
+		name = "workflow"
+	}
+	name = name + " (副本)"
+	clone := model.Workflow{
+		ID:          generateID(),
+		UserID:      userID,
+		Name:        name,
+		Description: src.Description,
+		Definition:  src.Definition,
+		Status:      "draft",
+		Version:     1,
+	}
+	if err := s.db.Create(&clone).Error; err != nil {
+		return nil, fmt.Errorf("复制工作流失败")
+	}
+	return &clone, nil
+}
+
 // ExecuteWorkflow 异步执行工作流
 func (s *WorkflowService) ExecuteWorkflow(userID, workflowID string, req *ExecuteWorkflowRequest) (*ExecuteResponse, error) {
 	return s.ExecuteWorkflowWithTraceID(userID, workflowID, req, "")

@@ -124,6 +124,24 @@ func (h *WorkflowHandler) DeleteWorkflow(c *gin.Context) {
 	response.SuccessWithMessage(c, nil, "工作流已删除")
 }
 
+// CloneWorkflow 复制工作流
+func (h *WorkflowHandler) CloneWorkflow(c *gin.Context) {
+	userID := c.GetString("user_id")
+	if userID == "" {
+		response.Unauthorized(c, "unauthorized")
+		return
+	}
+
+	workflowID := c.Param("id")
+	workflow, err := h.service.CloneWorkflow(userID, workflowID)
+	if err != nil {
+		response.NotFound(c, err.Error())
+		return
+	}
+
+	response.Created(c, workflow)
+}
+
 // ExecuteWorkflow 执行工作流
 func (h *WorkflowHandler) ExecuteWorkflow(c *gin.Context) {
 	userID := c.GetString("user_id")
@@ -343,6 +361,7 @@ func (h *WorkflowHandler) RegisterRoutes(rg *gin.RouterGroup) {
 		workflows.GET("/:id", h.GetWorkflow)
 		workflows.PUT("/:id", h.UpdateWorkflow)
 		workflows.DELETE("/:id", h.DeleteWorkflow)
+		workflows.POST("/:id/clone", h.CloneWorkflow)
 		workflows.POST("/:id/execute", h.ExecuteWorkflow)
 		workflows.POST("/:id/debug", h.DebugWorkflow)
 		workflows.GET("/:id/executions", h.ListWorkflowExecutions)

@@ -172,6 +172,83 @@ func vueDataToConfig(nodeType string, data map[string]any) json.RawMessage {
 		} else if v, ok := data["hybrid_semantic_weight"]; ok {
 			out["hybrid_semantic_weight"] = v
 		}
+	case "http":
+		if v, ok := data["url"]; ok {
+			out["url"] = v
+		}
+		if v, ok := data["method"]; ok {
+			out["method"] = v
+		}
+		if v, ok := data["body"]; ok {
+			out["body"] = v
+		}
+		if v, ok := data["timeout"]; ok {
+			out["timeout"] = v
+		} else if v, ok := data["timeoutSec"]; ok {
+			out["timeout"] = v
+		}
+	case "delay":
+		if v, ok := data["delayDuration"]; ok {
+			out["duration"] = v
+		} else if v, ok := data["duration"]; ok {
+			out["duration"] = v
+		}
+		if v, ok := data["delayUnit"]; ok {
+			out["unit"] = v
+		} else if v, ok := data["unit"]; ok {
+			out["unit"] = v
+		}
+	case "loop":
+		if v, ok := data["loopType"]; ok {
+			out["type"] = v
+		} else if v, ok := data["type"]; ok {
+			out["type"] = v
+		}
+		if v, ok := data["loopCount"]; ok {
+			out["count"] = v
+		} else if v, ok := data["count"]; ok {
+			out["count"] = v
+		}
+		if v, ok := data["loopMaxIter"]; ok {
+			out["max_iter"] = v
+		} else if v, ok := data["max_iter"]; ok {
+			out["max_iter"] = v
+		}
+		if v, ok := data["loopCondition"]; ok {
+			out["condition"] = v
+		} else if v, ok := data["condition"]; ok {
+			out["condition"] = v
+		}
+	case "code":
+		if v, ok := data["codeLanguage"]; ok {
+			out["language"] = v
+		} else if v, ok := data["language"]; ok {
+			out["language"] = v
+		}
+		if v, ok := data["codeSource"]; ok {
+			out["code"] = v
+		} else if v, ok := data["code"]; ok {
+			out["code"] = v
+		}
+	case "condition":
+		if v, ok := data["conditions"]; ok {
+			out["conditions"] = v
+		} else if field, ok := data["conditionField"]; ok {
+			op, _ := data["conditionOperator"].(string)
+			if op == "" {
+				op = "=="
+			}
+			branch, _ := data["conditionBranch"].(string)
+			if branch == "" {
+				branch = "true"
+			}
+			out["conditions"] = []map[string]any{{
+				"field":    field,
+				"operator": op,
+				"value":    data["conditionValue"],
+				"branch":   branch,
+			}}
+		}
 	default:
 		for k, v := range data {
 			if k == "label" {

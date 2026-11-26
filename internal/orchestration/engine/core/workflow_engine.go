@@ -259,8 +259,9 @@ func (e *WorkflowEngine) Execute(ctx *ExecutionContext, def *WorkflowDefinition)
 	}
 
 	for i, node := range sortedNodes {
-		if ctx.GetNodeState(node.ID) == "skipped" {
-			e.persistNodeRun(ctx, node, "skipped", 1, nil, nil, "", 0)
+		// resume 后已完成节点标为 skipped：只跳过，勿把历史 succeeded 改写成 skipped
+		st := ctx.GetNodeState(node.ID)
+		if st == "skipped" || st == "succeeded" {
 			continue
 		}
 
@@ -328,7 +329,12 @@ func (e *WorkflowEngine) Execute(ctx *ExecutionContext, def *WorkflowDefinition)
 		if output != nil {
 			ctx.Output[node.ID] = output
 		}
-		e.persistNodeRun(ctx, node, "succeeded", 1, nil, output, "", duration)
+		// end 节点勿把整包 ctx.Output 写入 node_run（易 jsonb 失败导致永久 running）
+		persistOut := output
+		if node.Type == "end" {
+			persistOut = map[string]any{"finished": true}
+		}
+		e.persistNodeRun(ctx, node, "succeeded", 1, nil, persistOut, "", duration)
 		completed = append(completed, node.ID)
 		ctx.SetNodeState(node.ID, "succeeded")
 		nextID := ""
@@ -548,6 +554,18 @@ func (e *WorkflowEngine) persistNodeRun(
 	}
 	if updErr := database.DB.Model(&existing).Updates(updates).Error; updErr != nil {
 		slog.Warn("persist node run update failed", "error", updErr, "execution_id", ctx.ExecutionID, "node_id", node.ID)
+		// jsonb 输出异常时仍要落终态，避免 end 等节点永久 running
+		if status == "succeeded" || status == "failed" || status == "skipped" {
+			fallback := map[string]any{
+				"status":      status,
+				"error":       errMsg,
+				"duration_ms": durationMS,
+				"finished_at": &now,
+			}
+			if fbErr := database.DB.Model(&existing).Updates(fallback).Error; fbErr != nil {
+				slog.Warn("persist node run fallback status failed", "error", fbErr, "execution_id", ctx.ExecutionID, "node_id", node.ID)
+			}
+		}
 	}
 }
 

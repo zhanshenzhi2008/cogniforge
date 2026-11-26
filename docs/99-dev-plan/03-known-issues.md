@@ -271,7 +271,7 @@ RAG 默认走 Go `POST /api/v1/embeddings`，上游是当前启用的 `ai_provid
 
 **影响**：业务路径（接待→审批→通知）已跑通；终态展示不准。
 
-**状态**：🟡 待查 resume/end 收尾
+**状态**：🟢 2026-11-26 已修：跳过已完成节点不再改写历史；end 输出轻量化 + node_run 更新失败回退写终态；Debug OnNodeStart 不再覆盖整次 status
 
 ---
 

@@ -458,10 +458,10 @@ func (s *WorkflowService) DebugWorkflowWithTraceID(userID, workflowID string, re
 	go func() {
 		ctx := engine.NewExecutionContextWithTraceID(workflowID, executionID, input, traceID).WithUserID(userID)
 		ctx.DefinitionHash = engine.HashDefinition(workflow.Definition)
-		// 节点进度由引擎写 current_node / node_runs；勿用节点 status 覆盖整次执行 status
+		// 只更新 current_node；整次执行 status 由引擎 updateExecutionStatus 负责，避免覆盖 completed
 		ctx.OnNodeStart = func(nodeID string) {
 			s.db.Model(&model.WorkflowExecution{}).Where("id = ?", executionID).
-				Updates(map[string]any{"current_node": nodeID, "status": "running"})
+				Update("current_node", nodeID)
 		}
 
 		def, err := s.workflowEngine.ParseDefinition(workflow.Definition)

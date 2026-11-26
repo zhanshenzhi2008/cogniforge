@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-26 | v1.75 | 审批/拒绝写入 node_runs 人工动作审计 | orjrs |
 | 2026-11-24 | v1.74 | 工作流 start 节点 `variables` 入参契约 | orjrs |
 | 2026-11-24 | v1.73 | search 节点可覆盖 search_mode / rerank / hybrid_weight | orjrs |
 | 2026-11-24 | v1.72 | 工作流节点类型 `search`（知识库检索） | orjrs |
@@ -74,6 +75,13 @@
 | 2026-08-15 | v1.2 | GET /v1/models 改为返回已启用供应商的 default_model（不再写死 GPT 列表） | orjrs |
 | 2026-04-09 | v1.1 | 新增文档上传接口、语义检索接口实现说明 | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] 审批人工动作审计（2026-11-26）
+
+- **原因**：approve/reject 只改执行状态，时间线看不到谁、何时、对哪个 wait
+- **行为**：`POST .../approve|reject`（及 callback）额外写入一条 `workflow_node_runs`：`node_type=human_action`，`status=approved|rejected`；`detail` 含 `actor_user_id` / `action` / `wait_node_id` / `wait_reason` / `at` / `note`
+- **详情**：`GET .../executions/:id` 的 `node_runs` 原样带回，前端时间线展示
+- **含代码**：`workflow/service.go` `recordHumanAction`
 
 ## [变更] start 节点入参变量（2026-11-24）
 

@@ -247,12 +247,18 @@ func (s *WorkflowService) ApproveExecution(userID, executionID string, req *Appr
 	if exec.Status != "waiting" {
 		return nil, fmt.Errorf("仅 waiting 可审批，当前: %s", exec.Status)
 	}
+	comment := ""
+	if req != nil {
+		comment = req.Comment
+	}
+	s.recordHumanAction(exec, userID, "approve", comment)
 	extras := map[string]any{
 		"approval_decision": "approved",
 		"approved_at":       time.Now().UTC().Format(time.RFC3339),
+		"approved_by":       userID,
 	}
-	if req != nil && req.Comment != "" {
-		extras["approval_comment"] = req.Comment
+	if comment != "" {
+		extras["approval_comment"] = comment
 	}
 	var resumeReq *ResumeExecutionRequest
 	if req != nil && req.Seq != nil {
@@ -274,6 +280,7 @@ func (s *WorkflowService) RejectExecution(userID, executionID string, req *Rejec
 	if req != nil && req.Reason != "" {
 		reason = req.Reason
 	}
+	s.recordHumanAction(exec, userID, "reject", reason)
 	now := time.Now()
 	return s.db.Model(&model.WorkflowExecution{}).Where("id = ?", executionID).Updates(map[string]any{
 		"status":       "failed",
@@ -283,6 +290,53 @@ func (s *WorkflowService) RejectExecution(userID, executionID string, req *Rejec
 		"current_node": "",
 		"completed_at": &now,
 	}).Error
+}
+
+// recordHumanAction 把审批/拒绝写入 node_runs，供时间线审计（谁、何时、哪个 wait）
+func (s *WorkflowService) recordHumanAction(exec *model.WorkflowExecution, actorUserID, action, note string) {
+	if s.db == nil || exec == nil {
+		return
+	}
+	waitNode := exec.CurrentNode
+	if waitNode == "" {
+		waitNode = "wait"
+	}
+	var maxAttempt int
+	_ = s.db.Model(&model.WorkflowNodeRun{}).
+		Where("execution_id = ? AND node_id = ?", exec.ID, waitNode).
+		Select("COALESCE(MAX(attempt), 0)").Scan(&maxAttempt).Error
+	now := time.Now()
+	detail := model.JSONBMap{
+		"human_action":  true,
+		"action":        action,
+		"actor_user_id": actorUserID,
+		"wait_node_id":  waitNode,
+		"wait_reason":   exec.WaitReason,
+		"at":            now.UTC().Format(time.RFC3339),
+	}
+	if note != "" {
+		detail["note"] = note
+	}
+	status := "approved"
+	if action == "reject" {
+		status = "rejected"
+	}
+	run := model.WorkflowNodeRun{
+		ID:          newID(),
+		ExecutionID: exec.ID,
+		NodeID:      waitNode,
+		NodeType:    "human_action",
+		Attempt:     maxAttempt + 1,
+		Status:      status,
+		Detail:      detail,
+		StartedAt:   &now,
+		FinishedAt:  &now,
+		CreatedAt:   now,
+	}
+	if err := s.db.Create(&run).Error; err != nil {
+		// 审计失败不阻断审批主流程
+		_ = err
+	}
 }
 
 // CallbackExecution 外部回调 approve/reject（W3；需登录，与审批同权）

@@ -3,6 +3,7 @@
 ## [变更记录]
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|---------|--------|
+| 2026-11-26 | v1.33 | node_runs 支持 human_action 审批审计行 | orjrs |
 | 2026-11-23 | v1.32 | chat_conversations.team_id；Redis cogniforge:team:run:*；config.worker_retry_once | orjrs |
 | 2026-11-23 | v1.31 | agent_teams：多 Agent 小队表（mode/supervisor/members/config） | orjrs |
 | 2026-11-19 | v1.30 | capabilities 增 rerank；ai_providers.rerank_model；KB 分模式 rerank_provider_* | orjrs |
@@ -33,6 +34,12 @@
 | 2026-08-16 | v1.2 | Redis 键统一 `cogniforge:` 前缀；多项目用前缀隔离，不拆 db0/db1 | orjrs |
 | 2026-08-15 | v1.1 | 落地模型配置 Redis 键（当时为 `cf:modelcfg:*`） | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] node_runs 人工审批审计行（2026-11-26）
+
+- **原因**：审批谁/何时/哪个 wait 需可观测，不另开表
+- **约定**：`workflow_node_runs` 可写 `node_type=human_action`，`status=approved|rejected`；`node_id`=当时 wait 节点；`detail`：`human_action` / `action` / `actor_user_id` / `wait_node_id` / `wait_reason` / `at` / `note`
+- **表结构**：无 DDL 变更（复用 jsonb detail）
 
 ## [变更] 小队预览落库 + Redis run_state（2026-11-23）
 

@@ -22,6 +22,8 @@ type ExecuteWorkflowRequest struct {
 type DebugWorkflowRequest struct {
 	Input           map[string]any `json:"input"`
 	NodeBreakpoints []string       `json:"node_breakpoints"`
+	// StartFromNode 从此节点开始调试：跳过其祖先（start 除外），下游照常执行
+	StartFromNode string `json:"start_from_node,omitempty"`
 }
 
 type ResumeExecutionRequest struct {

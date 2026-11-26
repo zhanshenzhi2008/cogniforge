@@ -526,6 +526,34 @@ func (s *WorkflowService) DebugWorkflowWithTraceID(userID, workflowID string, re
 			return
 		}
 
+		if req != nil && req.StartFromNode != "" {
+			skipped, skipErr := engine.ApplyStartFrom(ctx, def, req.StartFromNode)
+			if skipErr != nil {
+				s.db.Model(&model.WorkflowExecution{}).
+					Where("id = ?", executionID).
+					Updates(map[string]any{"status": "failed", "error": skipErr.Error()})
+				return
+			}
+			now := time.Now()
+			for _, n := range skipped {
+				_ = s.db.Create(&model.WorkflowNodeRun{
+					ID:          newID(),
+					ExecutionID: executionID,
+					NodeID:      n.ID,
+					NodeType:    n.Type,
+					Attempt:     1,
+					Status:      "skipped",
+					Detail: model.JSONBMap{
+						"start_from":    req.StartFromNode,
+						"skip_reason":   "debug_from_node",
+					},
+					StartedAt:  &now,
+					FinishedAt: &now,
+					CreatedAt:  now,
+				}).Error
+			}
+		}
+
 		_ = s.workflowEngine.Execute(ctx, def)
 	}()
 

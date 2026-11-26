@@ -46,6 +46,7 @@ var (
 	NewExecutionLogger             = core.NewExecutionLogger
 	HashDefinition                 = core.HashDefinition
 	ApplyCheckpoint                = core.ApplyCheckpoint
+	ApplyStartFrom                 = core.ApplyStartFrom
 )
 
 // 调试器构造函数

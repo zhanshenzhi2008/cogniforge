@@ -546,6 +546,60 @@ func ApplyCheckpoint(ctx *ExecutionContext, cp *model.WorkflowCheckpoint) {
 	}
 }
 
+// ApplyStartFrom 从指定节点开始调试：祖先节点标 skipped（start 类型仍会执行，便于入参默认值）
+// 返回被跳过的节点定义，供调用方写入 node_runs。
+func ApplyStartFrom(ctx *ExecutionContext, def *WorkflowDefinition, startFromNodeID string) ([]NodeDefinition, error) {
+	if ctx == nil || def == nil {
+		return nil, fmt.Errorf("缺少执行上下文或定义")
+	}
+	if startFromNodeID == "" {
+		return nil, nil
+	}
+	exists := false
+	nodeByID := make(map[string]NodeDefinition, len(def.Nodes))
+	for _, n := range def.Nodes {
+		nodeByID[n.ID] = n
+		if n.ID == startFromNodeID {
+			exists = true
+		}
+	}
+	if !exists {
+		return nil, fmt.Errorf("起点节点不存在: %s", startFromNodeID)
+	}
+
+	// 反向边：收集 startFrom 的所有祖先
+	preds := make(map[string][]string)
+	for _, e := range def.Edges {
+		preds[e.Target] = append(preds[e.Target], e.Source)
+	}
+	ancestors := map[string]bool{}
+	stack := []string{startFromNodeID}
+	seen := map[string]bool{startFromNodeID: true}
+	for len(stack) > 0 {
+		cur := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
+		for _, p := range preds[cur] {
+			if seen[p] {
+				continue
+			}
+			seen[p] = true
+			ancestors[p] = true
+			stack = append(stack, p)
+		}
+	}
+
+	var skipped []NodeDefinition
+	for id := range ancestors {
+		n := nodeByID[id]
+		if n.Type == "start" {
+			continue // 仍执行开始节点，补默认入参
+		}
+		ctx.SetNodeState(id, "skipped")
+		skipped = append(skipped, n)
+	}
+	return skipped, nil
+}
+
 func (e *WorkflowEngine) setCurrentNode(executionID, nodeID string) {
 	if executionID == "" || database.DB == nil {
 		return

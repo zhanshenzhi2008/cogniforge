@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-26 | v1.76 | debug 支持 start_from_node 从节点起跑 | orjrs |
 | 2026-11-26 | v1.75 | 审批/拒绝写入 node_runs 人工动作审计 | orjrs |
 | 2026-11-24 | v1.74 | 工作流 start 节点 `variables` 入参契约 | orjrs |
 | 2026-11-24 | v1.73 | search 节点可覆盖 search_mode / rerank / hybrid_weight | orjrs |
@@ -75,6 +76,13 @@
 | 2026-08-15 | v1.2 | GET /v1/models 改为返回已启用供应商的 default_model（不再写死 GPT 列表） | orjrs |
 | 2026-04-09 | v1.1 | 新增文档上传接口、语义检索接口实现说明 | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] debug 从节点起跑（2026-11-26）
+
+- **原因**：复杂图希望跳过已验证前置，从某节点往后试
+- **接口**：`POST /api/v1/workflows/:id/debug` 可选 `start_from_node`
+- **行为**：祖先节点标 `skipped`（`start` 类型仍执行以补入参）；写入 skipped node_runs；从该节点继续
+- **含代码**：`ApplyStartFrom`、`DebugWorkflowRequest.StartFromNode`
 
 ## [变更] 审批人工动作审计（2026-11-26）
 

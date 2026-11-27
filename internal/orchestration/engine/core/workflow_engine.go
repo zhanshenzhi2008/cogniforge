@@ -242,6 +242,21 @@ func vueDataToConfig(nodeType string, data map[string]any) json.RawMessage {
 		} else if v, ok := data["condition"]; ok {
 			out["condition"] = v
 		}
+		if v, ok := data["loopArrayVar"]; ok {
+			out["array_var"] = v
+		} else if v, ok := data["array_var"]; ok {
+			out["array_var"] = v
+		}
+		if v, ok := data["loopItemVar"]; ok {
+			out["item_var"] = v
+		} else if v, ok := data["item_var"]; ok {
+			out["item_var"] = v
+		}
+		if v, ok := data["loopKeyVar"]; ok {
+			out["key_var"] = v
+		} else if v, ok := data["key_var"]; ok {
+			out["key_var"] = v
+		}
 	case "code":
 		if v, ok := data["codeLanguage"]; ok {
 			out["language"] = v

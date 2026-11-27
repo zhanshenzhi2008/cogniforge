@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.101 | 共用 CfFieldHelp：表单旁帮助图标 | orjrs |
 | 2026-11-27 | v1.100 | 共用 CfEmptyState / CfLoadingState：列表空态与加载 | orjrs |
 | 2026-11-27 | v1.99 | 共用 CfConfirmModal：列表删除确认 | orjrs |
 | 2026-11-27 | v1.98 | 通用版默认隐藏密级相关 UI | orjrs |
@@ -205,11 +206,17 @@
 - **未迁**：详情页紧凑态、Playground 对话空态、用量图等特殊布局仍可自写
 - **包含代码**：`cogniforge-web/components/CfEmptyState.vue`、`CfLoadingState.vue`
 
+## [变更] 共用表单帮助 CfFieldHelp（2026-11-27）
+
+- **变更原因**：知识库检索/分段旁反复手写 UTooltip + help 按钮
+- **变更后**：`CfFieldHelp`（`text` + 可选 `icon`）；已接知识库详情检索查询与分段参数标签
+- **包含代码**：`cogniforge-web/components/CfFieldHelp.vue`、`pages/knowledge/[id].vue`
+
 ## [变更] 共用聊天面板 CfChatPanel（2026-11-20）
 
 - **变更原因**：工作室构建/预览与对话页聊天 UI、SSE 发送重复
 - **变更后**：`CfChatPanel` 共用消息区+输入框；`useChatStream` 管 `/chat/stream`；`useAgentChat` 管 Agent 对话；错误码 `mapChatHttpError`
-- **后续去重**：~~`CfConfirmModal`~~（2026-11-27）/ `CfEmptyState` / `CfFieldHelp` / Playground 改走 `useAgentChat` 等见 Web 开发计划
+- **后续去重**：~~`CfConfirmModal`~~ / ~~`CfEmptyState`~~ / ~~`CfFieldHelp`~~（2026-11-27）/ Playground 改走 `useAgentChat` 等见 Web 开发计划
 - **包含代码**：`cogniforge-web/components/CfChatPanel.vue`、`useChatStream.ts`、`AgentStudio.vue`、`playground.vue`、`prompts.vue`
 
 ## [变更] 智能体工作室后续 TODO（2026-11-20）

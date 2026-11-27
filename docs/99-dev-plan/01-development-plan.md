@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.222 | 跨仓：CfFieldHelp 表单帮助图标 | orjrs |
 | 2026-11-27 | v1.221 | 跨仓：CfEmptyState / CfLoadingState 列表空态与加载 | orjrs |
 | 2026-11-27 | v1.220 | 跨仓：列表删除确认抽成 CfConfirmModal | orjrs |
 | 2026-11-27 | v1.219 | 密级强制检索写入 security_audit_logs | orjrs |
@@ -250,6 +251,12 @@
 - **原因**：列表空态/加载态重复；前端组件去重 backlog
 - **落地**：Web 两组件接主要列表；主仓前端设计 v1.100；待办勾选
 - **Web**：开发计划 v1.131
+
+## [变更] 跨仓 CfFieldHelp（2026-11-27）
+
+- **原因**：表单旁帮助图标重复；前端组件去重 backlog
+- **落地**：Web `CfFieldHelp`；知识库详情检索/分段标签旁；主仓前端设计 v1.101
+- **Web**：开发计划 v1.132
 
 ## [变更] 通用版隐藏密级 UI（2026-11-27）
 
@@ -2339,7 +2346,7 @@ composables/
 - [ ] Playground 选 Agent 时改走 `useAgentChat`（去掉内联 agent SSE）
 - [x] `CfConfirmModal`：各列表删除确认（agents/teams/models/keys/workflows/knowledge/prompts/mcp/users/roles）
 - [x] `CfEmptyState` / `CfLoadingState`：主要列表页
-- [ ] `CfFieldHelp`：表单帮助图标
+- [x] `CfFieldHelp`：表单帮助图标（知识库检索/分段）
 - [ ] 可选 `CfResourceCard`；MCP/知识库复用 `CfViewModeToggle`（按需）
 
 ### 工作流（2026-11-26，按优先级）

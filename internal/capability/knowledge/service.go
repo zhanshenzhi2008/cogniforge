@@ -411,6 +411,15 @@ func (s *KnowledgeService) UpdateDocumentLifecycle(userID, kbID, docID string, r
 			return nil, fmt.Errorf("无效生命周期状态")
 		}
 	}
+	if req.SecurityLevel != nil {
+		lv := strings.TrimSpace(strings.ToLower(*req.SecurityLevel))
+		switch lv {
+		case model.DocSecurityPublic, model.DocSecurityInternal, model.DocSecurityConfidential, model.DocSecuritySecret:
+			updates["security_level"] = lv
+		default:
+			return nil, fmt.Errorf("无效密级")
+		}
+	}
 	if req.ClearEffective {
 		updates["effective_at"] = nil
 	} else if req.EffectiveAt != nil {

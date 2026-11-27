@@ -3,6 +3,7 @@
 ## [变更记录]
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|---------|--------|
+| 2026-11-27 | v1.37 | documents 增 security_level（默认 internal） | orjrs |
 | 2026-11-27 | v1.36 | documents 增 lifecycle_status / effective_at / expire_at | orjrs |
 | 2026-11-27 | v1.35 | workflows.webhook_url；启用 workflow_schedules 产品化 | orjrs |
 | 2026-11-26 | v1.34 | workflow_versions：定义历史快照（简单回滚） | orjrs |
@@ -37,6 +38,12 @@
 | 2026-08-16 | v1.2 | Redis 键统一 `cogniforge:` 前缀；多项目用前缀隔离，不拆 db0/db1 | orjrs |
 | 2026-08-15 | v1.1 | 落地模型配置 Redis 键（当时为 `cf:modelcfg:*`） | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] 文档密级字段（2026-11-27）
+
+- **扩展 `documents.security_level`**：`public|internal|confidential|secret`，默认 `internal`，索引 `idx_doc_security`
+- **辅助**：`SecurityLevelRank` / `AccessibleByClearance`（检索强制过滤待角色 clearance）
+- **AutoMigrate**：`Document`
 
 ## [变更] 文档业务生命周期字段（2026-11-27）
 

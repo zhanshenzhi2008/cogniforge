@@ -35,3 +35,17 @@ func TestDocument_IsSearchableNow(t *testing.T) {
 		ExpireAt:        &future,
 	}).IsSearchableNow(now))
 }
+
+func TestSecurityLevelRankAndClearance(t *testing.T) {
+	assert.Equal(t, 1, SecurityLevelRank(DocSecurityPublic))
+	assert.Equal(t, 2, SecurityLevelRank(DocSecurityInternal))
+	assert.Equal(t, 3, SecurityLevelRank(DocSecurityConfidential))
+	assert.Equal(t, 4, SecurityLevelRank(DocSecuritySecret))
+	assert.Equal(t, 2, SecurityLevelRank("unknown"))
+
+	doc := &Document{SecurityLevel: DocSecurityConfidential}
+	assert.False(t, doc.AccessibleByClearance(DocSecurityInternal))
+	assert.True(t, doc.AccessibleByClearance(DocSecurityConfidential))
+	assert.True(t, doc.AccessibleByClearance(DocSecuritySecret))
+	assert.True(t, (&Document{SecurityLevel: DocSecurityPublic}).AccessibleByClearance(DocSecurityInternal))
+}

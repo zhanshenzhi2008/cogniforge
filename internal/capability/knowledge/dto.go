@@ -154,9 +154,10 @@ type SearchRequest struct {
 	IgnoreValidity bool `json:"ignore_validity,omitempty"`
 }
 
-// UpdateDocumentLifecycleRequest 更新业务状态与有效期
+// UpdateDocumentLifecycleRequest 更新业务状态、有效期与密级
 type UpdateDocumentLifecycleRequest struct {
 	LifecycleStatus *string    `json:"lifecycle_status,omitempty"` // draft|review|published|abolished
+	SecurityLevel   *string    `json:"security_level,omitempty"`   // public|internal|confidential|secret
 	EffectiveAt     *time.Time `json:"effective_at,omitempty"`
 	ExpireAt        *time.Time `json:"expire_at,omitempty"`
 	ClearEffective  bool       `json:"clear_effective,omitempty"`

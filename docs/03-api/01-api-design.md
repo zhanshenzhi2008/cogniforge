@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.84 | 文档 security_level；lifecycle API 可改密级 | orjrs |
 | 2026-11-27 | v1.83 | 代码节点 python/js 走沙箱（MCP 同源） | orjrs |
 | 2026-11-27 | v1.82 | 工作流节点类型 `subflow`（嵌套同步执行） | orjrs |
 | 2026-11-27 | v1.81 | 调度 pause / resume / run-now | orjrs |
@@ -83,6 +84,13 @@
 | 2026-08-15 | v1.2 | GET /v1/models 改为返回已启用供应商的 default_model（不再写死 GPT 列表） | orjrs |
 | 2026-04-09 | v1.1 | 新增文档上传接口、语义检索接口实现说明 | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] 文档密级 security_level（2026-11-27）
+
+- **字段**：`documents.security_level`（默认 `internal`）
+- **接口**：`PUT .../documents/:docId/lifecycle` 可传 `security_level`
+- **未做**：角色/人员 `max_security_level`；检索按 clearance 强制过滤（助手函数已备）
+- **含代码**：model + lifecycle service；跨仓预览下拉
 
 ## [变更] 代码节点沙箱（2026-11-27）
 

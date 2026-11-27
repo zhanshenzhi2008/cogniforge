@@ -2,6 +2,7 @@ package agent
 
 import (
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -129,6 +130,42 @@ func (h *AgentHandler) DeleteAgent(c *gin.Context) {
 		return
 	}
 	response.SuccessWithMessage(c, nil, "Agent 已删除")
+}
+
+func (h *AgentHandler) ListAgentVersions(c *gin.Context) {
+	userID := c.GetString("user_id")
+	list, err := h.service.ListAgentVersions(userID, c.Param("id"))
+	if err != nil {
+		if err.Error() == "Agent 不存在" {
+			response.NotFound(c, err.Error())
+		} else {
+			response.InternalError(c, err.Error())
+		}
+		return
+	}
+	response.Success(c, list)
+}
+
+func (h *AgentHandler) RollbackAgentVersion(c *gin.Context) {
+	userID := c.GetString("user_id")
+	ver, err := strconv.Atoi(c.Param("version"))
+	if err != nil || ver < 1 {
+		response.BadRequest(c, "无效版本号")
+		return
+	}
+	agent, err := h.service.RollbackAgentVersion(userID, c.Param("id"), ver)
+	if err != nil {
+		msg := err.Error()
+		if msg == "Agent 不存在" || msg == "版本不存在" {
+			response.NotFound(c, msg)
+		} else if msg == "无效版本号" || msg == "版本数据损坏" {
+			response.BadRequest(c, msg)
+		} else {
+			response.InternalError(c, msg)
+		}
+		return
+	}
+	response.Success(c, agent)
 }
 
 func (h *AgentHandler) AgentChat(c *gin.Context) {
@@ -372,6 +409,8 @@ func (h *AgentHandler) RegisterRoutes(rg *gin.RouterGroup) {
 		agents.GET("/:id", h.GetAgent)
 		agents.PUT("/:id", h.UpdateAgent)
 		agents.DELETE("/:id", h.DeleteAgent)
+		agents.GET("/:id/versions", h.ListAgentVersions)
+		agents.POST("/:id/versions/:version/rollback", h.RollbackAgentVersion)
 		agents.POST("/:id/chat", h.AgentChat)
 	}
 }

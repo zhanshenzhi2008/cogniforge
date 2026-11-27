@@ -56,6 +56,8 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 	_ = model.MigrateProviders(db)
 	_ = db.AutoMigrate(
 		&model.UserSettings{},
+		&model.Agent{},
+		&model.AgentVersion{},
 		&model.AgentTeam{},
 		&model.ChatConversation{},
 		&model.WorkflowVersion{},

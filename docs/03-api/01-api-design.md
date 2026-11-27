@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.99 | Agent 配置版本列表与回滚 | orjrs |
 | 2026-11-27 | v1.98 | GET /conversations 支持 agent_id 过滤 | orjrs |
 | 2026-11-27 | v1.98 | GET /conversations 支持 agent_id 过滤 | orjrs |
 | 2026-11-27 | v1.97 | Agent 增 allow_attachments（附件上传开关） | orjrs |
@@ -105,6 +106,16 @@
 - **接口**：`GET /api/v1/conversations?agent_id=`（可与 `team_id` 同用）
 - **用途**：工作室「对话日志」只列该智能体历史
 - **含代码**：`ConversationService.List`；跨仓工作室侧栏
+
+## [变更] Agent 配置版本与回滚（2026-11-27）
+
+- **字段**：`agents.version`（int，默认 1）
+- **接口**：
+  - `GET /api/v1/agents/:id/versions`
+  - `POST /api/v1/agents/:id/versions/:version/rollback`
+- **行为**：保存配置变更前写入 `agent_versions`；回滚先快照当前再恢复目标并 bump `version`
+- **含代码**：`AgentVersion`、`List/Rollback`；跨仓工作室「版本」侧栏
+- **DB**：v1.43
 
 ## [变更] Agent allow_attachments（2026-11-27）
 

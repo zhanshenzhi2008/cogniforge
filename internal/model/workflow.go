@@ -187,6 +187,7 @@ type Agent struct {
 	InputFilter         bool           `gorm:"default:true" json:"input_filter"`
 	OutputFilter        bool           `gorm:"default:true" json:"output_filter"`
 	Status              string         `gorm:"type:varchar(50);default:'active'" json:"status"`
+	Version             int            `gorm:"default:1" json:"version"` // 配置版本号；与 agent_versions 对齐
 	Metadata            JSONBMap       `gorm:"type:jsonb" json:"metadata"`
 	CreatedAt    time.Time      `json:"created_at"`
 	UpdatedAt    time.Time      `json:"updated_at"`
@@ -195,4 +196,18 @@ type Agent struct {
 
 func (Agent) TableName() string {
 	return "agents"
+}
+
+// AgentVersion Agent 配置历史快照（工作室简单回滚）
+type AgentVersion struct {
+	ID        string    `gorm:"primaryKey;type:varchar(64)" json:"id"`
+	AgentID   string    `gorm:"type:varchar(64);not null;uniqueIndex:uk_agent_ver,priority:1;index:idx_agent_ver_agent" json:"agent_id"`
+	Version   int       `gorm:"not null;uniqueIndex:uk_agent_ver,priority:2" json:"version"`
+	Config    string    `gorm:"type:text;not null" json:"config"` // JSON：工作室可回滚字段
+	Note      string    `gorm:"type:varchar(255)" json:"note,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+func (AgentVersion) TableName() string {
+	return "agent_versions"
 }

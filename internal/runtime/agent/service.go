@@ -75,6 +75,7 @@ func (s *AgentService) CreateAgent(userID string, req *CreateAgentRequest) (*mod
 		InputFilter:         true,
 		OutputFilter:        true,
 		Status:              "active",
+		Version:             1,
 		Metadata:            model.JSONBMap{},
 		CreatedAt:           time.Now(),
 		UpdatedAt:           time.Now(),
@@ -109,6 +110,8 @@ func (s *AgentService) UpdateAgent(userID, agentID string, req *UpdateAgentReque
 		return nil, fmt.Errorf("查询 Agent 失败")
 	}
 
+	before := snapFromAgent(&agent)
+
 	if req.Name != "" {
 		agent.Name = req.Name
 	}
@@ -137,7 +140,7 @@ func (s *AgentService) UpdateAgent(userID, agentID string, req *UpdateAgentReque
 		agent.AllowAttachments = *req.AllowAttachments
 	}
 	if req.Tools != nil {
-		agent.Tools = req.Tools
+		agent.Tools = model.JSONBArray(normalizeTools(req.Tools))
 	}
 	if req.SkillID != "" || req.Tools != nil {
 		// 工作室保存会带 skill_id；允许空串解绑
@@ -147,6 +150,15 @@ func (s *AgentService) UpdateAgent(userID, agentID string, req *UpdateAgentReque
 		agent.Status = req.Status
 	}
 	agent.UpdatedAt = time.Now()
+
+	after := snapFromAgent(&agent)
+	if configChanged(before, after) {
+		s.snapshotVersion(agent.ID, agent.Version, before, "before_update")
+		if agent.Version < 1 {
+			agent.Version = 1
+		}
+		agent.Version++
+	}
 
 	if err := s.db.Save(&agent).Error; err != nil {
 		return nil, fmt.Errorf("更新 Agent 失败")

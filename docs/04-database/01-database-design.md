@@ -3,6 +3,7 @@
 ## [变更记录]
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|---------|--------|
+| 2026-11-27 | v1.43 | agents.version + agent_versions 配置快照 | orjrs |
 | 2026-11-27 | v1.42 | agents：allow_attachments 附件上传开关 | orjrs |
 | 2026-11-27 | v1.41 | agents：rag_kb_ids 绑定知识库 | orjrs |
 | 2026-11-27 | v1.40 | agents：opening_message / suggested_prompts | orjrs |
@@ -43,6 +44,12 @@
 | 2026-08-16 | v1.2 | Redis 键统一 `cogniforge:` 前缀；多项目用前缀隔离，不拆 db0/db1 | orjrs |
 | 2026-08-15 | v1.1 | 落地模型配置 Redis 键（当时为 `cf:modelcfg:*`） | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] Agent 配置版本快照（2026-11-27）
+
+- **原因**：工作室「配置版本历史」简单回滚
+- **变更**：`agents.version`（默认 1）；新表 `agent_versions`：`id` / `agent_id` / `version` / `config` text(JSON) / `note` / `created_at`；唯一 `uk_agent_ver(agent_id, version)`
+- **行为**：配置字段变更保存前写入当前版快照并 bump `version`
 
 ## [变更] Agent 附件上传开关（2026-11-27）
 

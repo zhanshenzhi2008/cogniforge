@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.86 | 用户创建/更新可设 max_security_level 覆盖 | orjrs |
 | 2026-11-27 | v1.85 | 角色 max_security_level；可选检索密级强制 | orjrs |
 | 2026-11-27 | v1.84 | 文档 security_level；lifecycle API 可改密级 | orjrs |
 | 2026-11-27 | v1.83 | 代码节点 python/js 走沙箱（MCP 同源） | orjrs |
@@ -85,6 +86,12 @@
 | 2026-08-15 | v1.2 | GET /v1/models 改为返回已启用供应商的 default_model（不再写死 GPT 列表） | orjrs |
 | 2026-04-09 | v1.1 | 新增文档上传接口、语义检索接口实现说明 | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] 用户密级覆盖（2026-11-27）
+
+- **接口**：`POST/PUT /admin/users` 可传 `max_security_level`（空=跟随角色；更新传 `""` 可清除）
+- **优先级**：用户覆盖 > 角色上限 > 默认 secret
+- **含代码**：user DTO/service；跨仓用户管理页
 
 ## [变更] 角色 clearance + 检索密级开关（2026-11-27）
 

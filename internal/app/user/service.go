@@ -25,6 +25,19 @@ func NewUserService() *UserService {
 	return &UserService{db: database.DB}
 }
 
+func normalizeUserSecurityLevel(raw string) (string, error) {
+	lv := strings.TrimSpace(strings.ToLower(raw))
+	if lv == "" {
+		return "", nil
+	}
+	switch lv {
+	case model.DocSecurityPublic, model.DocSecurityInternal, model.DocSecurityConfidential, model.DocSecuritySecret:
+		return lv, nil
+	default:
+		return "", fmt.Errorf("无效密级上限")
+	}
+}
+
 var (
 	ErrOldPasswordWrong  = errors.New("旧密码错误")
 	ErrPasswordUnchanged = errors.New("新旧密码不能相同")
@@ -96,15 +109,20 @@ func (s *UserService) CreateUser(req *CreateUserRequest) (*model.User, error) {
 		return nil, fmt.Errorf("密码加密失败")
 	}
 
+	clearance, err := normalizeUserSecurityLevel(req.MaxSecurityLevel)
+	if err != nil {
+		return nil, err
+	}
 	user := model.User{
-		ID:        generateID(),
-		Email:     email,
-		Name:      name,
-		Password:  string(hashedPassword),
-		Status:    req.Status,
-		Role:      req.Role,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
+		ID:               generateID(),
+		Email:            email,
+		Name:             name,
+		Password:         string(hashedPassword),
+		Status:           req.Status,
+		Role:             req.Role,
+		MaxSecurityLevel: clearance,
+		CreatedAt:        time.Now(),
+		UpdatedAt:        time.Now(),
 	}
 
 	if err := s.db.Create(&user).Error; err != nil {
@@ -174,6 +192,13 @@ func (s *UserService) UpdateUser(userID string, req *UpdateUserRequest) (*model.
 	}
 	if req.Role != "" {
 		updates["role"] = req.Role
+	}
+	if req.MaxSecurityLevel != nil {
+		clearance, err := normalizeUserSecurityLevel(*req.MaxSecurityLevel)
+		if err != nil {
+			return nil, err
+		}
+		updates["max_security_level"] = clearance
 	}
 
 	if len(updates) > 0 {

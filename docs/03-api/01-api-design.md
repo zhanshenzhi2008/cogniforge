@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.81 | 调度 pause / resume / run-now | orjrs |
 | 2026-11-27 | v1.80 | 文档 lifecycle + 检索按发布/有效期过滤 | orjrs |
 | 2026-11-27 | v1.79 | 工作流 Cron 调度 + 完成回调 webhook_url | orjrs |
 | 2026-11-26 | v1.78 | 工作流版本列表与回滚 API | orjrs |
@@ -80,6 +81,15 @@
 | 2026-08-15 | v1.2 | GET /v1/models 改为返回已启用供应商的 default_model（不再写死 GPT 列表） | orjrs |
 | 2026-04-09 | v1.1 | 新增文档上传接口、语义检索接口实现说明 | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] 调度暂停 / 恢复 / 立刻跑（2026-11-27）
+
+- **接口**：
+  - `POST /workflows/:id/schedules/:scheduleId/pause`
+  - `POST /workflows/:id/schedules/:scheduleId/resume`
+  - `POST /workflows/:id/schedules/:scheduleId/run` → `{ execution_id }`
+- **鉴权**：须归属当前用户该工作流；立刻跑用调度的 `default_input`
+- **含代码**：`handler` + `WorkflowService`；跨仓定时列表按钮
 
 ## [变更] 文档生命周期与检索过滤（2026-11-27）
 

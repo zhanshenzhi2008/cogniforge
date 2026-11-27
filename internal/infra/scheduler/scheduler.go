@@ -259,15 +259,18 @@ func (s *Scheduler) PauseSchedule(scheduleID string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	entryID, exists := s.runningJobs[scheduleID]
-	if !exists {
-		return fmt.Errorf("schedule %s not found", scheduleID)
+	if entryID, exists := s.runningJobs[scheduleID]; exists {
+		s.cron.Remove(entryID)
+		delete(s.runningJobs, scheduleID)
 	}
 
-	s.cron.Remove(entryID)
-	delete(s.runningJobs, scheduleID)
-
-	database.DB.Model(&model.WorkflowSchedule{}).Where("id = ?", scheduleID).Update("is_active", false)
+	res := database.DB.Model(&model.WorkflowSchedule{}).Where("id = ?", scheduleID).Update("is_active", false)
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return fmt.Errorf("schedule %s not found", scheduleID)
+	}
 	log.Printf("Paused schedule %s", scheduleID)
 	return nil
 }

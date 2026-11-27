@@ -27,6 +27,7 @@ type ScheduleRunner interface {
 	ListByWorkflow(userID, workflowID string) ([]model.WorkflowSchedule, error)
 	PauseSchedule(scheduleID string) error
 	ResumeSchedule(scheduleID string) error
+	RunNow(scheduleID string) (executionID string, err error)
 }
 
 func (s *WorkflowService) SetScheduler(r ScheduleRunner) {
@@ -739,7 +740,7 @@ func (s *WorkflowService) ListSchedules(userID, workflowID string) ([]model.Work
 	return s.scheduler.ListByWorkflow(userID, workflowID)
 }
 
-func (s *WorkflowService) DeleteSchedule(userID, workflowID, scheduleID string) error {
+func (s *WorkflowService) ensureScheduleOwned(userID, workflowID, scheduleID string) error {
 	if s.scheduler == nil {
 		return fmt.Errorf("调度器未启用")
 	}
@@ -750,35 +751,38 @@ func (s *WorkflowService) DeleteSchedule(userID, workflowID, scheduleID string) 
 	if err != nil {
 		return err
 	}
-	found := false
 	for _, it := range list {
 		if it.ID == scheduleID {
-			found = true
-			break
+			return nil
 		}
 	}
-	if !found {
-		return fmt.Errorf("调度不存在")
+	return fmt.Errorf("调度不存在")
+}
+
+func (s *WorkflowService) DeleteSchedule(userID, workflowID, scheduleID string) error {
+	if err := s.ensureScheduleOwned(userID, workflowID, scheduleID); err != nil {
+		return err
 	}
 	return s.scheduler.Delete(scheduleID)
 }
 
 func (s *WorkflowService) PauseSchedule(userID, workflowID, scheduleID string) error {
-	if s.scheduler == nil {
-		return fmt.Errorf("调度器未启用")
-	}
-	if _, err := s.GetWorkflow(userID, workflowID); err != nil {
+	if err := s.ensureScheduleOwned(userID, workflowID, scheduleID); err != nil {
 		return err
 	}
 	return s.scheduler.PauseSchedule(scheduleID)
 }
 
 func (s *WorkflowService) ResumeSchedule(userID, workflowID, scheduleID string) error {
-	if s.scheduler == nil {
-		return fmt.Errorf("调度器未启用")
-	}
-	if _, err := s.GetWorkflow(userID, workflowID); err != nil {
+	if err := s.ensureScheduleOwned(userID, workflowID, scheduleID); err != nil {
 		return err
 	}
 	return s.scheduler.ResumeSchedule(scheduleID)
+}
+
+func (s *WorkflowService) RunScheduleNow(userID, workflowID, scheduleID string) (string, error) {
+	if err := s.ensureScheduleOwned(userID, workflowID, scheduleID); err != nil {
+		return "", err
+	}
+	return s.scheduler.RunNow(scheduleID)
 }

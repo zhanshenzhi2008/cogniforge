@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.203 | 调度 pause/resume/run-now API + Web 按钮 | orjrs |
 | 2026-11-27 | v1.202 | 检索测试 UI 接 include_drafts / ignore_validity（跨仓） | orjrs |
 | 2026-11-27 | v1.201 | 知识库有效期 UI + 列表展示业务状态 | orjrs |
 | 2026-11-27 | v1.200 | 文档生命周期 + 检索按发布/有效期过滤 | orjrs |
@@ -201,6 +202,13 @@
 | 2026-04-11 | v1.2 | 阶段八监控中心完成（请求日志中间件、日志列表 API、用量统计 API、监控仪表板页面） | orjrs |
 | 2026-04-17 | v1.3 | 阶段九用户管理与个人设置完成（用户CRUD、个人设置、会话管理、RBAC权限系统） | orjrs |
 > 注：任务状态变更直接在下方任务表格中更新即可，无需额外记录。
+
+## [变更] 调度暂停 / 恢复 / 立刻跑（2026-11-27）
+
+- **原因**：P2 收尾；定时列表原先只能增删
+- **落地**：`POST .../pause|resume|run`；归属校验；Web 定时弹窗按钮
+- **含代码**：handler/service/scheduler；跨仓 `useWorkflows` + 编辑器
+- **API**：v1.81
 
 ## [变更] 检索测试排查开关 UI（2026-11-27）
 
@@ -2220,7 +2228,7 @@ composables/
 
 - [x] 工作流复制 — `POST .../clone` + 列表按钮
 - [x] 简单版本回滚 — `workflow_versions` + 编辑器版本弹窗
-- [x] Cron / 完成回调（Webhook）产品化 — schedules API + `webhook_url`（暂停/立刻跑 UI 可再补）
+- [x] Cron / 完成回调（Webhook）产品化 — schedules API + `webhook_url`；暂停/恢复/立刻跑
 - [x] 知识有效期/状态过滤接到 search — lifecycle 过滤（RAG/search 共用；有效期表单与密级仍待）
 
 **P3**

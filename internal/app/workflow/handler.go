@@ -193,6 +193,49 @@ func (h *WorkflowHandler) DeleteWorkflowSchedule(c *gin.Context) {
 	response.SuccessWithMessage(c, nil, "调度已删除")
 }
 
+// PauseWorkflowSchedule 暂停调度
+func (h *WorkflowHandler) PauseWorkflowSchedule(c *gin.Context) {
+	userID := c.GetString("user_id")
+	if userID == "" {
+		response.Unauthorized(c, "unauthorized")
+		return
+	}
+	if err := h.service.PauseSchedule(userID, c.Param("id"), c.Param("scheduleId")); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+	response.SuccessWithMessage(c, nil, "调度已暂停")
+}
+
+// ResumeWorkflowSchedule 恢复调度
+func (h *WorkflowHandler) ResumeWorkflowSchedule(c *gin.Context) {
+	userID := c.GetString("user_id")
+	if userID == "" {
+		response.Unauthorized(c, "unauthorized")
+		return
+	}
+	if err := h.service.ResumeSchedule(userID, c.Param("id"), c.Param("scheduleId")); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+	response.SuccessWithMessage(c, nil, "调度已恢复")
+}
+
+// RunWorkflowScheduleNow 立刻按调度默认入参跑一次
+func (h *WorkflowHandler) RunWorkflowScheduleNow(c *gin.Context) {
+	userID := c.GetString("user_id")
+	if userID == "" {
+		response.Unauthorized(c, "unauthorized")
+		return
+	}
+	execID, err := h.service.RunScheduleNow(userID, c.Param("id"), c.Param("scheduleId"))
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+	response.Success(c, gin.H{"execution_id": execID})
+}
+
 // ListWorkflowVersions 历史版本列表
 func (h *WorkflowHandler) ListWorkflowVersions(c *gin.Context) {
 	userID := c.GetString("user_id")
@@ -451,6 +494,9 @@ func (h *WorkflowHandler) RegisterRoutes(rg *gin.RouterGroup) {
 		workflows.GET("/:id/schedules", h.ListWorkflowSchedules)
 		workflows.POST("/:id/schedules", h.CreateWorkflowSchedule)
 		workflows.DELETE("/:id/schedules/:scheduleId", h.DeleteWorkflowSchedule)
+		workflows.POST("/:id/schedules/:scheduleId/pause", h.PauseWorkflowSchedule)
+		workflows.POST("/:id/schedules/:scheduleId/resume", h.ResumeWorkflowSchedule)
+		workflows.POST("/:id/schedules/:scheduleId/run", h.RunWorkflowScheduleNow)
 		workflows.GET("/:id/versions", h.ListWorkflowVersions)
 		workflows.POST("/:id/versions/:version/rollback", h.RollbackWorkflowVersion)
 		workflows.POST("/:id/execute", h.ExecuteWorkflow)

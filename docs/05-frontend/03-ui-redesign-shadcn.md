@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.144 | 节点必填绑定 isWorkflowBindUnbound 单测 | orjrs |
 | 2026-11-27 | v1.143 | LLM 节点模型空态提示与刷新 | orjrs |
 | 2026-11-27 | v1.142 | 条件节点未填字段醒目标记与校验 | orjrs |
 | 2026-11-27 | v1.141 | 代码节点未填代码醒目标记与校验 | orjrs |
@@ -311,6 +312,12 @@
   - 中期：~~发布渠道~~（Web/API/嵌入已做；IM 仍待）、~~猜你想问~~
   - 远期：~~虚拟机~~（UI 占位；运行时仍待）、~~语音播放~~（浏览器 TTS）、~~语音输入~~（浏览器 STT；云 ASR 另排）
 - **详见**：`cogniforge-web/docs/99-dev-plan/01-development-plan.md` v1.67；主仓开发计划「后续待办」
+
+## [变更] 节点必填绑定单测（2026-11-27）
+
+- **变更原因**：近期补了多种未绑定拦截，缺回归保护
+- **变更后**：抽出 `workflowBind.ts`；`isWorkflowBindUnbound` vitest 覆盖 llm/http/code/condition/team/agent/search/subflow
+- **包含代码**：`utils/workflowBind.ts`、`utils/workflowBind.test.ts`、`workflowNodeMeta.ts` 再导出
 
 ## [变更] LLM 节点模型空态提示（2026-11-27）
 

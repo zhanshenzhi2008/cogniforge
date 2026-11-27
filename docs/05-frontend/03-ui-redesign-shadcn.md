@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.161 | input/output 未设变量醒目标记与保存校验 | orjrs |
 | 2026-11-27 | v1.160 | 画布 input/output 变量副文案；去掉 workflowBind 重复导出 | orjrs |
 | 2026-11-27 | v1.159 | 提示词标签筛选「全部」改哨兵值，避免 USelect 空串 500 | orjrs |
 | 2026-11-27 | v1.158 | Playground 插入发送改用 CfConfirmModal | orjrs |
@@ -328,6 +329,12 @@
   - 中期：~~发布渠道~~（Web/API/嵌入已做；IM 仍待）、~~猜你想问~~
   - 远期：~~虚拟机~~（UI 占位；运行时仍待）、~~语音播放~~（浏览器 TTS）、~~语音输入~~（浏览器 STT；云 ASR 另排）
 - **详见**：`cogniforge-web/docs/99-dev-plan/01-development-plan.md` v1.67；主仓开发计划「后续待办」
+
+## [变更] input/output 未设变量醒目标记（2026-11-27）
+
+- **变更原因**：输入/输出节点变量为空时保存/执行未拦截，画布也无未绑定样式
+- **变更后**：纳入 `isWorkflowBindUnbound`；虚线框 + 顶栏计数 + 保存/调试校验
+- **包含代码**：`utils/workflowBind.ts`、`WorkflowCanvas.vue`
 
 ## [变更] 画布 input/output 变量副文案（2026-11-27）
 

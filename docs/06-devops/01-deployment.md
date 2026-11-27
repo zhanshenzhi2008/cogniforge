@@ -3,6 +3,7 @@
 ## [变更记录]
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|---------|--------|
+| 2026-11-27 | v1.44 | 通用版隐藏密级 UI：NUXT_PUBLIC_SHOW_SECURITY_LEVEL | orjrs |
 | 2026-11-27 | v1.43 | 补充 KB_ENFORCE_SECURITY_LEVEL 运维开关 | orjrs |
 | 2026-11-26 | v1.42 | 工作流部署冒烟清单：执行→等待→审批→完成 | orjrs |
 | 2026-11-16 | v1.41 | 前端 Nginx 请求体上限 60MB，避免知识库预览/上传 413 | orjrs |
@@ -137,6 +138,7 @@
 
 - **code_execute**：Go 进程内本地子进程执行（需镜像/宿主机有 `python3` / `node` / `go`）；生产若暂不开放设 `CODE_EXECUTE_DISABLED=1`
 - **知识密级检索**：金融场景设 `KB_ENFORCE_SECURITY_LEVEL=1`，并在「角色」里配置 `max_security_level`；未开开关时密级字段只存不滤
+- **密级 UI**：通用版默认隐藏文档密级 / clearance / 审计 Tab；金融构建前端时加 `NUXT_PUBLIC_SHOW_SECURITY_LEVEL=1`（Docker build-arg 同名）
 - **web_search**：读 `TAVILY_API_KEY`（空则 keyless）；见 `.env.example`
 - **包含配置**：`.env.example` 注释段；详细设计 `docs/01-requirements/06-mcp-skill-design.md`
 

@@ -3,14 +3,16 @@ package workflow
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 
 	"cogniforge/internal/infra/database"
-	"cogniforge/internal/orchestration/engine"
 	"cogniforge/internal/model"
+	"cogniforge/internal/orchestration/engine"
 )
 
 type WorkflowService struct {
@@ -120,7 +122,14 @@ func (s *WorkflowService) UpdateWorkflow(userID, workflowID string, req *UpdateW
 		updates["status"] = req.Status
 	}
 	if req.WebhookURL != nil {
-		updates["webhook_url"] = *req.WebhookURL
+		hook := strings.TrimSpace(*req.WebhookURL)
+		if hook != "" {
+			u, err := url.ParseRequestURI(hook)
+			if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+				return nil, fmt.Errorf("webhook_url 须为 http(s) 地址")
+			}
+		}
+		updates["webhook_url"] = hook
 	}
 	defChanged := false
 	if req.Definition != nil {

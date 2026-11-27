@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.102 | 工作流 webhook_url 校验须为 http(s) | orjrs |
 | 2026-11-27 | v1.101 | 提示词版本归档 / 回滚发版（17.17） | orjrs |
 | 2026-11-27 | v1.100 | team 节点 delegate/handoff 写入 OnProgress 子步骤 | orjrs |
 | 2026-11-27 | v1.99 | Agent 配置版本列表与回滚 | orjrs |
@@ -202,6 +203,12 @@
 - **接口**：`PUT /knowledge/:id/documents/:docId/lifecycle`
 - **检索**：默认只召回 **published** 且在有效期内；`include_drafts` / `ignore_validity` 可选排查
 - **影响**：对话 RAG、工作流 search、检索测试共用 `SearchByUser`
+
+## [变更] webhook_url 格式校验（2026-11-27）
+
+- **变更原因**：空值可清空；非空须为可解析的 http/https，避免脏回调地址入库
+- **行为**：`PUT` 更新 `webhook_url` 时校验；非法返回错误「webhook_url 须为 http(s) 地址」
+- **包含代码**：`internal/orchestration/workflow/service.go`
 
 ## [变更] Cron 调度与完成回调（2026-11-27）
 

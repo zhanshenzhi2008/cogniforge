@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.106 | 工作室顶栏「对话日志」跳转 Playground | orjrs |
 | 2026-11-27 | v1.105 | 工作室预览附件上传（allow_attachments） | orjrs |
 | 2026-11-27 | v1.104 | 工作室可多选绑定知识库（rag_kb_ids） | orjrs |
 | 2026-11-27 | v1.103 | 工作室开场白 + 预设问题；Playground 空态展示 | orjrs |
@@ -215,6 +216,12 @@
 - **变更原因**：知识库检索/分段旁反复手写 UTooltip + help 按钮
 - **变更后**：`CfFieldHelp`（`text` + 可选 `icon`）；已接知识库详情检索查询与分段参数标签
 - **包含代码**：`cogniforge-web/components/CfFieldHelp.vue`、`pages/knowledge/[id].vue`
+
+## [变更] 工作室对话日志（2026-11-27）
+
+- **变更原因**：工作室 backlog；查看该 Agent 在对话页的历史
+- **变更后**：顶栏「对话日志」侧栏列表（`GET /conversations?agent_id=`）；点条目打开 `/playground?agent=&c=`
+- **包含代码**：`AgentStudio.vue`、`useConversations.ts`；主仓 API v1.98
 
 ## [变更] 工作室预览附件上传（2026-11-27）
 

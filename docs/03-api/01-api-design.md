@@ -4,6 +4,8 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.98 | GET /conversations 支持 agent_id 过滤 | orjrs |
+| 2026-11-27 | v1.98 | GET /conversations 支持 agent_id 过滤 | orjrs |
 | 2026-11-27 | v1.97 | Agent 增 allow_attachments（附件上传开关） | orjrs |
 | 2026-11-27 | v1.96 | Agent 增 rag_kb_ids；对话自动合并 RAG | orjrs |
 | 2026-11-27 | v1.95 | Agent 增 opening_message / suggested_prompts | orjrs |
@@ -97,6 +99,12 @@
 | 2026-08-15 | v1.2 | GET /v1/models 改为返回已启用供应商的 default_model（不再写死 GPT 列表） | orjrs |
 | 2026-04-09 | v1.1 | 新增文档上传接口、语义检索接口实现说明 | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] 会话列表按 agent_id 过滤（2026-11-27）
+
+- **接口**：`GET /api/v1/conversations?agent_id=`（可与 `team_id` 同用）
+- **用途**：工作室「对话日志」只列该智能体历史
+- **含代码**：`ConversationService.List`；跨仓工作室侧栏
 
 ## [变更] Agent allow_attachments（2026-11-27）
 

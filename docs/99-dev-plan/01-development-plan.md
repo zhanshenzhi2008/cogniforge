@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.227 | 会话列表 agent_id 过滤；工作室对话日志入口 | orjrs |
 | 2026-11-27 | v1.226 | Agent allow_attachments；工作室预览可上传附件 | orjrs |
 | 2026-11-27 | v1.225 | Agent rag_kb_ids；工作室绑定知识库；对话自动 RAG | orjrs |
 | 2026-11-27 | v1.224 | Agent 开场白/预设问题；跨仓工作室与 Playground | orjrs |
@@ -285,6 +286,12 @@
 - **原因**：工作室 backlog；对齐 Playground 附件
 - **落地**：`allow_attachments`；预览上传；Playground 按开关显示文件钮
 - **API / DB**：v1.97 / v1.42；Web 开发计划 v1.136
+
+## [变更] 工作室对话日志（2026-11-27）
+
+- **原因**：工作室 backlog；只读查看该 Agent 对话历史
+- **落地**：`GET /conversations?agent_id=`；顶栏侧栏；跳转 Playground
+- **API**：v1.98；Web 开发计划 v1.137
 
 ## [变更] 通用版隐藏密级 UI（2026-11-27）
 
@@ -2353,7 +2360,7 @@ composables/
 - [x] 预览区文件上传开关（对齐 Playground attachments）
 - [ ] 提示词 `/` 插变量、`@` 插技能/工具/知识库
 - [ ] 「了解更多」链到帮助文档
-- [ ] 顶栏「对话日志」（该 Agent 历史会话 → Playground）
+- [x] 顶栏「对话日志」（该 Agent 历史会话 → Playground）
 - [ ] 配置版本历史（时钟：快照 / 回滚；需后端版本表）
 
 **中期**

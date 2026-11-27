@@ -28,6 +28,27 @@ func enforceKBSecurityLevel() bool {
 	return v == "1" || strings.EqualFold(v, "true")
 }
 
+// authorizeSecurityLevelChange 抬到机密/绝密需 clearance≥目标，或 admin；降密/改公开·内部不拦
+func (s *KnowledgeService) authorizeSecurityLevelChange(userID, oldLevel, newLevel string) error {
+	newRank := model.SecurityLevelRank(newLevel)
+	if newRank <= model.SecurityLevelRank(model.DocSecurityInternal) {
+		return nil
+	}
+	oldRank := model.SecurityLevelRank(oldLevel)
+	if newRank <= oldRank {
+		return nil // 未抬高敏感档
+	}
+	clearance := s.resolveUserClearance(userID)
+	if model.SecurityLevelRank(clearance) >= newRank {
+		return nil
+	}
+	var user model.User
+	if err := s.db.Select("role").Where("id = ?", userID).First(&user).Error; err == nil && user.Role == "admin" {
+		return nil
+	}
+	return fmt.Errorf("无权将文档密级抬至 %s（需要不低于该级的 clearance，或管理员）", newLevel)
+}
+
 // resolveUserClearance 人员覆盖 → 角色上限 → 默认 secret（不限制）
 func (s *KnowledgeService) resolveUserClearance(userID string) string {
 	if userID == "" {
@@ -446,6 +467,9 @@ func (s *KnowledgeService) UpdateDocumentLifecycle(userID, kbID, docID string, r
 		lv := strings.TrimSpace(strings.ToLower(*req.SecurityLevel))
 		switch lv {
 		case model.DocSecurityPublic, model.DocSecurityInternal, model.DocSecurityConfidential, model.DocSecuritySecret:
+			if err := s.authorizeSecurityLevelChange(userID, doc.SecurityLevel, lv); err != nil {
+				return nil, err
+			}
 			updates["security_level"] = lv
 		default:
 			return nil, fmt.Errorf("无效密级")

@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.88 | 抬密鉴权：机密/绝密需 clearance 或 admin | orjrs |
 | 2026-11-27 | v1.87 | LLM 节点可选 stream；ChatCollectStream | orjrs |
 | 2026-11-27 | v1.86 | 用户创建/更新可设 max_security_level 覆盖 | orjrs |
 | 2026-11-27 | v1.85 | 角色 max_security_level；可选检索密级强制 | orjrs |
@@ -87,6 +88,12 @@
 | 2026-08-15 | v1.2 | GET /v1/models 改为返回已启用供应商的 default_model（不再写死 GPT 列表） | orjrs |
 | 2026-04-09 | v1.1 | 新增文档上传接口、语义检索接口实现说明 | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] 文档抬密鉴权（2026-11-27）
+
+- **规则**：将密级**抬高到** `confidential` / `secret` 时，要求人侧 clearance ≥ 目标级，或 `role=admin`；改公开/内部、或未抬高敏感档不拦
+- **接口**：`PUT .../lifecycle` 的 `security_level`；失败返回可读错误
+- **含代码**：`authorizeSecurityLevelChange`
 
 ## [变更] LLM 节点流式（2026-11-27）
 

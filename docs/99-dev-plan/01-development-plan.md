@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.210 | 抬密鉴权：机密/绝密需 clearance 或 admin | orjrs |
 | 2026-11-27 | v1.209 | LLM 节点可选流式收集（ChatCollectStream） | orjrs |
 | 2026-11-27 | v1.208 | 用户管理可覆盖 max_security_level | orjrs |
 | 2026-11-27 | v1.207 | 角色 max_security_level + 检索密级开关 | orjrs |
@@ -208,6 +209,13 @@
 | 2026-04-11 | v1.2 | 阶段八监控中心完成（请求日志中间件、日志列表 API、用量统计 API、监控仪表板页面） | orjrs |
 | 2026-04-17 | v1.3 | 阶段九用户管理与个人设置完成（用户CRUD、个人设置、会话管理、RBAC权限系统） | orjrs |
 > 注：任务状态变更直接在下方任务表格中更新即可，无需额外记录。
+
+## [变更] 抬密鉴权（2026-11-27）
+
+- **原因**：金融扩展；不是人人能标机密/绝密
+- **落地**：抬高到 confidential/secret 需 clearance≥目标或 admin
+- **含代码**：`authorizeSecurityLevelChange`
+- **API**：v1.88
 
 ## [变更] LLM 节点流式（2026-11-27）
 
@@ -2337,7 +2345,7 @@ composables/
 | 部门 | 不做密级主字段 | 用可见范围/归属表达「哪个分行/部门能进库」 |
 
 - [x] 文档可设 `security_level`（预览 + lifecycle API）；默认 `internal`（上传默认靠列默认）
-- [ ] 谁有权把文档抬到「机密/绝密」单独鉴权（不是人人能抬密级）
+- [x] 谁有权把文档抬到「机密/绝密」单独鉴权（clearance≥目标或 admin）
 - [x] 角色增加 `max_security_level`；人员可覆盖（用户管理 UI）
 - [x] 检索强制：`人的可用密级 ≥ 知识密级`（`KB_ENFORCE_SECURITY_LEVEL` 开关；默认关）
 - [ ] 改密级、改角色 clearance、敏感检索留审计日志

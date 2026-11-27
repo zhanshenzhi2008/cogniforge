@@ -219,7 +219,7 @@ func (e *LoopNodeExecutor) getFieldValue(field string, ctx *core.ExecutionContex
 	if val, ok := ctx.Input[field]; ok {
 		return val
 	}
-	if val, ok := ctx.Output[field]; ok {
+	if val, ok := ctx.LookupOutput(field); ok {
 		return val
 	}
 	return nil

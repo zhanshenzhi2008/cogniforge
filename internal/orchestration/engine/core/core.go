@@ -24,7 +24,7 @@ type ExecutionContext struct {
 	DefinitionHash string // 工作流定义哈希（checkpoint）
 	SubflowDepth   int    // 嵌套子流程深度（根=0）
 	StartTime      time.Time
-	mu             sync.RWMutex
+	mu             *sync.RWMutex
 	Logger         *ExecutionLogger
 	OnNodeStart    func(nodeID string)
 	OnNodeEnd      func(nodeID string, status string)
@@ -60,8 +60,42 @@ func NewExecutionContextWithTraceID(workflowID, executionID string, input map[st
 		Output:      make(map[string]any),
 		State:       make(map[string]string),
 		StartTime:   time.Now(),
+		mu:          &sync.RWMutex{},
 		Logger:      NewExecutionLogger(executionID, traceID),
 	}
+}
+
+// ForNode 浅拷贝上下文并固定 NodeID（并行波次每节点一份，共享 Variables/Output/锁）
+func (ctx *ExecutionContext) ForNode(nodeID string) *ExecutionContext {
+	if ctx == nil {
+		return nil
+	}
+	child := *ctx
+	child.NodeID = nodeID
+	return &child
+}
+
+// SetNodeOutput 线程安全写入节点输出
+func (ctx *ExecutionContext) SetNodeOutput(nodeID string, value any) {
+	ctx.ensureMu()
+	ctx.mu.Lock()
+	defer ctx.mu.Unlock()
+	if ctx.Output == nil {
+		ctx.Output = make(map[string]any)
+	}
+	ctx.Output[nodeID] = value
+}
+
+// LookupOutput 线程安全读取 Output 映射
+func (ctx *ExecutionContext) LookupOutput(key string) (any, bool) {
+	ctx.ensureMu()
+	ctx.mu.RLock()
+	defer ctx.mu.RUnlock()
+	if ctx.Output == nil {
+		return nil, false
+	}
+	v, ok := ctx.Output[key]
+	return v, ok
 }
 
 // WithUserID 设置执行用户（链式）
@@ -70,13 +104,21 @@ func (ctx *ExecutionContext) WithUserID(userID string) *ExecutionContext {
 	return ctx
 }
 
+func (ctx *ExecutionContext) ensureMu() {
+	if ctx.mu == nil {
+		ctx.mu = &sync.RWMutex{}
+	}
+}
+
 func (ctx *ExecutionContext) SetVariable(key string, value any) {
+	ctx.ensureMu()
 	ctx.mu.Lock()
 	defer ctx.mu.Unlock()
 	ctx.Variables[key] = value
 }
 
 func (ctx *ExecutionContext) GetVariable(key string) (any, bool) {
+	ctx.ensureMu()
 	ctx.mu.RLock()
 	defer ctx.mu.RUnlock()
 	v, ok := ctx.Variables[key]
@@ -84,12 +126,14 @@ func (ctx *ExecutionContext) GetVariable(key string) (any, bool) {
 }
 
 func (ctx *ExecutionContext) SetNodeState(nodeID, status string) {
+	ctx.ensureMu()
 	ctx.mu.Lock()
 	defer ctx.mu.Unlock()
 	ctx.State[nodeID] = status
 }
 
 func (ctx *ExecutionContext) GetNodeState(nodeID string) string {
+	ctx.ensureMu()
 	ctx.mu.RLock()
 	defer ctx.mu.RUnlock()
 	return ctx.State[nodeID]

@@ -150,7 +150,7 @@ func (e *CodeNodeExecutor) resolveValue(name string, ctx *core.ExecutionContext)
 	if val, ok := ctx.Input[name]; ok {
 		return val
 	}
-	if val, ok := ctx.Output[name]; ok {
+	if val, ok := ctx.LookupOutput(name); ok {
 		return val
 	}
 

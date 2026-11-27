@@ -8,7 +8,9 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"cogniforge/internal/infra/database"
@@ -18,7 +20,7 @@ import (
 	"gorm.io/gorm"
 )
 
-const EngineVersion = "18.3"
+const EngineVersion = "18.4"
 
 type WorkflowEngine struct {
 	db            *gorm.DB
@@ -335,6 +337,108 @@ func (e *WorkflowEngine) TopologicalSort(def *WorkflowDefinition) ([]NodeDefinit
 	return result, nil
 }
 
+// parallelSafeNodeType 可同波并行的节点（无 wait/分支/审批/嵌套副作用）
+func parallelSafeNodeType(t string) bool {
+	switch t {
+	case "http", "delay", "code", "search", "llm", "agent", "tool":
+		return true
+	default:
+		return false
+	}
+}
+
+func canParallelWave(nodes []NodeDefinition) bool {
+	if len(nodes) < 2 {
+		return false
+	}
+	for _, n := range nodes {
+		if !parallelSafeNodeType(n.Type) {
+			return false
+		}
+	}
+	return true
+}
+
+type nodeRunOutcome struct {
+	node       NodeDefinition
+	output     any
+	err        error
+	duration   int64
+	waitReason string
+	waitMsg    string
+	timeoutSec int
+	waiting    bool
+}
+
+func (e *WorkflowEngine) runOneNode(parent *ExecutionContext, node NodeDefinition) nodeRunOutcome {
+	ctx := parent.ForNode(node.ID)
+	out := nodeRunOutcome{node: node}
+
+	ctx.Logger.Logf(node.ID, "info", "Starting node: %s (type: %s)", node.Name, node.Type)
+	if ctx.OnNodeStart != nil {
+		ctx.OnNodeStart(node.ID)
+	}
+
+	executor, ok := e.nodeExecutors[node.Type]
+	if !ok {
+		out.err = fmt.Errorf("unknown node type: %s", node.Type)
+		ctx.Logger.Logf(node.ID, "error", "Node execution failed: %v", out.err)
+		e.persistNodeRun(ctx, node, "failed", 1, nil, nil, out.err.Error(), 0)
+		if ctx.OnNodeEnd != nil {
+			ctx.OnNodeEnd(node.ID, "failed")
+		}
+		return out
+	}
+
+	startTime := time.Now()
+	e.persistNodeRun(ctx, node, "running", 1, nil, nil, "", 0)
+	output, err := executor.Execute(ctx, node.Config)
+	out.duration = time.Since(startTime).Milliseconds()
+	out.output = output
+	out.err = err
+
+	if err != nil {
+		ctx.Logger.Logf(node.ID, "error", "Node execution failed after %dms: %v", out.duration, err)
+		e.persistNodeRun(ctx, node, "failed", 1, nil, nil, err.Error(), out.duration)
+		if ctx.OnNodeEnd != nil {
+			ctx.OnNodeEnd(node.ID, "failed")
+		}
+		return out
+	}
+
+	if reason, msg, timeoutSec, isWait := isWaitOutput(output); isWait {
+		out.waiting = true
+		out.waitReason = reason
+		out.waitMsg = msg
+		out.timeoutSec = timeoutSec
+		ctx.Logger.Logf(node.ID, "info", "Entering waiting: %s (%s) timeout=%ds", reason, msg, timeoutSec)
+		if output != nil {
+			ctx.SetNodeOutput(node.ID, output)
+		}
+		e.persistNodeRun(ctx, node, "succeeded", 1, nil, output, "", out.duration)
+		ctx.SetNodeState(node.ID, "succeeded")
+		if ctx.OnNodeEnd != nil {
+			ctx.OnNodeEnd(node.ID, "waiting")
+		}
+		return out
+	}
+
+	ctx.Logger.Logf(node.ID, "info", "Node completed in %dms", out.duration)
+	if output != nil {
+		ctx.SetNodeOutput(node.ID, output)
+	}
+	persistOut := output
+	if node.Type == "end" {
+		persistOut = map[string]any{"finished": true}
+	}
+	e.persistNodeRun(ctx, node, "succeeded", 1, nil, persistOut, "", out.duration)
+	ctx.SetNodeState(node.ID, "succeeded")
+	if ctx.OnNodeEnd != nil {
+		ctx.OnNodeEnd(node.ID, "completed")
+	}
+	return out
+}
+
 func (e *WorkflowEngine) Execute(ctx *ExecutionContext, def *WorkflowDefinition) *ExecutionResult {
 	result := &ExecutionResult{
 		ExecutionID: ctx.ExecutionID,
@@ -346,107 +450,145 @@ func (e *WorkflowEngine) Execute(ctx *ExecutionContext, def *WorkflowDefinition)
 
 	e.updateExecutionStatus(ctx.ExecutionID, "running", "", "")
 
-	sortedNodes, err := e.TopologicalSort(def)
-	if err != nil {
+	if _, err := e.TopologicalSort(def); err != nil {
 		result.Status = "failed"
 		result.Error = err.Error()
 		e.updateExecutionStatus(ctx.ExecutionID, "failed", "", result.Error)
 		return result
 	}
 
+	nodeMap := make(map[string]NodeDefinition, len(def.Nodes))
+	inDegree := make(map[string]int, len(def.Nodes))
+	succ := make(map[string][]string)
+	for _, n := range def.Nodes {
+		nodeMap[n.ID] = n
+		inDegree[n.ID] = 0
+	}
+	for _, edge := range def.Edges {
+		inDegree[edge.Target]++
+		succ[edge.Source] = append(succ[edge.Source], edge.Target)
+	}
+
 	completed := make([]string, 0)
+	completedSet := make(map[string]bool)
 	for id, st := range ctx.State {
 		if st == "skipped" || st == "succeeded" {
 			completed = append(completed, id)
+			completedSet[id] = true
+			// 已完成节点视为已释放后继依赖
+			for _, t := range succ[id] {
+				inDegree[t]--
+			}
 		}
 	}
 
-	for i, node := range sortedNodes {
-		// resume 后已完成节点标为 skipped：只跳过，勿把历史 succeeded 改写成 skipped
-		st := ctx.GetNodeState(node.ID)
-		if st == "skipped" || st == "succeeded" {
-			continue
+	ready := make([]string, 0)
+	for id, deg := range inDegree {
+		if deg == 0 && !completedSet[id] {
+			ready = append(ready, id)
 		}
+	}
 
-		ctx.NodeID = node.ID
-		e.setCurrentNode(ctx.ExecutionID, node.ID)
-
-		ctx.Logger.Logf(node.ID, "info", "Starting node: %s (type: %s)", node.Name, node.Type)
-		if ctx.OnNodeStart != nil {
-			ctx.OnNodeStart(node.ID)
-		}
-
-		executor, ok := e.nodeExecutors[node.Type]
-		if !ok {
-			err := fmt.Errorf("unknown node type: %s", node.Type)
-			ctx.Logger.Logf(node.ID, "error", "Node execution failed: %v", err)
-			e.persistNodeRun(ctx, node, "failed", 1, nil, nil, err.Error(), 0)
-			result.Status = "failed"
-			result.Error = err.Error()
-			e.updateExecutionStatus(ctx.ExecutionID, "failed", "", result.Error)
-			return result
-		}
-
-		startTime := time.Now()
-		e.persistNodeRun(ctx, node, "running", 1, nil, nil, "", 0)
-		output, err := executor.Execute(ctx, node.Config)
-		duration := time.Since(startTime).Milliseconds()
-
-		if err != nil {
-			ctx.Logger.Logf(node.ID, "error", "Node execution failed after %dms: %v", duration, err)
-			e.persistNodeRun(ctx, node, "failed", 1, nil, nil, err.Error(), duration)
-			if ctx.OnNodeEnd != nil {
-				ctx.OnNodeEnd(node.ID, "failed")
+	for len(ready) > 0 {
+		seenReady := make(map[string]bool, len(ready))
+		wave := make([]NodeDefinition, 0, len(ready))
+		for _, id := range ready {
+			if seenReady[id] {
+				continue
 			}
-			result.Status = "failed"
-			result.Error = fmt.Sprintf("Node %s failed: %v", node.Name, err)
-			e.updateExecutionStatus(ctx.ExecutionID, "failed", "", result.Error)
-			return result
+			seenReady[id] = true
+			if n, ok := nodeMap[id]; ok {
+				wave = append(wave, n)
+			}
+		}
+		sort.Slice(wave, func(i, j int) bool { return wave[i].ID < wave[j].ID })
+		ready = ready[:0]
+
+		var outcomes []nodeRunOutcome
+		if canParallelWave(wave) {
+			ids := make([]string, len(wave))
+			for i, n := range wave {
+				ids[i] = n.ID
+			}
+			e.setCurrentNode(ctx.ExecutionID, strings.Join(ids, ","))
+			ctx.Logger.Logf("", "info", "Parallel wave: %d nodes (%s)", len(wave), strings.Join(ids, ","))
+			outcomes = make([]nodeRunOutcome, len(wave))
+			var wg sync.WaitGroup
+			for i, node := range wave {
+				wg.Add(1)
+				go func(i int, node NodeDefinition) {
+					defer wg.Done()
+					outcomes[i] = e.runOneNode(ctx, node)
+				}(i, node)
+			}
+			wg.Wait()
+		} else {
+			outcomes = make([]nodeRunOutcome, 0, len(wave))
+			for _, node := range wave {
+				e.setCurrentNode(ctx.ExecutionID, node.ID)
+				outcomes = append(outcomes, e.runOneNode(ctx, node))
+				last := outcomes[len(outcomes)-1]
+				if last.err != nil || last.waiting {
+					// 串行波：失败/等待后不再跑同波剩余节点
+					break
+				}
+			}
 		}
 
-		// wait 节点：写成功记录 + checkpoint，挂起为 waiting
-		if reason, msg, timeoutSec, isWait := isWaitOutput(output); isWait {
-			ctx.Logger.Logf(node.ID, "info", "Entering waiting: %s (%s) timeout=%ds", reason, msg, timeoutSec)
-			if output != nil {
-				ctx.Output[node.ID] = output
+		for _, oc := range outcomes {
+			if oc.err != nil {
+				result.Status = "failed"
+				if strings.HasPrefix(oc.err.Error(), "unknown node type:") {
+					result.Error = oc.err.Error()
+				} else {
+					result.Error = fmt.Sprintf("Node %s failed: %v", oc.node.Name, oc.err)
+				}
+				e.updateExecutionStatus(ctx.ExecutionID, "failed", "", result.Error)
+				return result
 			}
-			e.persistNodeRun(ctx, node, "succeeded", 1, nil, output, "", duration)
-			completed = append(completed, node.ID)
-			ctx.SetNodeState(node.ID, "succeeded")
-			nextID := ""
-			if i+1 < len(sortedNodes) {
-				nextID = sortedNodes[i+1].ID
+			if oc.waiting {
+				completed = append(completed, oc.node.ID)
+				completedSet[oc.node.ID] = true
+				nextID := ""
+				for _, t := range succ[oc.node.ID] {
+					inDegree[t]--
+					if inDegree[t] == 0 && !completedSet[t] {
+						nextID = t
+						break
+					}
+				}
+				e.saveCheckpoint(ctx, nextID, completed, "enter_waiting")
+				e.setWaiting(ctx.ExecutionID, oc.waitReason, oc.waitMsg, oc.timeoutSec)
+				result.Status = "waiting"
+				result.Output = ctx.Output
+				result.Duration = time.Since(ctx.StartTime).Milliseconds()
+				return result
 			}
-			e.saveCheckpoint(ctx, nextID, completed, "enter_waiting")
-			e.setWaiting(ctx.ExecutionID, reason, msg, timeoutSec)
-			result.Status = "waiting"
-			result.Output = ctx.Output
-			result.Duration = time.Since(ctx.StartTime).Milliseconds()
-			if ctx.OnNodeEnd != nil {
-				ctx.OnNodeEnd(node.ID, "waiting")
+			completed = append(completed, oc.node.ID)
+			completedSet[oc.node.ID] = true
+			for _, t := range succ[oc.node.ID] {
+				inDegree[t]--
+				if inDegree[t] == 0 && !completedSet[t] {
+					ready = append(ready, t)
+				}
 			}
-			return result
+			e.saveCheckpoint(ctx, "", completed, "node_ok")
 		}
+	}
 
-		ctx.Logger.Logf(node.ID, "info", "Node completed in %dms", duration)
-		if output != nil {
-			ctx.Output[node.ID] = output
-		}
-		// end 节点勿把整包 ctx.Output 写入 node_run（易 jsonb 失败导致永久 running）
-		persistOut := output
-		if node.Type == "end" {
-			persistOut = map[string]any{"finished": true}
-		}
-		e.persistNodeRun(ctx, node, "succeeded", 1, nil, persistOut, "", duration)
-		completed = append(completed, node.ID)
-		ctx.SetNodeState(node.ID, "succeeded")
-		nextID := ""
-		if i+1 < len(sortedNodes) {
-			nextID = sortedNodes[i+1].ID
-		}
-		e.saveCheckpoint(ctx, nextID, completed, "node_ok")
-		if ctx.OnNodeEnd != nil {
-			ctx.OnNodeEnd(node.ID, "completed")
+	// 若仍有未完成节点，说明图中有环或悬挂（TopologicalSort 已拦环；此处兜底）
+	if len(completedSet) < len(def.Nodes) {
+		for id := range nodeMap {
+			if !completedSet[id] {
+				st := ctx.GetNodeState(id)
+				if st == "skipped" || st == "succeeded" {
+					continue
+				}
+				result.Status = "failed"
+				result.Error = fmt.Sprintf("unresolved node %s (possible cycle or broken edges)", id)
+				e.updateExecutionStatus(ctx.ExecutionID, "failed", "", result.Error)
+				return result
+			}
 		}
 	}
 
@@ -560,11 +702,8 @@ func ApplyCheckpoint(ctx *ExecutionContext, cp *model.WorkflowCheckpoint) {
 		}
 	}
 	if cp.Outputs != nil {
-		if ctx.Output == nil {
-			ctx.Output = make(map[string]any)
-		}
 		for k, v := range cp.Outputs {
-			ctx.Output[k] = v
+			ctx.SetNodeOutput(k, v)
 		}
 	}
 	for _, id := range cp.CompletedNodeIDs {

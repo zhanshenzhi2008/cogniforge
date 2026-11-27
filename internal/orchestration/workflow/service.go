@@ -639,6 +639,9 @@ func (s *WorkflowService) DebugWorkflowWithTraceID(userID, workflowID string, re
 			s.db.Model(&model.WorkflowExecution{}).Where("id = ?", executionID).
 				Update("current_node", nodeID)
 		}
+		ctx.OnProgress = func(nodeID, message string) {
+			ctx.Logger.Logf(nodeID, "info", "%s", message)
+		}
 
 		def, err := s.workflowEngine.ParseDefinition(workflow.Definition)
 		if err != nil {

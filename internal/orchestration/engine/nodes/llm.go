@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"time"
 
-	"cogniforge/internal/runtime/chat"
-	"cogniforge/internal/orchestration/engine/core"
 	"cogniforge/internal/governance/quota"
+	"cogniforge/internal/orchestration/engine/core"
+	"cogniforge/internal/runtime/chat"
 )
 
 type LLMNodeConfig struct {
@@ -17,6 +17,7 @@ type LLMNodeConfig struct {
 	SystemPrompt string            `json:"system_prompt,omitempty"`
 	Temperature  float64           `json:"temperature,omitempty"`
 	MaxTokens    int               `json:"max_tokens,omitempty"`
+	Stream       bool              `json:"stream,omitempty"`
 	Variables    map[string]string `json:"variables,omitempty"`
 }
 
@@ -72,6 +73,7 @@ func (e *LLMNodeExecutor) Execute(ctx *core.ExecutionContext, config json.RawMes
 		Model:    model,
 		Messages: messages,
 		UserID:   userID,
+		Stream:   cfg.Stream,
 	}
 	if cfg.Temperature > 0 {
 		t := cfg.Temperature
@@ -90,45 +92,90 @@ func (e *LLMNodeExecutor) Execute(ctx *core.ExecutionContext, config json.RawMes
 	}
 
 	started := time.Now()
-	resp, err := e.Chat.Chat(req)
-	if err != nil {
-		if e.Quota != nil && userID != "" {
-			e.Quota.RefundRequest(bg, userID)
+	var (
+		content string
+		outModel string
+		usageTokens chat.ChatUsage
+	)
+
+	if cfg.Stream {
+		lastReport := time.Time{}
+		var totalRunes int
+		collected, err := e.Chat.ChatCollectStream(bg, req, func(delta string) {
+			totalRunes += len([]rune(delta))
+			if ctx.OnProgress == nil {
+				return
+			}
+			now := time.Now()
+			if now.Sub(lastReport) < 400*time.Millisecond {
+				return
+			}
+			lastReport = now
+			preview := delta
+			if rs := []rune(preview); len(rs) > 48 {
+				preview = string(rs[len(rs)-48:])
+			}
+			ctx.OnProgress(ctx.NodeID, fmt.Sprintf("streaming… %d chars …%s", totalRunes, preview))
+		})
+		if err != nil {
+			if e.Quota != nil && userID != "" {
+				e.Quota.RefundRequest(bg, userID)
+			}
+			return nil, fmt.Errorf("LLM stream failed: %w", err)
 		}
-		return nil, fmt.Errorf("LLM call failed: %w", err)
+		content = collected.Content
+		outModel = collected.Model
+		usageTokens = collected.Usage
+	} else {
+		resp, err := e.Chat.Chat(req)
+		if err != nil {
+			if e.Quota != nil && userID != "" {
+				e.Quota.RefundRequest(bg, userID)
+			}
+			return nil, fmt.Errorf("LLM call failed: %w", err)
+		}
+		content = firstChoiceContent(resp)
+		if resp != nil {
+			outModel = resp.Model
+			usageTokens = resp.Usage
+		}
 	}
 
-	content := firstChoiceContent(resp)
 	latency := time.Since(started).Milliseconds()
-	usage := map[string]any{}
-	if resp != nil {
-		usage["prompt_tokens"] = resp.Usage.PromptTokens
-		usage["completion_tokens"] = resp.Usage.CompletionTokens
-		usage["total_tokens"] = resp.Usage.TotalTokens
-		if e.Quota != nil && userID != "" {
-			e.Quota.Commit(bg, quota.CommitInput{
-				UserID:           userID,
-				Source:           "workflow",
-				Model:            resp.Model,
-				PromptTokens:     resp.Usage.PromptTokens,
-				CompletionTokens: resp.Usage.CompletionTokens,
-				TotalTokens:      resp.Usage.TotalTokens,
-				Estimated:        resp.Usage.Estimated,
-				Status:           "ok",
-				LatencyMS:        latency,
-				TraceID:          ctx.TraceID,
-			})
-		}
+	usage := map[string]any{
+		"prompt_tokens":     usageTokens.PromptTokens,
+		"completion_tokens": usageTokens.CompletionTokens,
+		"total_tokens":      usageTokens.TotalTokens,
+		"estimated":         usageTokens.Estimated,
+	}
+	if e.Quota != nil && userID != "" {
+		e.Quota.Commit(bg, quota.CommitInput{
+			UserID:           userID,
+			Source:           "workflow",
+			Model:            outModel,
+			PromptTokens:     usageTokens.PromptTokens,
+			CompletionTokens: usageTokens.CompletionTokens,
+			TotalTokens:      usageTokens.TotalTokens,
+			Estimated:        usageTokens.Estimated,
+			Status:           "ok",
+			LatencyMS:        latency,
+			TraceID:          ctx.TraceID,
+		})
 	}
 
-	ctx.Logger.Logf(ctx.NodeID, "info", "LLM ok model=%s latency=%dms content_len=%d", model, latency, len(content))
+	mode := "sync"
+	if cfg.Stream {
+		mode = "stream"
+	}
+	ctx.Logger.Logf(ctx.NodeID, "info", "LLM ok mode=%s model=%s latency=%dms content_len=%d", mode, outModel, latency, len(content))
 
 	return map[string]any{
-		"model":      resp.Model,
+		"model":      outModel,
 		"content":    content,
 		"response":   content, // 兼容旧调试字段名
 		"usage":      usage,
 		"latency_ms": latency,
+		"streamed":   cfg.Stream,
 	}, nil
 }
 

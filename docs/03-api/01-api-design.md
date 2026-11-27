@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.87 | LLM 节点可选 stream；ChatCollectStream | orjrs |
 | 2026-11-27 | v1.86 | 用户创建/更新可设 max_security_level 覆盖 | orjrs |
 | 2026-11-27 | v1.85 | 角色 max_security_level；可选检索密级强制 | orjrs |
 | 2026-11-27 | v1.84 | 文档 security_level；lifecycle API 可改密级 | orjrs |
@@ -86,6 +87,12 @@
 | 2026-08-15 | v1.2 | GET /v1/models 改为返回已启用供应商的 default_model（不再写死 GPT 列表） | orjrs |
 | 2026-04-09 | v1.1 | 新增文档上传接口、语义检索接口实现说明 | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] LLM 节点流式（2026-11-27）
+
+- **节点 config**：`stream: true` 时走 `ChatCollectStream`（边收边汇总，非画布 SSE）
+- **进度**：`ExecutionContext.OnProgress`（调试写日志）；仍等节点收完再往下跑
+- **含代码**：`chat.ChatCollectStream`、`nodes/llm.go`；跨仓开关
 
 ## [变更] 用户密级覆盖（2026-11-27）
 

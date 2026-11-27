@@ -115,6 +115,11 @@ func vueDataToConfig(nodeType string, data map[string]any) json.RawMessage {
 		if v, ok := data["maxTokens"]; ok {
 			out["max_tokens"] = v
 		}
+		if v, ok := data["stream"]; ok {
+			out["stream"] = v
+		} else if v, ok := data["llmStream"]; ok {
+			out["stream"] = v
+		}
 		if v, ok := data["agentId"]; ok {
 			out["agent_id"] = v
 		}

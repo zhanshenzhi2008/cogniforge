@@ -224,6 +224,13 @@ func vueDataToConfig(nodeType string, data map[string]any) json.RawMessage {
 		} else if v, ok := data["timeoutSec"]; ok {
 			out["timeout"] = v
 		}
+		if v, ok := data["failOnError"]; ok {
+			out["fail_on_error"] = v
+		} else if v, ok := data["fail_on_error"]; ok {
+			out["fail_on_error"] = v
+		} else if v, ok := data["httpFailOnError"]; ok {
+			out["fail_on_error"] = v
+		}
 	case "delay":
 		if v, ok := data["delayDuration"]; ok {
 			out["duration"] = v

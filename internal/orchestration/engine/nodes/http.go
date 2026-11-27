@@ -12,11 +12,12 @@ import (
 )
 
 type HTTPNodeConfig struct {
-	URL     string            `json:"url"`
-	Method  string            `json:"method"`
-	Headers map[string]string `json:"headers,omitempty"`
-	Body    any               `json:"body,omitempty"`
-	Timeout int               `json:"timeout,omitempty"`
+	URL         string            `json:"url"`
+	Method      string            `json:"method"`
+	Headers     map[string]string `json:"headers,omitempty"`
+	Body        any               `json:"body,omitempty"`
+	Timeout     int               `json:"timeout,omitempty"`
+	FailOnError bool              `json:"fail_on_error,omitempty"` // true 时 status>=400 使节点失败
 }
 
 type HTTPNodeExecutor struct {
@@ -96,14 +97,23 @@ func (e *HTTPNodeExecutor) Execute(ctx *core.ExecutionContext, config json.RawMe
 
 	respBody, _ := io.ReadAll(resp.Body)
 
+	bodyStr := string(respBody)
 	result := map[string]any{
 		"status_code": resp.StatusCode,
 		"headers":     resp.Header,
-		"body":        string(respBody),
+		"body":        bodyStr,
 		"duration_ms": duration.Milliseconds(),
 	}
 
 	ctx.Logger.Logf(ctx.NodeID, "info", "HTTP response: status=%d, duration=%dms", resp.StatusCode, duration.Milliseconds())
+
+	if cfg.FailOnError && resp.StatusCode >= 400 {
+		snippet := bodyStr
+		if len(snippet) > 200 {
+			snippet = snippet[:200] + "…"
+		}
+		return result, fmt.Errorf("HTTP status %d: %s", resp.StatusCode, snippet)
+	}
 
 	return result, nil
 }

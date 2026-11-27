@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"cogniforge/internal/orchestration/engine/core"
@@ -55,6 +56,42 @@ func TestHTTPNodeExecutor_ResolvesTemplates(t *testing.T) {
 	m, ok := out.(map[string]any)
 	if !ok || m["status_code"] != 201 {
 		t.Fatalf("out=%v", out)
+	}
+}
+
+func TestHTTPNodeExecutor_FailOnError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(502)
+		_, _ = w.Write([]byte(`upstream down`))
+	}))
+	defer srv.Close()
+
+	ex := &HTTPNodeExecutor{client: srv.Client()}
+	ctx := core.NewExecutionContext("wf", "exec", nil)
+
+	cfgOK, _ := json.Marshal(map[string]any{
+		"url":    srv.URL,
+		"method": "GET",
+	})
+	out, err := ex.Execute(ctx, cfgOK)
+	if err != nil {
+		t.Fatalf("default should not fail on 502: %v", err)
+	}
+	if m, _ := out.(map[string]any); m["status_code"] != 502 {
+		t.Fatalf("out=%v", out)
+	}
+
+	cfgFail, _ := json.Marshal(map[string]any{
+		"url":           srv.URL,
+		"method":        "GET",
+		"fail_on_error": true,
+	})
+	_, err = ex.Execute(ctx, cfgFail)
+	if err == nil {
+		t.Fatal("expected error when fail_on_error")
+	}
+	if !strings.Contains(err.Error(), "502") {
+		t.Fatalf("err=%v", err)
 	}
 }
 

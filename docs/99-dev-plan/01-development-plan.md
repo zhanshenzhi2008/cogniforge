@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.224 | Agent 开场白/预设问题；跨仓工作室与 Playground | orjrs |
 | 2026-11-27 | v1.223 | 跨仓：Playground 改走 useAgentChat / useChatStream | orjrs |
 | 2026-11-27 | v1.222 | 跨仓：CfFieldHelp 表单帮助图标 | orjrs |
 | 2026-11-27 | v1.221 | 跨仓：CfEmptyState / CfLoadingState 列表空态与加载 | orjrs |
@@ -264,6 +265,12 @@
 - **原因**：Playground 内联 Agent/模型 SSE；去重 backlog
 - **落地**：有 Agent → `useAgentChat`；无 Agent → `useChatStream`；主仓前端设计 v1.102
 - **Web**：开发计划 v1.133
+
+## [变更] Agent 开场白与预设问题（2026-11-27）
+
+- **原因**：工作室 backlog；首屏欢迎与一点即发
+- **落地**：`agents.opening_message` / `suggested_prompts`；工作室可配；预览/Playground 空态展示
+- **API / DB**：v1.95 / v1.40；Web 开发计划 v1.134
 
 ## [变更] 通用版隐藏密级 UI（2026-11-27）
 
@@ -2328,7 +2335,7 @@ composables/
 **优先（可接现有能力）**
 
 - [ ] 工作室绑定知识库（多选 + 可选使用者鉴权；对话 `rag_kb_ids`）
-- [ ] 对话开场白 + 预设问题（Agent 字段；预览/Playground 首屏）
+- [x] 对话开场白 + 预设问题（Agent 字段；预览/Playground 首屏）
 - [ ] 预览区文件上传开关（对齐 Playground attachments）
 - [ ] 提示词 `/` 插变量、`@` 插技能/工具/知识库
 - [ ] 「了解更多」链到帮助文档

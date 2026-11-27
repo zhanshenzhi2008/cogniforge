@@ -47,24 +47,31 @@ func (s *AgentService) CreateAgent(userID string, req *CreateAgentRequest) (*mod
 		tools = req.McpServers
 	}
 
+	suggested := model.JSONBArray{}
+	if req.SuggestedPrompts != nil {
+		suggested = clampSuggestedPrompts(req.SuggestedPrompts)
+	}
+
 	agent := model.Agent{
-		ID:           generateID(),
-		UserID:       userID,
-		Name:         req.Name,
-		Description:  req.Description,
-		Model:        req.Model,
-		SystemPrompt: req.SystemPrompt,
-		PromptID:     strings.TrimSpace(req.PromptID),
-		Tools:        tools,
-		SkillID:      req.SkillID,
-		MemoryType:   "short_term",
-		MemoryTurns:  10,
-		InputFilter:  true,
-		OutputFilter: true,
-		Status:       "active",
-		Metadata:     model.JSONBMap{},
-		CreatedAt:    time.Now(),
-		UpdatedAt:    time.Now(),
+		ID:               generateID(),
+		UserID:           userID,
+		Name:             req.Name,
+		Description:      req.Description,
+		Model:            req.Model,
+		SystemPrompt:     req.SystemPrompt,
+		PromptID:         strings.TrimSpace(req.PromptID),
+		OpeningMessage:   strings.TrimSpace(req.OpeningMessage),
+		SuggestedPrompts: suggested,
+		Tools:            tools,
+		SkillID:          req.SkillID,
+		MemoryType:       "short_term",
+		MemoryTurns:      10,
+		InputFilter:      true,
+		OutputFilter:     true,
+		Status:           "active",
+		Metadata:         model.JSONBMap{},
+		CreatedAt:        time.Now(),
+		UpdatedAt:        time.Now(),
 	}
 
 	if err := s.db.Create(&agent).Error; err != nil {
@@ -111,8 +118,18 @@ func (s *AgentService) UpdateAgent(userID, agentID string, req *UpdateAgentReque
 	if req.PromptID != nil {
 		agent.PromptID = strings.TrimSpace(*req.PromptID)
 	}
+	if req.OpeningMessage != nil {
+		agent.OpeningMessage = strings.TrimSpace(*req.OpeningMessage)
+	}
+	if req.SuggestedPrompts != nil {
+		agent.SuggestedPrompts = clampSuggestedPrompts(*req.SuggestedPrompts)
+	}
 	if req.Tools != nil {
 		agent.Tools = req.Tools
+	}
+	if req.SkillID != "" || req.Tools != nil {
+		// 工作室保存会带 skill_id；允许空串解绑
+		agent.SkillID = req.SkillID
 	}
 	if req.Status != "" {
 		agent.Status = req.Status
@@ -145,4 +162,21 @@ func (s *AgentService) DeleteAgent(userID, agentID string) error {
 // generateID 生成唯一ID
 func generateID() string {
 	return newID()
+}
+
+const maxSuggestedPrompts = 6
+
+func clampSuggestedPrompts(in []string) model.JSONBArray {
+	out := model.JSONBArray{}
+	for _, s := range in {
+		s = strings.TrimSpace(s)
+		if s == "" {
+			continue
+		}
+		out = append(out, s)
+		if len(out) >= maxSuggestedPrompts {
+			break
+		}
+	}
+	return out
 }

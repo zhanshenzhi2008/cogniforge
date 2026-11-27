@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.103 | 工作室开场白 + 预设问题；Playground 空态展示 | orjrs |
 | 2026-11-27 | v1.102 | Playground 对话改走 useAgentChat / useChatStream | orjrs |
 | 2026-11-27 | v1.101 | 共用 CfFieldHelp：表单旁帮助图标 | orjrs |
 | 2026-11-27 | v1.100 | 共用 CfEmptyState / CfLoadingState：列表空态与加载 | orjrs |
@@ -212,6 +213,12 @@
 - **变更原因**：知识库检索/分段旁反复手写 UTooltip + help 按钮
 - **变更后**：`CfFieldHelp`（`text` + 可选 `icon`）；已接知识库详情检索查询与分段参数标签
 - **包含代码**：`cogniforge-web/components/CfFieldHelp.vue`、`pages/knowledge/[id].vue`
+
+## [变更] 工作室开场白与预设问题（2026-11-27）
+
+- **变更原因**：竞品常见首屏欢迎语 + 一点即发预设问
+- **变更后**：左侧可配 `opening_message` / `suggested_prompts`（≤6）；预览空态与 Playground 空态展示；不发给模型
+- **包含代码**：`AgentStudio.vue`、`playground.vue`、`useAgents.ts`；主仓 API v1.95 / DB v1.40
 
 ## [变更] Playground 改走 useAgentChat / useChatStream（2026-11-27）
 

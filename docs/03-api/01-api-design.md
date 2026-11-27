@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.95 | Agent 增 opening_message / suggested_prompts | orjrs |
 | 2026-11-27 | v1.94 | KB_ENFORCE 开启时检索写入密级审计 | orjrs |
 | 2026-11-27 | v1.93 | 正式 execute 亦写 node_runs.detail.progress | orjrs |
 | 2026-11-27 | v1.92 | 角色/用户 clearance 变更写入 security_audit_logs | orjrs |
@@ -94,6 +95,14 @@
 | 2026-08-15 | v1.2 | GET /v1/models 改为返回已启用供应商的 default_model（不再写死 GPT 列表） | orjrs |
 | 2026-04-09 | v1.1 | 新增文档上传接口、语义检索接口实现说明 | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] Agent 开场白 / 预设问题（2026-11-27）
+
+- **字段**：`opening_message`（string）、`suggested_prompts`（string[]，最多 6）
+- **接口**：`POST/PUT /agents` 可读写；列表/详情原样返回
+- **语义**：仅 UI 展示（工作室预览、Playground 空态）；不进入 `/agents/:id/chat` 上下文
+- **含代码**：`runtime/agent` DTO/service；跨仓工作室 + Playground
+- **DB**：v1.40
 
 ## [变更] 文档抬密鉴权（2026-11-27）
 

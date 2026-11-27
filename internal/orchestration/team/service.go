@@ -223,24 +223,47 @@ type ExpandResult struct {
 	Workflow *model.Workflow  `json:"workflow"`
 }
 
+// ExpandOptions 一键展开选项
+type ExpandOptions struct {
+	Layout string // 空=按 mode；parallel=工人扇出汇合；linear=强制线性；team=强制 team 节点
+}
+
 // ExpandToWorkflow 从小队生成工作流图并回写 workflow_id。
-// pipeline → 成员线性 Agent 链；supervisor/handoff → 单个 team 节点。
-func (s *Service) ExpandToWorkflow(userID, teamID string) (*ExpandResult, error) {
+// 默认：pipeline → 线性链；supervisor/handoff → team 节点。layout=parallel → 扇出图。
+func (s *Service) ExpandToWorkflow(userID, teamID string, opts *ExpandOptions) (*ExpandResult, error) {
 	t, err := s.Get(userID, teamID)
 	if err != nil {
 		return nil, err
 	}
 
-	names, err := s.agentNameMap(userID, pipelineAgentOrder(t))
+	layout := ""
+	if opts != nil {
+		layout = strings.TrimSpace(strings.ToLower(opts.Layout))
+	}
+
+	idsForNames := pipelineAgentOrder(t)
+	if layout == "parallel" {
+		idsForNames = fanoutWorkerIDs(t)
+	}
+	names, err := s.agentNameMap(userID, idsForNames)
 	if err != nil {
 		return nil, err
 	}
 
 	var def map[string]any
-	if t.Mode == model.TeamModePipeline {
+	switch layout {
+	case "parallel":
+		def, err = BuildParallelFanoutDefinition(t, names)
+	case "linear":
 		def, err = BuildLinearPipelineDefinition(t, names)
-	} else {
+	case "team":
 		def, err = BuildTeamNodeDefinition(t)
+	default:
+		if t.Mode == model.TeamModePipeline {
+			def, err = BuildLinearPipelineDefinition(t, names)
+		} else {
+			def, err = BuildTeamNodeDefinition(t)
+		}
 	}
 	if err != nil {
 		return nil, err
@@ -252,10 +275,18 @@ func (s *Service) ExpandToWorkflow(userID, teamID string) (*ExpandResult, error)
 	}
 
 	wfName := strings.TrimSpace(t.Name) + " · 流水线"
-	if t.Mode != model.TeamModePipeline {
-		wfName = strings.TrimSpace(t.Name) + " · 小队图"
-	}
 	desc := "由小队「" + t.Name + "」一键生成"
+	switch layout {
+	case "parallel":
+		wfName = strings.TrimSpace(t.Name) + " · 并行扇出"
+		desc = "由小队「" + t.Name + "」一键生成（工人并行，最多 8）"
+	case "team":
+		wfName = strings.TrimSpace(t.Name) + " · 小队图"
+	default:
+		if t.Mode != model.TeamModePipeline && layout != "linear" {
+			wfName = strings.TrimSpace(t.Name) + " · 小队图"
+		}
+	}
 
 	var wf model.Workflow
 	if t.WorkflowID != "" {

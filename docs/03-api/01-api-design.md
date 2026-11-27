@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.91 | expand-pipeline 支持 layout=parallel 扇出图 | orjrs |
 | 2026-11-27 | v1.90 | 密级审计：改文档密级落库；GET /admin/security-audits | orjrs |
 | 2026-11-27 | v1.89 | debug 流式进度写入 node_runs.detail.progress | orjrs |
 | 2026-11-27 | v1.88 | 抬密鉴权：机密/绝密需 clearance 或 admin | orjrs |
@@ -158,6 +159,12 @@
 - **回调**：工作流字段 `webhook_url`；执行 `completed|failed|cancelled` 时异步 POST JSON
 - **启动**：进程内 `Scheduler.Start` 加载 `is_active` 调度
 - **含代码**：`infra/scheduler`、`fireWorkflowWebhook`；跨仓「定时」弹窗 + 基本信息 webhook
+
+## [变更] 小队并行扇出成图（2026-11-27）
+
+- **接口**：`POST /api/v1/teams/:id/expand-pipeline` body 可选 `{ "layout": "parallel" | "linear" | "team" }`
+- **parallel**：start→各工人 Agent→end；最多 8；成员中剔除主管
+- **含代码**：`BuildParallelFanoutDefinition`、`ExpandOptions`；跨仓「生成并行图」
 
 ## [变更] 密级变更审计（2026-11-27）
 

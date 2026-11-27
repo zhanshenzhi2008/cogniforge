@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v0.10 | M4 产品：expand-pipeline layout=parallel 扇出图 | orjrs |
 | 2026-11-27 | v0.9 | M4 引擎：同层无依赖节点并行（ready-wave） | orjrs |
 | 2026-11-24 | v0.8 | Pipeline 一键成图 expand-pipeline；Agent 串联吃上一步输出 | orjrs |
 | 2026-11-23 | v0.7 | POST /teams/:id/run；画布 team 节点绑定小队 | orjrs |
@@ -14,11 +15,18 @@
 | 2026-11-23 | v0.2 | M1 起步：agent_teams 表 + Team CRUD + RunState/handoff 原语 | orjrs |
 | 2026-11-23 | v0.1 | 立项：模式分层、与现有工作流关系、参考来源、分期不做清单 | orjrs |
 
+## [变更] M4 扇出成图（2026-11-27）
+
+- **变更原因**：引擎已能并行；产品侧要一键生成 start→工人们→end
+- **已落地**：`BuildParallelFanoutDefinition`；`expand-pipeline` body `layout=parallel`（最多 8 工人，剔除主管）
+- **Web**：小队卡「生成并行图」
+- **代码**：`orchestration/team/pipeline.go`、`ExpandOptions`；跨仓 `pages/teams`
+
 ## [变更] M4 引擎同层并行（2026-11-27）
 
 - **变更原因**：扇出/汇合需要引擎能同时跑无依赖节点
 - **已落地**：`WorkflowEngine.Execute` 按就绪波次调度；白名单类型同波并行；Output/`ForNode` 线程安全
-- **未做**：Team 配置扇出工人产品化；无上限并行仍禁止
+- **未做**：~~Team 配置扇出工人产品化~~（2026-11-27 已做）；无上限并行仍禁止
 - **代码**：`engine/core/workflow_engine.go`（EngineVersion 18.4）
 
 ## [变更] Pipeline 一键成图（2026-11-24）
@@ -310,7 +318,7 @@ POST       /api/v1/teams/:id/run       # 非对话任务型（可选，可与 wo
 | **M1 Pipeline 产品化** | 文档/UI 明确「多 Agent 节点流水线」；可选一键从 Team 生成线性图 | 用户能说清与单 Agent 差别 |
 | **M2 Supervisor** | `delegate_to_agent` + Team CRUD + 预览 SSE 带 agent 标签 | 主管能分活，工人结果可汇总；checkpoint 可恢复 |
 | **M3 Handoff** | `active_agent_id` 切换 + 前端展示当前角色 | 分诊场景可演示 |
-| **M4 并行工人** | 扇出/汇合（需引擎并行或子 run） | 引擎同层并行已落地（2026-11-27）；Team 扇出 UI 仍可选 |
+| **M4 并行工人** | 扇出/汇合（需引擎并行或子 run） | 引擎并行 + `layout=parallel` 成图（2026-11-27） |
 | **以后** | GroupChat、A2A、跨租户 Agent 市场 | backlog |
 
 ---

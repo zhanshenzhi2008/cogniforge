@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v0.12 | Web：worker_retry_once 创建/列表可配 | orjrs |
 | 2026-11-27 | v0.11 | team 节点 OnProgress：delegate/handoff 子步骤 | orjrs |
 | 2026-11-27 | v0.10 | M4 产品：expand-pipeline layout=parallel 扇出图 | orjrs |
 | 2026-11-27 | v0.9 | M4 引擎：同层无依赖节点并行（ready-wave） | orjrs |
@@ -15,6 +16,12 @@
 | 2026-11-23 | v0.3 | M2 起步：POST /teams/:id/chat + delegate/handoff 工具 | orjrs |
 | 2026-11-23 | v0.2 | M1 起步：agent_teams 表 + Team CRUD + RunState/handoff 原语 | orjrs |
 | 2026-11-23 | v0.1 | 立项：模式分层、与现有工作流关系、参考来源、分期不做清单 | orjrs |
+
+## [变更] worker_retry_once Web 配置（2026-11-27）
+
+- **变更原因**：§12.4 可选同人重试仅后端可读 config，产品无开关
+- **已落地**：跨仓小队新建勾选 + 列表/卡片切换；写 `config.worker_retry_once`
+- **代码**：`cogniforge-web/pages/teams`；前端设计 v1.122
 
 ## [变更] team 节点子步骤进度（2026-11-27）
 

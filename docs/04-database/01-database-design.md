@@ -44,7 +44,7 @@
 ## [变更] 密级审计表（2026-11-27）
 
 - **新表 `security_audit_logs`**：`actor_user_id` / `action` / `resource_*` / `old_value` / `new_value` / `result`（success|denied）
-- **写入点**：文档 lifecycle 改 `security_level`（含抬密被拒）
+- **写入点**：文档 lifecycle 改 `security_level`（含抬密被拒）；角色/用户 `max_security_level` 变更
 - **AutoMigrate**：`SecurityAuditLog`
 
 ## [变更] 角色/人员 clearance（2026-11-27）

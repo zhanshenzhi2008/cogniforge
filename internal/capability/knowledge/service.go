@@ -20,6 +20,7 @@ import (
 	"cogniforge/internal/infra/database"
 	"cogniforge/internal/infra/trace"
 	"cogniforge/internal/model"
+	"cogniforge/internal/shared/secaudit"
 )
 
 // enforceKBSecurityLevel 金融扩展：KB_ENFORCE_SECURITY_LEVEL=1 时按人侧 clearance 过滤检索
@@ -503,27 +504,8 @@ func (s *KnowledgeService) UpdateDocumentLifecycle(userID, kbID, docID string, r
 	return &doc, nil
 }
 
-// writeSecurityAudit 写入密级审计（失败只打日志，不阻断主流程）
 func (s *KnowledgeService) writeSecurityAudit(actorID, action, resType, resID, kbID, oldV, newV, result, detail string) {
-	if s.db == nil {
-		return
-	}
-	row := model.SecurityAuditLog{
-		ID:              newID(),
-		ActorUserID:     actorID,
-		Action:          action,
-		ResourceType:    resType,
-		ResourceID:      resID,
-		KnowledgeBaseID: kbID,
-		OldValue:        oldV,
-		NewValue:        newV,
-		Result:          result,
-		Detail:          detail,
-		CreatedAt:       time.Now(),
-	}
-	if err := s.db.Create(&row).Error; err != nil {
-		slog.Warn("security audit write failed", "error", err, "action", action, "resource_id", resID)
-	}
+	secaudit.Write(s.db, actorID, action, resType, resID, kbID, oldV, newV, result, detail)
 }
 
 // ListSecurityAudits 管理员查看密级审计（新在前）

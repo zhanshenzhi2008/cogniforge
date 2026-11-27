@@ -9,6 +9,7 @@ import (
 
 	"cogniforge/internal/infra/database"
 	"cogniforge/internal/model"
+	"cogniforge/internal/shared/secaudit"
 )
 
 func normalizeRoleSecurityLevel(raw string) (string, error) {
@@ -137,7 +138,7 @@ func (s *RBACService) CreateRole(req *CreateRoleRequest) error {
 		UpdatedAt:        time.Now(),
 	}
 
-	return s.db.Transaction(func(tx *gorm.DB) error {
+	err = s.db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(&role).Error; err != nil {
 			return err
 		}
@@ -155,6 +156,10 @@ func (s *RBACService) CreateRole(req *CreateRoleRequest) error {
 		}
 		return nil
 	})
+	if err == nil && clearance != "" {
+		secaudit.Write(s.db, req.ActorUserID, "role_clearance_set", "role", role.ID, "", "", clearance, "success", "create:"+role.Code)
+	}
+	return err
 }
 
 // UpdateRole 更新角色（系统角色仅允许改 max_security_level）
@@ -167,6 +172,7 @@ func (s *RBACService) UpdateRole(roleID string, req *UpdateRoleRequest) error {
 		return err
 	}
 
+	oldClearance := role.MaxSecurityLevel
 	if role.IsSystem {
 		if req == nil || req.MaxSecurityLevel == nil {
 			return fmt.Errorf("系统预置角色不可修改（仅可改密级上限）")
@@ -175,13 +181,21 @@ func (s *RBACService) UpdateRole(roleID string, req *UpdateRoleRequest) error {
 		if err != nil {
 			return err
 		}
-		return s.db.Model(&role).Updates(map[string]interface{}{
+		if err := s.db.Model(&role).Updates(map[string]interface{}{
 			"max_security_level": clearance,
 			"updated_at":         time.Now(),
-		}).Error
+		}).Error; err != nil {
+			return err
+		}
+		if clearance != oldClearance {
+			secaudit.Write(s.db, req.ActorUserID, "role_clearance_change", "role", roleID, "", oldClearance, clearance, "success", role.Code)
+		}
+		return nil
 	}
 
 	updates := map[string]interface{}{}
+	var newClearance string
+	clearanceChanged := false
 	if req.Name != "" {
 		updates["name"] = req.Name
 	}
@@ -194,6 +208,8 @@ func (s *RBACService) UpdateRole(roleID string, req *UpdateRoleRequest) error {
 			return err
 		}
 		updates["max_security_level"] = clearance
+		newClearance = clearance
+		clearanceChanged = clearance != oldClearance
 	}
 
 	if len(updates) > 0 {
@@ -201,6 +217,9 @@ func (s *RBACService) UpdateRole(roleID string, req *UpdateRoleRequest) error {
 		if err := s.db.Model(&role).Updates(updates).Error; err != nil {
 			return err
 		}
+	}
+	if clearanceChanged {
+		secaudit.Write(s.db, req.ActorUserID, "role_clearance_change", "role", roleID, "", oldClearance, newClearance, "success", role.Code)
 	}
 
 	if len(req.PermissionIDs) > 0 {

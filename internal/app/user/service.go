@@ -11,9 +11,10 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 
-	"cogniforge/internal/infra/database"
 	"cogniforge/internal/capability/knowledge"
+	"cogniforge/internal/infra/database"
 	"cogniforge/internal/model"
+	"cogniforge/internal/shared/secaudit"
 	"cogniforge/internal/shared/util"
 )
 
@@ -131,6 +132,9 @@ func (s *UserService) CreateUser(req *CreateUserRequest) (*model.User, error) {
 		}
 		return nil, fmt.Errorf("创建用户失败")
 	}
+	if clearance != "" {
+		secaudit.Write(s.db, req.ActorUserID, "user_clearance_set", "user", user.ID, "", "", clearance, "success", "create")
+	}
 
 	settings := model.UserSettings{
 		ID:        generateID(),
@@ -193,12 +197,17 @@ func (s *UserService) UpdateUser(userID string, req *UpdateUserRequest) (*model.
 	if req.Role != "" {
 		updates["role"] = req.Role
 	}
+	oldClearance := user.MaxSecurityLevel
+	var newClearance string
+	clearanceChanged := false
 	if req.MaxSecurityLevel != nil {
 		clearance, err := normalizeUserSecurityLevel(*req.MaxSecurityLevel)
 		if err != nil {
 			return nil, err
 		}
 		updates["max_security_level"] = clearance
+		newClearance = clearance
+		clearanceChanged = clearance != oldClearance
 	}
 
 	if len(updates) > 0 {
@@ -206,6 +215,9 @@ func (s *UserService) UpdateUser(userID string, req *UpdateUserRequest) (*model.
 		if err := s.db.Model(&user).Updates(updates).Error; err != nil {
 			return nil, fmt.Errorf("更新失败")
 		}
+	}
+	if clearanceChanged {
+		secaudit.Write(s.db, req.ActorUserID, "user_clearance_change", "user", userID, "", oldClearance, newClearance, "success", "")
 	}
 
 	if err := s.db.Where("id = ?", userID).First(&user).Error; err != nil {

@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.92 | 角色/用户 clearance 变更写入 security_audit_logs | orjrs |
 | 2026-11-27 | v1.91 | expand-pipeline 支持 layout=parallel 扇出图 | orjrs |
 | 2026-11-27 | v1.90 | 密级审计：改文档密级落库；GET /admin/security-audits | orjrs |
 | 2026-11-27 | v1.89 | debug 流式进度写入 node_runs.detail.progress | orjrs |
@@ -159,6 +160,12 @@
 - **回调**：工作流字段 `webhook_url`；执行 `completed|failed|cancelled` 时异步 POST JSON
 - **启动**：进程内 `Scheduler.Start` 加载 `is_active` 调度
 - **含代码**：`infra/scheduler`、`fireWorkflowWebhook`；跨仓「定时」弹窗 + 基本信息 webhook
+
+## [变更] 角色/用户 clearance 审计（2026-11-27）
+
+- **写入**：创建/更新用户 `max_security_level`、创建/更新角色 `max_security_level` → `security_audit_logs`
+- **动作**：`user_clearance_*` / `role_clearance_*`；列表仍 `GET /admin/security-audits`
+- **含代码**：`shared/secaudit`；user/rbac service
 
 ## [变更] 小队并行扇出成图（2026-11-27）
 

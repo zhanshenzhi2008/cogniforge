@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.217 | 角色/用户 clearance 变更审计 | orjrs |
 | 2026-11-27 | v1.216 | 通用版隐藏密级 UI（SHOW_SECURITY_LEVEL 开关） | orjrs |
 | 2026-11-27 | v1.215 | Team 并行扇出成图 layout=parallel | orjrs |
 | 2026-11-27 | v1.214 | 跨仓：监控页密级审计 Tab | orjrs |
@@ -216,6 +217,12 @@
 | 2026-04-17 | v1.3 | 阶段九用户管理与个人设置完成（用户CRUD、个人设置、会话管理、RBAC权限系统） | orjrs |
 > 注：任务状态变更直接在下方任务表格中更新即可，无需额外记录。
 
+## [变更] 角色/用户 clearance 审计（2026-11-27）
+
+- **原因**：金融扩展；人侧 clearance 变更也要可追溯
+- **落地**：`shared/secaudit`；用户/角色改 `max_security_level` 写审计；监控表展示动作类型
+- **API**：v1.92
+
 ## [变更] 通用版隐藏密级 UI（2026-11-27）
 
 - **原因**：金融扩展字段对通用用户造成干扰
@@ -232,7 +239,7 @@
 
 - **原因**：金融扩展；抬密成败要可追溯
 - **落地**：`security_audit_logs`；lifecycle 改密级写 success/denied；`GET /admin/security-audits`
-- **未做**：~~管理端列表页 UI~~（2026-11-27 监控 Tab）；角色/用户 clearance 变更审计；~~Team 扇出~~（2026-11-27 已做）
+- **未做**：~~管理端列表页 UI~~（2026-11-27 监控 Tab）；~~角色/用户 clearance 变更审计~~（2026-11-27）；~~Team 扇出~~（2026-11-27 已做）
 - **API / DB**：v1.90 / v1.39
 
 ## [变更] 调试流式进度 UI（2026-11-27）
@@ -2388,7 +2395,7 @@ composables/
 - [x] 谁有权把文档抬到「机密/绝密」单独鉴权（clearance≥目标或 admin）
 - [x] 角色增加 `max_security_level`；人员可覆盖（用户管理 UI）
 - [x] 检索强制：`人的可用密级 ≥ 知识密级`（`KB_ENFORCE_SECURITY_LEVEL` 开关；默认关）
-- [x] 改文档密级留审计日志（`security_audit_logs` + 管理端列表）；角色 clearance / 敏感检索审计仍待
+- [x] 改文档密级、角色/用户 clearance 留审计日志（`security_audit_logs` + 监控 Tab）；敏感检索审计仍待
 - [x] 通用版 UI 隐藏密级；`NUXT_PUBLIC_SHOW_SECURITY_LEVEL=1` 才展示
 
 #### C. 检索总规则（金融全开时）

@@ -20,6 +20,7 @@ type CreateUserRequest struct {
 	Role             string `json:"role" binding:"oneof=admin user"`
 	Status           string `json:"status" binding:"oneof=active disabled locked"`
 	MaxSecurityLevel string `json:"max_security_level"` // 空=跟随角色
+	ActorUserID      string `json:"-"`                  // 操作人（handler 注入）
 }
 
 type UpdateUserRequest struct {
@@ -28,6 +29,7 @@ type UpdateUserRequest struct {
 	Status           string  `json:"status" binding:"omitempty,oneof=active disabled locked"`
 	Role             string  `json:"role" binding:"omitempty,oneof=admin user"`
 	MaxSecurityLevel *string `json:"max_security_level"` // nil=不改；""=清除覆盖
+	ActorUserID      string  `json:"-"`                  // 操作人（handler 注入）
 }
 
 type ChangePasswordRequest struct {

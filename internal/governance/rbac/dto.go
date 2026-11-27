@@ -8,6 +8,7 @@ type CreateRoleRequest struct {
 	Description      string   `json:"description"`
 	MaxSecurityLevel string   `json:"max_security_level"`
 	PermissionIDs    []string `json:"permission_ids"`
+	ActorUserID      string   `json:"-"` // 操作人（handler 注入）
 }
 
 type UpdateRoleRequest struct {
@@ -15,6 +16,7 @@ type UpdateRoleRequest struct {
 	Description      string   `json:"description"`
 	MaxSecurityLevel *string  `json:"max_security_level"`
 	PermissionIDs    []string `json:"permission_ids"`
+	ActorUserID      string   `json:"-"` // 操作人（handler 注入）
 }
 
 type CreatePermissionRequest struct {

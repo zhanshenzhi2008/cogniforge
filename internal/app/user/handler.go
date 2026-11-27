@@ -44,6 +44,7 @@ func (h *UserHandler) CreateUser(c *gin.Context) {
 		return
 	}
 
+	req.ActorUserID = c.GetString("user_id")
 	user, err := h.service.CreateUser(&req)
 	if err != nil {
 		if err.Error() == "该邮箱已被注册" {
@@ -87,6 +88,7 @@ func (h *UserHandler) UpdateUser(c *gin.Context) {
 		response.BadRequest(c, err.Error())
 		return
 	}
+	req.ActorUserID = c.GetString("user_id")
 
 	user, err := h.service.UpdateUser(userID, &req)
 	if err != nil {

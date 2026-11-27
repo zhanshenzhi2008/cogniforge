@@ -103,6 +103,7 @@ func (h *RBACHandler) CreateRole(c *gin.Context) {
 		return
 	}
 
+	req.ActorUserID = c.GetString("user_id")
 	err := h.service.CreateRole(&req)
 	if err != nil {
 		response.Fail(c, http.StatusConflict, err.Error())
@@ -124,6 +125,7 @@ func (h *RBACHandler) UpdateRole(c *gin.Context) {
 		response.BadRequest(c, err.Error())
 		return
 	}
+	req.ActorUserID = c.GetString("user_id")
 
 	err := h.service.UpdateRole(roleID, &req)
 	if err != nil {

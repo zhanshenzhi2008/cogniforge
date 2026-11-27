@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.105 | 未选条件分支写入 node_runs status=skipped | orjrs |
 | 2026-11-27 | v1.104 | 条件节点按 source_handle 独占分支（引擎 18.5） | orjrs |
 | 2026-11-27 | v1.103 | definition.edges 持久化 source_handle / target_handle | orjrs |
 | 2026-11-27 | v1.102 | 工作流 webhook_url 校验须为 http(s) | orjrs |
@@ -105,6 +106,12 @@
 | 2026-08-15 | v1.2 | GET /v1/models 改为返回已启用供应商的 default_model（不再写死 GPT 列表） | orjrs |
 | 2026-04-09 | v1.1 | 新增文档上传接口、语义检索接口实现说明 | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] 未选条件分支写入 node_runs skipped（2026-11-27）
+
+- **行为**：独占路由跳过的节点写入 `workflow_node_runs`，`status=skipped`，`output.reason=untaken_condition_branch`
+- **用途**：执行详情 / 调试轮询驱动画布 `run-skipped` 淡显
+- **含代码**：`skipArrival` → `persistNodeRun`
 
 ## [变更] 条件节点按 source_handle 独占分支（2026-11-27）
 

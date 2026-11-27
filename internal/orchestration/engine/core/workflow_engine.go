@@ -569,8 +569,8 @@ func (e *WorkflowEngine) Execute(ctx *ExecutionContext, def *WorkflowDefinition)
 				completedSet[oc.node.ID] = true
 				var waitReady []string
 				releaseSuccessors(
-					oc.node.ID, oc.node.Type, oc.output,
-					succ, inDegree, completedSet, &completed, &waitReady, ctx,
+					e, oc.node.ID, oc.node.Type, oc.output,
+					succ, inDegree, completedSet, &completed, &waitReady, ctx, nodeMap,
 				)
 				nextID := ""
 				if len(waitReady) > 0 {
@@ -586,8 +586,8 @@ func (e *WorkflowEngine) Execute(ctx *ExecutionContext, def *WorkflowDefinition)
 			completed = append(completed, oc.node.ID)
 			completedSet[oc.node.ID] = true
 			releaseSuccessors(
-				oc.node.ID, oc.node.Type, oc.output,
-				succ, inDegree, completedSet, &completed, &ready, ctx,
+				e, oc.node.ID, oc.node.Type, oc.output,
+				succ, inDegree, completedSet, &completed, &ready, ctx, nodeMap,
 			)
 			e.saveCheckpoint(ctx, "", completed, "node_ok")
 		}

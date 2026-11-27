@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.307 | 未选条件分支落 node_runs skipped（画布可淡显） | orjrs |
 | 2026-11-27 | v1.306 | 引擎按条件句柄独占真/假分支（Engine 18.5） | orjrs |
 | 2026-11-27 | v1.305 | 跨仓：边保存/加载保留 sourceHandle | orjrs |
 | 2026-11-27 | v1.304 | 跨仓：画布未保存离开提示 | orjrs |
@@ -523,6 +524,12 @@
 - **原因**：未绑定可保存、运行才失败
 - **落地**：跨仓保存前拦截 team/agent/search/subflow
 - **Web**：开发计划 v1.161；前端设计 v1.129
+
+## [变更] 未选条件分支落 node_runs skipped（2026-11-27）
+
+- **原因**：独占分支后仅内存标 skipped，轮询拿不到 node_runs，画布不淡显
+- **落地**：`skipArrival` → `persistNodeRun(..., skipped)`；`reason=untaken_condition_branch`
+- **Web**：已有 `run-skipped`；开发计划 v1.216
 
 ## [变更] 引擎按条件句柄独占真/假分支（2026-11-27）
 

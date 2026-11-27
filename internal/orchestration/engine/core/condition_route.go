@@ -50,6 +50,7 @@ func conditionHandleMatches(edgeHandle, chosen string) bool {
 
 // releaseSuccessors 释放后继；条件节点按真/假句柄独占，未选边级联 skipped
 func releaseSuccessors(
+	e *WorkflowEngine,
 	nodeID, nodeType string,
 	output any,
 	succ map[string][]outEdge,
@@ -58,6 +59,7 @@ func releaseSuccessors(
 	completed *[]string,
 	ready *[]string,
 	ctx *ExecutionContext,
+	nodeMap map[string]NodeDefinition,
 ) {
 	outs := succ[nodeID]
 	exclusive := nodeType == "condition"
@@ -67,7 +69,7 @@ func releaseSuccessors(
 	}
 	for _, oe := range outs {
 		if exclusive && !conditionHandleMatches(oe.Handle, chosen) {
-			skipArrival(oe.Target, succ, inDegree, completedSet, completed, ctx)
+			skipArrival(e, oe.Target, succ, inDegree, completedSet, completed, ctx, nodeMap)
 			continue
 		}
 		inDegree[oe.Target]--
@@ -77,14 +79,16 @@ func releaseSuccessors(
 	}
 }
 
-// skipArrival 未选分支到达：扣依赖；依赖清零则标 skipped 并继续向下
+// skipArrival 未选分支到达：扣依赖；依赖清零则标 skipped、落 node_runs，并继续向下
 func skipArrival(
+	e *WorkflowEngine,
 	id string,
 	succ map[string][]outEdge,
 	inDegree map[string]int,
 	completedSet map[string]bool,
 	completed *[]string,
 	ctx *ExecutionContext,
+	nodeMap map[string]NodeDefinition,
 ) {
 	inDegree[id]--
 	if inDegree[id] > 0 {
@@ -104,7 +108,14 @@ func skipArrival(
 			ctx.Logger.Logf(id, "info", "Skipped (untaken condition branch)")
 		}
 	}
+	if e != nil && ctx != nil {
+		if n, ok := nodeMap[id]; ok {
+			e.persistNodeRun(ctx, n, "skipped", 1, nil, map[string]any{
+				"reason": "untaken_condition_branch",
+			}, "", 0)
+		}
+	}
 	for _, oe := range succ[id] {
-		skipArrival(oe.Target, succ, inDegree, completedSet, completed, ctx)
+		skipArrival(e, oe.Target, succ, inDegree, completedSet, completed, ctx, nodeMap)
 	}
 }

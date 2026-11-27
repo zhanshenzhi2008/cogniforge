@@ -3,6 +3,7 @@
 ## [变更记录]
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|---------|--------|
+| 2026-11-27 | v1.36 | documents 增 lifecycle_status / effective_at / expire_at | orjrs |
 | 2026-11-27 | v1.35 | workflows.webhook_url；启用 workflow_schedules 产品化 | orjrs |
 | 2026-11-26 | v1.34 | workflow_versions：定义历史快照（简单回滚） | orjrs |
 | 2026-11-26 | v1.33 | node_runs 支持 human_action 审批审计行 | orjrs |
@@ -36,6 +37,12 @@
 | 2026-08-16 | v1.2 | Redis 键统一 `cogniforge:` 前缀；多项目用前缀隔离，不拆 db0/db1 | orjrs |
 | 2026-08-15 | v1.1 | 落地模型配置 Redis 键（当时为 `cf:modelcfg:*`） | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] 文档业务生命周期字段（2026-11-27）
+
+- **扩展 `documents`**：`lifecycle_status`（默认 published）、`effective_at`、`expire_at`
+- **与**解析流水 `status`（pending/…）**分开**；旧行空值按 published 检索
+- **AutoMigrate**：`Document`
 
 ## [变更] webhook_url + schedules 产品化（2026-11-27）
 

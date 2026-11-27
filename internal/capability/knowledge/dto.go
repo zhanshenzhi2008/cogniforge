@@ -2,6 +2,7 @@ package knowledge
 
 import (
 	"context"
+	"time"
 
 	"cogniforge/internal/model"
 )
@@ -147,6 +148,19 @@ type SearchRequest struct {
 	Rerank               *bool    `json:"rerank,omitempty"`
 	RerankProviderID     string   `json:"rerank_provider_id,omitempty"`
 	HybridSemanticWeight *float64 `json:"hybrid_semantic_weight,omitempty"`
+	// IncludeDrafts：管理排查用，默认 false（只召回 published）
+	IncludeDrafts bool `json:"include_drafts,omitempty"`
+	// IgnoreValidity：忽略生效/失效时间窗，默认 false
+	IgnoreValidity bool `json:"ignore_validity,omitempty"`
+}
+
+// UpdateDocumentLifecycleRequest 更新业务状态与有效期
+type UpdateDocumentLifecycleRequest struct {
+	LifecycleStatus *string    `json:"lifecycle_status,omitempty"` // draft|review|published|abolished
+	EffectiveAt     *time.Time `json:"effective_at,omitempty"`
+	ExpireAt        *time.Time `json:"expire_at,omitempty"`
+	ClearEffective  bool       `json:"clear_effective,omitempty"`
+	ClearExpire     bool       `json:"clear_expire,omitempty"`
 }
 
 // ============ 响应结构 ============

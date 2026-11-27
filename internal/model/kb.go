@@ -75,6 +75,14 @@ func (KnowledgeBase) TableName() string {
 	return "knowledge_bases"
 }
 
+// 文档业务生命周期（与解析流水 status 分开）
+const (
+	DocLifecycleDraft      = "draft"
+	DocLifecycleReview     = "review"
+	DocLifecyclePublished  = "published"
+	DocLifecycleAbolished  = "abolished"
+)
+
 // Document 文档表
 type Document struct {
 	ID              string         `gorm:"primaryKey;type:varchar(64)" json:"id"`
@@ -85,7 +93,10 @@ type Document struct {
 	FileSize        int64          `gorm:"type:bigint" json:"file_size"`                     // 文件大小(bytes)
 	FileType        string         `gorm:"type:varchar(50)" json:"file_type"`                // pdf, txt, md, docx
 	FilePath        string         `gorm:"type:text" json:"file_path"`                       // 存储路径
-	Status          string         `gorm:"type:varchar(50);default:'pending'" json:"status"` // pending, processing, completed, failed
+	Status          string         `gorm:"type:varchar(50);default:'pending'" json:"status"` // 解析流水：pending, processing, completed, failed
+	LifecycleStatus string         `gorm:"type:varchar(32);not null;default:'published';index:idx_doc_lifecycle" json:"lifecycle_status"` // draft/review/published/abolished
+	EffectiveAt     *time.Time     `json:"effective_at,omitempty"`                           // 空=立即生效
+	ExpireAt        *time.Time     `json:"expire_at,omitempty"`                              // 空=不过期
 	Error           string         `gorm:"type:text" json:"error"`                           // 错误信息
 	ChunkCount      int            `gorm:"default:0" json:"chunk_count"`                     // 分块数量
 	VectorCount     int            `gorm:"default:0" json:"vector_count"`                    // 向量数量
@@ -93,6 +104,27 @@ type Document struct {
 	CreatedAt       time.Time      `json:"created_at"`
 	UpdatedAt       time.Time      `json:"updated_at"`
 	DeletedAt       gorm.DeletedAt `gorm:"index" json:"-"`
+}
+
+// IsSearchableNow 默认检索规则：发布且在有效期内
+func (d *Document) IsSearchableNow(now time.Time) bool {
+	if d == nil {
+		return false
+	}
+	st := d.LifecycleStatus
+	if st == "" {
+		st = DocLifecyclePublished
+	}
+	if st != DocLifecyclePublished {
+		return false
+	}
+	if d.EffectiveAt != nil && now.Before(*d.EffectiveAt) {
+		return false
+	}
+	if d.ExpireAt != nil && !now.Before(*d.ExpireAt) {
+		return false
+	}
+	return true
 }
 
 func (Document) TableName() string {

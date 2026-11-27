@@ -61,6 +61,7 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 		&model.WorkflowVersion{},
 		&model.WorkflowSchedule{},
 		&model.Workflow{},
+		&model.Document{},
 	)
 	providerSvc.RepairVendorLabels()
 	providerSvc.RefreshCache()

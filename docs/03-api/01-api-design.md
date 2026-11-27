@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.80 | 文档 lifecycle + 检索按发布/有效期过滤 | orjrs |
 | 2026-11-27 | v1.79 | 工作流 Cron 调度 + 完成回调 webhook_url | orjrs |
 | 2026-11-26 | v1.78 | 工作流版本列表与回滚 API | orjrs |
 | 2026-11-26 | v1.77 | `POST /workflows/:id/clone` 复制工作流 | orjrs |
@@ -79,6 +80,13 @@
 | 2026-08-15 | v1.2 | GET /v1/models 改为返回已启用供应商的 default_model（不再写死 GPT 列表） | orjrs |
 | 2026-04-09 | v1.1 | 新增文档上传接口、语义检索接口实现说明 | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] 文档生命周期与检索过滤（2026-11-27）
+
+- **字段**：`documents.lifecycle_status`（draft/review/published/abolished）、`effective_at`、`expire_at`
+- **接口**：`PUT /knowledge/:id/documents/:docId/lifecycle`
+- **检索**：默认只召回 **published** 且在有效期内；`include_drafts` / `ignore_validity` 可选排查
+- **影响**：对话 RAG、工作流 search、检索测试共用 `SearchByUser`
 
 ## [变更] Cron 调度与完成回调（2026-11-27）
 

@@ -381,6 +381,56 @@ func (s *KnowledgeService) UpdateDocumentContent(ctx context.Context, userID, kb
 	return s.GetDocument(userID, kbID, docID)
 }
 
+// UpdateDocumentLifecycle 更新业务状态与有效期（与解析 status 无关）
+func (s *KnowledgeService) UpdateDocumentLifecycle(userID, kbID, docID string, req *UpdateDocumentLifecycleRequest) (*model.Document, error) {
+	if req == nil {
+		return nil, fmt.Errorf("请求无效")
+	}
+	var kb model.KnowledgeBase
+	if err := s.db.Where("id = ? AND user_id = ?", kbID, userID).First(&kb).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, fmt.Errorf("知识库不存在")
+		}
+		return nil, fmt.Errorf("查询知识库失败")
+	}
+	var doc model.Document
+	if err := s.db.Where("id = ? AND knowledge_base_id = ?", docID, kbID).First(&doc).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, fmt.Errorf("文档不存在")
+		}
+		return nil, fmt.Errorf("查询文档失败")
+	}
+
+	updates := map[string]any{}
+	if req.LifecycleStatus != nil {
+		st := strings.TrimSpace(*req.LifecycleStatus)
+		switch st {
+		case model.DocLifecycleDraft, model.DocLifecycleReview, model.DocLifecyclePublished, model.DocLifecycleAbolished:
+			updates["lifecycle_status"] = st
+		default:
+			return nil, fmt.Errorf("无效生命周期状态")
+		}
+	}
+	if req.ClearEffective {
+		updates["effective_at"] = nil
+	} else if req.EffectiveAt != nil {
+		updates["effective_at"] = *req.EffectiveAt
+	}
+	if req.ClearExpire {
+		updates["expire_at"] = nil
+	} else if req.ExpireAt != nil {
+		updates["expire_at"] = *req.ExpireAt
+	}
+	if len(updates) == 0 {
+		return &doc, nil
+	}
+	if err := s.db.Model(&doc).Updates(updates).Error; err != nil {
+		return nil, fmt.Errorf("更新文档生命周期失败")
+	}
+	_ = s.db.Where("id = ?", docID).First(&doc).Error
+	return &doc, nil
+}
+
 // DeleteDocument 删除文档
 func (s *KnowledgeService) DeleteDocument(userID, kbID, docID string) error {
 	var kb model.KnowledgeBase
@@ -778,11 +828,23 @@ func (s *KnowledgeService) SearchByUser(ctx context.Context, userID, kbID string
 
 	rerank, rerankProv := resolveSearchRerank(&kb, mode, req)
 
+	// 多取一些再按生命周期过滤，尽量凑满 TopK
+	fetchK := topK
+	if !req.IncludeDrafts || !req.IgnoreValidity {
+		fetchK = topK * 3
+		if fetchK < topK {
+			fetchK = topK
+		}
+		if fetchK > 50 {
+			fetchK = 50
+		}
+	}
+
 	pythonResp, err := s.pythonClient.Search(&SearchRequest{
 		Context:              ctx,
 		Query:                req.Query,
 		CollectionName:       kbID,
-		TopK:                 topK,
+		TopK:                 fetchK,
 		MinScore:             minScore,
 		SearchMode:           mode,
 		Rerank:               rerank,
@@ -793,23 +855,41 @@ func (s *KnowledgeService) SearchByUser(ctx context.Context, userID, kbID string
 		return nil, fmt.Errorf("检索失败: %w", err)
 	}
 
+	allowed := s.searchableDocIDs(ctx, kbID, req.IncludeDrafts, req.IgnoreValidity)
+
 	var results []SearchResult
 	for _, r := range pythonResp.Results {
+		docID := ""
 		docName := ""
 		if r.Metadata != nil {
+			if id, ok := r.Metadata["document_id"].(string); ok {
+				docID = id
+			}
 			if n, ok := r.Metadata["document_name"].(string); ok {
 				docName = n
 			} else if n, ok := r.Metadata["file_name"].(string); ok {
 				docName = n
 			}
 		}
+		if docID == "" {
+			// 旧向量无 document_id：尝试从 chunk_id 前缀推断
+			docID = inferDocIDFromChunk(r.ChunkID)
+		}
+		if allowed != nil {
+			if docID == "" || !allowed[docID] {
+				continue
+			}
+		}
 		results = append(results, SearchResult{
-			DocumentID:   r.ChunkID,
+			DocumentID:   docID,
 			DocumentName: docName,
 			ChunkID:      r.ChunkID,
 			Content:      r.Content,
 			Score:        r.Score,
 		})
+		if len(results) >= topK {
+			break
+		}
 	}
 
 	return &SearchResponse{
@@ -818,6 +898,58 @@ func (s *KnowledgeService) SearchByUser(ctx context.Context, userID, kbID string
 		Query:    req.Query,
 		Duration: time.Since(startTime).Milliseconds(),
 	}, nil
+}
+
+// searchableDocIDs 返回当前可被召回的文档 ID 集合；includeDrafts+ignoreValidity 时返回 nil（不过滤）
+func (s *KnowledgeService) searchableDocIDs(ctx context.Context, kbID string, includeDrafts, ignoreValidity bool) map[string]bool {
+	if includeDrafts && ignoreValidity {
+		return nil
+	}
+	var docs []model.Document
+	q := s.db.WithContext(ctx).Where("knowledge_base_id = ?", kbID)
+	if !includeDrafts {
+		q = q.Where("lifecycle_status = ? OR lifecycle_status = '' OR lifecycle_status IS NULL", model.DocLifecyclePublished)
+	} else {
+		q = q.Where("lifecycle_status <> ?", model.DocLifecycleAbolished)
+	}
+	if err := q.Find(&docs).Error; err != nil {
+		return map[string]bool{}
+	}
+	now := time.Now()
+	out := make(map[string]bool, len(docs))
+	for i := range docs {
+		d := &docs[i]
+		if includeDrafts {
+			if d.LifecycleStatus == model.DocLifecycleAbolished {
+				continue
+			}
+			if !ignoreValidity {
+				if d.EffectiveAt != nil && now.Before(*d.EffectiveAt) {
+					continue
+				}
+				if d.ExpireAt != nil && !now.Before(*d.ExpireAt) {
+					continue
+				}
+			}
+			out[d.ID] = true
+			continue
+		}
+		if d.IsSearchableNow(now) || (ignoreValidity && (d.LifecycleStatus == "" || d.LifecycleStatus == model.DocLifecyclePublished)) {
+			out[d.ID] = true
+		}
+	}
+	return out
+}
+
+func inferDocIDFromChunk(chunkID string) string {
+	if chunkID == "" {
+		return ""
+	}
+	const sep = "_chunk_"
+	if i := strings.LastIndex(chunkID, sep); i > 0 {
+		return chunkID[:i]
+	}
+	return ""
 }
 
 // ResolveKBIDsForDocuments 根据文档 ID 解析所属知识库（用户隔离）

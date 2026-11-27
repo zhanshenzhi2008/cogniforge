@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.225 | Agent rag_kb_ids；工作室绑定知识库；对话自动 RAG | orjrs |
 | 2026-11-27 | v1.224 | Agent 开场白/预设问题；跨仓工作室与 Playground | orjrs |
 | 2026-11-27 | v1.223 | 跨仓：Playground 改走 useAgentChat / useChatStream | orjrs |
 | 2026-11-27 | v1.222 | 跨仓：CfFieldHelp 表单帮助图标 | orjrs |
@@ -271,6 +272,12 @@
 - **原因**：工作室 backlog；首屏欢迎与一点即发
 - **落地**：`agents.opening_message` / `suggested_prompts`；工作室可配；预览/Playground 空态展示
 - **API / DB**：v1.95 / v1.40；Web 开发计划 v1.134
+
+## [变更] Agent 绑定知识库（2026-11-27）
+
+- **原因**：工作室 backlog；对话自动检索绑定库
+- **落地**：`agents.rag_kb_ids`；工作室多选；`/agents/:id/chat` 合并 RAG
+- **API / DB**：v1.96 / v1.41；Web 开发计划 v1.135
 
 ## [变更] 通用版隐藏密级 UI（2026-11-27）
 
@@ -2334,7 +2341,7 @@ composables/
 
 **优先（可接现有能力）**
 
-- [ ] 工作室绑定知识库（多选 + 可选使用者鉴权；对话 `rag_kb_ids`）
+- [x] 工作室绑定知识库（多选；对话 `rag_kb_ids`；使用者鉴权仍可选后续）
 - [x] 对话开场白 + 预设问题（Agent 字段；预览/Playground 首屏）
 - [ ] 预览区文件上传开关（对齐 Playground attachments）
 - [ ] 提示词 `/` 插变量、`@` 插技能/工具/知识库

@@ -138,7 +138,7 @@ func (h *AgentHandler) AgentChat(c *gin.Context) {
 	// 必须用带 TableName 的 model.Agent；匿名 struct 会被 GORM 推错表名，导致「查询 Agent 失败」
 	var dbAgent agentmodel.Agent
 	if err := database.DB.Where("id = ? AND user_id = ?", agentID, userID).
-		Select("id, user_id, model, system_prompt, prompt_id, skill_id, memory_type, memory_turns, tools").
+		Select("id, user_id, model, system_prompt, prompt_id, skill_id, memory_type, memory_turns, tools, rag_kb_ids").
 		First(&dbAgent).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			response.NotFound(c, "Agent 不存在")
@@ -212,6 +212,7 @@ func (h *AgentHandler) AgentChat(c *gin.Context) {
 	}
 	messages := append([]rtchat.ChatMessage{{Role: "system", Content: systemPrompt}}, req.Messages...)
 
+	agentKBIDs := []string(dbAgent.RAGKnowledgeBaseIDs)
 	ragReq := &rtchat.ChatRequest{
 		Messages:            req.Messages,
 		Attachments:         req.Attachments,
@@ -219,7 +220,9 @@ func (h *AgentHandler) AgentChat(c *gin.Context) {
 		RAGTopK:             req.RAGTopK,
 		RAGMinScore:         req.RAGMinScore,
 	}
-	messages = rtchat.InjectRAGSystemIfNeeded(c.Request.Context(), h.rag, userID, ragReq, nil, messages)
+	// 请求 rag_kb_ids ∪ Agent 绑定知识库 ∪ 附件所属库
+	mergedKBIDs := rtchat.ResolveRAGKnowledgeBaseIDs(c.Request.Context(), h.rag, userID, ragReq, agentKBIDs)
+	messages = rtchat.InjectRAGSystemIfNeeded(c.Request.Context(), h.rag, userID, ragReq, agentKBIDs, messages)
 
 	if h.quota != nil {
 		if err := h.quota.Allow(c.Request.Context(), userID, "agent"); err != nil {
@@ -237,7 +240,7 @@ func (h *AgentHandler) AgentChat(c *gin.Context) {
 		Temperature:         req.Temperature,
 		MaxTokens:           req.MaxTokens,
 		Attachments:         req.Attachments,
-		RAGKnowledgeBaseIDs: req.RAGKnowledgeBaseIDs,
+		RAGKnowledgeBaseIDs: mergedKBIDs,
 		RAGTopK:             req.RAGTopK,
 		RAGMinScore:         req.RAGMinScore,
 	}

@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.104 | 工作室可多选绑定知识库（rag_kb_ids） | orjrs |
 | 2026-11-27 | v1.103 | 工作室开场白 + 预设问题；Playground 空态展示 | orjrs |
 | 2026-11-27 | v1.102 | Playground 对话改走 useAgentChat / useChatStream | orjrs |
 | 2026-11-27 | v1.101 | 共用 CfFieldHelp：表单旁帮助图标 | orjrs |
@@ -213,6 +214,12 @@
 - **变更原因**：知识库检索/分段旁反复手写 UTooltip + help 按钮
 - **变更后**：`CfFieldHelp`（`text` + 可选 `icon`）；已接知识库详情检索查询与分段参数标签
 - **包含代码**：`cogniforge-web/components/CfFieldHelp.vue`、`pages/knowledge/[id].vue`
+
+## [变更] 工作室绑定知识库（2026-11-27）
+
+- **变更原因**：工作室 backlog；对话需自动检索所选知识库
+- **变更后**：左侧多选 `rag_kb_ids`（≤8）；保存到 Agent；预览/Playground 选该 Agent 对话时后端自动 RAG
+- **包含代码**：`AgentStudio.vue`、`useAgents.ts`；主仓 API v1.96 / DB v1.41
 
 ## [变更] 工作室开场白与预设问题（2026-11-27）
 

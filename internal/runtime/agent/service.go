@@ -51,27 +51,32 @@ func (s *AgentService) CreateAgent(userID string, req *CreateAgentRequest) (*mod
 	if req.SuggestedPrompts != nil {
 		suggested = clampSuggestedPrompts(req.SuggestedPrompts)
 	}
+	ragKBs := model.JSONBArray{}
+	if req.RAGKnowledgeBaseIDs != nil {
+		ragKBs = clampIDList(req.RAGKnowledgeBaseIDs, maxAgentKnowledgeBases)
+	}
 
 	agent := model.Agent{
-		ID:               generateID(),
-		UserID:           userID,
-		Name:             req.Name,
-		Description:      req.Description,
-		Model:            req.Model,
-		SystemPrompt:     req.SystemPrompt,
-		PromptID:         strings.TrimSpace(req.PromptID),
-		OpeningMessage:   strings.TrimSpace(req.OpeningMessage),
-		SuggestedPrompts: suggested,
-		Tools:            tools,
-		SkillID:          req.SkillID,
-		MemoryType:       "short_term",
-		MemoryTurns:      10,
-		InputFilter:      true,
-		OutputFilter:     true,
-		Status:           "active",
-		Metadata:         model.JSONBMap{},
-		CreatedAt:        time.Now(),
-		UpdatedAt:        time.Now(),
+		ID:                  generateID(),
+		UserID:              userID,
+		Name:                req.Name,
+		Description:         req.Description,
+		Model:               req.Model,
+		SystemPrompt:        req.SystemPrompt,
+		PromptID:            strings.TrimSpace(req.PromptID),
+		OpeningMessage:      strings.TrimSpace(req.OpeningMessage),
+		SuggestedPrompts:    suggested,
+		RAGKnowledgeBaseIDs: ragKBs,
+		Tools:               tools,
+		SkillID:             req.SkillID,
+		MemoryType:          "short_term",
+		MemoryTurns:         10,
+		InputFilter:         true,
+		OutputFilter:        true,
+		Status:              "active",
+		Metadata:            model.JSONBMap{},
+		CreatedAt:           time.Now(),
+		UpdatedAt:           time.Now(),
 	}
 
 	if err := s.db.Create(&agent).Error; err != nil {
@@ -124,6 +129,9 @@ func (s *AgentService) UpdateAgent(userID, agentID string, req *UpdateAgentReque
 	if req.SuggestedPrompts != nil {
 		agent.SuggestedPrompts = clampSuggestedPrompts(*req.SuggestedPrompts)
 	}
+	if req.RAGKnowledgeBaseIDs != nil {
+		agent.RAGKnowledgeBaseIDs = clampIDList(*req.RAGKnowledgeBaseIDs, maxAgentKnowledgeBases)
+	}
 	if req.Tools != nil {
 		agent.Tools = req.Tools
 	}
@@ -165,16 +173,26 @@ func generateID() string {
 }
 
 const maxSuggestedPrompts = 6
+const maxAgentKnowledgeBases = 8
 
 func clampSuggestedPrompts(in []string) model.JSONBArray {
+	return clampIDList(in, maxSuggestedPrompts)
+}
+
+func clampIDList(in []string, max int) model.JSONBArray {
 	out := model.JSONBArray{}
+	seen := map[string]struct{}{}
 	for _, s := range in {
 		s = strings.TrimSpace(s)
 		if s == "" {
 			continue
 		}
+		if _, ok := seen[s]; ok {
+			continue
+		}
+		seen[s] = struct{}{}
 		out = append(out, s)
-		if len(out) >= maxSuggestedPrompts {
+		if len(out) >= max {
 			break
 		}
 	}

@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.96 | Agent 增 rag_kb_ids；对话自动合并 RAG | orjrs |
 | 2026-11-27 | v1.95 | Agent 增 opening_message / suggested_prompts | orjrs |
 | 2026-11-27 | v1.94 | KB_ENFORCE 开启时检索写入密级审计 | orjrs |
 | 2026-11-27 | v1.93 | 正式 execute 亦写 node_runs.detail.progress | orjrs |
@@ -95,6 +96,14 @@
 | 2026-08-15 | v1.2 | GET /v1/models 改为返回已启用供应商的 default_model（不再写死 GPT 列表） | orjrs |
 | 2026-04-09 | v1.1 | 新增文档上传接口、语义检索接口实现说明 | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] Agent 绑定知识库 rag_kb_ids（2026-11-27）
+
+- **字段**：`rag_kb_ids`（string[]，最多 8）
+- **接口**：`POST/PUT /agents` 可读写
+- **对话**：`POST /agents/:id/chat` 将 Agent 绑定库与请求 `rag_kb_ids`、附件所属库合并后检索注入
+- **含代码**：`runtime/agent`；`AgentHandler.AgentChat`；跨仓工作室勾选
+- **DB**：v1.41
 
 ## [变更] Agent 开场白 / 预设问题（2026-11-27）
 

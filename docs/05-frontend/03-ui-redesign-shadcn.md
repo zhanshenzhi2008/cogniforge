@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.100 | 共用 CfEmptyState / CfLoadingState：列表空态与加载 | orjrs |
 | 2026-11-27 | v1.99 | 共用 CfConfirmModal：列表删除确认 | orjrs |
 | 2026-11-27 | v1.98 | 通用版默认隐藏密级相关 UI | orjrs |
 | 2026-11-27 | v1.97 | 监控页密级审计 Tab | orjrs |
@@ -196,6 +197,13 @@
 - **变更后**：`CfConfirmModal`（窄窗、关缩放/最大化、取消+危险确认）；已接 agents / teams / models / keys / workflows / knowledge / prompts / mcp / users / roles
 - **未迁**：知识库文档删除、用户重置密码等非「列表删资源」确认仍可保留原 CfModal
 - **包含代码**：`cogniforge-web/components/CfConfirmModal.vue`；上述列表页
+
+## [变更] 共用空态/加载 CfEmptyState · CfLoadingState（2026-11-27）
+
+- **变更原因**：各列表手写 `cf-state` 转圈与空图标文案
+- **变更后**：`CfLoadingState`、`CfEmptyState`（可选 icon / message / #action）；已接 agents / teams / models / mcp / prompts / kb / workflows / keys / users / roles / monitor / evals
+- **未迁**：详情页紧凑态、Playground 对话空态、用量图等特殊布局仍可自写
+- **包含代码**：`cogniforge-web/components/CfEmptyState.vue`、`CfLoadingState.vue`
 
 ## [变更] 共用聊天面板 CfChatPanel（2026-11-20）
 

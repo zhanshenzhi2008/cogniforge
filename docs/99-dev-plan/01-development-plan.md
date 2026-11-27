@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.221 | 跨仓：CfEmptyState / CfLoadingState 列表空态与加载 | orjrs |
 | 2026-11-27 | v1.220 | 跨仓：列表删除确认抽成 CfConfirmModal | orjrs |
 | 2026-11-27 | v1.219 | 密级强制检索写入 security_audit_logs | orjrs |
 | 2026-11-27 | v1.218 | 正式 execute 路径接流式进度写入 | orjrs |
@@ -243,6 +244,12 @@
 - **原因**：列表删除确认重复；前端组件去重 backlog
 - **落地**：Web `CfConfirmModal`；主仓前端设计 v1.99 记组件；待办勾选完成
 - **Web**：开发计划 v1.130
+
+## [变更] 跨仓 CfEmptyState / CfLoadingState（2026-11-27）
+
+- **原因**：列表空态/加载态重复；前端组件去重 backlog
+- **落地**：Web 两组件接主要列表；主仓前端设计 v1.100；待办勾选
+- **Web**：开发计划 v1.131
 
 ## [变更] 通用版隐藏密级 UI（2026-11-27）
 
@@ -2331,7 +2338,7 @@ composables/
 - [x] `useChatStream` + `mapChatHttpError`：通用 `/chat/stream`
 - [ ] Playground 选 Agent 时改走 `useAgentChat`（去掉内联 agent SSE）
 - [x] `CfConfirmModal`：各列表删除确认（agents/teams/models/keys/workflows/knowledge/prompts/mcp/users/roles）
-- [ ] `CfEmptyState` / `CfLoadingState`
+- [x] `CfEmptyState` / `CfLoadingState`：主要列表页
 - [ ] `CfFieldHelp`：表单帮助图标
 - [ ] 可选 `CfResourceCard`；MCP/知识库复用 `CfViewModeToggle`（按需）
 

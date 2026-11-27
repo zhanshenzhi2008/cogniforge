@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v0.13 | Web：max_depth/max_steps 限额可配 | orjrs |
 | 2026-11-27 | v0.12 | Web：worker_retry_once 创建/列表可配 | orjrs |
 | 2026-11-27 | v0.11 | team 节点 OnProgress：delegate/handoff 子步骤 | orjrs |
 | 2026-11-27 | v0.10 | M4 产品：expand-pipeline layout=parallel 扇出图 | orjrs |
@@ -16,6 +17,12 @@
 | 2026-11-23 | v0.3 | M2 起步：POST /teams/:id/chat + delegate/handoff 工具 | orjrs |
 | 2026-11-23 | v0.2 | M1 起步：agent_teams 表 + Team CRUD + RunState/handoff 原语 | orjrs |
 | 2026-11-23 | v0.1 | 立项：模式分层、与现有工作流关系、参考来源、分期不做清单 | orjrs |
+
+## [变更] max_depth / max_steps Web 配置（2026-11-27）
+
+- **变更原因**：门禁默认写进 config，产品侧原先改不了
+- **已落地**：新建填深度/步数；「限额」弹窗改现有小队（含失败重试）
+- **代码**：`cogniforge-web/pages/teams`；前端设计 v1.123
 
 ## [变更] worker_retry_once Web 配置（2026-11-27）
 

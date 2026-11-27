@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.123 | 小队 max_depth/max_steps 限额可配 | orjrs |
 | 2026-11-27 | v1.122 | 小队 worker_retry_once 创建/列表开关 | orjrs |
 | 2026-11-27 | v1.121 | API Key 列表 CfResourceCard + CfViewModeToggle | orjrs |
 | 2026-11-27 | v1.120 | 提示词列表 CfResourceCard + CfViewModeToggle | orjrs |
@@ -290,6 +291,12 @@
   - 中期：~~发布渠道~~（Web/API/嵌入已做；IM 仍待）、~~猜你想问~~
   - 远期：~~虚拟机~~（UI 占位；运行时仍待）、~~语音播放~~（浏览器 TTS）、~~语音输入~~（浏览器 STT；云 ASR 另排）
 - **详见**：`cogniforge-web/docs/99-dev-plan/01-development-plan.md` v1.67；主仓开发计划「后续待办」
+
+## [变更] 小队委派深度/步数限额（2026-11-27）
+
+- **变更原因**：`config.max_depth` / `max_steps` 仅后端默认，产品不可改
+- **变更后**：新建可填；列表「限额」弹窗改深度/步数/失败重试；卡片 meta 展示
+- **包含代码**：`pages/teams/index.vue`、i18n
 
 ## [变更] 小队工人失败重试开关（2026-11-27）
 

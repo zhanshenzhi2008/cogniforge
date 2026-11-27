@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.203 | LLM 写入 last_agent_content 串联下游 | orjrs |
 | 2026-11-27 | v1.202 | HTTP 节点可配非 2xx 失败 | orjrs |
 | 2026-11-27 | v1.201 | LLM 抽屉可配温度与 max tokens | orjrs |
 | 2026-11-27 | v1.200 | LLM/智能体/小队提示词标明 {{变量}} | orjrs |
@@ -370,6 +371,12 @@
   - 中期：~~发布渠道~~（Web/API/嵌入已做；IM 仍待）、~~猜你想问~~
   - 远期：~~虚拟机~~（UI 占位；运行时仍待）、~~语音播放~~（浏览器 TTS）、~~语音输入~~（浏览器 STT；云 ASR 另排）
 - **详见**：`cogniforge-web/docs/99-dev-plan/01-development-plan.md` v1.67；主仓开发计划「后续待办」
+
+## [变更] LLM 写入 last_agent_content（2026-11-27）
+
+- **变更原因**：设计约定 LLM/Agent 串联，但 LLM 未写 `last_agent_content`，下游 Agent 接不上
+- **变更后**：LLM 成功后写入；空用户提示优先接该变量；抽屉 hint 说明
+- **包含代码**：`nodes/llm.go`；Web hint
 
 ## [变更] HTTP 非 2xx 失败（2026-11-27）
 
@@ -2146,14 +2153,14 @@ Mobile 问题记入 backlog，**不阻断** Web 主路径合并。
 |------|--------|------------|----------|
 | `start` | 是 | 入参变量名 | `variables[]`（name/type/required/default/description） |
 | `end` | 是 | 「流程结束」 | （仅名称） |
-| `llm` | 是 | 模型名；流式 / t= / maxN | **model**、systemPrompt、prompt（`{{变量}}`）、llmStream、temperature、maxTokens |
+| `llm` | 是 | 模型名；流式 / t= / maxN | **model**、systemPrompt、prompt（`{{变量}}`；空接 `last_agent_content`）、llmStream、temperature、maxTokens；成功写 `last_agent_content` |
 | `agent` | 是 | 智能体名 | **agentId**、prompt（`{{变量}}`） |
 | `team` | 是 | 小队名 | **teamId**、prompt/task（`{{变量}}`） |
 | `search` | 是 | 库名 · 模式 · topK | **knowledgeBaseId**、query、searchMode/topK/minScore/rerank*/hybrid* |
 | `subflow` | 是 | 嵌套工作流名 · 自定义入参 | **subflowWorkflowId**（禁自身；最多 3 层）；可选 `input` JSON（`{{变量}}`） |
 | `condition` | 是 | 字段 运算符 值 | **conditionField**、operator、value（`{{变量}}`）、description；须真/假出边 |
 | `loop` | 是 | 次数/条件/数组→元素 | loopType；while 条件支持 `{{变量}}`；for_each 时 **loopArrayVar** |
-| `http` | 是 | METHOD url · n头 | method、**httpUrl**、body、**headers**、timeout；URL/头/体支持 `{{变量}}` |
+| `http` | 是 | METHOD url · 头/超时/严校验 | method、**httpUrl**、body、**headers**、timeout、failOnError；URL/头/体 `{{变量}}` |
 | `code` | 是 | 语言: 首行 · Ns | language、**codeSource**、timeout（沙箱，默认 30 / 最长 60） |
 | `delay` | 是 | 时长+单位 | delayDuration、delayUnit |
 | `wait` | 是 | 原因:消息 · 超时 | waitReason、waitMessage（`{{变量}}`）、timeoutSec |

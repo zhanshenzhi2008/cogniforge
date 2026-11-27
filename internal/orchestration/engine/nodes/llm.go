@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"cogniforge/internal/governance/quota"
@@ -41,12 +42,8 @@ func (e *LLMNodeExecutor) Execute(ctx *core.ExecutionContext, config json.RawMes
 		ctx.SetVariable(k, v)
 	}
 
-	prompt := resolveTemplate(cfg.Prompt, ctx)
+	prompt := resolveLLMUserPrompt(cfg.Prompt, ctx)
 	systemPrompt := resolveTemplate(cfg.SystemPrompt, ctx)
-	// 画布目前只配 systemPrompt 时，用流程输入 + 上游节点输出拼 user 消息
-	if prompt == "" {
-		prompt = defaultLLMUserPrompt(ctx)
-	}
 	if prompt == "" && systemPrompt == "" {
 		return nil, fmt.Errorf("LLM node: prompt is empty")
 	}
@@ -167,6 +164,8 @@ func (e *LLMNodeExecutor) Execute(ctx *core.ExecutionContext, config json.RawMes
 	if cfg.Stream {
 		mode = "stream"
 	}
+	// 与 Agent 共用：下游空 prompt / 检索问句可接 last_agent_content
+	ctx.SetVariable("last_agent_content", content)
 	ctx.Logger.Logf(ctx.NodeID, "info", "LLM ok mode=%s model=%s latency=%dms content_len=%d", mode, outModel, latency, len(content))
 
 	return map[string]any{
@@ -177,6 +176,22 @@ func (e *LLMNodeExecutor) Execute(ctx *core.ExecutionContext, config json.RawMes
 		"latency_ms": latency,
 		"streamed":   cfg.Stream,
 	}, nil
+}
+
+// resolveLLMUserPrompt：配置模板 → 上游 last_agent_content → 默认拼上下文
+func resolveLLMUserPrompt(cfgPrompt string, ctx *core.ExecutionContext) string {
+	prompt := resolveTemplate(cfgPrompt, ctx)
+	if strings.TrimSpace(prompt) != "" {
+		return prompt
+	}
+	if ctx != nil {
+		if v, ok := ctx.GetVariable("last_agent_content"); ok {
+			if s := strings.TrimSpace(fmt.Sprint(v)); s != "" {
+				return s
+			}
+		}
+	}
+	return defaultLLMUserPrompt(ctx)
 }
 
 func defaultLLMUserPrompt(ctx *core.ExecutionContext) string {

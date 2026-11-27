@@ -37,6 +37,16 @@ func TestDefaultLLMUserPrompt_FromInput(t *testing.T) {
 	require.Contains(t, out, "input")
 }
 
+func TestResolveLLMUserPrompt_PrefersLastAgentContent(t *testing.T) {
+	ctx := core.NewExecutionContext("wf", "exec", map[string]any{"order_id": "ORD-1"})
+	ctx.SetVariable("last_agent_content", "上游摘要")
+	out := resolveLLMUserPrompt("", ctx)
+	require.Equal(t, "上游摘要", out)
+
+	out = resolveLLMUserPrompt("固定 {{order_id}}", ctx)
+	require.Equal(t, "固定 ORD-1", out)
+}
+
 func TestLLMNodeExecutor_SystemPromptOnly_UsesFallbackUser(t *testing.T) {
 	e := &LLMNodeExecutor{}
 	cfg, _ := json.Marshal(LLMNodeConfig{SystemPrompt: "你是助手", Model: "m"})

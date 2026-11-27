@@ -57,6 +57,7 @@
 - **已落地**：
   - `POST /api/v1/teams/:id/expand-pipeline`：pipeline → start→agent…→end；其它模式 → start→team→end；回写 `workflow_id`
   - Agent 节点空 prompt 时接 `last_agent_content`（上一步输出）
+  - ~~LLM 未写该变量~~（2026-11-27：LLM 成功亦写入；空 prompt 优先接上游）
   - Web 小队卡「生成/打开流水线」
 - **未做**：~~并行工人~~（2026-11-27 引擎侧已做）→ Team 扇出 UI、自动换人
 - **代码**：`orchestration/team/pipeline.go`、`service.ExpandToWorkflow`、`engine/nodes/agent.go`；Web `pages/teams`

@@ -16,11 +16,42 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
-	"cogniforge/internal/infra/database"
-	"cogniforge/internal/model"
-	"cogniforge/internal/infra/trace"
 	"cogniforge/internal/capability/webfetch"
+	"cogniforge/internal/infra/database"
+	"cogniforge/internal/infra/trace"
+	"cogniforge/internal/model"
 )
+
+// enforceKBSecurityLevel 金融扩展：KB_ENFORCE_SECURITY_LEVEL=1 时按人侧 clearance 过滤检索
+func enforceKBSecurityLevel() bool {
+	v := strings.TrimSpace(os.Getenv("KB_ENFORCE_SECURITY_LEVEL"))
+	return v == "1" || strings.EqualFold(v, "true")
+}
+
+// resolveUserClearance 人员覆盖 → 角色上限 → 默认 secret（不限制）
+func (s *KnowledgeService) resolveUserClearance(userID string) string {
+	if userID == "" {
+		return model.DocSecuritySecret
+	}
+	var user model.User
+	if err := s.db.Select("id", "role", "max_security_level").Where("id = ?", userID).First(&user).Error; err != nil {
+		return model.DocSecuritySecret
+	}
+	if lv := strings.TrimSpace(strings.ToLower(user.MaxSecurityLevel)); lv != "" {
+		return lv
+	}
+	if user.Role == "" {
+		return model.DocSecuritySecret
+	}
+	var role model.Role
+	if err := s.db.Select("max_security_level").Where("code = ?", user.Role).First(&role).Error; err != nil {
+		return model.DocSecuritySecret
+	}
+	if lv := strings.TrimSpace(strings.ToLower(role.MaxSecurityLevel)); lv != "" {
+		return lv
+	}
+	return model.DocSecuritySecret
+}
 
 const (
 	AllowedFileTypePDF  = "pdf"
@@ -837,9 +868,15 @@ func (s *KnowledgeService) SearchByUser(ctx context.Context, userID, kbID string
 
 	rerank, rerankProv := resolveSearchRerank(&kb, mode, req)
 
-	// 多取一些再按生命周期过滤，尽量凑满 TopK
+	enforceSec := enforceKBSecurityLevel()
+	clearance := ""
+	if enforceSec {
+		clearance = s.resolveUserClearance(userID)
+	}
+
+	// 多取一些再按生命周期/密级过滤，尽量凑满 TopK
 	fetchK := topK
-	if !req.IncludeDrafts || !req.IgnoreValidity {
+	if !req.IncludeDrafts || !req.IgnoreValidity || enforceSec {
 		fetchK = topK * 3
 		if fetchK < topK {
 			fetchK = topK
@@ -864,7 +901,7 @@ func (s *KnowledgeService) SearchByUser(ctx context.Context, userID, kbID string
 		return nil, fmt.Errorf("检索失败: %w", err)
 	}
 
-	allowed := s.searchableDocIDs(ctx, kbID, req.IncludeDrafts, req.IgnoreValidity)
+	allowed := s.searchableDocIDs(ctx, kbID, req.IncludeDrafts, req.IgnoreValidity, clearance, enforceSec)
 
 	var results []SearchResult
 	for _, r := range pythonResp.Results {
@@ -909,9 +946,16 @@ func (s *KnowledgeService) SearchByUser(ctx context.Context, userID, kbID string
 	}, nil
 }
 
-// searchableDocIDs 返回当前可被召回的文档 ID 集合；includeDrafts+ignoreValidity 时返回 nil（不过滤）
-func (s *KnowledgeService) searchableDocIDs(ctx context.Context, kbID string, includeDrafts, ignoreValidity bool) map[string]bool {
-	if includeDrafts && ignoreValidity {
+// searchableDocIDs 返回当前可被召回的文档 ID 集合；
+// includeDrafts+ignoreValidity 且不强制密级时返回 nil（不过滤）
+func (s *KnowledgeService) searchableDocIDs(
+	ctx context.Context,
+	kbID string,
+	includeDrafts, ignoreValidity bool,
+	maxClearance string,
+	enforceSecurity bool,
+) map[string]bool {
+	if includeDrafts && ignoreValidity && !enforceSecurity {
 		return nil
 	}
 	var docs []model.Document
@@ -928,6 +972,7 @@ func (s *KnowledgeService) searchableDocIDs(ctx context.Context, kbID string, in
 	out := make(map[string]bool, len(docs))
 	for i := range docs {
 		d := &docs[i]
+		ok := false
 		if includeDrafts {
 			if d.LifecycleStatus == model.DocLifecycleAbolished {
 				continue
@@ -940,12 +985,17 @@ func (s *KnowledgeService) searchableDocIDs(ctx context.Context, kbID string, in
 					continue
 				}
 			}
-			out[d.ID] = true
+			ok = true
+		} else if d.IsSearchableNow(now) || (ignoreValidity && (d.LifecycleStatus == "" || d.LifecycleStatus == model.DocLifecyclePublished)) {
+			ok = true
+		}
+		if !ok {
 			continue
 		}
-		if d.IsSearchableNow(now) || (ignoreValidity && (d.LifecycleStatus == "" || d.LifecycleStatus == model.DocLifecyclePublished)) {
-			out[d.ID] = true
+		if enforceSecurity && !d.AccessibleByClearance(maxClearance) {
+			continue
 		}
+		out[d.ID] = true
 	}
 	return out
 }

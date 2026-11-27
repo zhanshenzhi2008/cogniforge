@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.85 | 角色 max_security_level；可选检索密级强制 | orjrs |
 | 2026-11-27 | v1.84 | 文档 security_level；lifecycle API 可改密级 | orjrs |
 | 2026-11-27 | v1.83 | 代码节点 python/js 走沙箱（MCP 同源） | orjrs |
 | 2026-11-27 | v1.82 | 工作流节点类型 `subflow`（嵌套同步执行） | orjrs |
@@ -85,11 +86,17 @@
 | 2026-04-09 | v1.1 | 新增文档上传接口、语义检索接口实现说明 | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
 
+## [变更] 角色 clearance + 检索密级开关（2026-11-27）
+
+- **字段**：`roles.max_security_level`、`users.max_security_level`（覆盖）
+- **接口**：创建/更新角色可带 `max_security_level`；系统角色仅允许改此项
+- **检索**：环境变量 `KB_ENFORCE_SECURITY_LEVEL=1|true` 时按「人 clearance ≥ 文档密级」过滤；未配置 clearance 视为 `secret`
+- **含代码**：rbac DTO/service；`KnowledgeService.resolveUserClearance`
+
 ## [变更] 文档密级 security_level（2026-11-27）
 
 - **字段**：`documents.security_level`（默认 `internal`）
 - **接口**：`PUT .../documents/:docId/lifecycle` 可传 `security_level`
-- **未做**：角色/人员 `max_security_level`；检索按 clearance 强制过滤（助手函数已备）
 - **含代码**：model + lifecycle service；跨仓预览下拉
 
 ## [变更] 代码节点沙箱（2026-11-27）

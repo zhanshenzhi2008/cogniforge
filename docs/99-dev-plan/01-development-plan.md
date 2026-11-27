@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.207 | 角色 max_security_level + 检索密级开关 | orjrs |
 | 2026-11-27 | v1.206 | 文档 security_level 字段 + lifecycle 可改 | orjrs |
 | 2026-11-27 | v1.205 | 代码节点接 MCP 同源沙箱（python/js） | orjrs |
 | 2026-11-27 | v1.204 | P3 子流程节点 MVP（subflow 同步嵌套） | orjrs |
@@ -206,11 +207,18 @@
 | 2026-04-17 | v1.3 | 阶段九用户管理与个人设置完成（用户CRUD、个人设置、会话管理、RBAC权限系统） | orjrs |
 > 注：任务状态变更直接在下方任务表格中更新即可，无需额外记录。
 
+## [变更] 角色 clearance（2026-11-27）
+
+- **原因**：金融扩展；人侧最高可访问密级与知识密级成对
+- **落地**：`roles`/`users.max_security_level`；角色管理可配；`KB_ENFORCE_SECURITY_LEVEL` 打开后检索过滤
+- **未做**：人员覆盖 UI；抬密鉴权；审计日志；通用版隐藏密级 UI
+- **API / DB**：v1.85 / v1.38
+
 ## [变更] 文档密级字段预备（2026-11-27）
 
 - **原因**：金融扩展；先落知识侧密级，人侧 clearance 后续
 - **落地**：`documents.security_level` 默认 internal；lifecycle API/预览可改；`AccessibleByClearance` 助手
-- **未做**：角色 max_security_level；检索强制过滤；抬密鉴权
+- **未做**：抬密鉴权
 - **API / DB**：v1.84 / v1.37
 
 ## [变更] 代码节点真沙箱（2026-11-27）
@@ -2313,8 +2321,8 @@ composables/
 
 - [x] 文档可设 `security_level`（预览 + lifecycle API）；默认 `internal`（上传默认靠列默认）
 - [ ] 谁有权把文档抬到「机密/绝密」单独鉴权（不是人人能抬密级）
-- [ ] 角色增加 `max_security_level`；人员可选覆盖
-- [ ] 检索强制：`人的可用密级 ≥ 知识密级`（金融默认开；通用版可关/隐藏；助手已备）
+- [x] 角色增加 `max_security_level`；人员字段已备（管理 UI 覆盖待补）
+- [x] 检索强制：`人的可用密级 ≥ 知识密级`（`KB_ENFORCE_SECURITY_LEVEL` 开关；默认关）
 - [ ] 改密级、改角色 clearance、敏感检索留审计日志
 - [ ] 通用版 UI 隐藏密级；金融/企业开关打开后才展示（当前先露出便于联调）
 

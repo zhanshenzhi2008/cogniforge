@@ -13,11 +13,12 @@ type User struct {
 	Name      string         `gorm:"uniqueIndex:uk_users_name;type:varchar(100);not null" json:"name"` // 登录用户名；全局唯一（含软删占用，删前会改名释放）
 	Password  string         `gorm:"type:varchar(255);not null" json:"-"`                                // 哈希；不要求唯一
 	AvatarURL string         `gorm:"type:varchar(500)" json:"avatar_url"`             // 头像地址
-	Status    string         `gorm:"type:varchar(50);default:'active'" json:"status"` // active, disabled, locked
-	Role      string         `gorm:"type:varchar(100);default:'user'" json:"role"`    // 用户角色（简单方案）
-	CreatedAt time.Time      `json:"created_at"`
-	UpdatedAt time.Time      `json:"updated_at"`
-	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
+	Status           string         `gorm:"type:varchar(50);default:'active'" json:"status"` // active, disabled, locked
+	Role             string         `gorm:"type:varchar(100);default:'user'" json:"role"`    // 用户角色（简单方案，对应 roles.code）
+	MaxSecurityLevel string         `gorm:"type:varchar(32);default:''" json:"max_security_level,omitempty"` // 人员覆盖角色上限；空=用角色
+	CreatedAt        time.Time      `json:"created_at"`
+	UpdatedAt        time.Time      `json:"updated_at"`
+	DeletedAt        gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
 func (User) TableName() string {

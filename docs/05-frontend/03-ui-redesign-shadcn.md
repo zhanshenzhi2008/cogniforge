@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.137 | 提示词 Tags 编辑 + 列表筛选（17.16） | orjrs |
 | 2026-11-27 | v1.136 | 角色管理列表 CfResourceCard + CfViewModeToggle | orjrs |
 | 2026-11-27 | v1.135 | 用户管理列表 CfResourceCard + CfViewModeToggle | orjrs |
 | 2026-11-27 | v1.134 | 评估列表 CfResourceCard + CfViewModeToggle | orjrs |
@@ -304,6 +305,12 @@
   - 中期：~~发布渠道~~（Web/API/嵌入已做；IM 仍待）、~~猜你想问~~
   - 远期：~~虚拟机~~（UI 占位；运行时仍待）、~~语音播放~~（浏览器 TTS）、~~语音输入~~（浏览器 STT；云 ASR 另排）
 - **详见**：`cogniforge-web/docs/99-dev-plan/01-development-plan.md` v1.67；主仓开发计划「后续待办」
+
+## [变更] 提示词 Tags 编辑与筛选（2026-11-27）
+
+- **变更原因**：P2 17.16；后端已有 `tags`，前端未做
+- **变更后**：新建/详情编辑标签（逗号分隔）；列表按标签筛选；卡片徽章展示
+- **包含代码**：`pages/prompts.vue`、i18n
 
 ## [变更] 角色管理列表卡片视图（2026-11-27）
 

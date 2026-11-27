@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.89 | debug 流式进度写入 node_runs.detail.progress | orjrs |
 | 2026-11-27 | v1.88 | 抬密鉴权：机密/绝密需 clearance 或 admin | orjrs |
 | 2026-11-27 | v1.87 | LLM 节点可选 stream；ChatCollectStream | orjrs |
 | 2026-11-27 | v1.86 | 用户创建/更新可设 max_security_level 覆盖 | orjrs |
@@ -156,6 +157,13 @@
 - **回调**：工作流字段 `webhook_url`；执行 `completed|failed|cancelled` 时异步 POST JSON
 - **启动**：进程内 `Scheduler.Start` 加载 `is_active` 调度
 - **含代码**：`infra/scheduler`、`fireWorkflowWebhook`；跨仓「定时」弹窗 + 基本信息 webhook
+
+## [变更] debug 流式进度刷 UI（2026-11-27）
+
+- **原因**：LLM `stream` 仅写内存日志，调试侧栏/画布看不到边生成边刷
+- **行为**：`OnProgress` → `node_runs.detail.progress`（jsonb 合并）；`GET .../executions/:id` 原样带回
+- **前端**：时间线 note + 侧栏「流式进度」+ 画布节点 hint
+- **含代码**：`patchNodeRunProgress`；跨仓 `WorkflowFlowNode` / 调试面板
 
 ## [变更] 工作流版本回滚（2026-11-26）
 

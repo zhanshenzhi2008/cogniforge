@@ -641,6 +641,7 @@ func (s *WorkflowService) DebugWorkflowWithTraceID(userID, workflowID string, re
 		}
 		ctx.OnProgress = func(nodeID, message string) {
 			ctx.Logger.Logf(nodeID, "info", "%s", message)
+			s.patchNodeRunProgress(executionID, nodeID, message)
 		}
 
 		def, err := s.workflowEngine.ParseDefinition(workflow.Definition)
@@ -687,6 +688,22 @@ func (s *WorkflowService) DebugWorkflowWithTraceID(userID, workflowID string, re
 		TraceID:     traceID,
 		Status:      "debugging",
 	}, nil
+}
+
+// patchNodeRunProgress 把流式进度写入正在跑的 node_run.detail.progress（供调试轮询刷 UI）
+func (s *WorkflowService) patchNodeRunProgress(executionID, nodeID, message string) {
+	if s.db == nil || executionID == "" || nodeID == "" || message == "" {
+		return
+	}
+	payload, err := json.Marshal(map[string]string{"progress": message})
+	if err != nil {
+		return
+	}
+	_ = s.db.Exec(`
+		UPDATE workflow_node_runs
+		SET detail = COALESCE(detail, '{}'::jsonb) || ?::jsonb
+		WHERE execution_id = ? AND node_id = ? AND status = 'running'
+	`, string(payload), executionID, nodeID).Error
 }
 
 // generateID 生成唯一ID

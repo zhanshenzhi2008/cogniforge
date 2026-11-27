@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.212 | 调试流式进度：detail.progress + 画布/侧栏 UI | orjrs |
 | 2026-11-27 | v1.211 | 引擎同层并行：就绪波次 + 安全节点类型 | orjrs |
 | 2026-11-27 | v1.210 | 抬密鉴权：机密/绝密需 clearance 或 admin | orjrs |
 | 2026-11-27 | v1.209 | LLM 节点可选流式收集（ChatCollectStream） | orjrs |
@@ -211,11 +212,18 @@
 | 2026-04-17 | v1.3 | 阶段九用户管理与个人设置完成（用户CRUD、个人设置、会话管理、RBAC权限系统） | orjrs |
 > 注：任务状态变更直接在下方任务表格中更新即可，无需额外记录。
 
+## [变更] 调试流式进度 UI（2026-11-27）
+
+- **原因**：P3；LLM stream 进度要能在画布/侧栏看见
+- **落地**：`detail.progress`；调试轮询刷节点 hint + 侧栏「流式进度」
+- **未做**：SSE 真·逐字；正式 execute 路径同钩；密级审计；Team 扇出 UI
+- **API**：v1.89
+
 ## [变更] 引擎同层并行（2026-11-27）
 
 - **原因**：P3/M4；无依赖节点不必串行干等
 - **落地**：就绪波次调度；`http/delay/code/search/llm/agent/tool` 同波 goroutine 并行；`ForNode` + Output 加锁
-- **未做**：Team 扇出工人 UI；画布流式逐字；密级审计日志
+- **未做**：Team 扇出工人 UI；~~画布流式逐字~~（2026-11-27 轮询预览已做）；密级审计日志
 - **含代码**：`workflow_engine.go` Execute；`parallel_wave_test.go`
 - **引擎**：18.4
 
@@ -2301,7 +2309,7 @@ composables/
 
 - [x] 子流程节点 MVP（`subflow` 同步嵌套；深度 3；暂不支持嵌套 wait）
 - [x] 代码节点真沙箱（python/js 本地子进程；与 MCP code_execute 同源）
-- [x] LLM 节点流式收集（`stream` + ChatCollectStream；画布逐字 UI 仍待）
+- [x] LLM 节点流式收集（`stream` + ChatCollectStream；调试画布/侧栏进度预览）
 - [x] 并行工人（M4）引擎侧：同层无依赖节点并行（Team 扇出 UI 仍待）
 
 ### 知识有效期、密级与检索过滤（2026-11-25，未做）

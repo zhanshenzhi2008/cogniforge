@@ -16,6 +16,7 @@ import (
 const (
 	PromptVersionDraft     = "draft"
 	PromptVersionPublished = "published"
+	PromptVersionArchived  = "archived"
 
 	PromptSourceManual = "manual" // 手建
 	PromptSourceAgent  = "agent"  // 从 Agent 导入
@@ -80,7 +81,7 @@ type Prompt struct {
 
 func (Prompt) TableName() string { return "prompts" }
 
-// PromptVersion 提示词版本（draft → published；current 指向已发布版）
+// PromptVersion 提示词版本（draft → published → archived；current 指向已发布版）
 type PromptVersion struct {
 	ID          string     `gorm:"primaryKey;type:varchar(64)" json:"id"`
 	PromptID    string     `gorm:"type:varchar(64);not null;index:idx_prompt_versions_prompt_id" json:"prompt_id"`

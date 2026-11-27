@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.101 | 提示词版本归档 / 回滚发版（17.17） | orjrs |
 | 2026-11-27 | v1.100 | team 节点 delegate/handoff 写入 OnProgress 子步骤 | orjrs |
 | 2026-11-27 | v1.99 | Agent 配置版本列表与回滚 | orjrs |
 | 2026-11-27 | v1.98 | GET /conversations 支持 agent_id 过滤 | orjrs |
@@ -544,6 +545,15 @@
 
 - **接口**：`PUT /api/v1/providers/:id` 可选 `provider`
 - **原因**：前端快捷模板在编辑时也可切换，不再锁死类型
+
+## [变更] 提示词版本归档 / 回滚发版（2026-11-27）
+
+- **变更原因**：17.17 运维废弃旧版与按正文回滚
+- **新增**：
+  - `POST /api/v1/prompts/versions/:id/archive`（仅非当前 published → `archived`）
+  - `POST /api/v1/prompts/versions/:id/rollback`（按该版正文发新 published 并设当前）
+- **约束**：publish 仅 draft；设当前仅 published；归档版不可设当前
+- **详细设计**：`docs/01-requirements/09-prompt-engineering-design.md` v2.9
 
 ## [变更] 提示词工业闭环（2026-10-17）
 

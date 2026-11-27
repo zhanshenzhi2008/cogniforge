@@ -267,6 +267,9 @@ func (s *Service) PublishVersion(userID, versionID string) (*model.Prompt, *mode
 	if err != nil {
 		return nil, nil, err
 	}
+	if ver.Status != model.PromptVersionDraft {
+		return nil, nil, errors.New("只能发布草稿；已归档请用回滚发版")
+	}
 	p, _, err := s.Get(userID, ver.PromptID)
 	if err != nil {
 		return nil, nil, err
@@ -281,6 +284,54 @@ func (s *Service) PublishVersion(userID, versionID string) (*model.Prompt, *mode
 		p.CurrentVersionID = ver.ID
 		return tx.Save(p).Error
 	})
+	if err != nil {
+		return nil, nil, err
+	}
+	return p, ver, nil
+}
+
+// ArchiveVersion 废弃已发布版（不可归档当前版；草稿请直接删）。
+func (s *Service) ArchiveVersion(userID, versionID string) (*model.PromptVersion, error) {
+	ver, err := s.GetVersion(userID, versionID)
+	if err != nil {
+		return nil, err
+	}
+	p, _, err := s.Get(userID, ver.PromptID)
+	if err != nil {
+		return nil, err
+	}
+	if p.CurrentVersionID == ver.ID {
+		return nil, errors.New("不能归档当前版本；请先切换当前或回滚发版")
+	}
+	if ver.Status != model.PromptVersionPublished {
+		return nil, errors.New("只能归档已发布版本")
+	}
+	ver.Status = model.PromptVersionArchived
+	if err := s.db.Save(ver).Error; err != nil {
+		return nil, err
+	}
+	return ver, nil
+}
+
+// RollbackVersion 基于旧版正文发新 published，并设为当前（运维回滚）。
+func (s *Service) RollbackVersion(userID, versionID string) (*model.Prompt, *model.PromptVersion, error) {
+	src, err := s.GetVersion(userID, versionID)
+	if err != nil {
+		return nil, nil, err
+	}
+	if src.Status == model.PromptVersionDraft {
+		return nil, nil, errors.New("草稿不能回滚；请先发布或直接编辑")
+	}
+	changelog := fmt.Sprintf("回滚自 v%d", src.Version)
+	ver, err := s.CreateVersion(userID, src.PromptID, &CreateVersionRequest{
+		Content:   src.Content,
+		Changelog: changelog,
+		Publish:   true,
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	p, _, err := s.Get(userID, src.PromptID)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -341,7 +392,7 @@ func (s *Service) SetCurrentVersion(userID, promptID, versionID string) (*model.
 		return nil, errors.New("版本不属于该提示词")
 	}
 	if ver.Status != model.PromptVersionPublished {
-		return nil, errors.New("只能将已发布版本设为当前；请先发布")
+		return nil, errors.New("只能将已发布版本设为当前；归档版请用回滚发版")
 	}
 	p.CurrentVersionID = ver.ID
 	if err := s.db.Save(p).Error; err != nil {

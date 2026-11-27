@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.193 | 附录：工作流节点设置总表（对齐抽屉） | orjrs |
 | 2026-11-27 | v1.192 | 调试时间线/整次输出可复制；显示总耗时 | orjrs |
 | 2026-11-27 | v1.191 | 子流程指向自身视为未绑定并拦截保存 | orjrs |
 | 2026-11-27 | v1.190 | 历史试跑可「填入上方再跑」回填输入 | orjrs |
@@ -360,6 +361,18 @@
   - 中期：~~发布渠道~~（Web/API/嵌入已做；IM 仍待）、~~猜你想问~~
   - 远期：~~虚拟机~~（UI 占位；运行时仍待）、~~语音播放~~（浏览器 TTS）、~~语音输入~~（浏览器 STT；云 ASR 另排）
 - **详见**：`cogniforge-web/docs/99-dev-plan/01-development-plan.md` v1.67；主仓开发计划「后续待办」
+
+## [变更] 工作流节点设置总表附录（2026-11-27）
+
+- **变更原因**：调试 UX §8「节点设置总表」；抽屉字段散落难对照
+- **变更后**：本文 §11 总表；Web `workflowNodeSettings` 与调色板单测对齐
+- **包含代码**：`cogniforge-web/utils/workflowNodeSettings.ts`
+
+## [变更] 调试输出可复制与总耗时（2026-11-27）
+
+- **变更原因**：摘要截断难带走；完成试跑看不出总耗时
+- **变更后**：步骤/整次「复制」全文；「这一次」显示总耗时
+- **包含代码**：`formatExecutionOutputForCopy`、`copyDebugText`
 
 ## [变更] 子流程禁止指向自身（2026-11-27）
 
@@ -2057,10 +2070,38 @@ Mobile 问题记入 backlog，**不阻断** Web 主路径合并。
 | `01-frontend-design.md` | 历史前端设计；涉及冲突时以本文为准 |
 | `02-settings-module-design.md` | 设置功能逻辑仍有效；控件换成 shadcn |
 | `99-dev-plan/01-development-plan.md` | 记录本里程碑进度 |
+| `01-requirements/12-workflow-debug-ux-design.md` | 调试信息架构；节点总表见本文 §11 |
 
 ---
 
-**文档版本**: v1.10  
+## 11. 附录：工作流节点设置总表（2026-11-27）
+
+> 与编辑器右侧抽屉对齐。机器可读副本：`cogniforge-web/utils/workflowNodeSettings.ts`（调色板类型缺条目单测会红）。  
+> 所有节点都有「节点名称」。标 **必填** 的参与保存/试跑未绑定校验。
+
+| 类型 | 调色板 | 画布副文案 | 主要字段 |
+|------|--------|------------|----------|
+| `start` | 是 | 入参变量名 | `variables[]`（name/type/required/default/description） |
+| `end` | 是 | 「流程结束」 | （仅名称） |
+| `llm` | 是 | 模型名；流式带后缀 | **model**、systemPrompt、prompt、llmStream |
+| `agent` | 是 | 智能体名 | **agentId**、prompt |
+| `team` | 是 | 小队名 | **teamId**、prompt（任务） |
+| `search` | 是 | 库名 · 模式 · topK | **knowledgeBaseId**、query、searchMode/topK/minScore/rerank*/hybrid* |
+| `subflow` | 是 | 嵌套工作流名 | **subflowWorkflowId**（禁自身；最多 3 层） |
+| `condition` | 是 | 字段 运算符 值 | **conditionField**、operator、value、description；须真/假出边 |
+| `loop` | 是 | 次数/条件/数组→元素 | loopType；for_each 时 **loopArrayVar** |
+| `http` | 是 | METHOD url | method、**httpUrl**、body、timeout |
+| `code` | 是 | 语言: 首行 | language、**codeSource** |
+| `delay` | 是 | 时长+单位 | delayDuration、delayUnit |
+| `wait` | 是 | 原因:消息 · 超时 | waitReason、waitMessage、timeoutSec |
+| `input` | 否（旧图） | 变量名 | **variable** |
+| `output` | 否（旧图） | 变量名 | **variable** |
+
+**改字段时**：先改抽屉与 `vueDataToConfig` / 引擎 config，再改本表与 `workflowNodeSettings.ts`。
+
+---
+
+**文档版本**: v1.193  
 **最后更新**: 2026-08-12  
 **维护**: CogniForge 前端  
 **分支建议**: `feat/nuxt-shadcn-vue`

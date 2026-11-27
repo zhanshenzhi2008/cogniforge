@@ -467,10 +467,14 @@ func (s *KnowledgeService) UpdateDocumentLifecycle(userID, kbID, docID string, r
 		lv := strings.TrimSpace(strings.ToLower(*req.SecurityLevel))
 		switch lv {
 		case model.DocSecurityPublic, model.DocSecurityInternal, model.DocSecurityConfidential, model.DocSecuritySecret:
-			if err := s.authorizeSecurityLevelChange(userID, doc.SecurityLevel, lv); err != nil {
+			oldLv := doc.SecurityLevel
+			if err := s.authorizeSecurityLevelChange(userID, oldLv, lv); err != nil {
+				s.writeSecurityAudit(userID, "document_security_level_change", "document", docID, kbID, oldLv, lv, "denied", err.Error())
 				return nil, err
 			}
-			updates["security_level"] = lv
+			if oldLv != lv {
+				updates["security_level"] = lv
+			}
 		default:
 			return nil, fmt.Errorf("无效密级")
 		}
@@ -488,11 +492,50 @@ func (s *KnowledgeService) UpdateDocumentLifecycle(userID, kbID, docID string, r
 	if len(updates) == 0 {
 		return &doc, nil
 	}
+	oldSec := doc.SecurityLevel
 	if err := s.db.Model(&doc).Updates(updates).Error; err != nil {
 		return nil, fmt.Errorf("更新文档生命周期失败")
 	}
+	if newSec, ok := updates["security_level"].(string); ok && newSec != oldSec {
+		s.writeSecurityAudit(userID, "document_security_level_change", "document", docID, kbID, oldSec, newSec, "success", "")
+	}
 	_ = s.db.Where("id = ?", docID).First(&doc).Error
 	return &doc, nil
+}
+
+// writeSecurityAudit 写入密级审计（失败只打日志，不阻断主流程）
+func (s *KnowledgeService) writeSecurityAudit(actorID, action, resType, resID, kbID, oldV, newV, result, detail string) {
+	if s.db == nil {
+		return
+	}
+	row := model.SecurityAuditLog{
+		ID:              newID(),
+		ActorUserID:     actorID,
+		Action:          action,
+		ResourceType:    resType,
+		ResourceID:      resID,
+		KnowledgeBaseID: kbID,
+		OldValue:        oldV,
+		NewValue:        newV,
+		Result:          result,
+		Detail:          detail,
+		CreatedAt:       time.Now(),
+	}
+	if err := s.db.Create(&row).Error; err != nil {
+		slog.Warn("security audit write failed", "error", err, "action", action, "resource_id", resID)
+	}
+}
+
+// ListSecurityAudits 管理员查看密级审计（新在前）
+func (s *KnowledgeService) ListSecurityAudits(limit int) ([]model.SecurityAuditLog, error) {
+	if limit <= 0 || limit > 200 {
+		limit = 50
+	}
+	var rows []model.SecurityAuditLog
+	if err := s.db.Order("created_at DESC").Limit(limit).Find(&rows).Error; err != nil {
+		return nil, fmt.Errorf("查询密级审计失败")
+	}
+	return rows, nil
 }
 
 // DeleteDocument 删除文档

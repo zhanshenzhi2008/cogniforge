@@ -3,6 +3,7 @@
 ## [变更记录]
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|---------|--------|
+| 2026-11-27 | v1.39 | security_audit_logs：文档密级变更审计 | orjrs |
 | 2026-11-27 | v1.38 | roles/users 增 max_security_level（clearance） | orjrs |
 | 2026-11-27 | v1.37 | documents 增 security_level（默认 internal） | orjrs |
 | 2026-11-27 | v1.36 | documents 增 lifecycle_status / effective_at / expire_at | orjrs |
@@ -39,6 +40,12 @@
 | 2026-08-16 | v1.2 | Redis 键统一 `cogniforge:` 前缀；多项目用前缀隔离，不拆 db0/db1 | orjrs |
 | 2026-08-15 | v1.1 | 落地模型配置 Redis 键（当时为 `cf:modelcfg:*`） | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] 密级审计表（2026-11-27）
+
+- **新表 `security_audit_logs`**：`actor_user_id` / `action` / `resource_*` / `old_value` / `new_value` / `result`（success|denied）
+- **写入点**：文档 lifecycle 改 `security_level`（含抬密被拒）
+- **AutoMigrate**：`SecurityAuditLog`
 
 ## [变更] 角色/人员 clearance（2026-11-27）
 

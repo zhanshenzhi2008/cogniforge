@@ -171,6 +171,17 @@ func (h *KnowledgeHandler) UpdateDocumentContent(c *gin.Context) {
 	response.Success(c, doc)
 }
 
+// ListSecurityAudits 管理员：密级变更审计列表
+func (h *KnowledgeHandler) ListSecurityAudits(c *gin.Context) {
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "50"))
+	rows, err := h.service.ListSecurityAudits(limit)
+	if err != nil {
+		response.InternalError(c, err.Error())
+		return
+	}
+	response.Success(c, rows)
+}
+
 // UpdateDocumentLifecycle 更新业务状态与有效期
 func (h *KnowledgeHandler) UpdateDocumentLifecycle(c *gin.Context) {
 	userID := c.GetString("user_id")

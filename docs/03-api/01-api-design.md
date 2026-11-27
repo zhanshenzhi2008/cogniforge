@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.90 | 密级审计：改文档密级落库；GET /admin/security-audits | orjrs |
 | 2026-11-27 | v1.89 | debug 流式进度写入 node_runs.detail.progress | orjrs |
 | 2026-11-27 | v1.88 | 抬密鉴权：机密/绝密需 clearance 或 admin | orjrs |
 | 2026-11-27 | v1.87 | LLM 节点可选 stream；ChatCollectStream | orjrs |
@@ -157,6 +158,13 @@
 - **回调**：工作流字段 `webhook_url`；执行 `completed|failed|cancelled` 时异步 POST JSON
 - **启动**：进程内 `Scheduler.Start` 加载 `is_active` 调度
 - **含代码**：`infra/scheduler`、`fireWorkflowWebhook`；跨仓「定时」弹窗 + 基本信息 webhook
+
+## [变更] 密级变更审计（2026-11-27）
+
+- **写入**：`PUT .../documents/:docId/lifecycle` 改 `security_level` 时写入 `security_audit_logs`（success / denied）
+- **查询**：`GET /api/v1/admin/security-audits?limit=50`（管理员）
+- **含代码**：`model.SecurityAuditLog`、`writeSecurityAudit`、`ListSecurityAudits`
+- **DB**：v1.39
 
 ## [变更] debug 流式进度刷 UI（2026-11-27）
 

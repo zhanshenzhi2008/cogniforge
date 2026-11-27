@@ -62,6 +62,7 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 		&model.WorkflowSchedule{},
 		&model.Workflow{},
 		&model.Document{},
+		&model.SecurityAuditLog{},
 	)
 	providerSvc.RepairVendorLabels()
 	providerSvc.RefreshCache()
@@ -231,6 +232,7 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 			admin.POST("/admin/users/:id/reset-password", userHandler.AdminResetPassword)
 			admin.POST("/admin/users/:id/roles", rbacHandler.AssignRole)
 			admin.GET("/admin/users/:id/role", rbacHandler.GetUserRole)
+			admin.GET("/admin/security-audits", knowledgeHandler.ListSecurityAudits)
 			quotaHandler.RegisterAdminRoutes(admin)
 		}
 	}

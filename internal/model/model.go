@@ -11,6 +11,7 @@ package model
 // - workflow.go: 工作流相关模型 (Workflow, WorkflowNode, WorkflowEdge, Agent)
 // - kb.go: 知识库相关模型 (KnowledgeBase, Document)
 // - monitor.go: 监控相关模型 (RequestLog)
+// - audit.go: 密级审计 (SecurityAuditLog)
 // - types.go: 自定义类型 (JSONBArray, JSONBMap)
 //
 // API 响应结构已移至 response 包

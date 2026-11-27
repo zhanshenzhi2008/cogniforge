@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.157 | 知识库弃编辑改用 CfConfirmModal | orjrs |
 | 2026-11-27 | v1.156 | 工作室版本回滚改用 CfConfirmModal | orjrs |
 | 2026-11-27 | v1.155 | Playground 删对话改用 CfConfirmModal | orjrs |
 | 2026-11-27 | v1.154 | 评估页删除套件/用例改用 CfConfirmModal | orjrs |
@@ -324,6 +325,12 @@
   - 中期：~~发布渠道~~（Web/API/嵌入已做；IM 仍待）、~~猜你想问~~
   - 远期：~~虚拟机~~（UI 占位；运行时仍待）、~~语音播放~~（浏览器 TTS）、~~语音输入~~（浏览器 STT；云 ASR 另排）
 - **详见**：`cogniforge-web/docs/99-dev-plan/01-development-plan.md` v1.67；主仓开发计划「后续待办」
+
+## [变更] 知识库弃编辑确认框（2026-11-27）
+
+- **变更原因**：未保存文档编辑离开时仍用浏览器 `confirm`
+- **变更后**：切 Tab / 换文档 / 关闭预览统一改用 `CfConfirmModal`
+- **包含代码**：`pages/knowledge/[id].vue`
 
 ## [变更] 工作室版本回滚确认框（2026-11-27）
 

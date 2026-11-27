@@ -22,6 +22,7 @@ type ExecutionContext struct {
 	Output         map[string]any
 	State          map[string]string
 	DefinitionHash string // 工作流定义哈希（checkpoint）
+	SubflowDepth   int    // 嵌套子流程深度（根=0）
 	StartTime      time.Time
 	mu             sync.RWMutex
 	Logger         *ExecutionLogger

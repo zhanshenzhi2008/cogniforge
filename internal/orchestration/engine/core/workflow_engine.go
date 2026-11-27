@@ -136,6 +136,19 @@ func vueDataToConfig(nodeType string, data map[string]any) json.RawMessage {
 		if v, ok := data["goal"]; ok {
 			out["goal"] = v
 		}
+	case "subflow":
+		if v, ok := data["workflowId"]; ok {
+			out["workflow_id"] = v
+		} else if v, ok := data["workflow_id"]; ok {
+			out["workflow_id"] = v
+		} else if v, ok := data["subflowWorkflowId"]; ok {
+			out["workflow_id"] = v
+		}
+		if v, ok := data["input"]; ok {
+			out["input"] = v
+		} else if v, ok := data["subflowInput"]; ok {
+			out["input"] = v
+		}
 	case "search":
 		if v, ok := data["knowledgeBaseId"]; ok {
 			out["knowledge_base_id"] = v
@@ -797,6 +810,74 @@ func fireWorkflowWebhook(executionID, status, errMsg string) {
 	if resp.StatusCode >= 300 {
 		slog.Warn("workflow webhook non-2xx", "status", resp.StatusCode, "execution_id", executionID)
 	}
+}
+
+// MaxSubflowDepth 子流程最大嵌套层数（根流程深度 0，其子流程为 1）
+const MaxSubflowDepth = 3
+
+// RunNested 同步跑嵌套工作流；写入独立 execution 记录，等待完成返回输出
+func (e *WorkflowEngine) RunNested(parent *ExecutionContext, workflowID string, input map[string]any) (map[string]any, error) {
+	if parent == nil {
+		return nil, fmt.Errorf("subflow: missing parent context")
+	}
+	userID := parent.UserID
+	if userID == "" {
+		return nil, fmt.Errorf("subflow: missing user_id")
+	}
+	depth := parent.SubflowDepth + 1
+	if depth > MaxSubflowDepth {
+		return nil, fmt.Errorf("subflow nesting exceeds max depth %d", MaxSubflowDepth)
+	}
+	if workflowID == parent.WorkflowID {
+		return nil, fmt.Errorf("subflow cannot call the same workflow")
+	}
+
+	var workflow model.Workflow
+	if err := database.DB.Where("id = ? AND user_id = ?", workflowID, userID).First(&workflow).Error; err != nil {
+		return nil, fmt.Errorf("subflow workflow not found: %w", err)
+	}
+
+	executionID := generateID()
+	now := time.Now()
+	execution := model.WorkflowExecution{
+		ID:         executionID,
+		TraceID:    parent.TraceID,
+		WorkflowID: workflowID,
+		UserID:     userID,
+		Status:     "pending",
+		Input:      model.JSONBMap(input),
+		StartedAt:  &now,
+	}
+	if err := database.DB.Create(&execution).Error; err != nil {
+		return nil, fmt.Errorf("subflow create execution: %w", err)
+	}
+
+	def, err := e.ParseDefinition(workflow.Definition)
+	if err != nil {
+		database.DB.Model(&model.WorkflowExecution{}).Where("id = ?", executionID).
+			Updates(map[string]any{"status": "failed", "error": err.Error()})
+		return nil, fmt.Errorf("subflow parse definition: %w", err)
+	}
+
+	ctx := NewExecutionContextWithTraceID(workflowID, executionID, input, parent.TraceID).WithUserID(userID)
+	ctx.SubflowDepth = depth
+	ctx.DefinitionHash = HashDefinition(workflow.Definition)
+
+	result := e.Execute(ctx, def)
+	if result.Status == "waiting" {
+		return nil, fmt.Errorf("subflow entered waiting; nested wait/approval is not supported yet")
+	}
+	if result.Status != "completed" {
+		errMsg := result.Error
+		if errMsg == "" {
+			errMsg = result.Status
+		}
+		return nil, fmt.Errorf("subflow failed: %s", errMsg)
+	}
+	if result.Output == nil {
+		return map[string]any{}, nil
+	}
+	return result.Output, nil
 }
 
 func (e *WorkflowEngine) ExecuteAsync(workflowID, userID string, input map[string]any) (string, error) {

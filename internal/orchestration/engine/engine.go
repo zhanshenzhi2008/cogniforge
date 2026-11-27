@@ -15,6 +15,7 @@ type (
 	LLMNodeExecutor       = nodes.LLMNodeExecutor
 	AgentNodeExecutor     = nodes.AgentNodeExecutor
 	TeamNodeExecutor      = nodes.TeamNodeExecutor
+	SubflowNodeExecutor   = nodes.SubflowNodeExecutor
 	WaitNodeExecutor      = nodes.WaitNodeExecutor
 	HTTPNodeExecutor      = nodes.HTTPNodeExecutor
 	CodeNodeExecutor      = nodes.CodeNodeExecutor
@@ -79,6 +80,9 @@ func NewEngineWithDeps(deps AIDeps) *WorkflowEngine {
 		Quota: deps.Quota,
 		DB:    deps.DB,
 	})
+	subflow := &nodes.SubflowNodeExecutor{}
+	engine.RegisterExecutor("subflow", subflow)
+	subflow.Run = engine.RunNested
 	engine.RegisterExecutor("wait", &WaitNodeExecutor{})
 	engine.RegisterExecutor("condition", &ConditionNodeExecutor{})
 	engine.RegisterExecutor("loop", &LoopNodeExecutor{})

@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.82 | 工作流节点类型 `subflow`（嵌套同步执行） | orjrs |
 | 2026-11-27 | v1.81 | 调度 pause / resume / run-now | orjrs |
 | 2026-11-27 | v1.80 | 文档 lifecycle + 检索按发布/有效期过滤 | orjrs |
 | 2026-11-27 | v1.79 | 工作流 Cron 调度 + 完成回调 webhook_url | orjrs |
@@ -81,6 +82,13 @@
 | 2026-08-15 | v1.2 | GET /v1/models 改为返回已启用供应商的 default_model（不再写死 GPT 列表） | orjrs |
 | 2026-04-09 | v1.1 | 新增文档上传接口、语义检索接口实现说明 | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] 子流程节点 subflow（2026-11-27）
+
+- **节点类型**：`subflow`
+- **config**：`workflow_id`（必填）；可选 `input`（字符串值支持 `{{var}}`；缺省传父流程 Variables+Input）
+- **行为**：同步嵌套执行并写独立 execution；深度 ≤ 3；禁止调用自己；子流程进入 `waiting` 时失败（首版不支持嵌套审批）
+- **含代码**：`nodes/subflow.go`、`WorkflowEngine.RunNested`；跨仓调色板 + 配置
 
 ## [变更] 调度暂停 / 恢复 / 立刻跑（2026-11-27）
 

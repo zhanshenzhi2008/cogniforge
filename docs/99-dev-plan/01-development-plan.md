@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.241 | 跨仓：小队列表 CfResourceCard + 视图切换 | orjrs |
 | 2026-11-27 | v1.240 | team 节点 delegate/handoff OnProgress 子步骤 | orjrs |
 | 2026-11-27 | v1.239 | 部署文档补工作室冒烟清单 A1–A12 | orjrs |
 | 2026-11-27 | v1.238 | 跨仓：工作室虚拟机/IM UI 占位 | orjrs |
@@ -385,6 +386,12 @@
 - **落地**：`ChatDeps.OnProgress` → `node_runs.detail.progress`；开始/委派/重试/失败/交接/完成
 - **未做**：自动换人（设计默认关）
 - **含代码**：`team/chat.go`、`nodes/team.go`；API v1.100；多 Agent 设计 v0.11
+
+## [变更] 小队列表卡片壳（2026-11-27）
+
+- **原因**：前端去重；小队页对齐 agents/knowledge
+- **落地**：跨仓 `CfResourceCard` + `CfViewModeToggle`
+- **Web**：开发计划 v1.150；前端设计 v1.118
 
 ## [变更] 通用版隐藏密级 UI（2026-11-27）
 

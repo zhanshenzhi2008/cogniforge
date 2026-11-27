@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.118 | 小队列表 CfResourceCard + CfViewModeToggle | orjrs |
 | 2026-11-27 | v1.117 | 工作室虚拟机/IM 即将推出占位 | orjrs |
 | 2026-11-27 | v1.116 | MCP 列表 CfViewModeToggle 卡片/表格 | orjrs |
 | 2026-11-27 | v1.115 | 对话输入浏览器语音听写（STT） | orjrs |
@@ -285,6 +286,12 @@
   - 中期：~~发布渠道~~（Web/API/嵌入已做；IM 仍待）、~~猜你想问~~
   - 远期：~~虚拟机~~（UI 占位；运行时仍待）、~~语音播放~~（浏览器 TTS）、~~语音输入~~（浏览器 STT；云 ASR 另排）
 - **详见**：`cogniforge-web/docs/99-dev-plan/01-development-plan.md` v1.67；主仓开发计划「后续待办」
+
+## [变更] 小队列表卡片壳（2026-11-27）
+
+- **变更原因**：小队页自绘卡片；对齐 agents/knowledge 共用壳
+- **变更后**：`CfResourceCard` + `CfViewModeToggle`（`cf-teams-view`）；支持表格视图
+- **包含代码**：`pages/teams/index.vue`
 
 ## [变更] 工作室虚拟机/IM 占位（2026-11-27）
 

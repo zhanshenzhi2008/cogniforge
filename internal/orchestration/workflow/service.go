@@ -104,9 +104,17 @@ func (s *WorkflowService) UpdateWorkflow(userID, workflowID string, req *UpdateW
 	if req.Status != "" {
 		updates["status"] = req.Status
 	}
+	defChanged := false
 	if req.Definition != nil {
 		defJSON, _ := json.Marshal(req.Definition)
-		updates["definition"] = string(defJSON)
+		newDef := string(defJSON)
+		if newDef != workflow.Definition {
+			defChanged = true
+			// 改定义前先把当前版写入历史，便于回滚
+			s.snapshotVersion(&workflow, "before_update")
+			updates["definition"] = newDef
+			updates["version"] = workflow.Version + 1
+		}
 	}
 
 	if len(updates) > 0 {
@@ -115,9 +123,79 @@ func (s *WorkflowService) UpdateWorkflow(userID, workflowID string, req *UpdateW
 		}
 	}
 
-	s.db.Model(&workflow).Update("version", workflow.Version+1)
+	// 仅改名/状态时不 bump；定义变更已在 updates 里 bump
+	if !defChanged && len(updates) > 0 {
+		// 保持 version 不变
+	}
 	s.db.First(&workflow, "id = ?", workflowID)
 	return &workflow, nil
+}
+
+func (s *WorkflowService) snapshotVersion(wf *model.Workflow, note string) {
+	if s.db == nil || wf == nil {
+		return
+	}
+	ver := wf.Version
+	if ver < 1 {
+		ver = 1
+	}
+	var exists int64
+	_ = s.db.Model(&model.WorkflowVersion{}).
+		Where("workflow_id = ? AND version = ?", wf.ID, ver).
+		Count(&exists).Error
+	if exists > 0 {
+		return
+	}
+	_ = s.db.Create(&model.WorkflowVersion{
+		ID:         newID(),
+		WorkflowID: wf.ID,
+		Version:    ver,
+		Definition: wf.Definition,
+		Note:       note,
+	}).Error
+}
+
+// ListWorkflowVersions 历史版本（不含当前未快照的最新版时仍可读 workflows.version）
+func (s *WorkflowService) ListWorkflowVersions(userID, workflowID string) ([]model.WorkflowVersion, error) {
+	if _, err := s.GetWorkflow(userID, workflowID); err != nil {
+		return nil, err
+	}
+	var list []model.WorkflowVersion
+	if err := s.db.Where("workflow_id = ?", workflowID).
+		Order("version DESC").
+		Limit(50).
+		Find(&list).Error; err != nil {
+		return nil, fmt.Errorf("查询版本失败")
+	}
+	return list, nil
+}
+
+// RollbackWorkflowVersion 回滚到历史版本：先快照当前，再把目标定义写回并 bump version
+func (s *WorkflowService) RollbackWorkflowVersion(userID, workflowID string, targetVersion int) (*model.Workflow, error) {
+	wf, err := s.GetWorkflow(userID, workflowID)
+	if err != nil {
+		return nil, err
+	}
+	if targetVersion < 1 {
+		return nil, fmt.Errorf("无效版本号")
+	}
+	var snap model.WorkflowVersion
+	if err := s.db.Where("workflow_id = ? AND version = ?", workflowID, targetVersion).First(&snap).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, fmt.Errorf("版本不存在")
+		}
+		return nil, fmt.Errorf("查询版本失败")
+	}
+	s.snapshotVersion(wf, "before_rollback")
+	next := wf.Version + 1
+	if err := s.db.Model(&model.Workflow{}).Where("id = ?", workflowID).Updates(map[string]any{
+		"definition": snap.Definition,
+		"version":    next,
+	}).Error; err != nil {
+		return nil, fmt.Errorf("回滚失败")
+	}
+	s.db.First(wf, "id = ?", workflowID)
+	return wf, nil
 }
 
 // DeleteWorkflow 删除工作流

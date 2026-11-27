@@ -53,7 +53,7 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 	mc := modelcache.NewFromRedis(rdb)
 	providerSvc := provider.NewService(providerRepo, mc)
 	_ = model.MigrateProviders(db)
-	_ = db.AutoMigrate(&model.UserSettings{}, &model.AgentTeam{}, &model.ChatConversation{})
+	_ = db.AutoMigrate(&model.UserSettings{}, &model.AgentTeam{}, &model.ChatConversation{}, &model.WorkflowVersion{})
 	providerSvc.RepairVendorLabels()
 	providerSvc.RefreshCache()
 	providerHandler := appprovider.NewHandler(providerSvc)

@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-26 | v1.78 | 工作流版本列表与回滚 API | orjrs |
 | 2026-11-26 | v1.77 | `POST /workflows/:id/clone` 复制工作流 | orjrs |
 | 2026-11-26 | v1.76 | debug 支持 start_from_node 从节点起跑 | orjrs |
 | 2026-11-26 | v1.75 | 审批/拒绝写入 node_runs 人工动作审计 | orjrs |
@@ -77,6 +78,14 @@
 | 2026-08-15 | v1.2 | GET /v1/models 改为返回已启用供应商的 default_model（不再写死 GPT 列表） | orjrs |
 | 2026-04-09 | v1.1 | 新增文档上传接口、语义检索接口实现说明 | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] 工作流版本回滚（2026-11-26）
+
+- **接口**：
+  - `GET /api/v1/workflows/:id/versions`
+  - `POST /api/v1/workflows/:id/versions/:version/rollback`
+- **行为**：保存定义前写入 `workflow_versions`；回滚先快照当前再恢复目标定义并 bump `version`
+- **含代码**：`WorkflowVersion`、`List/Rollback`；跨仓编辑器「版本」弹窗
 
 ## [变更] 工作流复制（2026-11-26）
 

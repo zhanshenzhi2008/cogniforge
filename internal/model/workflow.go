@@ -28,6 +28,20 @@ func (Workflow) TableName() string {
 	return "workflows"
 }
 
+// WorkflowVersion 工作流定义历史快照（简单回滚用）
+type WorkflowVersion struct {
+	ID         string    `gorm:"primaryKey;type:varchar(64)" json:"id"`
+	WorkflowID string    `gorm:"type:varchar(64);not null;uniqueIndex:uk_wf_ver,priority:1;index:idx_wf_ver_workflow" json:"workflow_id"`
+	Version    int       `gorm:"not null;uniqueIndex:uk_wf_ver,priority:2" json:"version"`
+	Definition string    `gorm:"type:text;not null" json:"definition"`
+	Note       string    `gorm:"type:varchar(255)" json:"note,omitempty"`
+	CreatedAt  time.Time `json:"created_at"`
+}
+
+func (WorkflowVersion) TableName() string {
+	return "workflow_versions"
+}
+
 // WorkflowNode 工作流节点表
 type WorkflowNode struct {
 	ID         string         `gorm:"primaryKey;type:varchar(64)" json:"id"`

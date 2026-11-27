@@ -3,6 +3,7 @@
 ## [变更记录]
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|---------|--------|
+| 2026-11-27 | v1.35 | workflows.webhook_url；启用 workflow_schedules 产品化 | orjrs |
 | 2026-11-26 | v1.34 | workflow_versions：定义历史快照（简单回滚） | orjrs |
 | 2026-11-26 | v1.33 | node_runs 支持 human_action 审批审计行 | orjrs |
 | 2026-11-23 | v1.32 | chat_conversations.team_id；Redis cogniforge:team:run:*；config.worker_retry_once | orjrs |
@@ -35,6 +36,12 @@
 | 2026-08-16 | v1.2 | Redis 键统一 `cogniforge:` 前缀；多项目用前缀隔离，不拆 db0/db1 | orjrs |
 | 2026-08-15 | v1.1 | 落地模型配置 Redis 键（当时为 `cf:modelcfg:*`） | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] webhook_url + schedules 产品化（2026-11-27）
+
+- **扩展 `workflows.webhook_url`**：VARCHAR(500)；终态回调
+- **表 `workflow_schedules`**：已有模型落地 CRUD + 进程内 cron（6 段）
+- **AutoMigrate**：`Workflow` / `WorkflowSchedule`
 
 ## [变更] workflow_versions 历史快照（2026-11-26）
 

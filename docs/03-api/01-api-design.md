@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.79 | 工作流 Cron 调度 + 完成回调 webhook_url | orjrs |
 | 2026-11-26 | v1.78 | 工作流版本列表与回滚 API | orjrs |
 | 2026-11-26 | v1.77 | `POST /workflows/:id/clone` 复制工作流 | orjrs |
 | 2026-11-26 | v1.76 | debug 支持 start_from_node 从节点起跑 | orjrs |
@@ -78,6 +79,13 @@
 | 2026-08-15 | v1.2 | GET /v1/models 改为返回已启用供应商的 default_model（不再写死 GPT 列表） | orjrs |
 | 2026-04-09 | v1.1 | 新增文档上传接口、语义检索接口实现说明 | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] Cron 调度与完成回调（2026-11-27）
+
+- **调度**：`GET/POST /workflows/:id/schedules`、`DELETE .../schedules/:scheduleId`；cron 须 **6 段**（含秒）
+- **回调**：工作流字段 `webhook_url`；执行 `completed|failed|cancelled` 时异步 POST JSON
+- **启动**：进程内 `Scheduler.Start` 加载 `is_active` 调度
+- **含代码**：`infra/scheduler`、`fireWorkflowWebhook`；跨仓「定时」弹窗 + 基本信息 webhook
 
 ## [变更] 工作流版本回滚（2026-11-26）
 

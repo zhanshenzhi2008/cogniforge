@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.199 | Cron 调度 API + 完成回调 webhook_url | orjrs |
 | 2026-11-26 | v1.198 | 工作流简单版本回滚（workflow_versions） | orjrs |
 | 2026-11-26 | v1.197 | 部署说明补工作流 W3 冒烟清单 | orjrs |
 | 2026-11-26 | v1.196 | 工作流复制 API + 列表入口 | orjrs |
@@ -197,6 +198,12 @@
 | 2026-04-11 | v1.2 | 阶段八监控中心完成（请求日志中间件、日志列表 API、用量统计 API、监控仪表板页面） | orjrs |
 | 2026-04-17 | v1.3 | 阶段九用户管理与个人设置完成（用户CRUD、个人设置、会话管理、RBAC权限系统） | orjrs |
 > 注：任务状态变更直接在下方任务表格中更新即可，无需额外记录。
+
+## [变更] Cron / 完成回调产品化（2026-11-27）
+
+- **原因**：P2；定时跑 + 外部通知
+- **落地**：schedules CRUD；进程内 Scheduler；`webhook_url` 终态 POST
+- **含代码**：`infra/scheduler`、`fireWorkflowWebhook`；跨仓定时弹窗
 
 ## [变更] 工作流简单版本回滚（2026-11-26）
 
@@ -2191,7 +2198,7 @@ composables/
 
 - [x] 工作流复制 — `POST .../clone` + 列表按钮
 - [x] 简单版本回滚 — `workflow_versions` + 编辑器版本弹窗
-- [ ] Cron / 完成回调（Webhook）产品化
+- [x] Cron / 完成回调（Webhook）产品化 — schedules API + `webhook_url`（暂停/立刻跑 UI 可再补）
 - [ ] 知识有效期/状态过滤接到 search 节点
 
 **P3**

@@ -1,11 +1,14 @@
 package core
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"net/http"
+	"strings"
 	"time"
 
 	"cogniforge/internal/infra/database"
@@ -747,6 +750,53 @@ func (e *WorkflowEngine) updateExecutionStatus(executionID, status string, outpu
 		updates["error"] = ""
 	}
 	database.DB.Model(&model.WorkflowExecution{}).Where("id = ?", executionID).Updates(updates)
+	if status == "completed" || status == "failed" || status == "cancelled" {
+		go fireWorkflowWebhook(executionID, status, errorMsg)
+	}
+}
+
+// fireWorkflowWebhook 执行终态时 POST 工作流配置的 webhook_url（失败仅打日志）
+func fireWorkflowWebhook(executionID, status, errMsg string) {
+	if database.DB == nil || executionID == "" {
+		return
+	}
+	var exec model.WorkflowExecution
+	if err := database.DB.Where("id = ?", executionID).First(&exec).Error; err != nil {
+		return
+	}
+	var wf model.Workflow
+	if err := database.DB.Where("id = ?", exec.WorkflowID).First(&wf).Error; err != nil {
+		return
+	}
+	url := strings.TrimSpace(wf.WebhookURL)
+	if url == "" {
+		return
+	}
+	body, _ := json.Marshal(map[string]any{
+		"event":        "workflow.execution." + status,
+		"execution_id": exec.ID,
+		"workflow_id":  exec.WorkflowID,
+		"status":       status,
+		"error":        errMsg,
+		"output":       exec.Output,
+		"at":           time.Now().UTC().Format(time.RFC3339),
+	})
+	client := &http.Client{Timeout: 10 * time.Second}
+	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
+	if err != nil {
+		slog.Warn("workflow webhook build request failed", "error", err, "execution_id", executionID)
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := client.Do(req)
+	if err != nil {
+		slog.Warn("workflow webhook post failed", "error", err, "execution_id", executionID, "url", url)
+		return
+	}
+	_ = resp.Body.Close()
+	if resp.StatusCode >= 300 {
+		slog.Warn("workflow webhook non-2xx", "status", resp.StatusCode, "execution_id", executionID)
+	}
 }
 
 func (e *WorkflowEngine) ExecuteAsync(workflowID, userID string, input map[string]any) (string, error) {

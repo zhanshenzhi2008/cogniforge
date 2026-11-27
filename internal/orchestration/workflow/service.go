@@ -17,6 +17,20 @@ type WorkflowService struct {
 	db             *gorm.DB
 	workflowEngine *engine.WorkflowEngine
 	locker         *ExecLocker
+	scheduler      ScheduleRunner
+}
+
+// ScheduleRunner 定时调度能力（由 infra/scheduler 实现）
+type ScheduleRunner interface {
+	Create(schedule *model.WorkflowSchedule) error
+	Delete(scheduleID string) error
+	ListByWorkflow(userID, workflowID string) ([]model.WorkflowSchedule, error)
+	PauseSchedule(scheduleID string) error
+	ResumeSchedule(scheduleID string) error
+}
+
+func (s *WorkflowService) SetScheduler(r ScheduleRunner) {
+	s.scheduler = r
 }
 
 func NewWorkflowService() *WorkflowService {
@@ -103,6 +117,9 @@ func (s *WorkflowService) UpdateWorkflow(userID, workflowID string, req *UpdateW
 	}
 	if req.Status != "" {
 		updates["status"] = req.Status
+	}
+	if req.WebhookURL != nil {
+		updates["webhook_url"] = *req.WebhookURL
 	}
 	defChanged := false
 	if req.Definition != nil {
@@ -671,4 +688,97 @@ func (s *WorkflowService) DebugWorkflowWithTraceID(userID, workflowID string, re
 // generateID 生成唯一ID
 func generateID() string {
 	return newID()
+}
+
+// CreateSchedule 为工作流创建 Cron 调度
+func (s *WorkflowService) CreateSchedule(userID, workflowID string, req *CreateScheduleRequest) (*model.WorkflowSchedule, error) {
+	if s.scheduler == nil {
+		return nil, fmt.Errorf("调度器未启用")
+	}
+	if _, err := s.GetWorkflow(userID, workflowID); err != nil {
+		return nil, err
+	}
+	active := true
+	if req != nil && req.IsActive != nil {
+		active = *req.IsActive
+	}
+	name := ""
+	cronExpr := ""
+	var input model.JSONBMap
+	if req != nil {
+		name = req.Name
+		cronExpr = req.CronExpression
+		if req.DefaultInput != nil {
+			input = model.JSONBMap(req.DefaultInput)
+		}
+	}
+	if name == "" {
+		name = "schedule"
+	}
+	sch := &model.WorkflowSchedule{
+		WorkflowID:     workflowID,
+		UserID:         userID,
+		Name:           name,
+		CronExpression: cronExpr,
+		IsActive:       active,
+		DefaultInput:   input,
+	}
+	if err := s.scheduler.Create(sch); err != nil {
+		return nil, err
+	}
+	return sch, nil
+}
+
+func (s *WorkflowService) ListSchedules(userID, workflowID string) ([]model.WorkflowSchedule, error) {
+	if s.scheduler == nil {
+		return nil, fmt.Errorf("调度器未启用")
+	}
+	if _, err := s.GetWorkflow(userID, workflowID); err != nil {
+		return nil, err
+	}
+	return s.scheduler.ListByWorkflow(userID, workflowID)
+}
+
+func (s *WorkflowService) DeleteSchedule(userID, workflowID, scheduleID string) error {
+	if s.scheduler == nil {
+		return fmt.Errorf("调度器未启用")
+	}
+	if _, err := s.GetWorkflow(userID, workflowID); err != nil {
+		return err
+	}
+	list, err := s.scheduler.ListByWorkflow(userID, workflowID)
+	if err != nil {
+		return err
+	}
+	found := false
+	for _, it := range list {
+		if it.ID == scheduleID {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return fmt.Errorf("调度不存在")
+	}
+	return s.scheduler.Delete(scheduleID)
+}
+
+func (s *WorkflowService) PauseSchedule(userID, workflowID, scheduleID string) error {
+	if s.scheduler == nil {
+		return fmt.Errorf("调度器未启用")
+	}
+	if _, err := s.GetWorkflow(userID, workflowID); err != nil {
+		return err
+	}
+	return s.scheduler.PauseSchedule(scheduleID)
+}
+
+func (s *WorkflowService) ResumeSchedule(userID, workflowID, scheduleID string) error {
+	if s.scheduler == nil {
+		return fmt.Errorf("调度器未启用")
+	}
+	if _, err := s.GetWorkflow(userID, workflowID); err != nil {
+		return err
+	}
+	return s.scheduler.ResumeSchedule(scheduleID)
 }

@@ -19,6 +19,7 @@ type Workflow struct {
 	Definition  string         `gorm:"type:text" json:"definition"`
 	Status      string         `gorm:"type:varchar(50);default:'draft'" json:"status"`
 	Version     int            `gorm:"default:1" json:"version"`
+	WebhookURL  string         `gorm:"type:varchar(500)" json:"webhook_url,omitempty"` // 执行终态回调（完成/失败/取消）
 	CreatedAt   time.Time      `json:"created_at"`
 	UpdatedAt   time.Time      `json:"updated_at"`
 	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`

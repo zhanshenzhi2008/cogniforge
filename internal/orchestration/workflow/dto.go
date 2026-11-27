@@ -13,6 +13,14 @@ type UpdateWorkflowRequest struct {
 	Description string         `json:"description"`
 	Status      string         `json:"status"`
 	Definition  map[string]any `json:"definition"`
+	WebhookURL  *string        `json:"webhook_url"` // 传空串可清空
+}
+
+type CreateScheduleRequest struct {
+	Name           string         `json:"name"`
+	CronExpression string         `json:"cron_expression" binding:"required"`
+	DefaultInput   map[string]any `json:"default_input"`
+	IsActive       *bool          `json:"is_active"`
 }
 
 type ExecuteWorkflowRequest struct {

@@ -144,6 +144,55 @@ func (h *WorkflowHandler) CloneWorkflow(c *gin.Context) {
 	response.Created(c, workflow)
 }
 
+// CreateWorkflowSchedule 创建 Cron 调度
+func (h *WorkflowHandler) CreateWorkflowSchedule(c *gin.Context) {
+	userID := c.GetString("user_id")
+	if userID == "" {
+		response.Unauthorized(c, "unauthorized")
+		return
+	}
+	var req orchwf.CreateScheduleRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "请求参数无效: "+err.Error())
+		return
+	}
+	sch, err := h.service.CreateSchedule(userID, c.Param("id"), &req)
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+	response.Created(c, sch)
+}
+
+// ListWorkflowSchedules 调度列表
+func (h *WorkflowHandler) ListWorkflowSchedules(c *gin.Context) {
+	userID := c.GetString("user_id")
+	if userID == "" {
+		response.Unauthorized(c, "unauthorized")
+		return
+	}
+	list, err := h.service.ListSchedules(userID, c.Param("id"))
+	if err != nil {
+		response.NotFound(c, err.Error())
+		return
+	}
+	response.Success(c, list)
+}
+
+// DeleteWorkflowSchedule 删除调度
+func (h *WorkflowHandler) DeleteWorkflowSchedule(c *gin.Context) {
+	userID := c.GetString("user_id")
+	if userID == "" {
+		response.Unauthorized(c, "unauthorized")
+		return
+	}
+	if err := h.service.DeleteSchedule(userID, c.Param("id"), c.Param("scheduleId")); err != nil {
+		response.NotFound(c, err.Error())
+		return
+	}
+	response.SuccessWithMessage(c, nil, "调度已删除")
+}
+
 // ListWorkflowVersions 历史版本列表
 func (h *WorkflowHandler) ListWorkflowVersions(c *gin.Context) {
 	userID := c.GetString("user_id")
@@ -399,6 +448,9 @@ func (h *WorkflowHandler) RegisterRoutes(rg *gin.RouterGroup) {
 		workflows.PUT("/:id", h.UpdateWorkflow)
 		workflows.DELETE("/:id", h.DeleteWorkflow)
 		workflows.POST("/:id/clone", h.CloneWorkflow)
+		workflows.GET("/:id/schedules", h.ListWorkflowSchedules)
+		workflows.POST("/:id/schedules", h.CreateWorkflowSchedule)
+		workflows.DELETE("/:id/schedules/:scheduleId", h.DeleteWorkflowSchedule)
 		workflows.GET("/:id/versions", h.ListWorkflowVersions)
 		workflows.POST("/:id/versions/:version/rollback", h.RollbackWorkflowVersion)
 		workflows.POST("/:id/execute", h.ExecuteWorkflow)

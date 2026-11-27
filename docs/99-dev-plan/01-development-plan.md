@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.219 | 密级强制检索写入 security_audit_logs | orjrs |
 | 2026-11-27 | v1.218 | 正式 execute 路径接流式进度写入 | orjrs |
 | 2026-11-27 | v1.217 | 角色/用户 clearance 变更审计 | orjrs |
 | 2026-11-27 | v1.216 | 通用版隐藏密级 UI（SHOW_SECURITY_LEVEL 开关） | orjrs |
@@ -217,6 +218,12 @@
 | 2026-04-11 | v1.2 | 阶段八监控中心完成（请求日志中间件、日志列表 API、用量统计 API、监控仪表板页面） | orjrs |
 | 2026-04-17 | v1.3 | 阶段九用户管理与个人设置完成（用户CRUD、个人设置、会话管理、RBAC权限系统） | orjrs |
 > 注：任务状态变更直接在下方任务表格中更新即可，无需额外记录。
+
+## [变更] 密级强制检索审计（2026-11-27）
+
+- **原因**：金融扩展；敏感检索要可追溯
+- **落地**：`KB_ENFORCE_SECURITY_LEVEL` 开启时写 `kb_secured_search`（kept/dropped/clearance）
+- **API**：v1.94
 
 ## [变更] 正式 execute 流式进度（2026-11-27）
 
@@ -2402,7 +2409,7 @@ composables/
 - [x] 谁有权把文档抬到「机密/绝密」单独鉴权（clearance≥目标或 admin）
 - [x] 角色增加 `max_security_level`；人员可覆盖（用户管理 UI）
 - [x] 检索强制：`人的可用密级 ≥ 知识密级`（`KB_ENFORCE_SECURITY_LEVEL` 开关；默认关）
-- [x] 改文档密级、角色/用户 clearance 留审计日志（`security_audit_logs` + 监控 Tab）；敏感检索审计仍待
+- [x] 改文档密级、角色/用户 clearance、密级强制检索留审计日志（`security_audit_logs` + 监控 Tab）
 - [x] 通用版 UI 隐藏密级；`NUXT_PUBLIC_SHOW_SECURITY_LEVEL=1` 才展示
 
 #### C. 检索总规则（金融全开时）

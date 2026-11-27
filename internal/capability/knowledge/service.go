@@ -953,6 +953,7 @@ func (s *KnowledgeService) SearchByUser(ctx context.Context, userID, kbID string
 	allowed := s.searchableDocIDs(ctx, kbID, req.IncludeDrafts, req.IgnoreValidity, clearance, enforceSec)
 
 	var results []SearchResult
+	droppedByPolicy := 0
 	for _, r := range pythonResp.Results {
 		docID := ""
 		docName := ""
@@ -972,6 +973,7 @@ func (s *KnowledgeService) SearchByUser(ctx context.Context, userID, kbID string
 		}
 		if allowed != nil {
 			if docID == "" || !allowed[docID] {
+				droppedByPolicy++
 				continue
 			}
 		}
@@ -985,6 +987,15 @@ func (s *KnowledgeService) SearchByUser(ctx context.Context, userID, kbID string
 		if len(results) >= topK {
 			break
 		}
+	}
+
+	if enforceSec {
+		qPreview := strings.TrimSpace(req.Query)
+		if rs := []rune(qPreview); len(rs) > 64 {
+			qPreview = string(rs[:64]) + "…"
+		}
+		detail := fmt.Sprintf("clearance=%s kept=%d dropped=%d q=%q", clearance, len(results), droppedByPolicy, qPreview)
+		s.writeSecurityAudit(userID, "kb_secured_search", "knowledge_base", kbID, kbID, "", clearance, "success", detail)
 	}
 
 	return &SearchResponse{

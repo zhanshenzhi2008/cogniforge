@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.94 | KB_ENFORCE 开启时检索写入密级审计 | orjrs |
 | 2026-11-27 | v1.93 | 正式 execute 亦写 node_runs.detail.progress | orjrs |
 | 2026-11-27 | v1.92 | 角色/用户 clearance 变更写入 security_audit_logs | orjrs |
 | 2026-11-27 | v1.91 | expand-pipeline 支持 layout=parallel 扇出图 | orjrs |
@@ -161,6 +162,12 @@
 - **回调**：工作流字段 `webhook_url`；执行 `completed|failed|cancelled` 时异步 POST JSON
 - **启动**：进程内 `Scheduler.Start` 加载 `is_active` 调度
 - **含代码**：`infra/scheduler`、`fireWorkflowWebhook`；跨仓「定时」弹窗 + 基本信息 webhook
+
+## [变更] 密级强制检索审计（2026-11-27）
+
+- **条件**：`KB_ENFORCE_SECURITY_LEVEL=1` 时每次知识检索写 `kb_secured_search`
+- **detail**：`clearance` / kept / dropped / 查询摘要
+- **含代码**：`KnowledgeService.Search` → `writeSecurityAudit`
 
 ## [变更] 正式执行流式进度（2026-11-27）
 

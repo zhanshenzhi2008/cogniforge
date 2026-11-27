@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.83 | 代码节点 python/js 走沙箱（MCP 同源） | orjrs |
 | 2026-11-27 | v1.82 | 工作流节点类型 `subflow`（嵌套同步执行） | orjrs |
 | 2026-11-27 | v1.81 | 调度 pause / resume / run-now | orjrs |
 | 2026-11-27 | v1.80 | 文档 lifecycle + 检索按发布/有效期过滤 | orjrs |
@@ -82,6 +83,13 @@
 | 2026-08-15 | v1.2 | GET /v1/models 改为返回已启用供应商的 default_model（不再写死 GPT 列表） | orjrs |
 | 2026-04-09 | v1.1 | 新增文档上传接口、语义检索接口实现说明 | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] 代码节点沙箱（2026-11-27）
+
+- **节点**：`code`；`language`：`expression` | `python` | `javascript`（及 js/node 别名）
+- **沙箱**：与 MCP `code_execute_*` 同源本地子进程；可选 `timeout`；脚本内可用 `variables` / `input`
+- **开关**：`CODE_EXECUTE_DISABLED=1` 时节点失败并提示已禁用
+- **含代码**：`mcp.ExecuteSandboxedCode`、`nodes/code.go`
 
 ## [变更] 子流程节点 subflow（2026-11-27）
 

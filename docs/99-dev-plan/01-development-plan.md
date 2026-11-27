@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.205 | 代码节点接 MCP 同源沙箱（python/js） | orjrs |
 | 2026-11-27 | v1.204 | P3 子流程节点 MVP（subflow 同步嵌套） | orjrs |
 | 2026-11-27 | v1.203 | 调度 pause/resume/run-now API + Web 按钮 | orjrs |
 | 2026-11-27 | v1.202 | 检索测试 UI 接 include_drafts / ignore_validity（跨仓） | orjrs |
@@ -204,12 +205,19 @@
 | 2026-04-17 | v1.3 | 阶段九用户管理与个人设置完成（用户CRUD、个人设置、会话管理、RBAC权限系统） | orjrs |
 > 注：任务状态变更直接在下方任务表格中更新即可，无需额外记录。
 
+## [变更] 代码节点真沙箱（2026-11-27）
+
+- **原因**：P3；代码节点原先 JS 为假实现
+- **落地**：`python` / `javascript` 走 `mcp.ExecuteSandboxedCode`；注入 `variables`/`input`；尊重 `CODE_EXECUTE_DISABLED`
+- **含代码**：`nodes/code.go`、`mcp.ExecuteSandboxedCode`；跨仓语言选项
+- **未做**：容器强隔离、LLM 流式、并行工人
+
 ## [变更] 子流程节点 MVP（2026-11-27）
 
 - **原因**：P3；复用已有工作流做嵌套编排
 - **落地**：节点 `subflow` + `RunNested`（深度 3、禁自调用、禁嵌套 waiting）
 - **含代码**：`nodes/subflow.go`、引擎注册；跨仓调色板
-- **未做**：真沙箱、LLM 流式、并行工人、子流程内审批
+- **未做**：子流程内审批、LLM 流式、并行工人
 - **API**：v1.82
 
 ## [变更] 调度暂停 / 恢复 / 立刻跑（2026-11-27）
@@ -2243,7 +2251,8 @@ composables/
 **P3**
 
 - [x] 子流程节点 MVP（`subflow` 同步嵌套；深度 3；暂不支持嵌套 wait）
-- [ ] 真代码沙箱、LLM 流式、并行工人（M4）
+- [x] 代码节点真沙箱（python/js 本地子进程；与 MCP code_execute 同源）
+- [ ] LLM 流式、并行工人（M4）
 
 ### 知识有效期、密级与检索过滤（2026-11-25，未做）
 

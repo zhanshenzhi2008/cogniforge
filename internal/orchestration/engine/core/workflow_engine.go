@@ -246,6 +246,11 @@ func vueDataToConfig(nodeType string, data map[string]any) json.RawMessage {
 		} else if v, ok := data["code"]; ok {
 			out["code"] = v
 		}
+		if v, ok := data["timeout"]; ok {
+			out["timeout"] = v
+		} else if v, ok := data["codeTimeout"]; ok {
+			out["timeout"] = v
+		}
 	case "condition":
 		if v, ok := data["conditions"]; ok {
 			out["conditions"] = v

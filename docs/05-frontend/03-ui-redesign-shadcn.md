@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.198 | 代码节点抽屉可配沙箱超时 | orjrs |
 | 2026-11-27 | v1.197 | 子流程抽屉可配入参 JSON 映射 | orjrs |
 | 2026-11-27 | v1.196 | 等待提示与条件比较值支持 {{变量}} | orjrs |
 | 2026-11-27 | v1.195 | HTTP 节点 URL/头/体支持 {{变量}} | orjrs |
@@ -365,6 +366,12 @@
   - 中期：~~发布渠道~~（Web/API/嵌入已做；IM 仍待）、~~猜你想问~~
   - 远期：~~虚拟机~~（UI 占位；运行时仍待）、~~语音播放~~（浏览器 TTS）、~~语音输入~~（浏览器 STT；云 ASR 另排）
 - **详见**：`cogniforge-web/docs/99-dev-plan/01-development-plan.md` v1.67；主仓开发计划「后续待办」
+
+## [变更] 代码节点沙箱超时（2026-11-27）
+
+- **变更原因**：引擎 / 沙箱已支持 `timeout`（默认 30、最长 60），抽屉无入口
+- **变更后**：代码抽屉可填超时；副文案非默认时带 · Ns；仅 Python/JS 生效
+- **包含代码**：Web 抽屉与 `workflowNodeSettings`；`vueDataToConfig` 已透传 `codeTimeout`
 
 ## [变更] 子流程入参映射（2026-11-27）
 
@@ -2119,7 +2126,7 @@ Mobile 问题记入 backlog，**不阻断** Web 主路径合并。
 | `condition` | 是 | 字段 运算符 值 | **conditionField**、operator、value（`{{变量}}`）、description；须真/假出边 |
 | `loop` | 是 | 次数/条件/数组→元素 | loopType；for_each 时 **loopArrayVar** |
 | `http` | 是 | METHOD url · n头 | method、**httpUrl**、body、**headers**、timeout；URL/头/体支持 `{{变量}}` |
-| `code` | 是 | 语言: 首行 | language、**codeSource** |
+| `code` | 是 | 语言: 首行 · Ns | language、**codeSource**、timeout（沙箱，默认 30 / 最长 60） |
 | `delay` | 是 | 时长+单位 | delayDuration、delayUnit |
 | `wait` | 是 | 原因:消息 · 超时 | waitReason、waitMessage（`{{变量}}`）、timeoutSec |
 | `input` | 否（旧图） | 变量名 | **variable** |

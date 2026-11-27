@@ -475,6 +475,12 @@
 - **落地**：跨仓保存前拦截 team/agent/search/subflow
 - **Web**：开发计划 v1.161；前端设计 v1.129
 
+## [变更] 评估列表卡片视图（2026-11-27）
+
+- **原因**：跨模块列表去重
+- **落地**：跨仓评估套件列表卡片 + 视图切换
+- **Web**：开发计划 v1.166；前端设计 v1.134
+
 ## [变更] 画布已绑定节点显示资源名（2026-11-27）
 
 - **原因**：绑好后画布看不出绑的是谁
@@ -2588,7 +2594,7 @@ composables/
 - [x] `CfConfirmModal`：各列表删除确认（agents/teams/models/keys/workflows/knowledge/prompts/mcp/users/roles）
 - [x] `CfEmptyState` / `CfLoadingState`：主要列表页
 - [x] `CfFieldHelp`：表单帮助图标（知识库检索/分段）
-- [x] 可选 `CfResourceCard`（agents/knowledge 已接）；知识库 / MCP 复用 `CfViewModeToggle`
+- [x] 可选 `CfResourceCard`（agents/knowledge/teams/workflows/prompts/keys/mcp/evals 已接）；知识库 / MCP / 评估复用 `CfViewModeToggle`
 
 ### 工作流（2026-11-26，按优先级）
 

@@ -48,6 +48,7 @@ var (
 	HashDefinition                 = core.HashDefinition
 	ApplyCheckpoint                = core.ApplyCheckpoint
 	ApplyStartFrom                 = core.ApplyStartFrom
+	PatchNodeRunProgress           = core.PatchNodeRunProgress
 )
 
 // 调试器构造函数

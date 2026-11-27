@@ -1033,6 +1033,22 @@ func (e *WorkflowEngine) ExecuteAsync(workflowID, userID string, input map[strin
 	return e.ExecuteAsyncWithTraceID(workflowID, userID, input, "")
 }
 
+// PatchNodeRunProgress 把流式进度写入正在跑的 node_run.detail.progress（execute/debug 轮询刷 UI）
+func PatchNodeRunProgress(executionID, nodeID, message string) {
+	if database.DB == nil || executionID == "" || nodeID == "" || message == "" {
+		return
+	}
+	payload, err := json.Marshal(map[string]string{"progress": message})
+	if err != nil {
+		return
+	}
+	_ = database.DB.Exec(`
+		UPDATE workflow_node_runs
+		SET detail = COALESCE(detail, '{}'::jsonb) || ?::jsonb
+		WHERE execution_id = ? AND node_id = ? AND status = 'running'
+	`, string(payload), executionID, nodeID).Error
+}
+
 func (e *WorkflowEngine) ExecuteAsyncWithTraceID(workflowID, userID string, input map[string]any, traceID string) (string, error) {
 	var workflow model.Workflow
 	if err := database.DB.Where("id = ? AND user_id = ?", workflowID, userID).First(&workflow).Error; err != nil {
@@ -1071,6 +1087,14 @@ func (e *WorkflowEngine) ExecuteAsyncWithTraceID(workflowID, userID string, inpu
 		}()
 
 		ctx := NewExecutionContextWithTraceID(workflowID, executionID, input, currentTraceID).WithUserID(userID)
+		ctx.DefinitionHash = HashDefinition(workflow.Definition)
+		ctx.OnNodeStart = func(nodeID string) {
+			e.setCurrentNode(executionID, nodeID)
+		}
+		ctx.OnProgress = func(nodeID, message string) {
+			ctx.Logger.Logf(nodeID, "info", "%s", message)
+			PatchNodeRunProgress(executionID, nodeID, message)
+		}
 		def, err := e.ParseDefinition(workflow.Definition)
 		if err != nil {
 			database.DB.Model(&model.WorkflowExecution{}).

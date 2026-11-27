@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.93 | 正式 execute 亦写 node_runs.detail.progress | orjrs |
 | 2026-11-27 | v1.92 | 角色/用户 clearance 变更写入 security_audit_logs | orjrs |
 | 2026-11-27 | v1.91 | expand-pipeline 支持 layout=parallel 扇出图 | orjrs |
 | 2026-11-27 | v1.90 | 密级审计：改文档密级落库；GET /admin/security-audits | orjrs |
@@ -160,6 +161,12 @@
 - **回调**：工作流字段 `webhook_url`；执行 `completed|failed|cancelled` 时异步 POST JSON
 - **启动**：进程内 `Scheduler.Start` 加载 `is_active` 调度
 - **含代码**：`infra/scheduler`、`fireWorkflowWebhook`；跨仓「定时」弹窗 + 基本信息 webhook
+
+## [变更] 正式执行流式进度（2026-11-27）
+
+- **行为**：`POST .../execute`（`ExecuteAsync`）同样挂 `OnProgress` → `PatchNodeRunProgress`
+- **效果**：运行态轮询详情时画布/侧栏可刷 LLM 流式预览（与 debug 一致）
+- **含代码**：`engine/core.PatchNodeRunProgress`、`ExecuteAsyncWithTraceID`
 
 ## [变更] 角色/用户 clearance 审计（2026-11-27）
 

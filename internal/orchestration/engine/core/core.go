@@ -202,6 +202,36 @@ type EdgeDefinition struct {
 	TargetHandle string `json:"target_handle,omitempty"`
 }
 
+// UnmarshalJSON 兼容前端 camelCase（sourceHandle）与 snake_case（source_handle）
+func (e *EdgeDefinition) UnmarshalJSON(data []byte) error {
+	var raw struct {
+		ID            string `json:"id"`
+		Source        string `json:"source"`
+		Target        string `json:"target"`
+		SourceHandle  string `json:"source_handle"`
+		SourceHandleC string `json:"sourceHandle"`
+		TargetHandle  string `json:"target_handle"`
+		TargetHandleC string `json:"targetHandle"`
+	}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	e.ID = raw.ID
+	e.Source = raw.Source
+	e.Target = raw.Target
+	if raw.SourceHandle != "" {
+		e.SourceHandle = raw.SourceHandle
+	} else {
+		e.SourceHandle = raw.SourceHandleC
+	}
+	if raw.TargetHandle != "" {
+		e.TargetHandle = raw.TargetHandle
+	} else {
+		e.TargetHandle = raw.TargetHandleC
+	}
+	return nil
+}
+
 type Position struct {
 	X float64 `json:"x"`
 	Y float64 `json:"y"`

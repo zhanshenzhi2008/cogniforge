@@ -20,7 +20,7 @@ import (
 	"gorm.io/gorm"
 )
 
-const EngineVersion = "18.4"
+const EngineVersion = "18.5"
 
 type WorkflowEngine struct {
 	db            *gorm.DB
@@ -474,14 +474,17 @@ func (e *WorkflowEngine) Execute(ctx *ExecutionContext, def *WorkflowDefinition)
 
 	nodeMap := make(map[string]NodeDefinition, len(def.Nodes))
 	inDegree := make(map[string]int, len(def.Nodes))
-	succ := make(map[string][]string)
+	succ := make(map[string][]outEdge)
 	for _, n := range def.Nodes {
 		nodeMap[n.ID] = n
 		inDegree[n.ID] = 0
 	}
 	for _, edge := range def.Edges {
 		inDegree[edge.Target]++
-		succ[edge.Source] = append(succ[edge.Source], edge.Target)
+		succ[edge.Source] = append(succ[edge.Source], outEdge{
+			Target: edge.Target,
+			Handle: edge.SourceHandle,
+		})
 	}
 
 	completed := make([]string, 0)
@@ -490,9 +493,9 @@ func (e *WorkflowEngine) Execute(ctx *ExecutionContext, def *WorkflowDefinition)
 		if st == "skipped" || st == "succeeded" {
 			completed = append(completed, id)
 			completedSet[id] = true
-			// 已完成节点视为已释放后继依赖
-			for _, t := range succ[id] {
-				inDegree[t]--
+			// 恢复时已完成/跳过节点：放出全部后继（含未选分支，因其亦在 completedSet）
+			for _, oe := range succ[id] {
+				inDegree[oe.Target]--
 			}
 		}
 	}
@@ -564,13 +567,14 @@ func (e *WorkflowEngine) Execute(ctx *ExecutionContext, def *WorkflowDefinition)
 			if oc.waiting {
 				completed = append(completed, oc.node.ID)
 				completedSet[oc.node.ID] = true
+				var waitReady []string
+				releaseSuccessors(
+					oc.node.ID, oc.node.Type, oc.output,
+					succ, inDegree, completedSet, &completed, &waitReady, ctx,
+				)
 				nextID := ""
-				for _, t := range succ[oc.node.ID] {
-					inDegree[t]--
-					if inDegree[t] == 0 && !completedSet[t] {
-						nextID = t
-						break
-					}
+				if len(waitReady) > 0 {
+					nextID = waitReady[0]
 				}
 				e.saveCheckpoint(ctx, nextID, completed, "enter_waiting")
 				e.setWaiting(ctx.ExecutionID, oc.waitReason, oc.waitMsg, oc.timeoutSec)
@@ -581,12 +585,10 @@ func (e *WorkflowEngine) Execute(ctx *ExecutionContext, def *WorkflowDefinition)
 			}
 			completed = append(completed, oc.node.ID)
 			completedSet[oc.node.ID] = true
-			for _, t := range succ[oc.node.ID] {
-				inDegree[t]--
-				if inDegree[t] == 0 && !completedSet[t] {
-					ready = append(ready, t)
-				}
-			}
+			releaseSuccessors(
+				oc.node.ID, oc.node.Type, oc.output,
+				succ, inDegree, completedSet, &completed, &ready, ctx,
+			)
 			e.saveCheckpoint(ctx, "", completed, "node_ok")
 		}
 	}

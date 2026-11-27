@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.331 | Team 节点写入/接 last_agent_content | orjrs |
 | 2026-11-27 | v1.330 | LLM 成功写入 last_agent_content 串联下游 | orjrs |
 | 2026-11-27 | v1.329 | HTTP 节点可配非 2xx 失败（fail_on_error） | orjrs |
 | 2026-11-27 | v1.328 | 跨仓：LLM 抽屉可配温度与 max tokens | orjrs |
@@ -547,6 +548,12 @@
 - **原因**：未绑定可保存、运行才失败
 - **落地**：跨仓保存前拦截 team/agent/search/subflow
 - **Web**：开发计划 v1.161；前端设计 v1.129
+
+## [变更] Team 写入/接 last_agent_content（2026-11-27）
+
+- **原因**：与 LLM/Agent 流水线变量对齐
+- **落地**：`team.go` 成功写入；空 task 接上游；前端设计 v1.204
+- **Web**：开发计划 v1.240
 
 ## [变更] LLM 写入 last_agent_content（2026-11-27）
 

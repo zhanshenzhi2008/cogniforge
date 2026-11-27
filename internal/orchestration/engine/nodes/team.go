@@ -79,6 +79,12 @@ func (e *TeamNodeExecutor) Execute(ctx *core.ExecutionContext, config json.RawMe
 			}
 		}
 	}
+	// 流水线：上游 LLM/Agent/Team 写入的 last_agent_content
+	if task == "" {
+		if v, ok := ctx.GetVariable("last_agent_content"); ok {
+			task = strings.TrimSpace(fmt.Sprint(v))
+		}
+	}
 	if task == "" {
 		return nil, fmt.Errorf("Team node: empty task (set config.task/prompt or input.query)")
 	}
@@ -146,6 +152,9 @@ func (e *TeamNodeExecutor) Execute(ctx *core.ExecutionContext, config json.RawMe
 	active := ""
 	if result != nil && result.RunState != nil {
 		active = result.RunState.ActiveAgentID
+	}
+	if content != "" {
+		ctx.SetVariable("last_agent_content", content)
 	}
 	ctx.Logger.Logf(ctx.NodeID, "info", "Team ok id=%s active=%s model=%s latency=%dms", cfg.TeamID, active, modelOut, latency)
 	if deps.OnProgress != nil {

@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.204 | Team 节点写入/接 last_agent_content | orjrs |
 | 2026-11-27 | v1.203 | LLM 写入 last_agent_content 串联下游 | orjrs |
 | 2026-11-27 | v1.202 | HTTP 节点可配非 2xx 失败 | orjrs |
 | 2026-11-27 | v1.201 | LLM 抽屉可配温度与 max tokens | orjrs |
@@ -371,6 +372,12 @@
   - 中期：~~发布渠道~~（Web/API/嵌入已做；IM 仍待）、~~猜你想问~~
   - 远期：~~虚拟机~~（UI 占位；运行时仍待）、~~语音播放~~（浏览器 TTS）、~~语音输入~~（浏览器 STT；云 ASR 另排）
 - **详见**：`cogniforge-web/docs/99-dev-plan/01-development-plan.md` v1.67；主仓开发计划「后续待办」
+
+## [变更] Team 写入/接 last_agent_content（2026-11-27）
+
+- **变更原因**：与 LLM/Agent 流水线变量对齐，小队任务空时也应接上游
+- **变更后**：Team 成功写 `last_agent_content`；空 task 优先接该变量
+- **包含代码**：`nodes/team.go`；Web placeholder
 
 ## [变更] LLM 写入 last_agent_content（2026-11-27）
 
@@ -2155,7 +2162,7 @@ Mobile 问题记入 backlog，**不阻断** Web 主路径合并。
 | `end` | 是 | 「流程结束」 | （仅名称） |
 | `llm` | 是 | 模型名；流式 / t= / maxN | **model**、systemPrompt、prompt（`{{变量}}`；空接 `last_agent_content`）、llmStream、temperature、maxTokens；成功写 `last_agent_content` |
 | `agent` | 是 | 智能体名 | **agentId**、prompt（`{{变量}}`） |
-| `team` | 是 | 小队名 | **teamId**、prompt/task（`{{变量}}`） |
+| `team` | 是 | 小队名 | **teamId**、prompt/task（`{{变量}}`；空接 `last_agent_content`）；成功写该变量 |
 | `search` | 是 | 库名 · 模式 · topK | **knowledgeBaseId**、query、searchMode/topK/minScore/rerank*/hybrid* |
 | `subflow` | 是 | 嵌套工作流名 · 自定义入参 | **subflowWorkflowId**（禁自身；最多 3 层）；可选 `input` JSON（`{{变量}}`） |
 | `condition` | 是 | 字段 运算符 值 | **conditionField**、operator、value（`{{变量}}`）、description；须真/假出边 |

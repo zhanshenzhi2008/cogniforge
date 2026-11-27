@@ -58,12 +58,12 @@ func TestConversationCRUDAndIsolation(t *testing.T) {
 	assert.Equal(t, "user-a", created.UserID)
 	require.Len(t, created.Messages, 2)
 
-	listed, err := svc.List("user-a")
+	listed, err := svc.List("user-a", "", "")
 	require.NoError(t, err)
 	require.Len(t, listed, 1)
 	assert.Equal(t, created.ID, listed[0].ID)
 
-	otherList, err := svc.List("user-b")
+	otherList, err := svc.List("user-b", "", "")
 	require.NoError(t, err)
 	assert.Empty(t, otherList)
 
@@ -113,7 +113,7 @@ func TestConversationPinSortsFirst(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	listed, err := svc.List("user-a")
+	listed, err := svc.List("user-a", "", "")
 	require.NoError(t, err)
 	require.Len(t, listed, 2)
 	assert.Equal(t, newer.ID, listed[0].ID)
@@ -123,7 +123,7 @@ func TestConversationPinSortsFirst(t *testing.T) {
 	_, err = svc.Update("user-a", older.ID, &UpdateConversationRequest{Pinned: &pinned})
 	require.NoError(t, err)
 
-	listed, err = svc.List("user-a")
+	listed, err = svc.List("user-a", "", "")
 	require.NoError(t, err)
 	require.Len(t, listed, 2)
 	assert.Equal(t, older.ID, listed[0].ID)
@@ -135,7 +135,7 @@ func TestConversationPinSortsFirst(t *testing.T) {
 	_, err = svc.Update("user-a", older.ID, &UpdateConversationRequest{Pinned: &unpinned})
 	require.NoError(t, err)
 
-	listed, err = svc.List("user-a")
+	listed, err = svc.List("user-a", "", "")
 	require.NoError(t, err)
 	require.Len(t, listed, 2)
 	assert.False(t, listed[0].Pinned)
@@ -172,7 +172,7 @@ func TestConversationMessageQueue(t *testing.T) {
 	_, err = svc.Update("user-a", created.ID, &UpdateConversationRequest{MessageQueue: &tooMany})
 	require.ErrorIs(t, err, errMessageQueueTooLong)
 
-	listed, err := svc.List("user-a")
+	listed, err := svc.List("user-a", "", "")
 	require.NoError(t, err)
 	require.Len(t, listed, 1)
 	assert.Equal(t, 2, listed[0].QueueLen)

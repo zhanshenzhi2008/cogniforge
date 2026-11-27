@@ -134,10 +134,14 @@ func normalizeMessageQueue(items []model.ConversationQueueItem) ([]model.Convers
 	return out, nil
 }
 
-func (s *ConversationService) List(userID string, teamID ...string) ([]ConversationSummary, error) {
+// List 列出当前用户会话；teamID / agentID 非空时按字段过滤（可同时使用）。
+func (s *ConversationService) List(userID string, teamID string, agentID string) ([]ConversationSummary, error) {
 	q := s.db.Where("user_id = ?", userID)
-	if len(teamID) > 0 && strings.TrimSpace(teamID[0]) != "" {
-		q = q.Where("team_id = ?", strings.TrimSpace(teamID[0]))
+	if strings.TrimSpace(teamID) != "" {
+		q = q.Where("team_id = ?", strings.TrimSpace(teamID))
+	}
+	if strings.TrimSpace(agentID) != "" {
+		q = q.Where("agent_id = ?", strings.TrimSpace(agentID))
 	}
 	var rows []model.ChatConversation
 	err := q.Select("id", "user_id", "agent_id", "team_id", "title", "model", "pinned", "message_queue", "created_at", "updated_at").

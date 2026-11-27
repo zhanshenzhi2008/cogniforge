@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v0.14 | LLM 亦写入 last_agent_content 串联下游 | orjrs |
 | 2026-11-27 | v0.13 | Web：max_depth/max_steps 限额可配 | orjrs |
 | 2026-11-27 | v0.12 | Web：worker_retry_once 创建/列表可配 | orjrs |
 | 2026-11-27 | v0.11 | team 节点 OnProgress：delegate/handoff 子步骤 | orjrs |

@@ -105,6 +105,10 @@ func (e *HTTPNodeExecutor) Execute(ctx *core.ExecutionContext, config json.RawMe
 		"duration_ms": duration.Milliseconds(),
 	}
 
+	// 供下游 {{last_http_body}} / {{last_http_status}} 引用（与 last_agent_content 同套路）
+	ctx.SetVariable("last_http_status", resp.StatusCode)
+	ctx.SetVariable("last_http_body", bodyStr)
+
 	ctx.Logger.Logf(ctx.NodeID, "info", "HTTP response: status=%d, duration=%dms", resp.StatusCode, duration.Milliseconds())
 
 	if cfg.FailOnError && resp.StatusCode >= 400 {

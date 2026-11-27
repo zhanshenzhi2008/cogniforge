@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.205 | HTTP 写入 last_http_status/body 供下游引用 | orjrs |
 | 2026-11-27 | v1.204 | Team 节点写入/接 last_agent_content | orjrs |
 | 2026-11-27 | v1.203 | LLM 写入 last_agent_content 串联下游 | orjrs |
 | 2026-11-27 | v1.202 | HTTP 节点可配非 2xx 失败 | orjrs |
@@ -372,6 +373,12 @@
   - 中期：~~发布渠道~~（Web/API/嵌入已做；IM 仍待）、~~猜你想问~~
   - 远期：~~虚拟机~~（UI 占位；运行时仍待）、~~语音播放~~（浏览器 TTS）、~~语音输入~~（浏览器 STT；云 ASR 另排）
 - **详见**：`cogniforge-web/docs/99-dev-plan/01-development-plan.md` v1.67；主仓开发计划「后续待办」
+
+## [变更] HTTP last_http_* 变量（2026-11-27）
+
+- **变更原因**：下游要用响应体/状态码时，只能翻节点输出，模板不便写
+- **变更后**：每次 HTTP 结束后写 `last_http_status` / `last_http_body`；抽屉说明
+- **包含代码**：`nodes/http.go`；Web hint
 
 ## [变更] Team 写入/接 last_agent_content（2026-11-27）
 
@@ -2167,7 +2174,7 @@ Mobile 问题记入 backlog，**不阻断** Web 主路径合并。
 | `subflow` | 是 | 嵌套工作流名 · 自定义入参 | **subflowWorkflowId**（禁自身；最多 3 层）；可选 `input` JSON（`{{变量}}`） |
 | `condition` | 是 | 字段 运算符 值 | **conditionField**、operator、value（`{{变量}}`）、description；须真/假出边 |
 | `loop` | 是 | 次数/条件/数组→元素 | loopType；while 条件支持 `{{变量}}`；for_each 时 **loopArrayVar** |
-| `http` | 是 | METHOD url · 头/超时/严校验 | method、**httpUrl**、body、**headers**、timeout、failOnError；URL/头/体 `{{变量}}` |
+| `http` | 是 | METHOD url · 头/超时/严校验 | method、**httpUrl**、body、**headers**、timeout、failOnError；URL/头/体 `{{变量}}`；结果写 `last_http_status`/`last_http_body` |
 | `code` | 是 | 语言: 首行 · Ns | language、**codeSource**、timeout（沙箱，默认 30 / 最长 60） |
 | `delay` | 是 | 时长+单位 | delayDuration、delayUnit |
 | `wait` | 是 | 原因:消息 · 超时 | waitReason、waitMessage（`{{变量}}`）、timeoutSec |

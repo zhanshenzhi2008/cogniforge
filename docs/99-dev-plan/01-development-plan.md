@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.332 | HTTP 写入 last_http_status/body 供下游引用 | orjrs |
 | 2026-11-27 | v1.331 | Team 节点写入/接 last_agent_content | orjrs |
 | 2026-11-27 | v1.330 | LLM 成功写入 last_agent_content 串联下游 | orjrs |
 | 2026-11-27 | v1.329 | HTTP 节点可配非 2xx 失败（fail_on_error） | orjrs |

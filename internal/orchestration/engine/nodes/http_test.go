@@ -57,6 +57,12 @@ func TestHTTPNodeExecutor_ResolvesTemplates(t *testing.T) {
 	if !ok || m["status_code"] != 201 {
 		t.Fatalf("out=%v", out)
 	}
+	if st, ok := ctx.GetVariable("last_http_status"); !ok || st != 201 {
+		t.Fatalf("last_http_status=%v ok=%v", st, ok)
+	}
+	if body, ok := ctx.GetVariable("last_http_body"); !ok || body != `{"ok":true}` {
+		t.Fatalf("last_http_body=%v ok=%v", body, ok)
+	}
 }
 
 func TestHTTPNodeExecutor_FailOnError(t *testing.T) {

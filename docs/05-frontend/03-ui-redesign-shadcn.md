@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.136 | 角色管理列表 CfResourceCard + CfViewModeToggle | orjrs |
 | 2026-11-27 | v1.135 | 用户管理列表 CfResourceCard + CfViewModeToggle | orjrs |
 | 2026-11-27 | v1.134 | 评估列表 CfResourceCard + CfViewModeToggle | orjrs |
 | 2026-11-27 | v1.133 | 画布已绑定节点显示资源名副文案 | orjrs |
@@ -303,6 +304,12 @@
   - 中期：~~发布渠道~~（Web/API/嵌入已做；IM 仍待）、~~猜你想问~~
   - 远期：~~虚拟机~~（UI 占位；运行时仍待）、~~语音播放~~（浏览器 TTS）、~~语音输入~~（浏览器 STT；云 ASR 另排）
 - **详见**：`cogniforge-web/docs/99-dev-plan/01-development-plan.md` v1.67；主仓开发计划「后续待办」
+
+## [变更] 角色管理列表卡片视图（2026-11-27）
+
+- **变更原因**：跨模块列表去重；管理端角色页仍只有表格
+- **变更后**：默认卡片 + `CfViewModeToggle`（`cf-roles-view`）；系统/默认徽章；表格保留；分页共用
+- **包含代码**：`pages/admin/roles.vue`
 
 ## [变更] 用户管理列表卡片视图（2026-11-27）
 

@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.113 | 知识库列表 CfViewModeToggle 卡片/表格 | orjrs |
 | 2026-11-27 | v1.112 | CfResourceCard：agents/knowledge 卡片壳 | orjrs |
 | 2026-11-27 | v1.111 | 猜你想问：空态推荐与一键填入 | orjrs |
 | 2026-11-27 | v1.110 | 工作室发布渠道：网页/API/嵌入 | orjrs |
@@ -265,6 +266,12 @@
 - **变更原因**：agents/knowledge 卡片头图/操作/描述重复
 - **变更后**：`CfResourceCard` 提供图标、标题、徽章、操作、描述、meta 槽；两页列表改用
 - **包含代码**：`CfResourceCard.vue`、`pages/agents/index.vue`、`pages/knowledge/index.vue`
+
+## [变更] 知识库列表视图切换（2026-11-27）
+
+- **变更原因**：对齐智能体列表；去重 backlog 中的 ViewModeToggle
+- **变更后**：知识库顶栏可切卡片/表格；偏好记 `cf-kb-view`
+- **包含代码**：`pages/knowledge/index.vue`、`CfViewModeToggle`
 
 ## [变更] 智能体工作室后续 TODO（2026-11-20）
 

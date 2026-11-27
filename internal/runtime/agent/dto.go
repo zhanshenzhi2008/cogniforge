@@ -13,6 +13,7 @@ type CreateAgentRequest struct {
 	OpeningMessage      string   `json:"opening_message"`
 	SuggestedPrompts    []string `json:"suggested_prompts"`
 	RAGKnowledgeBaseIDs []string `json:"rag_kb_ids"`
+	AllowAttachments    bool     `json:"allow_attachments"`
 	Tools               []string `json:"tools"`
 	SkillID             string   `json:"skill_id"` // 阶段十五：从 SKILL 创建
 	McpServers          []string `json:"mcp_servers"`
@@ -27,6 +28,7 @@ type UpdateAgentRequest struct {
 	OpeningMessage      *string   `json:"opening_message"`   // nil=不改；""=清空
 	SuggestedPrompts    *[]string `json:"suggested_prompts"` // nil=不改；[]=清空
 	RAGKnowledgeBaseIDs *[]string `json:"rag_kb_ids"`        // nil=不改；[]=清空
+	AllowAttachments    *bool     `json:"allow_attachments"` // nil=不改
 	Tools               []string  `json:"tools"`
 	SkillID             string    `json:"skill_id"`
 	McpServers          []string  `json:"mcp_servers"`

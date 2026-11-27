@@ -67,6 +67,7 @@ func (s *AgentService) CreateAgent(userID string, req *CreateAgentRequest) (*mod
 		OpeningMessage:      strings.TrimSpace(req.OpeningMessage),
 		SuggestedPrompts:    suggested,
 		RAGKnowledgeBaseIDs: ragKBs,
+		AllowAttachments:    req.AllowAttachments,
 		Tools:               tools,
 		SkillID:             req.SkillID,
 		MemoryType:          "short_term",
@@ -131,6 +132,9 @@ func (s *AgentService) UpdateAgent(userID, agentID string, req *UpdateAgentReque
 	}
 	if req.RAGKnowledgeBaseIDs != nil {
 		agent.RAGKnowledgeBaseIDs = clampIDList(*req.RAGKnowledgeBaseIDs, maxAgentKnowledgeBases)
+	}
+	if req.AllowAttachments != nil {
+		agent.AllowAttachments = *req.AllowAttachments
 	}
 	if req.Tools != nil {
 		agent.Tools = req.Tools

@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.105 | 工作室预览附件上传（allow_attachments） | orjrs |
 | 2026-11-27 | v1.104 | 工作室可多选绑定知识库（rag_kb_ids） | orjrs |
 | 2026-11-27 | v1.103 | 工作室开场白 + 预设问题；Playground 空态展示 | orjrs |
 | 2026-11-27 | v1.102 | Playground 对话改走 useAgentChat / useChatStream | orjrs |
@@ -214,6 +215,12 @@
 - **变更原因**：知识库检索/分段旁反复手写 UTooltip + help 按钮
 - **变更后**：`CfFieldHelp`（`text` + 可选 `icon`）；已接知识库详情检索查询与分段参数标签
 - **包含代码**：`cogniforge-web/components/CfFieldHelp.vue`、`pages/knowledge/[id].vue`
+
+## [变更] 工作室预览附件上传（2026-11-27）
+
+- **变更原因**：工作室 backlog；对齐 Playground attachments
+- **变更后**：左侧「允许上传附件」；预览区回形针上传文档并随 `streamAgentChat` 传 `attachments`；Playground 按开关显隐文件钮
+- **包含代码**：`AgentStudio.vue`、`playground.vue`；主仓 API v1.97 / DB v1.42
 
 ## [变更] 工作室绑定知识库（2026-11-27）
 

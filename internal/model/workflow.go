@@ -179,14 +179,15 @@ type Agent struct {
 	OpeningMessage      string         `gorm:"type:text" json:"opening_message"`                            // 预览/对话首屏开场白
 	SuggestedPrompts    JSONBArray     `gorm:"type:jsonb" json:"suggested_prompts"`                         // 预设问题（最多若干条）
 	RAGKnowledgeBaseIDs JSONBArray     `gorm:"type:jsonb;column:rag_kb_ids" json:"rag_kb_ids"`               // 绑定知识库；对话自动 RAG
+	AllowAttachments    bool           `gorm:"default:false" json:"allow_attachments"`                       // 预览/对话是否允许上传文件附件
 	Tools               JSONBArray     `gorm:"type:jsonb" json:"tools"`                                      // 直接配置的 MCP Server ID 列表
 	SkillID             string         `gorm:"type:varchar(64)" json:"skill_id"`                             // 阶段十五：从 SKILL 创建
-	MemoryType       string         `gorm:"type:varchar(50)" json:"memory_type"`
-	MemoryTurns      int            `gorm:"default:10" json:"memory_turns"`
-	InputFilter      bool           `gorm:"default:true" json:"input_filter"`
-	OutputFilter     bool           `gorm:"default:true" json:"output_filter"`
-	Status           string         `gorm:"type:varchar(50);default:'active'" json:"status"`
-	Metadata         JSONBMap       `gorm:"type:jsonb" json:"metadata"`
+	MemoryType          string         `gorm:"type:varchar(50)" json:"memory_type"`
+	MemoryTurns         int            `gorm:"default:10" json:"memory_turns"`
+	InputFilter         bool           `gorm:"default:true" json:"input_filter"`
+	OutputFilter        bool           `gorm:"default:true" json:"output_filter"`
+	Status              string         `gorm:"type:varchar(50);default:'active'" json:"status"`
+	Metadata            JSONBMap       `gorm:"type:jsonb" json:"metadata"`
 	CreatedAt    time.Time      `json:"created_at"`
 	UpdatedAt    time.Time      `json:"updated_at"`
 	DeletedAt    gorm.DeletedAt `gorm:"index" json:"-"`

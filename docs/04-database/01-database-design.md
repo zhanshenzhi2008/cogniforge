@@ -3,6 +3,7 @@
 ## [变更记录]
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|---------|--------|
+| 2026-11-27 | v1.42 | agents：allow_attachments 附件上传开关 | orjrs |
 | 2026-11-27 | v1.41 | agents：rag_kb_ids 绑定知识库 | orjrs |
 | 2026-11-27 | v1.40 | agents：opening_message / suggested_prompts | orjrs |
 | 2026-11-27 | v1.39 | security_audit_logs：文档密级变更审计 | orjrs |
@@ -42,6 +43,11 @@
 | 2026-08-16 | v1.2 | Redis 键统一 `cogniforge:` 前缀；多项目用前缀隔离，不拆 db0/db1 | orjrs |
 | 2026-08-15 | v1.1 | 落地模型配置 Redis 键（当时为 `cf:modelcfg:*`） | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] Agent 附件上传开关（2026-11-27）
+
+- **扩展 `agents.allow_attachments`**：bool，默认 false；开则工作室预览/Playground 可选该 Agent 时可上传文档
+- **AutoMigrate**：`Agent`
 
 ## [变更] Agent 绑定知识库（2026-11-27）
 

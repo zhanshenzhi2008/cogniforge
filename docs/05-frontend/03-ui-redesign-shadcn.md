@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.112 | CfResourceCard：agents/knowledge 卡片壳 | orjrs |
 | 2026-11-27 | v1.111 | 猜你想问：空态推荐与一键填入 | orjrs |
 | 2026-11-27 | v1.110 | 工作室发布渠道：网页/API/嵌入 | orjrs |
 | 2026-11-27 | v1.109 | 工作室配置版本历史侧栏与回滚 | orjrs |
@@ -256,8 +257,14 @@
 
 - **变更原因**：工作室构建/预览与对话页聊天 UI、SSE 发送重复
 - **变更后**：`CfChatPanel` 共用消息区+输入框；`useChatStream` 管 `/chat/stream`；`useAgentChat` 管 Agent 对话；错误码 `mapChatHttpError`
-- **后续去重**：~~`CfConfirmModal`~~ / ~~`CfEmptyState`~~ / ~~`CfFieldHelp`~~ / ~~Playground 内联 SSE~~（2026-11-27）
+- **后续去重**：~~`CfConfirmModal`~~ / ~~`CfEmptyState`~~ / ~~`CfFieldHelp`~~ / ~~Playground 内联 SSE~~ / ~~`CfResourceCard`~~（2026-11-27）
 - **包含代码**：`cogniforge-web/components/CfChatPanel.vue`、`useChatStream.ts`、`AgentStudio.vue`、`playground.vue`、`prompts.vue`
+
+## [变更] CfResourceCard 共用卡片壳（2026-11-27）
+
+- **变更原因**：agents/knowledge 卡片头图/操作/描述重复
+- **变更后**：`CfResourceCard` 提供图标、标题、徽章、操作、描述、meta 槽；两页列表改用
+- **包含代码**：`CfResourceCard.vue`、`pages/agents/index.vue`、`pages/knowledge/index.vue`
 
 ## [变更] 智能体工作室后续 TODO（2026-11-20）
 

@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.233 | 跨仓：CfResourceCard 共用卡片壳 | orjrs |
 | 2026-11-27 | v1.232 | 跨仓：猜你想问空态推荐 | orjrs |
 | 2026-11-27 | v1.231 | 跨仓：工作室发布渠道（Web/API/嵌入） | orjrs |
 | 2026-11-27 | v1.230 | Agent 配置版本历史与回滚；工作室版本侧栏 | orjrs |
@@ -327,6 +328,12 @@
 - **原因**：中期 backlog；与预设合并
 - **落地**：跨仓启发式推荐；空态展示；工作室可一键写入 `suggested_prompts`
 - **Web**：开发计划 v1.142；前端设计 v1.111
+
+## [变更] CfResourceCard 共用卡片壳（2026-11-27）
+
+- **原因**：跨模块去重
+- **落地**：跨仓 `CfResourceCard`；agents/knowledge 列表接入
+- **Web**：开发计划 v1.143；前端设计 v1.112
 
 ## [变更] 通用版隐藏密级 UI（2026-11-27）
 
@@ -2417,7 +2424,7 @@ composables/
 - [x] `CfConfirmModal`：各列表删除确认（agents/teams/models/keys/workflows/knowledge/prompts/mcp/users/roles）
 - [x] `CfEmptyState` / `CfLoadingState`：主要列表页
 - [x] `CfFieldHelp`：表单帮助图标（知识库检索/分段）
-- [ ] 可选 `CfResourceCard`；MCP/知识库复用 `CfViewModeToggle`（按需）
+- [x] 可选 `CfResourceCard`（agents/knowledge 已接）；MCP/知识库复用 `CfViewModeToggle`（按需）
 
 ### 工作流（2026-11-26，按优先级）
 

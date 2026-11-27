@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.119 | 工作流列表 CfResourceCard + CfViewModeToggle | orjrs |
 | 2026-11-27 | v1.118 | 小队列表 CfResourceCard + CfViewModeToggle | orjrs |
 | 2026-11-27 | v1.117 | 工作室虚拟机/IM 即将推出占位 | orjrs |
 | 2026-11-27 | v1.116 | MCP 列表 CfViewModeToggle 卡片/表格 | orjrs |
@@ -286,6 +287,12 @@
   - 中期：~~发布渠道~~（Web/API/嵌入已做；IM 仍待）、~~猜你想问~~
   - 远期：~~虚拟机~~（UI 占位；运行时仍待）、~~语音播放~~（浏览器 TTS）、~~语音输入~~（浏览器 STT；云 ASR 另排）
 - **详见**：`cogniforge-web/docs/99-dev-plan/01-development-plan.md` v1.67；主仓开发计划「后续待办」
+
+## [变更] 工作流列表卡片壳（2026-11-27）
+
+- **变更原因**：工作流页仅表格；对齐 agents/knowledge/teams
+- **变更后**：默认卡片 + `CfViewModeToggle`（`cf-workflows-view`）；表格保留
+- **包含代码**：`pages/workflows/index.vue`
 
 ## [变更] 小队列表卡片壳（2026-11-27）
 

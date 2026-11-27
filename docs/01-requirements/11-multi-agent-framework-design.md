@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v0.11 | team 节点 OnProgress：delegate/handoff 子步骤 | orjrs |
 | 2026-11-27 | v0.10 | M4 产品：expand-pipeline layout=parallel 扇出图 | orjrs |
 | 2026-11-27 | v0.9 | M4 引擎：同层无依赖节点并行（ready-wave） | orjrs |
 | 2026-11-24 | v0.8 | Pipeline 一键成图 expand-pipeline；Agent 串联吃上一步输出 | orjrs |
@@ -14,6 +15,13 @@
 | 2026-11-23 | v0.3 | M2 起步：POST /teams/:id/chat + delegate/handoff 工具 | orjrs |
 | 2026-11-23 | v0.2 | M1 起步：agent_teams 表 + Team CRUD + RunState/handoff 原语 | orjrs |
 | 2026-11-23 | v0.1 | 立项：模式分层、与现有工作流关系、参考来源、分期不做清单 | orjrs |
+
+## [变更] team 节点子步骤进度（2026-11-27）
+
+- **变更原因**：画布 team 跑完才出结果，中间委派/交接不可见
+- **已落地**：`ChatDeps.OnProgress`；delegate/handoff 上报 → `node_runs.detail.progress`（复用 LLM 进度通道）
+- **未做**：自动换人（默认关）；独立 SSE 事件流仍可后续加
+- **代码**：`orchestration/team/chat.go`、`engine/nodes/team.go`；API v1.100
 
 ## [变更] M4 扇出成图（2026-11-27）
 
@@ -46,7 +54,7 @@
   - `POST /api/v1/teams/:id/run`：`task`/`goal` → `RunTask`；**不**落 `chat_conversations`
   - 工作流节点类型 `team`：绑 `team_id` + 任务说明；引擎内 `TeamNodeExecutor` → `RunTask`；输出含 `content`/`run_state` 进 `node_runs`
   - Web 画布节点面板可选小队、填任务
-- **未做**：~~Pipeline 一键生成线性图~~（2026-11-24 已跟）→ 自动换人、team 节点 SSE 子步骤拆分仍待
+- **未做**：~~Pipeline 一键生成线性图~~（2026-11-24 已跟）→ ~~team 节点子步骤进度~~（2026-11-27 OnProgress）；自动换人仍待
 - **代码**：`orchestration/team/run.go`、`engine/nodes/team.go`、`app/team/handler.go`；Web `workflows/[id].vue`
 
 ## [变更] §12 拍板项落地（2026-11-23）

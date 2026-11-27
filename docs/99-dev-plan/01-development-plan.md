@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.240 | team 节点 delegate/handoff OnProgress 子步骤 | orjrs |
 | 2026-11-27 | v1.239 | 部署文档补工作室冒烟清单 A1–A12 | orjrs |
 | 2026-11-27 | v1.238 | 跨仓：工作室虚拟机/IM UI 占位 | orjrs |
 | 2026-11-27 | v1.237 | 跨仓：MCP 列表 CfViewModeToggle | orjrs |
@@ -377,6 +378,13 @@
 - **落地**：`docs/06-devops/01-deployment.md` A1–A12；工作流 W3 清单仍保留
 - **状态**：⬜ 待线上勾选
 - **Web**：开发计划 v1.149
+
+## [变更] team 节点子步骤进度（2026-11-27）
+
+- **原因**：画布 team 执行中间委派/交接对用户不可见
+- **落地**：`ChatDeps.OnProgress` → `node_runs.detail.progress`；开始/委派/重试/失败/交接/完成
+- **未做**：自动换人（设计默认关）
+- **含代码**：`team/chat.go`、`nodes/team.go`；API v1.100；多 Agent 设计 v0.11
 
 ## [变更] 通用版隐藏密级 UI（2026-11-27）
 

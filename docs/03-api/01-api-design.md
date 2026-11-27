@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.100 | team 节点 delegate/handoff 写入 OnProgress 子步骤 | orjrs |
 | 2026-11-27 | v1.99 | Agent 配置版本列表与回滚 | orjrs |
 | 2026-11-27 | v1.98 | GET /conversations 支持 agent_id 过滤 | orjrs |
 | 2026-11-27 | v1.98 | GET /conversations 支持 agent_id 过滤 | orjrs |
@@ -207,6 +208,12 @@
 - **回调**：工作流字段 `webhook_url`；执行 `completed|failed|cancelled` 时异步 POST JSON
 - **启动**：进程内 `Scheduler.Start` 加载 `is_active` 调度
 - **含代码**：`infra/scheduler`、`fireWorkflowWebhook`；跨仓「定时」弹窗 + 基本信息 webhook
+
+## [变更] team 节点子步骤进度（2026-11-27）
+
+- **行为**：画布 `team` 节点执行时，`delegate_to_agent` / `handoff_to_agent` 经 `ChatDeps.OnProgress` → `ExecutionContext.OnProgress` → `node_runs.detail.progress`
+- **文案**：开始/委派/重试/失败/完成/交接；与 LLM stream 共用进度通道
+- **含代码**：`orchestration/team/chat.go`、`engine/nodes/team.go`
 
 ## [变更] 密级强制检索审计（2026-11-27）
 

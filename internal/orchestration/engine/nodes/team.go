@@ -101,6 +101,14 @@ func (e *TeamNodeExecutor) Execute(ctx *core.ExecutionContext, config json.RawMe
 		DB:      e.DB,
 		Skill:   skillSvc,
 	}
+	if ctx.OnProgress != nil {
+		nodeID := ctx.NodeID
+		onProg := ctx.OnProgress
+		deps.OnProgress = func(message string) {
+			onProg(nodeID, message)
+		}
+		deps.OnProgress(fmt.Sprintf("team 开始：%s", team.Name))
+	}
 
 	started := time.Now()
 	result, err := deps.RunTask(bg, userID, &team, task, goal, nil)
@@ -140,6 +148,9 @@ func (e *TeamNodeExecutor) Execute(ctx *core.ExecutionContext, config json.RawMe
 		active = result.RunState.ActiveAgentID
 	}
 	ctx.Logger.Logf(ctx.NodeID, "info", "Team ok id=%s active=%s model=%s latency=%dms", cfg.TeamID, active, modelOut, latency)
+	if deps.OnProgress != nil {
+		deps.OnProgress(fmt.Sprintf("team 完成 active=%s latency=%dms", active, latency))
+	}
 
 	out := map[string]any{
 		"team_id":         cfg.TeamID,

@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.138 | 提示词版本行级 diff（17.15） | orjrs |
 | 2026-11-27 | v1.137 | 提示词 Tags 编辑 + 列表筛选（17.16） | orjrs |
 | 2026-11-27 | v1.136 | 角色管理列表 CfResourceCard + CfViewModeToggle | orjrs |
 | 2026-11-27 | v1.135 | 用户管理列表 CfResourceCard + CfViewModeToggle | orjrs |
@@ -305,6 +306,12 @@
   - 中期：~~发布渠道~~（Web/API/嵌入已做；IM 仍待）、~~猜你想问~~
   - 远期：~~虚拟机~~（UI 占位；运行时仍待）、~~语音播放~~（浏览器 TTS）、~~语音输入~~（浏览器 STT；云 ASR 另排）
 - **详见**：`cogniforge-web/docs/99-dev-plan/01-development-plan.md` v1.67；主仓开发计划「后续待办」
+
+## [变更] 提示词版本行级 diff（2026-11-27）
+
+- **变更原因**：P2 17.15；并排原文难定位改动
+- **变更后**：对比弹窗默认行级差异（可切并排）；`lineDiff` LCS
+- **包含代码**：`utils/lineDiff.ts`、`pages/prompts.vue`、i18n
 
 ## [变更] 提示词 Tags 编辑与筛选（2026-11-27）
 

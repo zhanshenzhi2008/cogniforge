@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.223 | 跨仓：Playground 改走 useAgentChat / useChatStream | orjrs |
 | 2026-11-27 | v1.222 | 跨仓：CfFieldHelp 表单帮助图标 | orjrs |
 | 2026-11-27 | v1.221 | 跨仓：CfEmptyState / CfLoadingState 列表空态与加载 | orjrs |
 | 2026-11-27 | v1.220 | 跨仓：列表删除确认抽成 CfConfirmModal | orjrs |
@@ -257,6 +258,12 @@
 - **原因**：表单旁帮助图标重复；前端组件去重 backlog
 - **落地**：Web `CfFieldHelp`；知识库详情检索/分段标签旁；主仓前端设计 v1.101
 - **Web**：开发计划 v1.132
+
+## [变更] 跨仓 Playground 共用聊天 composable（2026-11-27）
+
+- **原因**：Playground 内联 Agent/模型 SSE；去重 backlog
+- **落地**：有 Agent → `useAgentChat`；无 Agent → `useChatStream`；主仓前端设计 v1.102
+- **Web**：开发计划 v1.133
 
 ## [变更] 通用版隐藏密级 UI（2026-11-27）
 
@@ -2343,7 +2350,7 @@ composables/
 
 - [x] `CfChatPanel`：对话页 + 智能体工作室共用消息区/输入框
 - [x] `useChatStream` + `mapChatHttpError`：通用 `/chat/stream`
-- [ ] Playground 选 Agent 时改走 `useAgentChat`（去掉内联 agent SSE）
+- [x] Playground 选 Agent 时改走 `useAgentChat`（无 Agent 走 `useChatStream`）
 - [x] `CfConfirmModal`：各列表删除确认（agents/teams/models/keys/workflows/knowledge/prompts/mcp/users/roles）
 - [x] `CfEmptyState` / `CfLoadingState`：主要列表页
 - [x] `CfFieldHelp`：表单帮助图标（知识库检索/分段）

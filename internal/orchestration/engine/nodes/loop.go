@@ -146,6 +146,8 @@ func (e *LoopNodeExecutor) executeForEachLoop(ctx *core.ExecutionContext, arrayV
 }
 
 func (e *LoopNodeExecutor) evaluateCondition(ctx *core.ExecutionContext, condition string) bool {
+	// 先替换 {{变量}}，再解析比较（与 condition 节点一致）
+	condition = resolveTemplate(condition, ctx)
 	condExpr := strings.ReplaceAll(condition, "&&", " AND ")
 	condExpr = strings.ReplaceAll(condExpr, "||", " OR ")
 

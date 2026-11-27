@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.199 | 循环 while 条件支持 {{变量}} | orjrs |
 | 2026-11-27 | v1.198 | 代码节点抽屉可配沙箱超时 | orjrs |
 | 2026-11-27 | v1.197 | 子流程抽屉可配入参 JSON 映射 | orjrs |
 | 2026-11-27 | v1.196 | 等待提示与条件比较值支持 {{变量}} | orjrs |
@@ -366,6 +367,12 @@
   - 中期：~~发布渠道~~（Web/API/嵌入已做；IM 仍待）、~~猜你想问~~
   - 远期：~~虚拟机~~（UI 占位；运行时仍待）、~~语音播放~~（浏览器 TTS）、~~语音输入~~（浏览器 STT；云 ASR 另排）
 - **详见**：`cogniforge-web/docs/99-dev-plan/01-development-plan.md` v1.67；主仓开发计划「后续待办」
+
+## [变更] 循环 while {{变量}}（2026-11-27）
+
+- **变更原因**：条件节点已支持模板，while 条件原先写死比较值
+- **变更后**：while 表达式运行时替换 `{{var}}`；抽屉提示与示例 placeholder
+- **包含代码**：`nodes/loop.go`；Web 抽屉 hint
 
 ## [变更] 代码节点沙箱超时（2026-11-27）
 
@@ -2124,7 +2131,7 @@ Mobile 问题记入 backlog，**不阻断** Web 主路径合并。
 | `search` | 是 | 库名 · 模式 · topK | **knowledgeBaseId**、query、searchMode/topK/minScore/rerank*/hybrid* |
 | `subflow` | 是 | 嵌套工作流名 · 自定义入参 | **subflowWorkflowId**（禁自身；最多 3 层）；可选 `input` JSON（`{{变量}}`） |
 | `condition` | 是 | 字段 运算符 值 | **conditionField**、operator、value（`{{变量}}`）、description；须真/假出边 |
-| `loop` | 是 | 次数/条件/数组→元素 | loopType；for_each 时 **loopArrayVar** |
+| `loop` | 是 | 次数/条件/数组→元素 | loopType；while 条件支持 `{{变量}}`；for_each 时 **loopArrayVar** |
 | `http` | 是 | METHOD url · n头 | method、**httpUrl**、body、**headers**、timeout；URL/头/体支持 `{{变量}}` |
 | `code` | 是 | 语言: 首行 · Ns | language、**codeSource**、timeout（沙箱，默认 30 / 最长 60） |
 | `delay` | 是 | 时长+单位 | delayDuration、delayUnit |

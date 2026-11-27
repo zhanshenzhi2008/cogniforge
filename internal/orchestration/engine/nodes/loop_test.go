@@ -187,6 +187,23 @@ func TestLoopNode_WhileLoop_MaxIterReached(t *testing.T) {
 	assert.Equal(t, 5, result["total"])
 }
 
+func TestLoopNode_WhileLoop_TemplateValue(t *testing.T) {
+	executor := &nodes.LoopNodeExecutor{}
+
+	config := `{
+		"type": "while",
+		"condition": "loop.index < {{limit}}",
+		"max_iter": 20
+	}`
+
+	ctx := engine.NewExecutionContext("wf1", "exec1", map[string]any{"limit": 4})
+	output, err := executor.Execute(ctx, json.RawMessage(config))
+
+	assert.NoError(t, err)
+	result := output.(map[string]any)
+	assert.Equal(t, 4, result["total"])
+}
+
 func TestLoopNode_InvalidType(t *testing.T) {
 	executor := &nodes.LoopNodeExecutor{}
 

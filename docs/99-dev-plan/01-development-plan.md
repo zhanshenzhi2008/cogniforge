@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.220 | 跨仓：列表删除确认抽成 CfConfirmModal | orjrs |
 | 2026-11-27 | v1.219 | 密级强制检索写入 security_audit_logs | orjrs |
 | 2026-11-27 | v1.218 | 正式 execute 路径接流式进度写入 | orjrs |
 | 2026-11-27 | v1.217 | 角色/用户 clearance 变更审计 | orjrs |
@@ -236,6 +237,12 @@
 - **原因**：金融扩展；人侧 clearance 变更也要可追溯
 - **落地**：`shared/secaudit`；用户/角色改 `max_security_level` 写审计；监控表展示动作类型
 - **API**：v1.92
+
+## [变更] 跨仓 CfConfirmModal（2026-11-27）
+
+- **原因**：列表删除确认重复；前端组件去重 backlog
+- **落地**：Web `CfConfirmModal`；主仓前端设计 v1.99 记组件；待办勾选完成
+- **Web**：开发计划 v1.130
 
 ## [变更] 通用版隐藏密级 UI（2026-11-27）
 
@@ -2323,7 +2330,7 @@ composables/
 - [x] `CfChatPanel`：对话页 + 智能体工作室共用消息区/输入框
 - [x] `useChatStream` + `mapChatHttpError`：通用 `/chat/stream`
 - [ ] Playground 选 Agent 时改走 `useAgentChat`（去掉内联 agent SSE）
-- [ ] `CfConfirmModal`：各列表删除确认
+- [x] `CfConfirmModal`：各列表删除确认（agents/teams/models/keys/workflows/knowledge/prompts/mcp/users/roles）
 - [ ] `CfEmptyState` / `CfLoadingState`
 - [ ] `CfFieldHelp`：表单帮助图标
 - [ ] 可选 `CfResourceCard`；MCP/知识库复用 `CfViewModeToggle`（按需）

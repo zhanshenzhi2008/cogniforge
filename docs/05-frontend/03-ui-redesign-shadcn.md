@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.99 | 共用 CfConfirmModal：列表删除确认 | orjrs |
 | 2026-11-27 | v1.98 | 通用版默认隐藏密级相关 UI | orjrs |
 | 2026-11-27 | v1.97 | 监控页密级审计 Tab | orjrs |
 | 2026-11-27 | v1.96 | 调试流式：画布节点 hint + 侧栏 Live stream | orjrs |
@@ -189,11 +190,18 @@
 - **变更后**：构建助手输出 `agent-config`；应用到左侧或保存时自动写入；工具仅限已接入 MCP
 - **包含代码**：`cogniforge-web/utils/agentBuildConfig.ts`、`AgentStudio.vue`
 
+## [变更] 共用删除确认 CfConfirmModal（2026-11-27）
+
+- **变更原因**：各列表页手写同一套 CfModal 删除确认，文案/按钮重复
+- **变更后**：`CfConfirmModal`（窄窗、关缩放/最大化、取消+危险确认）；已接 agents / teams / models / keys / workflows / knowledge / prompts / mcp / users / roles
+- **未迁**：知识库文档删除、用户重置密码等非「列表删资源」确认仍可保留原 CfModal
+- **包含代码**：`cogniforge-web/components/CfConfirmModal.vue`；上述列表页
+
 ## [变更] 共用聊天面板 CfChatPanel（2026-11-20）
 
 - **变更原因**：工作室构建/预览与对话页聊天 UI、SSE 发送重复
 - **变更后**：`CfChatPanel` 共用消息区+输入框；`useChatStream` 管 `/chat/stream`；`useAgentChat` 管 Agent 对话；错误码 `mapChatHttpError`
-- **后续去重**：`CfConfirmModal` / `CfEmptyState` / `CfFieldHelp` / Playground 改走 `useAgentChat` 等见 Web 开发计划 v1.68
+- **后续去重**：~~`CfConfirmModal`~~（2026-11-27）/ `CfEmptyState` / `CfFieldHelp` / Playground 改走 `useAgentChat` 等见 Web 开发计划
 - **包含代码**：`cogniforge-web/components/CfChatPanel.vue`、`useChatStream.ts`、`AgentStudio.vue`、`playground.vue`、`prompts.vue`
 
 ## [变更] 智能体工作室后续 TODO（2026-11-20）

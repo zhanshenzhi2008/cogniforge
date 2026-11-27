@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.103 | definition.edges 持久化 source_handle / target_handle | orjrs |
 | 2026-11-27 | v1.102 | 工作流 webhook_url 校验须为 http(s) | orjrs |
 | 2026-11-27 | v1.101 | 提示词版本归档 / 回滚发版（17.17） | orjrs |
 | 2026-11-27 | v1.100 | team 节点 delegate/handoff 写入 OnProgress 子步骤 | orjrs |
@@ -103,6 +104,12 @@
 | 2026-08-15 | v1.2 | GET /v1/models 改为返回已启用供应商的 default_model（不再写死 GPT 列表） | orjrs |
 | 2026-04-09 | v1.1 | 新增文档上传接口、语义检索接口实现说明 | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] definition.edges 持久化句柄（2026-11-27）
+
+- **字段**：`source_handle` / `target_handle`（可选；条件节点真=`s-top`、假=`s-bottom`）
+- **原因**：前端曾只存 source/target，重载后条件分支串线
+- **含代码**：Web `toDefinitionEdge`；Go `EdgeDefinition` 已有字段
 
 ## [变更] 会话列表按 agent_id 过滤（2026-11-27）
 
@@ -1617,8 +1624,10 @@ POST /v1/workflows
       }
     ],
     "edges": [
-      {"source": "node_1", "target": "node_2"},
-      {"source": "node_2", "target": "node_3"}
+      {"id": "e1", "source": "node_1", "target": "node_2"},
+      {"id": "e2", "source": "node_2", "target": "node_3"},
+      {"id": "e_true", "source": "cond", "target": "yes", "source_handle": "s-top"},
+      {"id": "e_false", "source": "cond", "target": "no", "source_handle": "s-bottom"}
     ]
   }
 响应:

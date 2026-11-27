@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.237 | 跨仓：MCP 列表 CfViewModeToggle | orjrs |
 | 2026-11-27 | v1.236 | 跨仓：对话浏览器语音听写 STT | orjrs |
 | 2026-11-27 | v1.235 | 跨仓：对话浏览器 TTS 朗读 | orjrs |
 | 2026-11-27 | v1.234 | 跨仓：知识库列表 CfViewModeToggle | orjrs |
@@ -355,6 +356,12 @@
 - **原因**：远期 backlog；先浏览器 SpeechRecognition
 - **落地**：跨仓输入栏麦克风听写；需权限；Chrome 等支持较好
 - **Web**：开发计划 v1.146；前端设计 v1.115
+
+## [变更] MCP 列表视图切换（2026-11-27）
+
+- **原因**：跨模块去重
+- **落地**：跨仓 MCP 页 `CfViewModeToggle` 卡片/表格
+- **Web**：开发计划 v1.147；前端设计 v1.116
 
 ## [变更] 通用版隐藏密级 UI（2026-11-27）
 
@@ -2445,7 +2452,7 @@ composables/
 - [x] `CfConfirmModal`：各列表删除确认（agents/teams/models/keys/workflows/knowledge/prompts/mcp/users/roles）
 - [x] `CfEmptyState` / `CfLoadingState`：主要列表页
 - [x] `CfFieldHelp`：表单帮助图标（知识库检索/分段）
-- [x] 可选 `CfResourceCard`（agents/knowledge 已接）；知识库复用 `CfViewModeToggle`（MCP 按需）
+- [x] 可选 `CfResourceCard`（agents/knowledge 已接）；知识库 / MCP 复用 `CfViewModeToggle`
 
 ### 工作流（2026-11-26，按优先级）
 

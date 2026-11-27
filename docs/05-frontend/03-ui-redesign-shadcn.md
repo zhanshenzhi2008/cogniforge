@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.116 | MCP 列表 CfViewModeToggle 卡片/表格 | orjrs |
 | 2026-11-27 | v1.115 | 对话输入浏览器语音听写（STT） | orjrs |
 | 2026-11-27 | v1.114 | 对话助手回复浏览器朗读（TTS） | orjrs |
 | 2026-11-27 | v1.113 | 知识库列表 CfViewModeToggle 卡片/表格 | orjrs |
@@ -289,6 +290,12 @@
 - **变更原因**：远期语音输入；先用不依赖云 ASR 的浏览器 SpeechRecognition
 - **变更后**：`CfChatPanel` 输入栏麦克风听写写入 composer；需麦克风权限
 - **包含代码**：`utils/speechStt.ts`、`CfChatPanel.vue`
+
+## [变更] MCP 列表视图切换（2026-11-27）
+
+- **变更原因**：对齐 agents/knowledge；去重 backlog
+- **变更后**：MCP 顶栏可切卡片/表格；偏好 `cf-mcp-view`
+- **包含代码**：`pages/mcp.vue`、`CfViewModeToggle`
 
 ## [变更] 浏览器朗读助手回复（2026-11-27）
 

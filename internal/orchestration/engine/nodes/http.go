@@ -42,29 +42,50 @@ func (e *HTTPNodeExecutor) Execute(ctx *core.ExecutionContext, config json.RawMe
 		cfg.Timeout = 30
 	}
 
-	var bodyReader io.Reader
-	if cfg.Body != nil {
-		body, err := json.Marshal(cfg.Body)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal body: %w", err)
-		}
-		bodyReader = bytes.NewBuffer(body)
+	url := resolveTemplate(cfg.URL, ctx)
+	if url == "" {
+		return nil, fmt.Errorf("HTTP node: url is required")
 	}
 
-	req, err := http.NewRequest(cfg.Method, cfg.URL, bodyReader)
+	var bodyReader io.Reader
+	if cfg.Body != nil {
+		resolved := resolveAnyTemplates(cfg.Body, ctx)
+		switch b := resolved.(type) {
+		case string:
+			bodyReader = bytes.NewBufferString(b)
+		default:
+			body, err := json.Marshal(b)
+			if err != nil {
+				return nil, fmt.Errorf("failed to marshal body: %w", err)
+			}
+			bodyReader = bytes.NewBuffer(body)
+		}
+	}
+
+	req, err := http.NewRequest(cfg.Method, url, bodyReader)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
 	req.Header.Set("Content-Type", "application/json")
 	for key, val := range cfg.Headers {
-		req.Header.Set(key, val)
+		req.Header.Set(resolveTemplate(key, ctx), resolveTemplate(val, ctx))
 	}
 
-	ctx.Logger.Logf(ctx.NodeID, "info", "Making HTTP request: %s %s", cfg.Method, cfg.URL)
+	client := e.client
+	if client == nil {
+		client = &http.Client{Timeout: time.Duration(cfg.Timeout) * time.Second}
+	} else if cfg.Timeout > 0 {
+		client = &http.Client{
+			Timeout:   time.Duration(cfg.Timeout) * time.Second,
+			Transport: e.client.Transport,
+		}
+	}
+
+	ctx.Logger.Logf(ctx.NodeID, "info", "Making HTTP request: %s %s", cfg.Method, url)
 
 	startTime := time.Now()
-	resp, err := e.client.Do(req)
+	resp, err := client.Do(req)
 	duration := time.Since(startTime)
 
 	if err != nil {
@@ -85,4 +106,26 @@ func (e *HTTPNodeExecutor) Execute(ctx *core.ExecutionContext, config json.RawMe
 	ctx.Logger.Logf(ctx.NodeID, "info", "HTTP response: status=%d, duration=%dms", resp.StatusCode, duration.Milliseconds())
 
 	return result, nil
+}
+
+// resolveAnyTemplates 递归替换 map/slice/string 中的 {{var}}
+func resolveAnyTemplates(v any, ctx *core.ExecutionContext) any {
+	switch t := v.(type) {
+	case string:
+		return resolveTemplate(t, ctx)
+	case map[string]any:
+		out := make(map[string]any, len(t))
+		for k, vv := range t {
+			out[k] = resolveAnyTemplates(vv, ctx)
+		}
+		return out
+	case []any:
+		out := make([]any, len(t))
+		for i, vv := range t {
+			out[i] = resolveAnyTemplates(vv, ctx)
+		}
+		return out
+	default:
+		return v
+	}
 }

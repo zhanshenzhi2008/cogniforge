@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.195 | HTTP 节点 URL/头/体支持 {{变量}} | orjrs |
 | 2026-11-27 | v1.194 | HTTP 节点抽屉补请求头 headers | orjrs |
 | 2026-11-27 | v1.193 | 附录：工作流节点设置总表（对齐抽屉） | orjrs |
 | 2026-11-27 | v1.192 | 调试时间线/整次输出可复制；显示总耗时 | orjrs |
@@ -362,6 +363,12 @@
   - 中期：~~发布渠道~~（Web/API/嵌入已做；IM 仍待）、~~猜你想问~~
   - 远期：~~虚拟机~~（UI 占位；运行时仍待）、~~语音播放~~（浏览器 TTS）、~~语音输入~~（浏览器 STT；云 ASR 另排）
 - **详见**：`cogniforge-web/docs/99-dev-plan/01-development-plan.md` v1.67；主仓开发计划「后续待办」
+
+## [变更] HTTP 节点 {{变量}} 替换（2026-11-27）
+
+- **变更原因**：LLM/检索已支持模板，HTTP URL/头/体原先写死
+- **变更后**：运行时替换 `{{var}}`；超时真正生效；抽屉提示可用变量
+- **包含代码**：`nodes/http.go`；Web 提示文案
 
 ## [变更] HTTP 节点请求头配置（2026-11-27）
 
@@ -2097,7 +2104,7 @@ Mobile 问题记入 backlog，**不阻断** Web 主路径合并。
 | `subflow` | 是 | 嵌套工作流名 | **subflowWorkflowId**（禁自身；最多 3 层） |
 | `condition` | 是 | 字段 运算符 值 | **conditionField**、operator、value、description；须真/假出边 |
 | `loop` | 是 | 次数/条件/数组→元素 | loopType；for_each 时 **loopArrayVar** |
-| `http` | 是 | METHOD url · n头 | method、**httpUrl**、body、**headers**、timeout |
+| `http` | 是 | METHOD url · n头 | method、**httpUrl**、body、**headers**、timeout；URL/头/体支持 `{{变量}}` |
 | `code` | 是 | 语言: 首行 | language、**codeSource** |
 | `delay` | 是 | 时长+单位 | delayDuration、delayUnit |
 | `wait` | 是 | 原因:消息 · 超时 | waitReason、waitMessage、timeoutSec |

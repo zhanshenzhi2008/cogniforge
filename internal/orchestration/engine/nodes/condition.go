@@ -38,11 +38,15 @@ func (e *ConditionNodeExecutor) Execute(ctx *core.ExecutionContext, config json.
 
 	for _, condition := range cfg.Conditions {
 		fieldValue := e.getFieldValue(condition.Field, ctx)
-		result := e.evaluateCondition(fieldValue, condition.Operator, condition.Value, ctx)
+		expected := condition.Value
+		if s, ok := expected.(string); ok {
+			expected = resolveTemplate(s, ctx)
+		}
+		result := e.evaluateCondition(fieldValue, condition.Operator, expected, ctx)
 
 		ctx.Logger.Logf(ctx.NodeID, "info",
 			"Condition: %s %s %v = %v (actual: %v)",
-			condition.Field, condition.Operator, condition.Value, result, fieldValue)
+			condition.Field, condition.Operator, expected, result, fieldValue)
 
 		if result {
 			return map[string]any{
@@ -50,7 +54,7 @@ func (e *ConditionNodeExecutor) Execute(ctx *core.ExecutionContext, config json.
 				"branch":   condition.Branch,
 				"field":    condition.Field,
 				"operator": condition.Operator,
-				"expected": condition.Value,
+				"expected": expected,
 				"actual":   fieldValue,
 			}, nil
 		}

@@ -22,11 +22,11 @@ func (e *WaitNodeExecutor) Execute(ctx *core.ExecutionContext, config json.RawMe
 	if len(config) > 0 {
 		_ = json.Unmarshal(config, &cfg)
 	}
-	reason := cfg.Reason
+	reason := resolveTemplate(cfg.Reason, ctx)
 	if reason == "" {
 		reason = "approval"
 	}
-	msg := cfg.Message
+	msg := resolveTemplate(cfg.Message, ctx)
 	if msg == "" {
 		msg = "Waiting for human approval or external event"
 	}

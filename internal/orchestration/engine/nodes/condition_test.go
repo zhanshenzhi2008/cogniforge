@@ -274,3 +274,16 @@ func TestConditionNode_VariablePriority(t *testing.T) {
 	result := output.(map[string]any)
 	assert.Equal(t, true, result["result"])
 }
+
+func TestConditionNode_ValueTemplate(t *testing.T) {
+	executor := &nodes.ConditionNodeExecutor{}
+	config := `{"conditions":[{"field":"status","operator":"==","value":"{{want}}","branch":"ok"}]}`
+
+	ctx := engine.NewExecutionContext("wf1", "exec1", map[string]any{"status": "active", "want": "active"})
+	output, err := executor.Execute(ctx, json.RawMessage(config))
+
+	assert.NoError(t, err)
+	result := output.(map[string]any)
+	assert.Equal(t, true, result["result"])
+	assert.Equal(t, "active", result["expected"])
+}

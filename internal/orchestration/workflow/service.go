@@ -677,8 +677,33 @@ func (s *WorkflowService) DebugWorkflowWithTraceID(userID, workflowID string, re
 					Updates(map[string]any{"status": "failed", "error": skipErr.Error()})
 				return
 			}
+			seeded := map[string]map[string]any{}
+			if req.SeedExecutionID != "" && len(skipped) > 0 {
+				ids := make([]string, 0, len(skipped))
+				for _, n := range skipped {
+					ids = append(ids, n.ID)
+				}
+				var seedEx model.WorkflowExecution
+				if err := s.db.Where("id = ? AND workflow_id = ? AND user_id = ?",
+					req.SeedExecutionID, workflowID, userID).First(&seedEx).Error; err == nil {
+					var seedRuns []model.WorkflowNodeRun
+					_ = s.db.Where("execution_id = ? AND node_id IN ?", req.SeedExecutionID, ids).
+						Order("created_at asc").Find(&seedRuns).Error
+					seeded = pickSeedOutputs(seedRuns, ids)
+					applySeedOutputsToContext(ctx, seeded)
+				}
+			}
 			now := time.Now()
 			for _, n := range skipped {
+				detail := model.JSONBMap{
+					"start_from":  req.StartFromNode,
+					"skip_reason": "debug_from_node",
+				}
+				var out model.JSONBMap
+				if o, ok := seeded[n.ID]; ok {
+					out = model.JSONBMap(o)
+					detail["seeded_from"] = req.SeedExecutionID
+				}
 				_ = s.db.Create(&model.WorkflowNodeRun{
 					ID:          newID(),
 					ExecutionID: executionID,
@@ -686,13 +711,11 @@ func (s *WorkflowService) DebugWorkflowWithTraceID(userID, workflowID string, re
 					NodeType:    n.Type,
 					Attempt:     1,
 					Status:      "skipped",
-					Detail: model.JSONBMap{
-						"start_from":    req.StartFromNode,
-						"skip_reason":   "debug_from_node",
-					},
-					StartedAt:  &now,
-					FinishedAt: &now,
-					CreatedAt:  now,
+					Output:      out,
+					Detail:      detail,
+					StartedAt:   &now,
+					FinishedAt:  &now,
+					CreatedAt:   now,
 				}).Error
 			}
 		}

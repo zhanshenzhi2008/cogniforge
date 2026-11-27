@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v1.106 | debug 可选 seed_execution_id 灌入上游输出 | orjrs |
 | 2026-11-27 | v1.105 | 未选条件分支写入 node_runs status=skipped | orjrs |
 | 2026-11-27 | v1.104 | 条件节点按 source_handle 独占分支（引擎 18.5） | orjrs |
 | 2026-11-27 | v1.103 | definition.edges 持久化 source_handle / target_handle | orjrs |
@@ -296,6 +297,13 @@
 - **接口**：`POST /api/v1/workflows/:id/clone`
 - **行为**：复制定义；名称加「 (副本)」；状态 `draft`、版本 `1`；不复制执行历史
 - **含代码**：`CloneWorkflow`；跨仓列表复制按钮
+
+## [变更] debug 灌入上游输出（2026-11-27）
+
+- **接口**：`POST /api/v1/workflows/:id/debug` 可选 `seed_execution_id`（与 `start_from_node` 同用）
+- **行为**：对跳过的祖先，从种子执行的 node_runs 取 output 写入上下文；skipped 记录可带 `detail.seeded_from`
+- **权限**：种子执行须同用户、同工作流
+- **含代码**：`pickSeedOutputs`、`DebugWorkflowRequest.SeedExecutionID`
 
 ## [变更] debug 从节点起跑（2026-11-26）
 

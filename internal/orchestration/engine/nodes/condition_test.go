@@ -296,3 +296,19 @@ func TestConditionNode_ValueTemplate(t *testing.T) {
 	assert.Equal(t, true, result["result"])
 	assert.Equal(t, "active", result["expected"])
 }
+
+func TestConditionNode_FieldTemplate(t *testing.T) {
+	executor := &nodes.ConditionNodeExecutor{}
+	config := `{"conditions":[{"field":"{{which}}","operator":"==","value":"ok","branch":"yes"}]}`
+
+	ctx := engine.NewExecutionContext("wf1", "exec1", nil)
+	ctx.SetVariable("which", "status")
+	ctx.SetVariable("status", "ok")
+	output, err := executor.Execute(ctx, json.RawMessage(config))
+
+	assert.NoError(t, err)
+	result := output.(map[string]any)
+	assert.Equal(t, true, result["result"])
+	assert.Equal(t, "status", result["field"])
+	assert.Equal(t, "yes", result["branch"])
+}

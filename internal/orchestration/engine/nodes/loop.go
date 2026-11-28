@@ -10,13 +10,13 @@ import (
 )
 
 type LoopNodeConfig struct {
-	Type      string `json:"type"`
-	Count     int    `json:"count"`
-	ArrayVar  string `json:"array_var"`
-	ItemVar   string `json:"item_var"`
-	KeyVar    string `json:"key_var"`
-	MaxIter   int    `json:"max_iter"`
-	Condition string `json:"condition"`
+	Type      string          `json:"type"`
+	Count     json.RawMessage `json:"count"` // 数字或 "{{变量}}"
+	ArrayVar  string          `json:"array_var"`
+	ItemVar   string          `json:"item_var"`
+	KeyVar    string          `json:"key_var"`
+	MaxIter   json.RawMessage `json:"max_iter"` // 数字或 "{{变量}}"
+	Condition string          `json:"condition"`
 }
 
 type LoopNodeExecutor struct{}
@@ -27,19 +27,21 @@ func (e *LoopNodeExecutor) Execute(ctx *core.ExecutionContext, config json.RawMe
 		return nil, fmt.Errorf("invalid loop config: %w", err)
 	}
 
-	if cfg.MaxIter == 0 {
-		cfg.MaxIter = 100
+	count := resolveFlexibleInt(cfg.Count, ctx)
+	maxIter := resolveFlexibleInt(cfg.MaxIter, ctx)
+	if maxIter == 0 {
+		maxIter = 100
 	}
 
 	var iterations []map[string]any
 
 	switch cfg.Type {
 	case "count", "times":
-		iterations = e.executeTimesLoop(ctx, cfg.Count, cfg.MaxIter)
+		iterations = e.executeTimesLoop(ctx, count, maxIter)
 	case "while":
-		iterations = e.executeWhileLoop(ctx, cfg.Condition, cfg.MaxIter)
+		iterations = e.executeWhileLoop(ctx, cfg.Condition, maxIter)
 	case "for_each":
-		iterations = e.executeForEachLoop(ctx, cfg.ArrayVar, cfg.ItemVar, cfg.KeyVar, cfg.MaxIter)
+		iterations = e.executeForEachLoop(ctx, cfg.ArrayVar, cfg.ItemVar, cfg.KeyVar, maxIter)
 	default:
 		return nil, fmt.Errorf("unknown loop type: %s", cfg.Type)
 	}

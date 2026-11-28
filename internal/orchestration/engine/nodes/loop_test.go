@@ -41,6 +41,23 @@ func TestLoopNode_TimesLoop(t *testing.T) {
 	assert.Equal(t, "times", gotType)
 }
 
+func TestLoopNode_TimesLoop_CountTemplate(t *testing.T) {
+	executor := &nodes.LoopNodeExecutor{}
+	config := `{
+		"type": "times",
+		"count": "{{rounds}}",
+		"max_iter": "{{cap}}"
+	}`
+	ctx := engine.NewExecutionContext("wf1", "exec1", nil)
+	ctx.SetVariable("rounds", "4")
+	ctx.SetVariable("cap", "10")
+
+	output, err := executor.Execute(ctx, json.RawMessage(config))
+	assert.NoError(t, err)
+	result := output.(map[string]any)
+	assert.Equal(t, 4, result["total"])
+}
+
 func TestLoopNode_TimesLoop_MaxIterCapped(t *testing.T) {
 	executor := &nodes.LoopNodeExecutor{}
 

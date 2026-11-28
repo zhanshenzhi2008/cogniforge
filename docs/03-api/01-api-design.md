@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-28 | v1.107 | 知识库 visibility=org：本站可读、仅所有者可写 | orjrs |
 | 2026-11-27 | v1.106 | debug 可选 seed_execution_id 灌入上游输出 | orjrs |
 | 2026-11-27 | v1.105 | 未选条件分支写入 node_runs status=skipped | orjrs |
 | 2026-11-27 | v1.104 | 条件节点按 source_handle 独占分支（引擎 18.5） | orjrs |
@@ -443,10 +444,16 @@
 - **说明**：关键字/混合引擎与 Rerank 执行后续接入；配置先持久化
 - **前端**：知识库详情第三标签「设置」
 
+## [变更] 知识库 visibility=org（2026-11-28）
+
+- **变更原因**：~~创建/更新强制 `private`~~，组织内共享无法用
+- **接口**：`POST/PUT /api/v1/knowledge` 持久化 `visibility=private|org`；List 含「我的 + org」；读路径所有者或 org；写路径仅所有者
+- **前端**：设置可切换；非所有者只读
+
 ## [变更] 知识库设置默认值与权限占位（2026-11-15）
 
 - **变更原因**：库级默认分段/检索需可配置；ACL 先占位
-- **接口**：`PUT /api/v1/knowledge/{id}` 可更新 `chunk_*` / `split_*` / `rag_top_k` / `rag_min_score` / `visibility`（当前强制 `private`）
+- **接口**：`PUT /api/v1/knowledge/{id}` 可更新 `chunk_*` / `split_*` / `rag_top_k` / `rag_min_score` / `visibility`（~~当前强制 `private`~~ → 2026-11-28 已支持 `org`）
 - **前端**：~~抽屉「设置」页编辑并保存~~（2026-11-16：设置标签改为检索方式）
 
 ## [变更] 检索默认 Top-K / 最低分（2026-11-15）

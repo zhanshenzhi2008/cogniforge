@@ -3,6 +3,7 @@
 ## [变更记录]
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|---------|--------|
+| 2026-11-28 | v1.44 | knowledge_bases.visibility：org=本站可读、仅所有者可写 | orjrs |
 | 2026-11-27 | v1.43 | agents.version + agent_versions 配置快照 | orjrs |
 | 2026-11-27 | v1.42 | agents：allow_attachments 附件上传开关 | orjrs |
 | 2026-11-27 | v1.41 | agents：rag_kb_ids 绑定知识库 | orjrs |
@@ -193,7 +194,7 @@
   - `split_mode` VARCHAR(32) 默认 `recursive`（recursive / fixed / separator）
   - `split_separator` VARCHAR(64) 可空（应用层默认 `\n\n`）
   - `rag_top_k` INT 默认 5；`rag_min_score` DOUBLE 默认 0.3（阶段二使用）
-  - `visibility` VARCHAR(32) 默认 `private`（阶段三占位）
+  - `visibility` VARCHAR(32) 默认 `private`；取值 `private` \| `org`（`org`=本部署全体登录用户可读，仅所有者可写；~~阶段三占位~~ 2026-11-28 已落地）
 - **文档**：上传时把实际分段参数写入 `documents.metadata`
 
 ## [变更] 知识库目录（2026-11-15）

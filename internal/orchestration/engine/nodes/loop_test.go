@@ -118,6 +118,25 @@ func TestLoopNode_ForEachLoop(t *testing.T) {
 	assert.Len(t, iterations, 3)
 }
 
+func TestLoopNode_ForEachLoop_ArrayVarTemplate(t *testing.T) {
+	executor := &nodes.LoopNodeExecutor{}
+	config := `{
+		"type": "for_each",
+		"array_var": "{{list_name}}",
+		"item_var": "item",
+		"max_iter": 100
+	}`
+
+	ctx := engine.NewExecutionContext("wf1", "exec1", nil)
+	ctx.SetVariable("list_name", "items")
+	ctx.SetVariable("items", []any{"x", "y"})
+	output, err := executor.Execute(ctx, json.RawMessage(config))
+
+	assert.NoError(t, err)
+	result := output.(map[string]any)
+	assert.Equal(t, 2, result["total"])
+}
+
 func TestLoopNode_ForEachLoop_EmptyArray(t *testing.T) {
 	executor := &nodes.LoopNodeExecutor{}
 

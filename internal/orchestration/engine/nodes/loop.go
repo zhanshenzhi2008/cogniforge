@@ -41,7 +41,11 @@ func (e *LoopNodeExecutor) Execute(ctx *core.ExecutionContext, config json.RawMe
 	case "while":
 		iterations = e.executeWhileLoop(ctx, cfg.Condition, maxIter)
 	case "for_each":
-		iterations = e.executeForEachLoop(ctx, cfg.ArrayVar, cfg.ItemVar, cfg.KeyVar, maxIter)
+		arrayVar := strings.TrimSpace(resolveTemplate(cfg.ArrayVar, ctx))
+		if arrayVar == "" {
+			arrayVar = strings.TrimSpace(cfg.ArrayVar)
+		}
+		iterations = e.executeForEachLoop(ctx, arrayVar, cfg.ItemVar, cfg.KeyVar, maxIter)
 	default:
 		return nil, fmt.Errorf("unknown loop type: %s", cfg.Type)
 	}
@@ -125,7 +129,9 @@ func (e *LoopNodeExecutor) executeForEachLoop(ctx *core.ExecutionContext, arrayV
 	if !ok {
 		arr, ok := ctx.Input[arrayVar]
 		if !ok {
-			ctx.Logger.Logf(ctx.NodeID, "warn", "Array variable %s not found", arrayVar)
+			if ctx.Logger != nil {
+				ctx.Logger.Logf(ctx.NodeID, "warn", "Array variable %s not found", arrayVar)
+			}
 			return iterations
 		}
 		arrayVal = arr
@@ -133,14 +139,18 @@ func (e *LoopNodeExecutor) executeForEachLoop(ctx *core.ExecutionContext, arrayV
 
 	arr, ok := arrayVal.([]any)
 	if !ok {
-		ctx.Logger.Logf(ctx.NodeID, "warn", "Variable %s is not an array", arrayVar)
+		if ctx.Logger != nil {
+			ctx.Logger.Logf(ctx.NodeID, "warn", "Variable %s is not an array", arrayVar)
+		}
 		return iterations
 	}
 
 	count := len(arr)
 	if count > maxIter {
 		count = maxIter
-		ctx.Logger.Logf(ctx.NodeID, "warn", "Array length %d exceeds max_iter %d, capped", len(arr), maxIter)
+		if ctx.Logger != nil {
+			ctx.Logger.Logf(ctx.NodeID, "warn", "Array length %d exceeds max_iter %d, capped", len(arr), maxIter)
+		}
 	}
 
 	for i := 0; i < count; i++ {
@@ -158,7 +168,9 @@ func (e *LoopNodeExecutor) executeForEachLoop(ctx *core.ExecutionContext, arrayV
 			"count": count,
 			"item":  arr[i],
 		})
-		ctx.Logger.Logf(ctx.NodeID, "info", "ForEach iteration %d/%d", i+1, count)
+		if ctx.Logger != nil {
+			ctx.Logger.Logf(ctx.NodeID, "info", "ForEach iteration %d/%d", i+1, count)
+		}
 	}
 
 	return iterations

@@ -43,12 +43,14 @@ func (e *SearchNodeExecutor) Execute(ctx *core.ExecutionContext, config json.Raw
 	if e == nil || e.Knowledge == nil {
 		return nil, fmt.Errorf("Search node: KnowledgeService not configured")
 	}
-	if cfg.KnowledgeBaseID == "" {
-		return nil, fmt.Errorf("Search node: knowledge_base_id is required")
-	}
 	userID := ctx.UserID
 	if userID == "" {
 		return nil, fmt.Errorf("Search node: missing user_id on execution context")
+	}
+
+	kbID := strings.TrimSpace(resolveTemplate(cfg.KnowledgeBaseID, ctx))
+	if kbID == "" {
+		return nil, fmt.Errorf("Search node: knowledge_base_id is required")
 	}
 
 	query := resolveTemplate(cfg.Query, ctx)
@@ -79,7 +81,7 @@ func (e *SearchNodeExecutor) Execute(ctx *core.ExecutionContext, config json.Raw
 	bg, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	resp, err := e.Knowledge.SearchByUser(bg, userID, cfg.KnowledgeBaseID, &knowledge.SearchRequest{
+	resp, err := e.Knowledge.SearchByUser(bg, userID, kbID, &knowledge.SearchRequest{
 		Query:                query,
 		TopK:                 topK,
 		MinScore:             minScore,
@@ -112,19 +114,20 @@ func (e *SearchNodeExecutor) Execute(ctx *core.ExecutionContext, config json.Raw
 	ctx.SetVariable("last_search_query", query)
 	ctx.SetVariable("last_search_context", contextText)
 	ctx.SetVariable("last_search_total", len(results))
+	ctx.SetVariable("last_search_kb_id", kbID)
 
 	latency := time.Since(started).Milliseconds()
 	if ctx.Logger != nil {
-		ctx.Logger.Logf(ctx.NodeID, "info", "Search ok kb=%s hits=%d latency=%dms", cfg.KnowledgeBaseID, len(results), latency)
+		ctx.Logger.Logf(ctx.NodeID, "info", "Search ok kb=%s hits=%d latency=%dms", kbID, len(results), latency)
 	}
 
 	return map[string]any{
-		"query":               query,
-		"knowledge_base_id":   cfg.KnowledgeBaseID,
-		"results":             results,
-		"total":               len(results),
-		"context":             contextText,
-		"latency_ms":          latency,
-		"duration_ms":         resp.Duration,
+		"query":             query,
+		"knowledge_base_id": kbID,
+		"results":           results,
+		"total":             len(results),
+		"context":           contextText,
+		"latency_ms":        latency,
+		"duration_ms":       resp.Duration,
 	}, nil
 }

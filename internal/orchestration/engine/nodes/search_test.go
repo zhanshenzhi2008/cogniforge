@@ -103,6 +103,27 @@ func TestSearchNodeExecutor_MinScoreTemplate(t *testing.T) {
 	}
 }
 
+func TestSearchNodeExecutor_KnowledgeBaseIDTemplate(t *testing.T) {
+	mock := &mockKBSearcher{}
+	ex := &SearchNodeExecutor{Knowledge: mock}
+	ctx := core.NewExecutionContext("wf", "exec", map[string]any{"query": "hi"})
+	ctx.UserID = "u1"
+	ctx.SetVariable("kb", "kb-dyn")
+	cfg, _ := json.Marshal(map[string]any{
+		"knowledge_base_id": "{{kb}}",
+		"query":             "hi",
+	})
+	if _, err := ex.Execute(ctx, cfg); err != nil {
+		t.Fatal(err)
+	}
+	if mock.lastKB != "kb-dyn" {
+		t.Fatalf("lastKB=%s", mock.lastKB)
+	}
+	if v, _ := ctx.GetVariable("last_search_kb_id"); v != "kb-dyn" {
+		t.Fatalf("last_search_kb_id=%v", v)
+	}
+}
+
 func TestSearchNodeExecutor_HybridWeightTemplate(t *testing.T) {
 	mock := &mockKBSearcher{}
 	ex := &SearchNodeExecutor{Knowledge: mock}

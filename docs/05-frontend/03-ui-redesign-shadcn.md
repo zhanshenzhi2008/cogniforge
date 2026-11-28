@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-28 | v1.230 | 检索知识库 ID 支持 {{变量}}；写 last_search_kb_id | orjrs |
 | 2026-11-28 | v1.229 | Team ID 支持 {{变量}}；写 last_team_id | orjrs |
 | 2026-11-28 | v1.228 | Agent ID 支持 {{变量}}；写 last_agent_id | orjrs |
 | 2026-11-28 | v1.227 | LLM 写入 last_llm_model/tokens/latency | orjrs |

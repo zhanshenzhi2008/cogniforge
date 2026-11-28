@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-28 | v1.361 | 子流程 workflow ID 支持 {{变量}}；写 last_subflow_workflow_id | orjrs |
 | 2026-11-28 | v1.360 | 跨仓：修 Web prompts 回滚 E2E toast 严格模式 | orjrs |
 | 2026-11-28 | v1.359 | 检索知识库 ID 支持 {{变量}}；写 last_search_kb_id | orjrs |
 | 2026-11-28 | v1.358 | Team ID 支持 {{变量}}；写 last_team_id | orjrs |
@@ -577,6 +578,12 @@
 - **原因**：未绑定可保存、运行才失败
 - **落地**：跨仓保存前拦截 team/agent/search/subflow
 - **Web**：开发计划 v1.161；前端设计 v1.129
+
+## [变更] 子流程 workflow ID {{变量}} / last_subflow_workflow_id（2026-11-28）
+
+- **原因**：嵌套工作流只能写死 ID
+- **落地**：`workflow_id` 支持模板；写 `last_subflow_workflow_id`；前端设计 v1.231
+- **Web**：开发计划 v1.270
 
 ## [变更] 跨仓：修 Web prompts 回滚 E2E toast 严格模式（2026-11-28）
 

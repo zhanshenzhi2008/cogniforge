@@ -3,6 +3,7 @@ package nodes
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"cogniforge/internal/orchestration/engine/core"
 )
@@ -29,7 +30,8 @@ func (e *SubflowNodeExecutor) Execute(ctx *core.ExecutionContext, config json.Ra
 	if e == nil || e.Run == nil {
 		return nil, fmt.Errorf("Subflow node: runner not configured")
 	}
-	if cfg.WorkflowID == "" {
+	workflowID := strings.TrimSpace(resolveTemplate(cfg.WorkflowID, ctx))
+	if workflowID == "" {
 		return nil, fmt.Errorf("Subflow node: workflow_id is required")
 	}
 
@@ -53,7 +55,7 @@ func (e *SubflowNodeExecutor) Execute(ctx *core.ExecutionContext, config json.Ra
 		}
 	}
 
-	out, err := e.Run(ctx, cfg.WorkflowID, input)
+	out, err := e.Run(ctx, workflowID, input)
 	if err != nil {
 		return nil, err
 	}
@@ -64,13 +66,14 @@ func (e *SubflowNodeExecutor) Execute(ctx *core.ExecutionContext, config json.Ra
 	if raw, mErr := json.Marshal(out); mErr == nil {
 		ctx.SetVariable("last_subflow_output", string(raw))
 	}
+	ctx.SetVariable("last_subflow_workflow_id", workflowID)
 	if c, ok := out["content"]; ok {
 		if s := fmt.Sprint(c); s != "" && s != "<nil>" {
 			ctx.SetVariable("last_agent_content", s)
 		}
 	}
 	return map[string]any{
-		"workflow_id": cfg.WorkflowID,
+		"workflow_id": workflowID,
 		"output":      out,
 		"status":      "completed",
 	}, nil

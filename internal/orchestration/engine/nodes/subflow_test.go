@@ -68,6 +68,26 @@ func TestSubflowNodeExecutor_PromotesContentToLastAgent(t *testing.T) {
 	}
 }
 
+func TestSubflowNodeExecutor_WorkflowIDTemplate(t *testing.T) {
+	var gotID string
+	ex := &SubflowNodeExecutor{Run: func(parent *core.ExecutionContext, workflowID string, input map[string]any) (map[string]any, error) {
+		gotID = workflowID
+		return map[string]any{"ok": true}, nil
+	}}
+	ctx := core.NewExecutionContext("wf-parent", "exec-1", nil).WithUserID("u1")
+	ctx.SetVariable("child", "wf-dyn")
+	_, err := ex.Execute(ctx, json.RawMessage(`{"workflow_id":"{{child}}"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if gotID != "wf-dyn" {
+		t.Fatalf("workflow_id=%s", gotID)
+	}
+	if v, _ := ctx.GetVariable("last_subflow_workflow_id"); v != "wf-dyn" {
+		t.Fatalf("last_subflow_workflow_id=%v", v)
+	}
+}
+
 func TestSubflowNodeExecutor_CustomInputTemplates(t *testing.T) {
 	var gotIn map[string]any
 	ex := &SubflowNodeExecutor{Run: func(parent *core.ExecutionContext, workflowID string, input map[string]any) (map[string]any, error) {

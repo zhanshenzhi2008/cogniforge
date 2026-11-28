@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-28 | v1.231 | 子流程 workflow ID 支持 {{变量}}；写 last_subflow_workflow_id | orjrs |
 | 2026-11-28 | v1.230 | 检索知识库 ID 支持 {{变量}}；写 last_search_kb_id | orjrs |
 | 2026-11-28 | v1.229 | Team ID 支持 {{变量}}；写 last_team_id | orjrs |
 | 2026-11-28 | v1.228 | Agent ID 支持 {{变量}}；写 last_agent_id | orjrs |
@@ -398,6 +399,12 @@
   - 中期：~~发布渠道~~（Web/API/嵌入已做；IM 仍待）、~~猜你想问~~
   - 远期：~~虚拟机~~（UI 占位；运行时仍待）、~~语音播放~~（浏览器 TTS）、~~语音输入~~（浏览器 STT；云 ASR 另排）
 - **详见**：`cogniforge-web/docs/99-dev-plan/01-development-plan.md` v1.67；主仓开发计划「后续待办」
+
+## [变更] 子流程 workflow ID {{变量}} / last_subflow_workflow_id（2026-11-28）
+
+- **变更原因**：嵌套工作流只能下拉选死 ID，无法按入参切换
+- **变更后**：`workflow_id` 先展开；成功写 `last_subflow_workflow_id`；抽屉可选手写；本文 §11
+- **包含代码**：`nodes/subflow.go`；Web 子流程抽屉
 
 ## [变更] 检索知识库 ID {{变量}} / last_search_kb_id（2026-11-28）
 
@@ -2346,7 +2353,7 @@ Mobile 问题记入 backlog，**不阻断** Web 主路径合并。
 | `agent` | 是 | 智能体名 | **agentId**（ID 或 `{{变量}}`）、prompt（`{{变量}}`；空接 `last_agent_content` / 流程输入）；成功写 `last_agent_content` / `last_agent_id` |
 | `team` | 是 | 小队名 | **teamId**（ID 或 `{{变量}}`）、prompt/task（`{{变量}}`；空接 `last_agent_content`）；成功写 `last_agent_content` / `last_team_id` |
 | `search` | 是 | 库名 · 模式 · topK | **knowledgeBaseId**（ID 或 `{{变量}}`）、query（`{{变量}}`；空接 input/last_agent_content）、topK / minScore / hybridSemanticWeight（数字或 `{{变量}}`；空跟库）、覆盖项；结果写 `last_search_context`/`query`/`total`/`kb_id` |
-| `subflow` | 是 | 嵌套工作流名 · 自定义入参 | **subflowWorkflowId**（禁自身；最多 3 层）；可选 `input` JSON（`{{变量}}`）；结果写 `last_subflow_output`（有 content 兼写 `last_agent_content`） |
+| `subflow` | 是 | 嵌套工作流名 · 自定义入参 | **subflowWorkflowId**（ID 或 `{{变量}}`；禁自身；最多 3 层）；可选 `input` JSON（`{{变量}}`）；结果写 `last_subflow_output` / `last_subflow_workflow_id`（有 content 兼写 `last_agent_content`） |
 | `condition` | 是 | 字段 运算符 值 | **conditionField**（`{{变量}}` 展开为字段名）、operator、value（`{{变量}}`）、description；须真/假出边；结果写 `last_condition_result`/`branch`/`field` |
 | `loop` | 是 | 次数/条件/数组→元素 | loopType；times 的 count / max_iter 支持数字或 `{{变量}}`；while 条件支持 `{{变量}}`；for_each 时 **loopArrayVar**（`{{变量}}` 展开为变量名）；结束后写 `last_loop_total`/`index`/`type` |
 | `http` | 是 | METHOD url · 头/超时/严校验 | method、**httpUrl**、body、**headers**、timeout（数字或 `{{变量}}`）、failOnError；URL/头/体 `{{变量}}`；结果写 `last_http_status`/`last_http_body` |

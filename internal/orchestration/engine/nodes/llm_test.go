@@ -101,3 +101,9 @@ func TestAgentNodeExecutor_RequiresAgentID(t *testing.T) {
 	_, err := e.Execute(ctx, cfg)
 	require.Error(t, err)
 }
+
+func TestAgentNodeConfig_AgentIDTemplate(t *testing.T) {
+	ctx := core.NewExecutionContext("wf", "exec", nil)
+	ctx.SetVariable("aid", "agent-42")
+	require.Equal(t, "agent-42", strings.TrimSpace(resolveTemplate("{{aid}}", ctx)))
+}

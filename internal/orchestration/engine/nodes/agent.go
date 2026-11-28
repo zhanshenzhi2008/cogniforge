@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -45,9 +46,6 @@ func (e *AgentNodeExecutor) Execute(ctx *core.ExecutionContext, config json.RawM
 	if e.DB == nil {
 		return nil, fmt.Errorf("Agent node: DB not configured")
 	}
-	if cfg.AgentID == "" {
-		return nil, fmt.Errorf("Agent node: agent_id is required")
-	}
 	userID := ctx.UserID
 	if userID == "" {
 		return nil, fmt.Errorf("Agent node: missing user_id on execution context")
@@ -57,12 +55,17 @@ func (e *AgentNodeExecutor) Execute(ctx *core.ExecutionContext, config json.RawM
 		ctx.SetVariable(k, v)
 	}
 
+	agentID := strings.TrimSpace(resolveTemplate(cfg.AgentID, ctx))
+	if agentID == "" {
+		return nil, fmt.Errorf("Agent node: agent_id is required")
+	}
+
 	var ag model.Agent
-	if err := e.DB.Where("id = ? AND user_id = ?", cfg.AgentID, userID).
+	if err := e.DB.Where("id = ? AND user_id = ?", agentID, userID).
 		Select("id, user_id, model, system_prompt, prompt_id, skill_id, memory_type, memory_turns, tools").
 		First(&ag).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return nil, fmt.Errorf("agent not found: %s", cfg.AgentID)
+			return nil, fmt.Errorf("agent not found: %s", agentID)
 		}
 		return nil, fmt.Errorf("load agent: %w", err)
 	}
@@ -90,7 +93,7 @@ func (e *AgentNodeExecutor) Execute(ctx *core.ExecutionContext, config json.RawM
 	}
 
 	systemPrompt := e.resolveSystemPrompt(userID, &ag, cfg.Variables)
-	modelName := cfg.Model
+	modelName := strings.TrimSpace(resolveTemplate(cfg.Model, ctx))
 	if modelName == "" {
 		modelName = ag.Model
 	}
@@ -178,10 +181,13 @@ func (e *AgentNodeExecutor) Execute(ctx *core.ExecutionContext, config json.RawM
 	}
 
 	ctx.SetVariable("last_agent_content", content)
-	ctx.Logger.Logf(ctx.NodeID, "info", "Agent ok id=%s model=%s tools=%d latency=%dms", cfg.AgentID, modelOut, toolsUsed, latency)
+	ctx.SetVariable("last_agent_id", agentID)
+	if ctx.Logger != nil {
+		ctx.Logger.Logf(ctx.NodeID, "info", "Agent ok id=%s model=%s tools=%d latency=%dms", agentID, modelOut, toolsUsed, latency)
+	}
 
 	return map[string]any{
-		"agent_id":     cfg.AgentID,
+		"agent_id":     agentID,
 		"model":        modelOut,
 		"prompt":       userPrompt,
 		"content":      content,

@@ -19,6 +19,7 @@ type Workflow struct {
 	Definition  string         `gorm:"type:text" json:"definition"`
 	Status      string         `gorm:"type:varchar(50);default:'draft'" json:"status"`
 	Version     int            `gorm:"default:1" json:"version"`
+	WebhookURL  string         `gorm:"type:varchar(500)" json:"webhook_url,omitempty"` // 执行终态回调（完成/失败/取消）
 	CreatedAt   time.Time      `json:"created_at"`
 	UpdatedAt   time.Time      `json:"updated_at"`
 	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
@@ -26,6 +27,20 @@ type Workflow struct {
 
 func (Workflow) TableName() string {
 	return "workflows"
+}
+
+// WorkflowVersion 工作流定义历史快照（简单回滚用）
+type WorkflowVersion struct {
+	ID         string    `gorm:"primaryKey;type:varchar(64)" json:"id"`
+	WorkflowID string    `gorm:"type:varchar(64);not null;uniqueIndex:uk_wf_ver,priority:1;index:idx_wf_ver_workflow" json:"workflow_id"`
+	Version    int       `gorm:"not null;uniqueIndex:uk_wf_ver,priority:2" json:"version"`
+	Definition string    `gorm:"type:text;not null" json:"definition"`
+	Note       string    `gorm:"type:varchar(255)" json:"note,omitempty"`
+	CreatedAt  time.Time `json:"created_at"`
+}
+
+func (WorkflowVersion) TableName() string {
+	return "workflow_versions"
 }
 
 // WorkflowNode 工作流节点表
@@ -159,16 +174,21 @@ type Agent struct {
 	Name         string         `gorm:"type:varchar(255);not null" json:"name"`
 	Description  string         `gorm:"type:text" json:"description"`
 	Model        string         `gorm:"type:varchar(100)" json:"model"`
-	SystemPrompt string         `gorm:"type:text" json:"system_prompt"`
-	PromptID     string         `gorm:"type:varchar(64);index:idx_agents_prompt_id" json:"prompt_id"` // 绑定提示词资产；优先于内联 system_prompt
-	Tools        JSONBArray     `gorm:"type:jsonb" json:"tools"`                                      // 直接配置的 MCP Server ID 列表
-	SkillID      string         `gorm:"type:varchar(64)" json:"skill_id"`                             // 阶段十五：从 SKILL 创建
-	MemoryType   string         `gorm:"type:varchar(50)" json:"memory_type"`
-	MemoryTurns  int            `gorm:"default:10" json:"memory_turns"`
-	InputFilter  bool           `gorm:"default:true" json:"input_filter"`
-	OutputFilter bool           `gorm:"default:true" json:"output_filter"`
-	Status       string         `gorm:"type:varchar(50);default:'active'" json:"status"`
-	Metadata     JSONBMap       `gorm:"type:jsonb" json:"metadata"`
+	SystemPrompt     string         `gorm:"type:text" json:"system_prompt"`
+	PromptID         string         `gorm:"type:varchar(64);index:idx_agents_prompt_id" json:"prompt_id"` // 绑定提示词资产；优先于内联 system_prompt
+	OpeningMessage      string         `gorm:"type:text" json:"opening_message"`                            // 预览/对话首屏开场白
+	SuggestedPrompts    JSONBArray     `gorm:"type:jsonb" json:"suggested_prompts"`                         // 预设问题（最多若干条）
+	RAGKnowledgeBaseIDs JSONBArray     `gorm:"type:jsonb;column:rag_kb_ids" json:"rag_kb_ids"`               // 绑定知识库；对话自动 RAG
+	AllowAttachments    bool           `gorm:"default:false" json:"allow_attachments"`                       // 预览/对话是否允许上传文件附件
+	Tools               JSONBArray     `gorm:"type:jsonb" json:"tools"`                                      // 直接配置的 MCP Server ID 列表
+	SkillID             string         `gorm:"type:varchar(64)" json:"skill_id"`                             // 阶段十五：从 SKILL 创建
+	MemoryType          string         `gorm:"type:varchar(50)" json:"memory_type"`
+	MemoryTurns         int            `gorm:"default:10" json:"memory_turns"`
+	InputFilter         bool           `gorm:"default:true" json:"input_filter"`
+	OutputFilter        bool           `gorm:"default:true" json:"output_filter"`
+	Status              string         `gorm:"type:varchar(50);default:'active'" json:"status"`
+	Version             int            `gorm:"default:1" json:"version"` // 配置版本号；与 agent_versions 对齐
+	Metadata            JSONBMap       `gorm:"type:jsonb" json:"metadata"`
 	CreatedAt    time.Time      `json:"created_at"`
 	UpdatedAt    time.Time      `json:"updated_at"`
 	DeletedAt    gorm.DeletedAt `gorm:"index" json:"-"`
@@ -176,4 +196,18 @@ type Agent struct {
 
 func (Agent) TableName() string {
 	return "agents"
+}
+
+// AgentVersion Agent 配置历史快照（工作室简单回滚）
+type AgentVersion struct {
+	ID        string    `gorm:"primaryKey;type:varchar(64)" json:"id"`
+	AgentID   string    `gorm:"type:varchar(64);not null;uniqueIndex:uk_agent_ver,priority:1;index:idx_agent_ver_agent" json:"agent_id"`
+	Version   int       `gorm:"not null;uniqueIndex:uk_agent_ver,priority:2" json:"version"`
+	Config    string    `gorm:"type:text;not null" json:"config"` // JSON：工作室可回滚字段
+	Note      string    `gorm:"type:varchar(255)" json:"note,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+func (AgentVersion) TableName() string {
+	return "agent_versions"
 }

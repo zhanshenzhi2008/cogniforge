@@ -9,9 +9,9 @@ import (
 
 // WaitNodeConfig 人工/外部等待节点（阶段十八 W2/W3）
 type WaitNodeConfig struct {
-	Reason     string `json:"reason,omitempty"`      // approval / external / manual
-	Message    string `json:"message,omitempty"`     // 给人看的提示
-	TimeoutSec int    `json:"timeout_sec,omitempty"` // >0 时写入 wait_until；超时扫描置 failed
+	Reason     string          `json:"reason,omitempty"`      // approval / external / manual
+	Message    string          `json:"message,omitempty"`     // 给人看的提示
+	TimeoutSec json.RawMessage `json:"timeout_sec,omitempty"` // 数字或 "{{变量}}"；>0 时写入 wait_until
 }
 
 // WaitNodeExecutor 命中后由引擎挂起执行（status=waiting），不在此阻塞
@@ -22,11 +22,11 @@ func (e *WaitNodeExecutor) Execute(ctx *core.ExecutionContext, config json.RawMe
 	if len(config) > 0 {
 		_ = json.Unmarshal(config, &cfg)
 	}
-	reason := cfg.Reason
+	reason := resolveTemplate(cfg.Reason, ctx)
 	if reason == "" {
 		reason = "approval"
 	}
-	msg := cfg.Message
+	msg := resolveTemplate(cfg.Message, ctx)
 	if msg == "" {
 		msg = "Waiting for human approval or external event"
 	}
@@ -35,10 +35,25 @@ func (e *WaitNodeExecutor) Execute(ctx *core.ExecutionContext, config json.RawMe
 		"reason":   reason,
 		"message":  msg,
 	}
-	if cfg.TimeoutSec > 0 {
-		out["timeout_sec"] = cfg.TimeoutSec
+	if sec := resolveFlexibleInt(cfg.TimeoutSec, ctx); sec > 0 {
+		out["timeout_sec"] = sec
 	}
+	storeLastWait(ctx, out)
 	return out, nil
+}
+
+// storeLastWait 挂起前写入，供下游/审批后续步骤 {{last_wait_reason}} 等引用
+func storeLastWait(ctx *core.ExecutionContext, out map[string]any) {
+	if ctx == nil || out == nil {
+		return
+	}
+	ctx.SetVariable("last_wait_reason", out["reason"])
+	ctx.SetVariable("last_wait_message", out["message"])
+	if sec, ok := out["timeout_sec"]; ok {
+		ctx.SetVariable("last_wait_timeout_sec", sec)
+	} else {
+		ctx.SetVariable("last_wait_timeout_sec", 0)
+	}
 }
 
 // IsWaitOutput 判断节点输出是否为等待信号

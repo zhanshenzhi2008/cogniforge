@@ -1,11 +1,16 @@
 package core
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"net/http"
+	"sort"
+	"strings"
+	"sync"
 	"time"
 
 	"cogniforge/internal/infra/database"
@@ -15,7 +20,7 @@ import (
 	"gorm.io/gorm"
 )
 
-const EngineVersion = "18.3"
+const EngineVersion = "18.5"
 
 type WorkflowEngine struct {
 	db            *gorm.DB
@@ -111,6 +116,20 @@ func vueDataToConfig(nodeType string, data map[string]any) json.RawMessage {
 		}
 		if v, ok := data["maxTokens"]; ok {
 			out["max_tokens"] = v
+		} else if v, ok := data["max_tokens"]; ok {
+			out["max_tokens"] = v
+		} else if v, ok := data["llmMaxTokens"]; ok {
+			out["max_tokens"] = v
+		}
+		if _, ok := out["temperature"]; !ok {
+			if v, ok := data["llmTemperature"]; ok {
+				out["temperature"] = v
+			}
+		}
+		if v, ok := data["stream"]; ok {
+			out["stream"] = v
+		} else if v, ok := data["llmStream"]; ok {
+			out["stream"] = v
 		}
 		if v, ok := data["agentId"]; ok {
 			out["agent_id"] = v
@@ -132,6 +151,19 @@ func vueDataToConfig(nodeType string, data map[string]any) json.RawMessage {
 		}
 		if v, ok := data["goal"]; ok {
 			out["goal"] = v
+		}
+	case "subflow":
+		if v, ok := data["workflowId"]; ok {
+			out["workflow_id"] = v
+		} else if v, ok := data["workflow_id"]; ok {
+			out["workflow_id"] = v
+		} else if v, ok := data["subflowWorkflowId"]; ok {
+			out["workflow_id"] = v
+		}
+		if v, ok := data["input"]; ok {
+			out["input"] = v
+		} else if v, ok := data["subflowInput"]; ok {
+			out["input"] = v
 		}
 	case "search":
 		if v, ok := data["knowledgeBaseId"]; ok {
@@ -171,6 +203,115 @@ func vueDataToConfig(nodeType string, data map[string]any) json.RawMessage {
 			out["hybrid_semantic_weight"] = v
 		} else if v, ok := data["hybrid_semantic_weight"]; ok {
 			out["hybrid_semantic_weight"] = v
+		}
+	case "http":
+		if v, ok := data["url"]; ok {
+			out["url"] = v
+		}
+		if v, ok := data["method"]; ok {
+			out["method"] = v
+		}
+		if v, ok := data["body"]; ok {
+			out["body"] = v
+		}
+		if v, ok := data["headers"]; ok {
+			out["headers"] = v
+		} else if v, ok := data["httpHeaders"]; ok {
+			out["headers"] = v
+		}
+		if v, ok := data["timeout"]; ok {
+			out["timeout"] = v
+		} else if v, ok := data["timeoutSec"]; ok {
+			out["timeout"] = v
+		}
+		if v, ok := data["failOnError"]; ok {
+			out["fail_on_error"] = v
+		} else if v, ok := data["fail_on_error"]; ok {
+			out["fail_on_error"] = v
+		} else if v, ok := data["httpFailOnError"]; ok {
+			out["fail_on_error"] = v
+		}
+	case "delay":
+		if v, ok := data["delayDuration"]; ok {
+			out["duration"] = v
+		} else if v, ok := data["duration"]; ok {
+			out["duration"] = v
+		}
+		if v, ok := data["delayUnit"]; ok {
+			out["unit"] = v
+		} else if v, ok := data["unit"]; ok {
+			out["unit"] = v
+		}
+	case "loop":
+		if v, ok := data["loopType"]; ok {
+			out["type"] = v
+		} else if v, ok := data["type"]; ok {
+			out["type"] = v
+		}
+		if v, ok := data["loopCount"]; ok {
+			out["count"] = v
+		} else if v, ok := data["count"]; ok {
+			out["count"] = v
+		}
+		if v, ok := data["loopMaxIter"]; ok {
+			out["max_iter"] = v
+		} else if v, ok := data["max_iter"]; ok {
+			out["max_iter"] = v
+		}
+		if v, ok := data["loopCondition"]; ok {
+			out["condition"] = v
+		} else if v, ok := data["condition"]; ok {
+			out["condition"] = v
+		}
+		if v, ok := data["loopArrayVar"]; ok {
+			out["array_var"] = v
+		} else if v, ok := data["array_var"]; ok {
+			out["array_var"] = v
+		}
+		if v, ok := data["loopItemVar"]; ok {
+			out["item_var"] = v
+		} else if v, ok := data["item_var"]; ok {
+			out["item_var"] = v
+		}
+		if v, ok := data["loopKeyVar"]; ok {
+			out["key_var"] = v
+		} else if v, ok := data["key_var"]; ok {
+			out["key_var"] = v
+		}
+	case "code":
+		if v, ok := data["codeLanguage"]; ok {
+			out["language"] = v
+		} else if v, ok := data["language"]; ok {
+			out["language"] = v
+		}
+		if v, ok := data["codeSource"]; ok {
+			out["code"] = v
+		} else if v, ok := data["code"]; ok {
+			out["code"] = v
+		}
+		if v, ok := data["timeout"]; ok {
+			out["timeout"] = v
+		} else if v, ok := data["codeTimeout"]; ok {
+			out["timeout"] = v
+		}
+	case "condition":
+		if v, ok := data["conditions"]; ok {
+			out["conditions"] = v
+		} else if field, ok := data["conditionField"]; ok {
+			op, _ := data["conditionOperator"].(string)
+			if op == "" {
+				op = "=="
+			}
+			branch, _ := data["conditionBranch"].(string)
+			if branch == "" {
+				branch = "true"
+			}
+			out["conditions"] = []map[string]any{{
+				"field":    field,
+				"operator": op,
+				"value":    data["conditionValue"],
+				"branch":   branch,
+			}}
 		}
 	default:
 		for k, v := range data {
@@ -232,6 +373,108 @@ func (e *WorkflowEngine) TopologicalSort(def *WorkflowDefinition) ([]NodeDefinit
 	return result, nil
 }
 
+// parallelSafeNodeType 可同波并行的节点（无 wait/分支/审批/嵌套副作用）
+func parallelSafeNodeType(t string) bool {
+	switch t {
+	case "http", "delay", "code", "search", "llm", "agent", "tool":
+		return true
+	default:
+		return false
+	}
+}
+
+func canParallelWave(nodes []NodeDefinition) bool {
+	if len(nodes) < 2 {
+		return false
+	}
+	for _, n := range nodes {
+		if !parallelSafeNodeType(n.Type) {
+			return false
+		}
+	}
+	return true
+}
+
+type nodeRunOutcome struct {
+	node       NodeDefinition
+	output     any
+	err        error
+	duration   int64
+	waitReason string
+	waitMsg    string
+	timeoutSec int
+	waiting    bool
+}
+
+func (e *WorkflowEngine) runOneNode(parent *ExecutionContext, node NodeDefinition) nodeRunOutcome {
+	ctx := parent.ForNode(node.ID)
+	out := nodeRunOutcome{node: node}
+
+	ctx.Logger.Logf(node.ID, "info", "Starting node: %s (type: %s)", node.Name, node.Type)
+	if ctx.OnNodeStart != nil {
+		ctx.OnNodeStart(node.ID)
+	}
+
+	executor, ok := e.nodeExecutors[node.Type]
+	if !ok {
+		out.err = fmt.Errorf("unknown node type: %s", node.Type)
+		ctx.Logger.Logf(node.ID, "error", "Node execution failed: %v", out.err)
+		e.persistNodeRun(ctx, node, "failed", 1, nil, nil, out.err.Error(), 0)
+		if ctx.OnNodeEnd != nil {
+			ctx.OnNodeEnd(node.ID, "failed")
+		}
+		return out
+	}
+
+	startTime := time.Now()
+	e.persistNodeRun(ctx, node, "running", 1, nil, nil, "", 0)
+	output, err := executor.Execute(ctx, node.Config)
+	out.duration = time.Since(startTime).Milliseconds()
+	out.output = output
+	out.err = err
+
+	if err != nil {
+		ctx.Logger.Logf(node.ID, "error", "Node execution failed after %dms: %v", out.duration, err)
+		e.persistNodeRun(ctx, node, "failed", 1, nil, nil, err.Error(), out.duration)
+		if ctx.OnNodeEnd != nil {
+			ctx.OnNodeEnd(node.ID, "failed")
+		}
+		return out
+	}
+
+	if reason, msg, timeoutSec, isWait := isWaitOutput(output); isWait {
+		out.waiting = true
+		out.waitReason = reason
+		out.waitMsg = msg
+		out.timeoutSec = timeoutSec
+		ctx.Logger.Logf(node.ID, "info", "Entering waiting: %s (%s) timeout=%ds", reason, msg, timeoutSec)
+		if output != nil {
+			ctx.SetNodeOutput(node.ID, output)
+		}
+		e.persistNodeRun(ctx, node, "succeeded", 1, nil, output, "", out.duration)
+		ctx.SetNodeState(node.ID, "succeeded")
+		if ctx.OnNodeEnd != nil {
+			ctx.OnNodeEnd(node.ID, "waiting")
+		}
+		return out
+	}
+
+	ctx.Logger.Logf(node.ID, "info", "Node completed in %dms", out.duration)
+	if output != nil {
+		ctx.SetNodeOutput(node.ID, output)
+	}
+	persistOut := output
+	if node.Type == "end" {
+		persistOut = map[string]any{"finished": true}
+	}
+	e.persistNodeRun(ctx, node, "succeeded", 1, nil, persistOut, "", out.duration)
+	ctx.SetNodeState(node.ID, "succeeded")
+	if ctx.OnNodeEnd != nil {
+		ctx.OnNodeEnd(node.ID, "completed")
+	}
+	return out
+}
+
 func (e *WorkflowEngine) Execute(ctx *ExecutionContext, def *WorkflowDefinition) *ExecutionResult {
 	result := &ExecutionResult{
 		ExecutionID: ctx.ExecutionID,
@@ -243,101 +486,147 @@ func (e *WorkflowEngine) Execute(ctx *ExecutionContext, def *WorkflowDefinition)
 
 	e.updateExecutionStatus(ctx.ExecutionID, "running", "", "")
 
-	sortedNodes, err := e.TopologicalSort(def)
-	if err != nil {
+	if _, err := e.TopologicalSort(def); err != nil {
 		result.Status = "failed"
 		result.Error = err.Error()
 		e.updateExecutionStatus(ctx.ExecutionID, "failed", "", result.Error)
 		return result
 	}
 
+	nodeMap := make(map[string]NodeDefinition, len(def.Nodes))
+	inDegree := make(map[string]int, len(def.Nodes))
+	succ := make(map[string][]outEdge)
+	for _, n := range def.Nodes {
+		nodeMap[n.ID] = n
+		inDegree[n.ID] = 0
+	}
+	for _, edge := range def.Edges {
+		inDegree[edge.Target]++
+		succ[edge.Source] = append(succ[edge.Source], outEdge{
+			Target: edge.Target,
+			Handle: edge.SourceHandle,
+		})
+	}
+
 	completed := make([]string, 0)
+	completedSet := make(map[string]bool)
 	for id, st := range ctx.State {
 		if st == "skipped" || st == "succeeded" {
 			completed = append(completed, id)
+			completedSet[id] = true
+			// 恢复时已完成/跳过节点：放出全部后继（含未选分支，因其亦在 completedSet）
+			for _, oe := range succ[id] {
+				inDegree[oe.Target]--
+			}
 		}
 	}
 
-	for i, node := range sortedNodes {
-		if ctx.GetNodeState(node.ID) == "skipped" {
-			e.persistNodeRun(ctx, node, "skipped", 1, nil, nil, "", 0)
-			continue
+	ready := make([]string, 0)
+	for id, deg := range inDegree {
+		if deg == 0 && !completedSet[id] {
+			ready = append(ready, id)
 		}
+	}
 
-		ctx.NodeID = node.ID
-		e.setCurrentNode(ctx.ExecutionID, node.ID)
-
-		ctx.Logger.Logf(node.ID, "info", "Starting node: %s (type: %s)", node.Name, node.Type)
-		if ctx.OnNodeStart != nil {
-			ctx.OnNodeStart(node.ID)
-		}
-
-		executor, ok := e.nodeExecutors[node.Type]
-		if !ok {
-			err := fmt.Errorf("unknown node type: %s", node.Type)
-			ctx.Logger.Logf(node.ID, "error", "Node execution failed: %v", err)
-			e.persistNodeRun(ctx, node, "failed", 1, nil, nil, err.Error(), 0)
-			result.Status = "failed"
-			result.Error = err.Error()
-			e.updateExecutionStatus(ctx.ExecutionID, "failed", "", result.Error)
-			return result
-		}
-
-		startTime := time.Now()
-		e.persistNodeRun(ctx, node, "running", 1, nil, nil, "", 0)
-		output, err := executor.Execute(ctx, node.Config)
-		duration := time.Since(startTime).Milliseconds()
-
-		if err != nil {
-			ctx.Logger.Logf(node.ID, "error", "Node execution failed after %dms: %v", duration, err)
-			e.persistNodeRun(ctx, node, "failed", 1, nil, nil, err.Error(), duration)
-			if ctx.OnNodeEnd != nil {
-				ctx.OnNodeEnd(node.ID, "failed")
+	for len(ready) > 0 {
+		seenReady := make(map[string]bool, len(ready))
+		wave := make([]NodeDefinition, 0, len(ready))
+		for _, id := range ready {
+			if seenReady[id] {
+				continue
 			}
-			result.Status = "failed"
-			result.Error = fmt.Sprintf("Node %s failed: %v", node.Name, err)
-			e.updateExecutionStatus(ctx.ExecutionID, "failed", "", result.Error)
-			return result
+			seenReady[id] = true
+			if n, ok := nodeMap[id]; ok {
+				wave = append(wave, n)
+			}
+		}
+		sort.Slice(wave, func(i, j int) bool { return wave[i].ID < wave[j].ID })
+		ready = ready[:0]
+
+		var outcomes []nodeRunOutcome
+		if canParallelWave(wave) {
+			ids := make([]string, len(wave))
+			for i, n := range wave {
+				ids[i] = n.ID
+			}
+			e.setCurrentNode(ctx.ExecutionID, strings.Join(ids, ","))
+			ctx.Logger.Logf("", "info", "Parallel wave: %d nodes (%s)", len(wave), strings.Join(ids, ","))
+			outcomes = make([]nodeRunOutcome, len(wave))
+			var wg sync.WaitGroup
+			for i, node := range wave {
+				wg.Add(1)
+				go func(i int, node NodeDefinition) {
+					defer wg.Done()
+					outcomes[i] = e.runOneNode(ctx, node)
+				}(i, node)
+			}
+			wg.Wait()
+		} else {
+			outcomes = make([]nodeRunOutcome, 0, len(wave))
+			for _, node := range wave {
+				e.setCurrentNode(ctx.ExecutionID, node.ID)
+				outcomes = append(outcomes, e.runOneNode(ctx, node))
+				last := outcomes[len(outcomes)-1]
+				if last.err != nil || last.waiting {
+					// 串行波：失败/等待后不再跑同波剩余节点
+					break
+				}
+			}
 		}
 
-		// wait 节点：写成功记录 + checkpoint，挂起为 waiting
-		if reason, msg, timeoutSec, isWait := isWaitOutput(output); isWait {
-			ctx.Logger.Logf(node.ID, "info", "Entering waiting: %s (%s) timeout=%ds", reason, msg, timeoutSec)
-			if output != nil {
-				ctx.Output[node.ID] = output
+		for _, oc := range outcomes {
+			if oc.err != nil {
+				result.Status = "failed"
+				if strings.HasPrefix(oc.err.Error(), "unknown node type:") {
+					result.Error = oc.err.Error()
+				} else {
+					result.Error = fmt.Sprintf("Node %s failed: %v", oc.node.Name, oc.err)
+				}
+				e.updateExecutionStatus(ctx.ExecutionID, "failed", "", result.Error)
+				return result
 			}
-			e.persistNodeRun(ctx, node, "succeeded", 1, nil, output, "", duration)
-			completed = append(completed, node.ID)
-			ctx.SetNodeState(node.ID, "succeeded")
-			nextID := ""
-			if i+1 < len(sortedNodes) {
-				nextID = sortedNodes[i+1].ID
+			if oc.waiting {
+				completed = append(completed, oc.node.ID)
+				completedSet[oc.node.ID] = true
+				var waitReady []string
+				releaseSuccessors(
+					e, oc.node.ID, oc.node.Type, oc.output,
+					succ, inDegree, completedSet, &completed, &waitReady, ctx, nodeMap,
+				)
+				nextID := ""
+				if len(waitReady) > 0 {
+					nextID = waitReady[0]
+				}
+				e.saveCheckpoint(ctx, nextID, completed, "enter_waiting")
+				e.setWaiting(ctx.ExecutionID, oc.waitReason, oc.waitMsg, oc.timeoutSec)
+				result.Status = "waiting"
+				result.Output = ctx.Output
+				result.Duration = time.Since(ctx.StartTime).Milliseconds()
+				return result
 			}
-			e.saveCheckpoint(ctx, nextID, completed, "enter_waiting")
-			e.setWaiting(ctx.ExecutionID, reason, msg, timeoutSec)
-			result.Status = "waiting"
-			result.Output = ctx.Output
-			result.Duration = time.Since(ctx.StartTime).Milliseconds()
-			if ctx.OnNodeEnd != nil {
-				ctx.OnNodeEnd(node.ID, "waiting")
-			}
-			return result
+			completed = append(completed, oc.node.ID)
+			completedSet[oc.node.ID] = true
+			releaseSuccessors(
+				e, oc.node.ID, oc.node.Type, oc.output,
+				succ, inDegree, completedSet, &completed, &ready, ctx, nodeMap,
+			)
+			e.saveCheckpoint(ctx, "", completed, "node_ok")
 		}
+	}
 
-		ctx.Logger.Logf(node.ID, "info", "Node completed in %dms", duration)
-		if output != nil {
-			ctx.Output[node.ID] = output
-		}
-		e.persistNodeRun(ctx, node, "succeeded", 1, nil, output, "", duration)
-		completed = append(completed, node.ID)
-		ctx.SetNodeState(node.ID, "succeeded")
-		nextID := ""
-		if i+1 < len(sortedNodes) {
-			nextID = sortedNodes[i+1].ID
-		}
-		e.saveCheckpoint(ctx, nextID, completed, "node_ok")
-		if ctx.OnNodeEnd != nil {
-			ctx.OnNodeEnd(node.ID, "completed")
+	// 若仍有未完成节点，说明图中有环或悬挂（TopologicalSort 已拦环；此处兜底）
+	if len(completedSet) < len(def.Nodes) {
+		for id := range nodeMap {
+			if !completedSet[id] {
+				st := ctx.GetNodeState(id)
+				if st == "skipped" || st == "succeeded" {
+					continue
+				}
+				result.Status = "failed"
+				result.Error = fmt.Sprintf("unresolved node %s (possible cycle or broken edges)", id)
+				e.updateExecutionStatus(ctx.ExecutionID, "failed", "", result.Error)
+				return result
+			}
 		}
 	}
 
@@ -451,16 +740,67 @@ func ApplyCheckpoint(ctx *ExecutionContext, cp *model.WorkflowCheckpoint) {
 		}
 	}
 	if cp.Outputs != nil {
-		if ctx.Output == nil {
-			ctx.Output = make(map[string]any)
-		}
 		for k, v := range cp.Outputs {
-			ctx.Output[k] = v
+			ctx.SetNodeOutput(k, v)
 		}
 	}
 	for _, id := range cp.CompletedNodeIDs {
 		ctx.SetNodeState(id, "skipped")
 	}
+}
+
+// ApplyStartFrom 从指定节点开始调试：祖先节点标 skipped（start 类型仍会执行，便于入参默认值）
+// 返回被跳过的节点定义，供调用方写入 node_runs。
+func ApplyStartFrom(ctx *ExecutionContext, def *WorkflowDefinition, startFromNodeID string) ([]NodeDefinition, error) {
+	if ctx == nil || def == nil {
+		return nil, fmt.Errorf("缺少执行上下文或定义")
+	}
+	if startFromNodeID == "" {
+		return nil, nil
+	}
+	exists := false
+	nodeByID := make(map[string]NodeDefinition, len(def.Nodes))
+	for _, n := range def.Nodes {
+		nodeByID[n.ID] = n
+		if n.ID == startFromNodeID {
+			exists = true
+		}
+	}
+	if !exists {
+		return nil, fmt.Errorf("起点节点不存在: %s", startFromNodeID)
+	}
+
+	// 反向边：收集 startFrom 的所有祖先
+	preds := make(map[string][]string)
+	for _, e := range def.Edges {
+		preds[e.Target] = append(preds[e.Target], e.Source)
+	}
+	ancestors := map[string]bool{}
+	stack := []string{startFromNodeID}
+	seen := map[string]bool{startFromNodeID: true}
+	for len(stack) > 0 {
+		cur := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
+		for _, p := range preds[cur] {
+			if seen[p] {
+				continue
+			}
+			seen[p] = true
+			ancestors[p] = true
+			stack = append(stack, p)
+		}
+	}
+
+	var skipped []NodeDefinition
+	for id := range ancestors {
+		n := nodeByID[id]
+		if n.Type == "start" {
+			continue // 仍执行开始节点，补默认入参
+		}
+		ctx.SetNodeState(id, "skipped")
+		skipped = append(skipped, n)
+	}
+	return skipped, nil
 }
 
 func (e *WorkflowEngine) setCurrentNode(executionID, nodeID string) {
@@ -548,6 +888,18 @@ func (e *WorkflowEngine) persistNodeRun(
 	}
 	if updErr := database.DB.Model(&existing).Updates(updates).Error; updErr != nil {
 		slog.Warn("persist node run update failed", "error", updErr, "execution_id", ctx.ExecutionID, "node_id", node.ID)
+		// jsonb 输出异常时仍要落终态，避免 end 等节点永久 running
+		if status == "succeeded" || status == "failed" || status == "skipped" {
+			fallback := map[string]any{
+				"status":      status,
+				"error":       errMsg,
+				"duration_ms": durationMS,
+				"finished_at": &now,
+			}
+			if fbErr := database.DB.Model(&existing).Updates(fallback).Error; fbErr != nil {
+				slog.Warn("persist node run fallback status failed", "error", fbErr, "execution_id", ctx.ExecutionID, "node_id", node.ID)
+			}
+		}
 	}
 }
 
@@ -573,6 +925,9 @@ func toJSONBMap(v any) model.JSONBMap {
 }
 
 func (e *WorkflowEngine) updateExecutionStatus(executionID, status string, output any, errorMsg string) {
+	if executionID == "" || database.DB == nil {
+		return
+	}
 	updates := map[string]any{"status": status}
 	if output != nil {
 		if outJSON, err := json.Marshal(output); err == nil {
@@ -595,10 +950,141 @@ func (e *WorkflowEngine) updateExecutionStatus(executionID, status string, outpu
 		updates["error"] = ""
 	}
 	database.DB.Model(&model.WorkflowExecution{}).Where("id = ?", executionID).Updates(updates)
+	if status == "completed" || status == "failed" || status == "cancelled" {
+		go fireWorkflowWebhook(executionID, status, errorMsg)
+	}
+}
+
+// fireWorkflowWebhook 执行终态时 POST 工作流配置的 webhook_url（失败仅打日志）
+func fireWorkflowWebhook(executionID, status, errMsg string) {
+	if database.DB == nil || executionID == "" {
+		return
+	}
+	var exec model.WorkflowExecution
+	if err := database.DB.Where("id = ?", executionID).First(&exec).Error; err != nil {
+		return
+	}
+	var wf model.Workflow
+	if err := database.DB.Where("id = ?", exec.WorkflowID).First(&wf).Error; err != nil {
+		return
+	}
+	url := strings.TrimSpace(wf.WebhookURL)
+	if url == "" {
+		return
+	}
+	body, _ := json.Marshal(map[string]any{
+		"event":        "workflow.execution." + status,
+		"execution_id": exec.ID,
+		"workflow_id":  exec.WorkflowID,
+		"status":       status,
+		"error":        errMsg,
+		"output":       exec.Output,
+		"at":           time.Now().UTC().Format(time.RFC3339),
+	})
+	client := &http.Client{Timeout: 10 * time.Second}
+	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
+	if err != nil {
+		slog.Warn("workflow webhook build request failed", "error", err, "execution_id", executionID)
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := client.Do(req)
+	if err != nil {
+		slog.Warn("workflow webhook post failed", "error", err, "execution_id", executionID, "url", url)
+		return
+	}
+	_ = resp.Body.Close()
+	if resp.StatusCode >= 300 {
+		slog.Warn("workflow webhook non-2xx", "status", resp.StatusCode, "execution_id", executionID)
+	}
+}
+
+// MaxSubflowDepth 子流程最大嵌套层数（根流程深度 0，其子流程为 1）
+const MaxSubflowDepth = 3
+
+// RunNested 同步跑嵌套工作流；写入独立 execution 记录，等待完成返回输出
+func (e *WorkflowEngine) RunNested(parent *ExecutionContext, workflowID string, input map[string]any) (map[string]any, error) {
+	if parent == nil {
+		return nil, fmt.Errorf("subflow: missing parent context")
+	}
+	userID := parent.UserID
+	if userID == "" {
+		return nil, fmt.Errorf("subflow: missing user_id")
+	}
+	depth := parent.SubflowDepth + 1
+	if depth > MaxSubflowDepth {
+		return nil, fmt.Errorf("subflow nesting exceeds max depth %d", MaxSubflowDepth)
+	}
+	if workflowID == parent.WorkflowID {
+		return nil, fmt.Errorf("subflow cannot call the same workflow")
+	}
+
+	var workflow model.Workflow
+	if err := database.DB.Where("id = ? AND user_id = ?", workflowID, userID).First(&workflow).Error; err != nil {
+		return nil, fmt.Errorf("subflow workflow not found: %w", err)
+	}
+
+	executionID := generateID()
+	now := time.Now()
+	execution := model.WorkflowExecution{
+		ID:         executionID,
+		TraceID:    parent.TraceID,
+		WorkflowID: workflowID,
+		UserID:     userID,
+		Status:     "pending",
+		Input:      model.JSONBMap(input),
+		StartedAt:  &now,
+	}
+	if err := database.DB.Create(&execution).Error; err != nil {
+		return nil, fmt.Errorf("subflow create execution: %w", err)
+	}
+
+	def, err := e.ParseDefinition(workflow.Definition)
+	if err != nil {
+		database.DB.Model(&model.WorkflowExecution{}).Where("id = ?", executionID).
+			Updates(map[string]any{"status": "failed", "error": err.Error()})
+		return nil, fmt.Errorf("subflow parse definition: %w", err)
+	}
+
+	ctx := NewExecutionContextWithTraceID(workflowID, executionID, input, parent.TraceID).WithUserID(userID)
+	ctx.SubflowDepth = depth
+	ctx.DefinitionHash = HashDefinition(workflow.Definition)
+
+	result := e.Execute(ctx, def)
+	if result.Status == "waiting" {
+		return nil, fmt.Errorf("subflow entered waiting; nested wait/approval is not supported yet")
+	}
+	if result.Status != "completed" {
+		errMsg := result.Error
+		if errMsg == "" {
+			errMsg = result.Status
+		}
+		return nil, fmt.Errorf("subflow failed: %s", errMsg)
+	}
+	if result.Output == nil {
+		return map[string]any{}, nil
+	}
+	return result.Output, nil
 }
 
 func (e *WorkflowEngine) ExecuteAsync(workflowID, userID string, input map[string]any) (string, error) {
 	return e.ExecuteAsyncWithTraceID(workflowID, userID, input, "")
+}
+
+// PatchNodeRunProgress 把流式进度写入正在跑的 node_run.detail.progress（execute/debug 轮询刷 UI）
+func PatchNodeRunProgress(executionID, nodeID, message string) {
+	if database.DB == nil || executionID == "" || nodeID == "" || message == "" {
+		return
+	}
+	payload, err := json.Marshal(map[string]string{"progress": message})
+	if err != nil {
+		return
+	}
+	_ = database.DB.Exec(`
+		UPDATE workflow_node_runs
+		SET detail = COALESCE(detail, '{}'::jsonb) || ?::jsonb
+		WHERE execution_id = ? AND node_id = ? AND status = 'running'
+	`, string(payload), executionID, nodeID).Error
 }
 
 func (e *WorkflowEngine) ExecuteAsyncWithTraceID(workflowID, userID string, input map[string]any, traceID string) (string, error) {
@@ -639,6 +1125,14 @@ func (e *WorkflowEngine) ExecuteAsyncWithTraceID(workflowID, userID string, inpu
 		}()
 
 		ctx := NewExecutionContextWithTraceID(workflowID, executionID, input, currentTraceID).WithUserID(userID)
+		ctx.DefinitionHash = HashDefinition(workflow.Definition)
+		ctx.OnNodeStart = func(nodeID string) {
+			e.setCurrentNode(executionID, nodeID)
+		}
+		ctx.OnProgress = func(nodeID, message string) {
+			ctx.Logger.Logf(nodeID, "info", "%s", message)
+			PatchNodeRunProgress(executionID, nodeID, message)
+		}
 		def, err := e.ParseDefinition(workflow.Definition)
 		if err != nil {
 			database.DB.Model(&model.WorkflowExecution{}).

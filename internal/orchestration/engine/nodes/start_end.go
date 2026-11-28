@@ -126,8 +126,13 @@ func coerceStartValue(typ string, v any) any {
 type EndNodeExecutor struct{}
 
 func (e *EndNodeExecutor) Execute(ctx *core.ExecutionContext, config json.RawMessage) (any, error) {
+	// 只回传轻量结果；完整输出已在 ctx.Output / execution.output，避免 node_run jsonb 过大失败
+	keys := 0
+	if ctx != nil && ctx.Output != nil {
+		keys = len(ctx.Output)
+	}
 	return map[string]any{
-		"finished": true,
-		"output":   ctx.Output,
+		"finished":    true,
+		"output_keys": keys,
 	}, nil
 }

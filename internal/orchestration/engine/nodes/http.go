@@ -6,17 +6,19 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"cogniforge/internal/orchestration/engine/core"
 )
 
 type HTTPNodeConfig struct {
-	URL     string            `json:"url"`
-	Method  string            `json:"method"`
-	Headers map[string]string `json:"headers,omitempty"`
-	Body    any               `json:"body,omitempty"`
-	Timeout int               `json:"timeout,omitempty"`
+	URL         string            `json:"url"`
+	Method      string            `json:"method"`
+	Headers     map[string]string `json:"headers,omitempty"`
+	Body        any               `json:"body,omitempty"`
+	Timeout     json.RawMessage   `json:"timeout,omitempty"` // 数字或 "{{变量}}"；空/0→30
+	FailOnError bool              `json:"fail_on_error,omitempty"` // true 时 status>=400 使节点失败
 }
 
 type HTTPNodeExecutor struct {
@@ -35,36 +37,59 @@ func (e *HTTPNodeExecutor) Execute(ctx *core.ExecutionContext, config json.RawMe
 		return nil, fmt.Errorf("invalid HTTP config: %w", err)
 	}
 
-	if cfg.Method == "" {
-		cfg.Method = "GET"
+	method := strings.ToUpper(strings.TrimSpace(resolveTemplate(cfg.Method, ctx)))
+	if method == "" {
+		method = "GET"
 	}
-	if cfg.Timeout == 0 {
-		cfg.Timeout = 30
+	timeoutSec := resolveFlexibleInt(cfg.Timeout, ctx)
+	if timeoutSec <= 0 {
+		timeoutSec = 30
+	}
+
+	url := resolveTemplate(cfg.URL, ctx)
+	if url == "" {
+		return nil, fmt.Errorf("HTTP node: url is required")
 	}
 
 	var bodyReader io.Reader
 	if cfg.Body != nil {
-		body, err := json.Marshal(cfg.Body)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal body: %w", err)
+		resolved := resolveAnyTemplates(cfg.Body, ctx)
+		switch b := resolved.(type) {
+		case string:
+			bodyReader = bytes.NewBufferString(b)
+		default:
+			body, err := json.Marshal(b)
+			if err != nil {
+				return nil, fmt.Errorf("failed to marshal body: %w", err)
+			}
+			bodyReader = bytes.NewBuffer(body)
 		}
-		bodyReader = bytes.NewBuffer(body)
 	}
 
-	req, err := http.NewRequest(cfg.Method, cfg.URL, bodyReader)
+	req, err := http.NewRequest(method, url, bodyReader)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
 	req.Header.Set("Content-Type", "application/json")
 	for key, val := range cfg.Headers {
-		req.Header.Set(key, val)
+		req.Header.Set(resolveTemplate(key, ctx), resolveTemplate(val, ctx))
 	}
 
-	ctx.Logger.Logf(ctx.NodeID, "info", "Making HTTP request: %s %s", cfg.Method, cfg.URL)
+	client := e.client
+	if client == nil {
+		client = &http.Client{Timeout: time.Duration(timeoutSec) * time.Second}
+	} else {
+		client = &http.Client{
+			Timeout:   time.Duration(timeoutSec) * time.Second,
+			Transport: e.client.Transport,
+		}
+	}
+
+	ctx.Logger.Logf(ctx.NodeID, "info", "Making HTTP request: %s %s", method, url)
 
 	startTime := time.Now()
-	resp, err := e.client.Do(req)
+	resp, err := client.Do(req)
 	duration := time.Since(startTime)
 
 	if err != nil {
@@ -75,14 +100,52 @@ func (e *HTTPNodeExecutor) Execute(ctx *core.ExecutionContext, config json.RawMe
 
 	respBody, _ := io.ReadAll(resp.Body)
 
+	bodyStr := string(respBody)
 	result := map[string]any{
 		"status_code": resp.StatusCode,
 		"headers":     resp.Header,
-		"body":        string(respBody),
+		"body":        bodyStr,
 		"duration_ms": duration.Milliseconds(),
 	}
 
+	// 供下游 {{last_http_*}} 引用（与 last_agent_content 同套路）
+	ok := resp.StatusCode < 400
+	ctx.SetVariable("last_http_method", method)
+	ctx.SetVariable("last_http_status", resp.StatusCode)
+	ctx.SetVariable("last_http_body", bodyStr)
+	ctx.SetVariable("last_http_ok", ok)
+
 	ctx.Logger.Logf(ctx.NodeID, "info", "HTTP response: status=%d, duration=%dms", resp.StatusCode, duration.Milliseconds())
 
+	if cfg.FailOnError && resp.StatusCode >= 400 {
+		snippet := bodyStr
+		if len(snippet) > 200 {
+			snippet = snippet[:200] + "…"
+		}
+		return result, fmt.Errorf("HTTP status %d: %s", resp.StatusCode, snippet)
+	}
+
 	return result, nil
+}
+
+// resolveAnyTemplates 递归替换 map/slice/string 中的 {{var}}
+func resolveAnyTemplates(v any, ctx *core.ExecutionContext) any {
+	switch t := v.(type) {
+	case string:
+		return resolveTemplate(t, ctx)
+	case map[string]any:
+		out := make(map[string]any, len(t))
+		for k, vv := range t {
+			out[k] = resolveAnyTemplates(vv, ctx)
+		}
+		return out
+	case []any:
+		out := make([]any, len(t))
+		for i, vv := range t {
+			out[i] = resolveAnyTemplates(vv, ctx)
+		}
+		return out
+	default:
+		return v
+	}
 }

@@ -444,10 +444,15 @@ func (h *Handler) RegisterRoutes(rg *gin.RouterGroup) {
 }
 
 // ExpandPipeline 一键从小队生成工作流图并绑定 workflow_id
+// body 可选：{ "layout": "parallel" | "linear" | "team" }
 func (h *Handler) ExpandPipeline(c *gin.Context) {
 	userID := c.GetString("user_id")
 	teamID := c.Param("id")
-	result, err := h.svc.ExpandToWorkflow(userID, teamID)
+	var body struct {
+		Layout string `json:"layout"`
+	}
+	_ = c.ShouldBindJSON(&body)
+	result, err := h.svc.ExpandToWorkflow(userID, teamID, &orchteam.ExpandOptions{Layout: body.Layout})
 	if err != nil {
 		if strings.Contains(err.Error(), "不存在") {
 			response.NotFound(c, err.Error())

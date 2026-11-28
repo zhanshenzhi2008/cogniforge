@@ -14,14 +14,15 @@ import (
 // SearchNodeConfig 知识库检索节点（画布 type=search）
 // 空的 search_mode / top_k<=0 / min_score<=0 / rerank 未传 → 跟知识库默认
 type SearchNodeConfig struct {
-	KnowledgeBaseID      string   `json:"knowledge_base_id"`
-	Query                string   `json:"query,omitempty"`
-	TopK                 int      `json:"top_k,omitempty"`
-	MinScore             float64  `json:"min_score,omitempty"`
-	SearchMode           string   `json:"search_mode,omitempty"`
-	Rerank               *bool    `json:"rerank,omitempty"`
-	RerankProviderID     string   `json:"rerank_provider_id,omitempty"`
-	HybridSemanticWeight *float64 `json:"hybrid_semantic_weight,omitempty"`
+	KnowledgeBaseID      string          `json:"knowledge_base_id"`
+	Query                string          `json:"query,omitempty"`
+	TopK                 json.RawMessage `json:"top_k,omitempty"`     // 数字或 "{{变量}}"；≤0 跟库默认
+	MinScore             json.RawMessage `json:"min_score,omitempty"` // 数字或 "{{变量}}"；≤0 跟库默认
+	SearchMode           string          `json:"search_mode,omitempty"`
+	Rerank               *bool           `json:"rerank,omitempty"`
+	RerankProviderID     string          `json:"rerank_provider_id,omitempty"`
+	// HybridSemanticWeight：数字或 "{{变量}}"；空/null 跟库默认（0 也是合法覆盖）
+	HybridSemanticWeight json.RawMessage `json:"hybrid_semantic_weight,omitempty"`
 }
 
 // KnowledgeSearcher 与 Chat RAG 共用的检索能力
@@ -42,12 +43,14 @@ func (e *SearchNodeExecutor) Execute(ctx *core.ExecutionContext, config json.Raw
 	if e == nil || e.Knowledge == nil {
 		return nil, fmt.Errorf("Search node: KnowledgeService not configured")
 	}
-	if cfg.KnowledgeBaseID == "" {
-		return nil, fmt.Errorf("Search node: knowledge_base_id is required")
-	}
 	userID := ctx.UserID
 	if userID == "" {
 		return nil, fmt.Errorf("Search node: missing user_id on execution context")
+	}
+
+	kbID := strings.TrimSpace(resolveTemplate(cfg.KnowledgeBaseID, ctx))
+	if kbID == "" {
+		return nil, fmt.Errorf("Search node: knowledge_base_id is required")
 	}
 
 	query := resolveTemplate(cfg.Query, ctx)
@@ -70,18 +73,24 @@ func (e *SearchNodeExecutor) Execute(ctx *core.ExecutionContext, config json.Raw
 		return nil, fmt.Errorf("Search node: empty query (set config.query or input.query)")
 	}
 
+	topK := resolveFlexibleInt(cfg.TopK, ctx)
+	minScore := resolveFlexibleFloat(cfg.MinScore, ctx)
+	hybridWeight := resolveOptionalFlexibleFloat(cfg.HybridSemanticWeight, ctx)
+	rerankProviderID := strings.TrimSpace(resolveTemplate(cfg.RerankProviderID, ctx))
+	searchMode := strings.ToLower(strings.TrimSpace(resolveTemplate(cfg.SearchMode, ctx)))
+
 	started := time.Now()
 	bg, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	resp, err := e.Knowledge.SearchByUser(bg, userID, cfg.KnowledgeBaseID, &knowledge.SearchRequest{
+	resp, err := e.Knowledge.SearchByUser(bg, userID, kbID, &knowledge.SearchRequest{
 		Query:                query,
-		TopK:                 cfg.TopK,
-		MinScore:             cfg.MinScore,
-		SearchMode:           cfg.SearchMode,
+		TopK:                 topK,
+		MinScore:             minScore,
+		SearchMode:           searchMode,
 		Rerank:               cfg.Rerank,
-		RerankProviderID:     cfg.RerankProviderID,
-		HybridSemanticWeight: cfg.HybridSemanticWeight,
+		RerankProviderID:     rerankProviderID,
+		HybridSemanticWeight: hybridWeight,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("Search node: %w", err)
@@ -107,19 +116,22 @@ func (e *SearchNodeExecutor) Execute(ctx *core.ExecutionContext, config json.Raw
 	ctx.SetVariable("last_search_query", query)
 	ctx.SetVariable("last_search_context", contextText)
 	ctx.SetVariable("last_search_total", len(results))
+	ctx.SetVariable("last_search_kb_id", kbID)
+	ctx.SetVariable("last_search_rerank_provider_id", rerankProviderID)
+	ctx.SetVariable("last_search_mode", searchMode)
 
 	latency := time.Since(started).Milliseconds()
 	if ctx.Logger != nil {
-		ctx.Logger.Logf(ctx.NodeID, "info", "Search ok kb=%s hits=%d latency=%dms", cfg.KnowledgeBaseID, len(results), latency)
+		ctx.Logger.Logf(ctx.NodeID, "info", "Search ok kb=%s hits=%d latency=%dms", kbID, len(results), latency)
 	}
 
 	return map[string]any{
-		"query":               query,
-		"knowledge_base_id":   cfg.KnowledgeBaseID,
-		"results":             results,
-		"total":               len(results),
-		"context":             contextText,
-		"latency_ms":          latency,
-		"duration_ms":         resp.Duration,
+		"query":             query,
+		"knowledge_base_id": kbID,
+		"results":           results,
+		"total":             len(results),
+		"context":           contextText,
+		"latency_ms":        latency,
+		"duration_ms":       resp.Duration,
 	}, nil
 }

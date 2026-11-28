@@ -4,6 +4,8 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v4.19 | 条件节点按句柄独占分支（Engine 18.5） | orjrs |
+| 2026-11-27 | v4.18 | 工作流引擎就绪波次并行（Engine 18.4） | orjrs |
 | 2026-11-23 | v4.17 | 多 Agent：orchestration/team + app/team（CRUD）；agent_teams | orjrs |
 | 2026-11-17 | v4.16 | 分层：runtime/app 迁入；infra 收 middleware/config 等 | orjrs |
 | 2026-11-17 | v4.15 | 分层：governance（含评测）+ orchestration + shared | orjrs |
@@ -25,6 +27,18 @@
 | 2026-04-27 | v3.0 | 后端从 handler 目录重构为业务模块化架构；新增 auth/user/chat/workflow/knowledge/agent 等独立模块，遵循 DTO → Service → Handler 分层模式 | orjrs |
 | 2026-04-04 | v2.0 | 后端架构由 gateway 独立目录收敛为 monolith；删除 go-standards/dev-environment rules；rules 文档变更记录规范 | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] 条件节点按句柄独占分支（2026-11-27）
+
+- **变更原因**：画布真/假出口已落库，引擎仍双开后继
+- **变更后**：`result` 真→`s-top`、假→`s-bottom`；未选边级联 skipped；无句柄边兼容双开
+- **含代码**：`condition_route.go`；EngineVersion 18.5
+
+## [变更] 工作流同层并行（2026-11-27）
+
+- **变更原因**：M4；无依赖节点可重叠执行
+- **变更后**：`Execute` 按 indegree 就绪波次；安全类型 goroutine 并行；`ExecutionContext.ForNode` / `SetNodeOutput`
+- **详规**：`docs/01-requirements/11-multi-agent-framework-design.md` §10 M4
 
 ## [变更] 多 Agent 小队层（2026-11-23）
 
@@ -594,16 +608,15 @@ ai_providers.api_protocol   = chat_completions | responses   # 默认 chat_compl
   - 工作流 CRUD + 异步执行
   - 节点执行器注册：start/end/llm/agent/condition/loop/http/code/delay
   - 条件 / 循环 / HTTP / delay 等
+  - 条件节点按 source_handle 独占真/假分支（未选边 skipped；Engine 18.5）
   - 定时调度表（Cron）骨架
   - 调试回调钩子（OnNodeStart/End）
+  - 同层就绪波次并行（Engine 18.4）
 
 已实现（阶段十八 W0–W1）:
   - LLM / Agent 节点接 Chat / ChatWithTools（NewEngineWithDeps）
   - workflow_node_runs + current_node；执行详情含 node_runs
-
-缺口（阶段十八）:
-  - checkpoint / waiting+resume → W2
-  - 人审 / 超时恢复 → W3
+  - checkpoint / waiting+resume；人审超时
 
 不采用: 嵌 n8n；本期不上 Temporal；不做平行 StateMachineEngine
 设计: docs/01-requirements/10-workflow-checkpoint-design.md

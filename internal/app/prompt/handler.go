@@ -125,6 +125,24 @@ func (h *Handler) PublishVersion(c *gin.Context) {
 	response.Success(c, capprompt.PromptDetail{Prompt: p, CurrentVersion: ver})
 }
 
+func (h *Handler) ArchiveVersion(c *gin.Context) {
+	ver, err := h.svc.ArchiveVersion(c.GetString("user_id"), c.Param("id"))
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+	response.Success(c, ver)
+}
+
+func (h *Handler) RollbackVersion(c *gin.Context) {
+	p, ver, err := h.svc.RollbackVersion(c.GetString("user_id"), c.Param("id"))
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+	response.Success(c, capprompt.PromptDetail{Prompt: p, CurrentVersion: ver})
+}
+
 func (h *Handler) SetCurrentVersion(c *gin.Context) {
 	var req capprompt.SetCurrentVersionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -193,6 +211,8 @@ func (h *Handler) RegisterRoutes(rg *gin.RouterGroup) {
 		p.GET("/versions/:id", h.GetVersion)
 		p.DELETE("/versions/:id", h.DeleteVersion)
 		p.POST("/versions/:id/publish", h.PublishVersion)
+		p.POST("/versions/:id/archive", h.ArchiveVersion)
+		p.POST("/versions/:id/rollback", h.RollbackVersion)
 		p.GET("/:id/versions", h.ListVersions)
 		p.POST("/:id/versions", h.CreateVersion)
 		p.PUT("/:id/current-version", h.SetCurrentVersion)

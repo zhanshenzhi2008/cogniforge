@@ -4,6 +4,40 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-28 | v1.107 | 知识库 visibility=org：本站可读、仅所有者可写 | orjrs |
+| 2026-11-27 | v1.106 | debug 可选 seed_execution_id 灌入上游输出 | orjrs |
+| 2026-11-27 | v1.105 | 未选条件分支写入 node_runs status=skipped | orjrs |
+| 2026-11-27 | v1.104 | 条件节点按 source_handle 独占分支（引擎 18.5） | orjrs |
+| 2026-11-27 | v1.103 | definition.edges 持久化 source_handle / target_handle | orjrs |
+| 2026-11-27 | v1.102 | 工作流 webhook_url 校验须为 http(s) | orjrs |
+| 2026-11-27 | v1.101 | 提示词版本归档 / 回滚发版（17.17） | orjrs |
+| 2026-11-27 | v1.100 | team 节点 delegate/handoff 写入 OnProgress 子步骤 | orjrs |
+| 2026-11-27 | v1.99 | Agent 配置版本列表与回滚 | orjrs |
+| 2026-11-27 | v1.98 | GET /conversations 支持 agent_id 过滤 | orjrs |
+| 2026-11-27 | v1.98 | GET /conversations 支持 agent_id 过滤 | orjrs |
+| 2026-11-27 | v1.97 | Agent 增 allow_attachments（附件上传开关） | orjrs |
+| 2026-11-27 | v1.96 | Agent 增 rag_kb_ids；对话自动合并 RAG | orjrs |
+| 2026-11-27 | v1.95 | Agent 增 opening_message / suggested_prompts | orjrs |
+| 2026-11-27 | v1.94 | KB_ENFORCE 开启时检索写入密级审计 | orjrs |
+| 2026-11-27 | v1.93 | 正式 execute 亦写 node_runs.detail.progress | orjrs |
+| 2026-11-27 | v1.92 | 角色/用户 clearance 变更写入 security_audit_logs | orjrs |
+| 2026-11-27 | v1.91 | expand-pipeline 支持 layout=parallel 扇出图 | orjrs |
+| 2026-11-27 | v1.90 | 密级审计：改文档密级落库；GET /admin/security-audits | orjrs |
+| 2026-11-27 | v1.89 | debug 流式进度写入 node_runs.detail.progress | orjrs |
+| 2026-11-27 | v1.88 | 抬密鉴权：机密/绝密需 clearance 或 admin | orjrs |
+| 2026-11-27 | v1.87 | LLM 节点可选 stream；ChatCollectStream | orjrs |
+| 2026-11-27 | v1.86 | 用户创建/更新可设 max_security_level 覆盖 | orjrs |
+| 2026-11-27 | v1.85 | 角色 max_security_level；可选检索密级强制 | orjrs |
+| 2026-11-27 | v1.84 | 文档 security_level；lifecycle API 可改密级 | orjrs |
+| 2026-11-27 | v1.83 | 代码节点 python/js 走沙箱（MCP 同源） | orjrs |
+| 2026-11-27 | v1.82 | 工作流节点类型 `subflow`（嵌套同步执行） | orjrs |
+| 2026-11-27 | v1.81 | 调度 pause / resume / run-now | orjrs |
+| 2026-11-27 | v1.80 | 文档 lifecycle + 检索按发布/有效期过滤 | orjrs |
+| 2026-11-27 | v1.79 | 工作流 Cron 调度 + 完成回调 webhook_url | orjrs |
+| 2026-11-26 | v1.78 | 工作流版本列表与回滚 API | orjrs |
+| 2026-11-26 | v1.77 | `POST /workflows/:id/clone` 复制工作流 | orjrs |
+| 2026-11-26 | v1.76 | debug 支持 start_from_node 从节点起跑 | orjrs |
+| 2026-11-26 | v1.75 | 审批/拒绝写入 node_runs 人工动作审计 | orjrs |
 | 2026-11-24 | v1.74 | 工作流 start 节点 `variables` 入参契约 | orjrs |
 | 2026-11-24 | v1.73 | search 节点可覆盖 search_mode / rerank / hybrid_weight | orjrs |
 | 2026-11-24 | v1.72 | 工作流节点类型 `search`（知识库检索） | orjrs |
@@ -74,6 +108,217 @@
 | 2026-08-15 | v1.2 | GET /v1/models 改为返回已启用供应商的 default_model（不再写死 GPT 列表） | orjrs |
 | 2026-04-09 | v1.1 | 新增文档上传接口、语义检索接口实现说明 | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] 未选条件分支写入 node_runs skipped（2026-11-27）
+
+- **行为**：独占路由跳过的节点写入 `workflow_node_runs`，`status=skipped`，`output.reason=untaken_condition_branch`
+- **用途**：执行详情 / 调试轮询驱动画布 `run-skipped` 淡显
+- **含代码**：`skipArrival` → `persistNodeRun`
+
+## [变更] 条件节点按 source_handle 独占分支（2026-11-27）
+
+- **行为**：`condition` 节点完成后，仅释放与结果匹配的出边（真→`s-top`/`true`，假→`s-bottom`/`false`/`default`）；未选边目标及下游标 `skipped`
+- **兼容**：出边无 `source_handle` 时仍双开（旧图）
+- **解析**：definition 同时接受 `sourceHandle`（camel）与 `source_handle`
+- **含代码**：`condition_route.go`；Engine 18.5
+
+## [变更] definition.edges 持久化句柄（2026-11-27）
+
+- **字段**：`source_handle` / `target_handle`（可选；条件节点真=`s-top`、假=`s-bottom`）
+- **原因**：前端曾只存 source/target，重载后条件分支串线
+- **含代码**：Web `toDefinitionEdge`；Go `EdgeDefinition` 已有字段
+
+## [变更] 会话列表按 agent_id 过滤（2026-11-27）
+
+- **接口**：`GET /api/v1/conversations?agent_id=`（可与 `team_id` 同用）
+- **用途**：工作室「对话日志」只列该智能体历史
+- **含代码**：`ConversationService.List`；跨仓工作室侧栏
+
+## [变更] Agent 配置版本与回滚（2026-11-27）
+
+- **字段**：`agents.version`（int，默认 1）
+- **接口**：
+  - `GET /api/v1/agents/:id/versions`
+  - `POST /api/v1/agents/:id/versions/:version/rollback`
+- **行为**：保存配置变更前写入 `agent_versions`；回滚先快照当前再恢复目标并 bump `version`
+- **含代码**：`AgentVersion`、`List/Rollback`；跨仓工作室「版本」侧栏
+- **DB**：v1.43
+
+## [变更] Agent allow_attachments（2026-11-27）
+
+- **字段**：`allow_attachments`（bool，默认 false）
+- **接口**：`POST/PUT /agents` 可读写
+- **前端**：开则工作室预览可上传；Playground 选该 Agent 时显示附件钮
+- **DB**：v1.42
+
+## [变更] Agent 绑定知识库 rag_kb_ids（2026-11-27）
+
+- **字段**：`rag_kb_ids`（string[]，最多 8）
+- **接口**：`POST/PUT /agents` 可读写
+- **对话**：`POST /agents/:id/chat` 将 Agent 绑定库与请求 `rag_kb_ids`、附件所属库合并后检索注入
+- **含代码**：`runtime/agent`；`AgentHandler.AgentChat`；跨仓工作室勾选
+- **DB**：v1.41
+
+## [变更] Agent 开场白 / 预设问题（2026-11-27）
+
+- **字段**：`opening_message`（string）、`suggested_prompts`（string[]，最多 6）
+- **接口**：`POST/PUT /agents` 可读写；列表/详情原样返回
+- **语义**：仅 UI 展示（工作室预览、Playground 空态）；不进入 `/agents/:id/chat` 上下文
+- **含代码**：`runtime/agent` DTO/service；跨仓工作室 + Playground
+- **DB**：v1.40
+
+## [变更] 文档抬密鉴权（2026-11-27）
+
+- **规则**：将密级**抬高到** `confidential` / `secret` 时，要求人侧 clearance ≥ 目标级，或 `role=admin`；改公开/内部、或未抬高敏感档不拦
+- **接口**：`PUT .../lifecycle` 的 `security_level`；失败返回可读错误
+- **含代码**：`authorizeSecurityLevelChange`
+
+## [变更] LLM 节点流式（2026-11-27）
+
+- **节点 config**：`stream: true` 时走 `ChatCollectStream`（边收边汇总，非画布 SSE）
+- **进度**：`ExecutionContext.OnProgress`（调试写日志）；仍等节点收完再往下跑
+- **含代码**：`chat.ChatCollectStream`、`nodes/llm.go`；跨仓开关
+
+## [变更] 用户密级覆盖（2026-11-27）
+
+- **接口**：`POST/PUT /admin/users` 可传 `max_security_level`（空=跟随角色；更新传 `""` 可清除）
+- **优先级**：用户覆盖 > 角色上限 > 默认 secret
+- **含代码**：user DTO/service；跨仓用户管理页
+
+## [变更] 角色 clearance + 检索密级开关（2026-11-27）
+
+- **字段**：`roles.max_security_level`、`users.max_security_level`（覆盖）
+- **接口**：创建/更新角色可带 `max_security_level`；系统角色仅允许改此项
+- **检索**：环境变量 `KB_ENFORCE_SECURITY_LEVEL=1|true` 时按「人 clearance ≥ 文档密级」过滤；未配置 clearance 视为 `secret`
+- **含代码**：rbac DTO/service；`KnowledgeService.resolveUserClearance`
+
+## [变更] 文档密级 security_level（2026-11-27）
+
+- **字段**：`documents.security_level`（默认 `internal`）
+- **接口**：`PUT .../documents/:docId/lifecycle` 可传 `security_level`
+- **含代码**：model + lifecycle service；跨仓预览下拉
+
+## [变更] 代码节点沙箱（2026-11-27）
+
+- **节点**：`code`；`language`：`expression` | `python` | `javascript`（及 js/node 别名）
+- **沙箱**：与 MCP `code_execute_*` 同源本地子进程；可选 `timeout`；脚本内可用 `variables` / `input`
+- **开关**：`CODE_EXECUTE_DISABLED=1` 时节点失败并提示已禁用
+- **含代码**：`mcp.ExecuteSandboxedCode`、`nodes/code.go`
+
+## [变更] 子流程节点 subflow（2026-11-27）
+
+- **节点类型**：`subflow`
+- **config**：`workflow_id`（必填）；可选 `input`（字符串值支持 `{{var}}`；缺省传父流程 Variables+Input）
+- **行为**：同步嵌套执行并写独立 execution；深度 ≤ 3；禁止调用自己；子流程进入 `waiting` 时失败（首版不支持嵌套审批）
+- **含代码**：`nodes/subflow.go`、`WorkflowEngine.RunNested`；跨仓调色板 + 配置
+
+## [变更] 调度暂停 / 恢复 / 立刻跑（2026-11-27）
+
+- **接口**：
+  - `POST /workflows/:id/schedules/:scheduleId/pause`
+  - `POST /workflows/:id/schedules/:scheduleId/resume`
+  - `POST /workflows/:id/schedules/:scheduleId/run` → `{ execution_id }`
+- **鉴权**：须归属当前用户该工作流；立刻跑用调度的 `default_input`
+- **含代码**：`handler` + `WorkflowService`；跨仓定时列表按钮
+
+## [变更] 文档生命周期与检索过滤（2026-11-27）
+
+- **字段**：`documents.lifecycle_status`（draft/review/published/abolished）、`effective_at`、`expire_at`
+- **接口**：`PUT /knowledge/:id/documents/:docId/lifecycle`
+- **检索**：默认只召回 **published** 且在有效期内；`include_drafts` / `ignore_validity` 可选排查
+- **影响**：对话 RAG、工作流 search、检索测试共用 `SearchByUser`
+
+## [变更] webhook_url 格式校验（2026-11-27）
+
+- **变更原因**：空值可清空；非空须为可解析的 http/https，避免脏回调地址入库
+- **行为**：`PUT` 更新 `webhook_url` 时校验；非法返回错误「webhook_url 须为 http(s) 地址」
+- **包含代码**：`internal/orchestration/workflow/service.go`
+
+## [变更] Cron 调度与完成回调（2026-11-27）
+
+- **调度**：`GET/POST /workflows/:id/schedules`、`DELETE .../schedules/:scheduleId`；cron 须 **6 段**（含秒）
+- **回调**：工作流字段 `webhook_url`；执行 `completed|failed|cancelled` 时异步 POST JSON
+- **启动**：进程内 `Scheduler.Start` 加载 `is_active` 调度
+- **含代码**：`infra/scheduler`、`fireWorkflowWebhook`；跨仓「定时」弹窗 + 基本信息 webhook
+
+## [变更] team 节点子步骤进度（2026-11-27）
+
+- **行为**：画布 `team` 节点执行时，`delegate_to_agent` / `handoff_to_agent` 经 `ChatDeps.OnProgress` → `ExecutionContext.OnProgress` → `node_runs.detail.progress`
+- **文案**：开始/委派/重试/失败/完成/交接；与 LLM stream 共用进度通道
+- **含代码**：`orchestration/team/chat.go`、`engine/nodes/team.go`
+
+## [变更] 密级强制检索审计（2026-11-27）
+
+- **条件**：`KB_ENFORCE_SECURITY_LEVEL=1` 时每次知识检索写 `kb_secured_search`
+- **detail**：`clearance` / kept / dropped / 查询摘要
+- **含代码**：`KnowledgeService.Search` → `writeSecurityAudit`
+
+## [变更] 正式执行流式进度（2026-11-27）
+
+- **行为**：`POST .../execute`（`ExecuteAsync`）同样挂 `OnProgress` → `PatchNodeRunProgress`
+- **效果**：运行态轮询详情时画布/侧栏可刷 LLM 流式预览（与 debug 一致）
+- **含代码**：`engine/core.PatchNodeRunProgress`、`ExecuteAsyncWithTraceID`
+
+## [变更] 角色/用户 clearance 审计（2026-11-27）
+
+- **写入**：创建/更新用户 `max_security_level`、创建/更新角色 `max_security_level` → `security_audit_logs`
+- **动作**：`user_clearance_*` / `role_clearance_*`；列表仍 `GET /admin/security-audits`
+- **含代码**：`shared/secaudit`；user/rbac service
+
+## [变更] 小队并行扇出成图（2026-11-27）
+
+- **接口**：`POST /api/v1/teams/:id/expand-pipeline` body 可选 `{ "layout": "parallel" | "linear" | "team" }`
+- **parallel**：start→各工人 Agent→end；最多 8；成员中剔除主管
+- **含代码**：`BuildParallelFanoutDefinition`、`ExpandOptions`；跨仓「生成并行图」
+
+## [变更] 密级变更审计（2026-11-27）
+
+- **写入**：`PUT .../documents/:docId/lifecycle` 改 `security_level` 时写入 `security_audit_logs`（success / denied）
+- **查询**：`GET /api/v1/admin/security-audits?limit=50`（管理员）
+- **含代码**：`model.SecurityAuditLog`、`writeSecurityAudit`、`ListSecurityAudits`
+- **DB**：v1.39
+
+## [变更] debug 流式进度刷 UI（2026-11-27）
+
+- **原因**：LLM `stream` 仅写内存日志，调试侧栏/画布看不到边生成边刷
+- **行为**：`OnProgress` → `node_runs.detail.progress`（jsonb 合并）；`GET .../executions/:id` 原样带回
+- **前端**：时间线 note + 侧栏「流式进度」+ 画布节点 hint
+- **含代码**：`patchNodeRunProgress`；跨仓 `WorkflowFlowNode` / 调试面板
+
+## [变更] 工作流版本回滚（2026-11-26）
+
+- **接口**：
+  - `GET /api/v1/workflows/:id/versions`
+  - `POST /api/v1/workflows/:id/versions/:version/rollback`
+- **行为**：保存定义前写入 `workflow_versions`；回滚先快照当前再恢复目标定义并 bump `version`
+- **含代码**：`WorkflowVersion`、`List/Rollback`；跨仓编辑器「版本」弹窗
+
+## [变更] 工作流复制（2026-11-26）
+
+- **接口**：`POST /api/v1/workflows/:id/clone`
+- **行为**：复制定义；名称加「 (副本)」；状态 `draft`、版本 `1`；不复制执行历史
+- **含代码**：`CloneWorkflow`；跨仓列表复制按钮
+
+## [变更] debug 灌入上游输出（2026-11-27）
+
+- **接口**：`POST /api/v1/workflows/:id/debug` 可选 `seed_execution_id`（与 `start_from_node` 同用）
+- **行为**：对跳过的祖先，从种子执行的 node_runs 取 output 写入上下文；skipped 记录可带 `detail.seeded_from`
+- **权限**：种子执行须同用户、同工作流
+- **含代码**：`pickSeedOutputs`、`DebugWorkflowRequest.SeedExecutionID`
+
+## [变更] debug 从节点起跑（2026-11-26）
+
+- **原因**：复杂图希望跳过已验证前置，从某节点往后试
+- **接口**：`POST /api/v1/workflows/:id/debug` 可选 `start_from_node`
+- **行为**：祖先节点标 `skipped`（`start` 类型仍执行以补入参）；写入 skipped node_runs；从该节点继续
+- **含代码**：`ApplyStartFrom`、`DebugWorkflowRequest.StartFromNode`
+
+## [变更] 审批人工动作审计（2026-11-26）
+
+- **原因**：approve/reject 只改执行状态，时间线看不到谁、何时、对哪个 wait
+- **行为**：`POST .../approve|reject`（及 callback）额外写入一条 `workflow_node_runs`：`node_type=human_action`，`status=approved|rejected`；`detail` 含 `actor_user_id` / `action` / `wait_node_id` / `wait_reason` / `at` / `note`
+- **详情**：`GET .../executions/:id` 的 `node_runs` 原样带回，前端时间线展示
+- **含代码**：`workflow/service.go` `recordHumanAction`
 
 ## [变更] start 节点入参变量（2026-11-24）
 
@@ -199,10 +444,16 @@
 - **说明**：关键字/混合引擎与 Rerank 执行后续接入；配置先持久化
 - **前端**：知识库详情第三标签「设置」
 
+## [变更] 知识库 visibility=org（2026-11-28）
+
+- **变更原因**：~~创建/更新强制 `private`~~，组织内共享无法用
+- **接口**：`POST/PUT /api/v1/knowledge` 持久化 `visibility=private|org`；List 含「我的 + org」；读路径所有者或 org；写路径仅所有者
+- **前端**：设置可切换；非所有者只读
+
 ## [变更] 知识库设置默认值与权限占位（2026-11-15）
 
 - **变更原因**：库级默认分段/检索需可配置；ACL 先占位
-- **接口**：`PUT /api/v1/knowledge/{id}` 可更新 `chunk_*` / `split_*` / `rag_top_k` / `rag_min_score` / `visibility`（当前强制 `private`）
+- **接口**：`PUT /api/v1/knowledge/{id}` 可更新 `chunk_*` / `split_*` / `rag_top_k` / `rag_min_score` / `visibility`（~~当前强制 `private`~~ → 2026-11-28 已支持 `org`）
 - **前端**：~~抽屉「设置」页编辑并保存~~（2026-11-16：设置标签改为检索方式）
 
 ## [变更] 检索默认 Top-K / 最低分（2026-11-15）
@@ -338,6 +589,15 @@
 
 - **接口**：`PUT /api/v1/providers/:id` 可选 `provider`
 - **原因**：前端快捷模板在编辑时也可切换，不再锁死类型
+
+## [变更] 提示词版本归档 / 回滚发版（2026-11-27）
+
+- **变更原因**：17.17 运维废弃旧版与按正文回滚
+- **新增**：
+  - `POST /api/v1/prompts/versions/:id/archive`（仅非当前 published → `archived`）
+  - `POST /api/v1/prompts/versions/:id/rollback`（按该版正文发新 published 并设当前）
+- **约束**：publish 仅 draft；设当前仅 published；归档版不可设当前
+- **详细设计**：`docs/01-requirements/09-prompt-engineering-design.md` v2.9
 
 ## [变更] 提示词工业闭环（2026-10-17）
 
@@ -1394,8 +1654,10 @@ POST /v1/workflows
       }
     ],
     "edges": [
-      {"source": "node_1", "target": "node_2"},
-      {"source": "node_2", "target": "node_3"}
+      {"id": "e1", "source": "node_1", "target": "node_2"},
+      {"id": "e2", "source": "node_2", "target": "node_3"},
+      {"id": "e_true", "source": "cond", "target": "yes", "source_handle": "s-top"},
+      {"id": "e_false", "source": "cond", "target": "no", "source_handle": "s-bottom"}
     ]
   }
 响应:

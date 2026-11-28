@@ -85,6 +85,34 @@ func TestPrompt_DraftPublish_AndSetCurrent(t *testing.T) {
 	assert.Equal(t, draft.ID, p.CurrentVersionID)
 }
 
+func TestPrompt_Archive_AndRollback(t *testing.T) {
+	db := setupPromptDB(t)
+	svc := NewService(db)
+
+	p, v1, err := svc.Create("u1", &CreatePromptRequest{Name: "客服", Content: "v1-body"})
+	require.NoError(t, err)
+	v2, err := svc.CreateVersion("u1", p.ID, &CreateVersionRequest{Content: "v2-body", Publish: true})
+	require.NoError(t, err)
+
+	_, err = svc.ArchiveVersion("u1", v2.ID)
+	require.Error(t, err) // 当前版不可归档
+
+	arch, err := svc.ArchiveVersion("u1", v1.ID)
+	require.NoError(t, err)
+	assert.Equal(t, model.PromptVersionArchived, arch.Status)
+
+	_, err = svc.SetCurrentVersion("u1", p.ID, v1.ID)
+	require.Error(t, err)
+
+	p2, rolled, err := svc.RollbackVersion("u1", v1.ID)
+	require.NoError(t, err)
+	assert.Equal(t, model.PromptVersionPublished, rolled.Status)
+	assert.Equal(t, "v1-body", rolled.Content)
+	assert.Equal(t, 3, rolled.Version)
+	assert.Equal(t, rolled.ID, p2.CurrentVersionID)
+	assert.Contains(t, rolled.Changelog, "回滚自 v1")
+}
+
 func TestPrompt_DeleteVersion(t *testing.T) {
 	db := setupPromptDB(t)
 	svc := NewService(db)

@@ -1,6 +1,7 @@
 package model
 
 import (
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -61,7 +62,7 @@ type KnowledgeBase struct {
 	RerankProviderSemantic   string `gorm:"type:varchar(64);default:''" json:"rerank_provider_semantic"`
 	RerankProviderKeyword    string `gorm:"type:varchar(64);default:''" json:"rerank_provider_keyword"`
 	RerankProviderHybrid     string `gorm:"type:varchar(64);default:''" json:"rerank_provider_hybrid"`
-	// 可见性占位（阶段三）：private | org（暂仅 private）
+	// 可见性：private=仅所有者；org=本部署全体登录用户可读（仅所有者可写；非部门/组织表）
 	Visibility string `gorm:"type:varchar(32);default:'private'" json:"visibility"`
 	Status     string `gorm:"type:varchar(50);default:'active'" json:"status"`
 	Metadata   JSONBMap       `gorm:"type:jsonb" json:"metadata"`
@@ -75,6 +76,22 @@ func (KnowledgeBase) TableName() string {
 	return "knowledge_bases"
 }
 
+// 文档业务生命周期（与解析流水 status 分开）
+const (
+	DocLifecycleDraft      = "draft"
+	DocLifecycleReview     = "review"
+	DocLifecyclePublished  = "published"
+	DocLifecycleAbolished  = "abolished"
+)
+
+// 知识密级（金融扩展；通用版可存但不强制检索过滤）
+const (
+	DocSecurityPublic       = "public"
+	DocSecurityInternal     = "internal"
+	DocSecurityConfidential = "confidential"
+	DocSecuritySecret       = "secret"
+)
+
 // Document 文档表
 type Document struct {
 	ID              string         `gorm:"primaryKey;type:varchar(64)" json:"id"`
@@ -85,7 +102,11 @@ type Document struct {
 	FileSize        int64          `gorm:"type:bigint" json:"file_size"`                     // 文件大小(bytes)
 	FileType        string         `gorm:"type:varchar(50)" json:"file_type"`                // pdf, txt, md, docx
 	FilePath        string         `gorm:"type:text" json:"file_path"`                       // 存储路径
-	Status          string         `gorm:"type:varchar(50);default:'pending'" json:"status"` // pending, processing, completed, failed
+	Status          string         `gorm:"type:varchar(50);default:'pending'" json:"status"` // 解析流水：pending, processing, completed, failed
+	LifecycleStatus string         `gorm:"type:varchar(32);not null;default:'published';index:idx_doc_lifecycle" json:"lifecycle_status"` // draft/review/published/abolished
+	SecurityLevel   string         `gorm:"type:varchar(32);not null;default:'internal';index:idx_doc_security" json:"security_level"`     // public/internal/confidential/secret
+	EffectiveAt     *time.Time     `json:"effective_at,omitempty"`                           // 空=立即生效
+	ExpireAt        *time.Time     `json:"expire_at,omitempty"`                              // 空=不过期
 	Error           string         `gorm:"type:text" json:"error"`                           // 错误信息
 	ChunkCount      int            `gorm:"default:0" json:"chunk_count"`                     // 分块数量
 	VectorCount     int            `gorm:"default:0" json:"vector_count"`                    // 向量数量
@@ -93,6 +114,51 @@ type Document struct {
 	CreatedAt       time.Time      `json:"created_at"`
 	UpdatedAt       time.Time      `json:"updated_at"`
 	DeletedAt       gorm.DeletedAt `gorm:"index" json:"-"`
+}
+
+// SecurityLevelRank 密级排序：数值越大越敏感
+func SecurityLevelRank(level string) int {
+	switch strings.TrimSpace(strings.ToLower(level)) {
+	case DocSecurityPublic, "":
+		return 1
+	case DocSecurityInternal:
+		return 2
+	case DocSecurityConfidential:
+		return 3
+	case DocSecuritySecret:
+		return 4
+	default:
+		return 2 // 未知按 internal
+	}
+}
+
+// AccessibleByClearance 人侧最高可访问密级 ≥ 文档密级
+func (d *Document) AccessibleByClearance(maxClearance string) bool {
+	if d == nil {
+		return false
+	}
+	return SecurityLevelRank(maxClearance) >= SecurityLevelRank(d.SecurityLevel)
+}
+
+// IsSearchableNow 默认检索规则：发布且在有效期内
+func (d *Document) IsSearchableNow(now time.Time) bool {
+	if d == nil {
+		return false
+	}
+	st := d.LifecycleStatus
+	if st == "" {
+		st = DocLifecyclePublished
+	}
+	if st != DocLifecyclePublished {
+		return false
+	}
+	if d.EffectiveAt != nil && now.Before(*d.EffectiveAt) {
+		return false
+	}
+	if d.ExpireAt != nil && !now.Before(*d.ExpireAt) {
+		return false
+	}
+	return true
 }
 
 func (Document) TableName() string {

@@ -4,6 +4,153 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-28 | v1.242 | 条件运算符支持 {{变量}}；写 last_condition_operator | orjrs |
+| 2026-11-28 | v1.241 | 节点抽屉 last_* 一键复制 {{变量}} | orjrs |
+| 2026-11-28 | v1.240 | 节点抽屉折叠展示本节点写出的 last_* | orjrs |
+| 2026-11-28 | v1.239 | 附录 §11.1：工作流 last_* 结果变量速查 | orjrs |
+| 2026-11-28 | v1.238 | 检索 search_mode 支持 {{变量}}；写 last_search_mode | orjrs |
+| 2026-11-28 | v1.237 | HTTP 写入 last_http_ok（status&lt;400） | orjrs |
+| 2026-11-28 | v1.236 | 代码语言支持 {{变量}}；写 last_code_language | orjrs |
+| 2026-11-28 | v1.235 | 延时单位支持 {{变量}} | orjrs |
+| 2026-11-28 | v1.234 | 循环 for_each 元素/下标变量名支持 {{变量}} | orjrs |
+| 2026-11-28 | v1.233 | 检索 Rerank 模型 ID 支持 {{变量}}；写 last_search_rerank_provider_id | orjrs |
+| 2026-11-28 | v1.232 | HTTP method 支持 {{变量}}；写 last_http_method | orjrs |
+| 2026-11-28 | v1.231 | 子流程 workflow ID 支持 {{变量}}；写 last_subflow_workflow_id | orjrs |
+| 2026-11-28 | v1.230 | 检索知识库 ID 支持 {{变量}}；写 last_search_kb_id | orjrs |
+| 2026-11-28 | v1.229 | Team ID 支持 {{变量}}；写 last_team_id | orjrs |
+| 2026-11-28 | v1.228 | Agent ID 支持 {{变量}}；写 last_agent_id | orjrs |
+| 2026-11-28 | v1.227 | LLM 写入 last_llm_model/tokens/latency | orjrs |
+| 2026-11-28 | v1.226 | LLM 模型名支持 {{变量}} | orjrs |
+| 2026-11-28 | v1.225 | 循环 for_each 数组变量名支持 {{变量}} | orjrs |
+| 2026-11-28 | v1.224 | 条件比较字段支持 {{变量}} | orjrs |
+| 2026-11-28 | v1.223 | 检索混合语义权重支持 {{变量}} | orjrs |
+| 2026-11-28 | v1.222 | LLM 温度/maxTokens 支持 {{变量}} | orjrs |
+| 2026-11-28 | v1.221 | 检索最低分 min_score 支持 {{变量}} | orjrs |
+| 2026-11-28 | v1.220 | 检索 Top-K 支持 {{变量}} | orjrs |
+| 2026-11-28 | v1.219 | 继续/审批写入 last_wait_decision | orjrs |
+| 2026-11-28 | v1.218 | 代码沙箱超时支持 {{变量}} | orjrs |
+| 2026-11-28 | v1.217 | HTTP 超时支持 {{变量}} | orjrs |
+| 2026-11-28 | v1.216 | 循环次数/最大迭代支持 {{变量}} | orjrs |
+| 2026-11-28 | v1.215 | 等待超时 timeout_sec 支持 {{变量}} | orjrs |
+| 2026-11-28 | v1.214 | 延时时长支持 {{变量}} | orjrs |
+| 2026-11-28 | v1.213 | LLM/Agent/Team 抽屉标明写出 last_agent_content | orjrs |
+| 2026-11-28 | v1.212 | 等待节点写入 last_wait_reason/message/timeout | orjrs |
+| 2026-11-28 | v1.211 | 延时节点写入 last_delay_ms/duration/unit | orjrs |
+| 2026-11-28 | v1.210 | 循环节点写入 last_loop_total/index/type | orjrs |
+| 2026-11-28 | v1.209 | 条件节点写入 last_condition_result/branch/field | orjrs |
+| 2026-11-28 | v1.208 | 子流程写入 last_subflow_output；等待原因 {{变量}} 提示 | orjrs |
+| 2026-11-28 | v1.207 | 代码节点写入 last_code_output | orjrs |
+| 2026-11-28 | v1.206 | 检索抽屉标明 last_search_* 结果变量 | orjrs |
+| 2026-11-27 | v1.205 | HTTP 写入 last_http_status/body 供下游引用 | orjrs |
+| 2026-11-27 | v1.204 | Team 节点写入/接 last_agent_content | orjrs |
+| 2026-11-27 | v1.203 | LLM 写入 last_agent_content 串联下游 | orjrs |
+| 2026-11-27 | v1.202 | HTTP 节点可配非 2xx 失败 | orjrs |
+| 2026-11-27 | v1.201 | LLM 抽屉可配温度与 max tokens | orjrs |
+| 2026-11-27 | v1.200 | LLM/智能体/小队提示词标明 {{变量}} | orjrs |
+| 2026-11-27 | v1.199 | 循环 while 条件支持 {{变量}} | orjrs |
+| 2026-11-27 | v1.198 | 代码节点抽屉可配沙箱超时 | orjrs |
+| 2026-11-27 | v1.197 | 子流程抽屉可配入参 JSON 映射 | orjrs |
+| 2026-11-27 | v1.196 | 等待提示与条件比较值支持 {{变量}} | orjrs |
+| 2026-11-27 | v1.195 | HTTP 节点 URL/头/体支持 {{变量}} | orjrs |
+| 2026-11-27 | v1.194 | HTTP 节点抽屉补请求头 headers | orjrs |
+| 2026-11-27 | v1.193 | 附录：工作流节点设置总表（对齐抽屉） | orjrs |
+| 2026-11-27 | v1.192 | 调试时间线/整次输出可复制；显示总耗时 | orjrs |
+| 2026-11-27 | v1.191 | 子流程指向自身视为未绑定并拦截保存 | orjrs |
+| 2026-11-27 | v1.190 | 历史试跑可「填入上方再跑」回填输入 | orjrs |
+| 2026-11-27 | v1.189 | 时间线标注已灌入上游输出的跳过步骤 | orjrs |
+| 2026-11-27 | v1.188 | 更早试跑一键取消全部卡住执行 | orjrs |
+| 2026-11-27 | v1.187 | 从此调试可灌入上次上游输出 | orjrs |
+| 2026-11-27 | v1.186 | 新开调试/取消时清画布运行高亮 | orjrs |
+| 2026-11-27 | v1.185 | 调试时淡显指向 skipped 的连线 | orjrs |
+| 2026-11-27 | v1.184 | 画布选中节点同步时间线步骤摘要 | orjrs |
+| 2026-11-27 | v1.183 | 调试时间线点开步骤摘要 | orjrs |
+| 2026-11-27 | v1.182 | 更早试跑可取消卡住的运行中执行 | orjrs |
+| 2026-11-27 | v1.181 | 条件真/假出口常显；连线绿/红标签 | orjrs |
+| 2026-11-27 | v1.180 | 未选条件分支 node_runs skipped → 画布 run-skipped | orjrs |
+| 2026-11-27 | v1.179 | 跨仓：引擎按条件句柄独占真/假分支（Engine 18.5） | orjrs |
+| 2026-11-27 | v1.178 | 边保存/加载保留 sourceHandle（条件真假出口） | orjrs |
+| 2026-11-27 | v1.177 | 画布未保存离开提示 + 顶栏「未保存」徽章 | orjrs |
+| 2026-11-27 | v1.176 | 问题摘要菜单：点空白 / Esc / 画布空白关闭 | orjrs |
+| 2026-11-27 | v1.175 | 小队打开流水线直达；重生成/并行覆盖需确认 | orjrs |
+| 2026-11-27 | v1.174 | 顶栏校验芯片 ≥3 类收成问题摘要菜单 | orjrs |
+| 2026-11-27 | v1.173 | 画布条件分支不全琥珀虚线 + ≠ 角标 | orjrs |
+| 2026-11-27 | v1.172 | 画布死胡同节点紫虚线框 + × 角标 | orjrs |
+| 2026-11-27 | v1.171 | 非结束节点缺出边（死胡同）拦截 + 顶栏芯片 | orjrs |
+| 2026-11-27 | v1.170 | 条件节点缺真/假出边拦截 + 顶栏芯片 | orjrs |
+| 2026-11-27 | v1.169 | 开始/输入节点禁止入边 + 顶栏芯片 | orjrs |
+| 2026-11-27 | v1.168 | 结束/输出节点禁止出边 + 顶栏芯片 | orjrs |
+| 2026-11-27 | v1.167 | 多开始节点拦截保存/试跑 + 顶栏芯片 | orjrs |
+| 2026-11-27 | v1.166 | 画布不可达节点虚线框 + ? 角标 | orjrs |
+| 2026-11-27 | v1.165 | 顶栏「未连通」芯片（可点开首个孤立节点） | orjrs |
+| 2026-11-27 | v1.164 | 从开始不可达的孤立节点拦截保存/试跑 | orjrs |
+| 2026-11-27 | v1.163 | 缺开始节点同样拦截保存/试跑 | orjrs |
+| 2026-11-27 | v1.162 | 结束节点副文案；缺结束节点拦截保存/试跑 | orjrs |
+| 2026-11-27 | v1.161 | input/output 未设变量醒目标记与保存校验 | orjrs |
+| 2026-11-27 | v1.160 | 画布 input/output 变量副文案；去掉 workflowBind 重复导出 | orjrs |
+| 2026-11-27 | v1.159 | 提示词标签筛选「全部」改哨兵值，避免 USelect 空串 500 | orjrs |
+| 2026-11-27 | v1.158 | Playground 插入发送改用 CfConfirmModal | orjrs |
+| 2026-11-27 | v1.157 | 知识库弃编辑改用 CfConfirmModal | orjrs |
+| 2026-11-27 | v1.156 | 工作室版本回滚改用 CfConfirmModal | orjrs |
+| 2026-11-27 | v1.155 | Playground 删对话改用 CfConfirmModal | orjrs |
+| 2026-11-27 | v1.154 | 评估页删除套件/用例改用 CfConfirmModal | orjrs |
+| 2026-11-27 | v1.153 | Cron 六段校验；调度/回滚改用 CfConfirmModal | orjrs |
+| 2026-11-27 | v1.152 | Webhook 地址校验；HTTP 副文案显示非默认超时 | orjrs |
+| 2026-11-27 | v1.151 | Playwright 默认不复用端口，避免 e2e 404 | orjrs |
+| 2026-11-27 | v1.150 | 画布副文案补充：LLM 流式 / 检索 topK / 等待超时 | orjrs |
+| 2026-11-27 | v1.149 | 循环节点 for_each 配置与画布副文案 | orjrs |
+| 2026-11-27 | v1.148 | 提示词版本归档 / 回滚发版（17.17） | orjrs |
+| 2026-11-27 | v1.147 | 开始节点画布副文案（入参变量） | orjrs |
+| 2026-11-27 | v1.146 | 循环节点画布副文案（次数/条件） | orjrs |
+| 2026-11-27 | v1.145 | 延时/等待节点画布副文案（时长与原因） | orjrs |
+| 2026-11-27 | v1.144 | 节点必填绑定 isWorkflowBindUnbound 单测 | orjrs |
+| 2026-11-27 | v1.143 | LLM 节点模型空态提示与刷新 | orjrs |
+| 2026-11-27 | v1.142 | 条件节点未填字段醒目标记与校验 | orjrs |
+| 2026-11-27 | v1.141 | 代码节点未填代码醒目标记与校验 | orjrs |
+| 2026-11-27 | v1.140 | HTTP 节点未填 URL 醒目标记与校验 | orjrs |
+| 2026-11-27 | v1.139 | LLM 节点未选模型醒目标记与校验 | orjrs |
+| 2026-11-27 | v1.138 | 提示词版本行级 diff（17.15） | orjrs |
+| 2026-11-27 | v1.137 | 提示词 Tags 编辑 + 列表筛选（17.16） | orjrs |
+| 2026-11-27 | v1.136 | 角色管理列表 CfResourceCard + CfViewModeToggle | orjrs |
+| 2026-11-27 | v1.135 | 用户管理列表 CfResourceCard + CfViewModeToggle | orjrs |
+| 2026-11-27 | v1.134 | 评估列表 CfResourceCard + CfViewModeToggle | orjrs |
+| 2026-11-27 | v1.133 | 画布已绑定节点显示资源名副文案 | orjrs |
+| 2026-11-27 | v1.132 | 画布顶栏未绑定数量芯片（可点开首个） | orjrs |
+| 2026-11-27 | v1.131 | 画布未绑定节点虚线框 + ! 角标；补 subflow 节点模板 | orjrs |
+| 2026-11-27 | v1.130 | 执行/调试前同样校验节点必填绑定 | orjrs |
+| 2026-11-27 | v1.129 | 保存时校验节点必填绑定；子流程写入 config | orjrs |
+| 2026-11-27 | v1.128 | 画布检索节点知识库空态与刷新 | orjrs |
+| 2026-11-27 | v1.127 | 画布子流程节点空态提示与刷新 | orjrs |
+| 2026-11-27 | v1.126 | 画布 Agent 节点空态提示与刷新 | orjrs |
+| 2026-11-27 | v1.125 | MCP 列表卡片改用 CfResourceCard | orjrs |
+| 2026-11-27 | v1.124 | 画布多智能体节点：空态提示 + 文案对齐竞品 | orjrs |
+| 2026-11-27 | v1.123 | 小队 max_depth/max_steps 限额可配 | orjrs |
+| 2026-11-27 | v1.122 | 小队 worker_retry_once 创建/列表开关 | orjrs |
+| 2026-11-27 | v1.121 | API Key 列表 CfResourceCard + CfViewModeToggle | orjrs |
+| 2026-11-27 | v1.120 | 提示词列表 CfResourceCard + CfViewModeToggle | orjrs |
+| 2026-11-27 | v1.119 | 工作流列表 CfResourceCard + CfViewModeToggle | orjrs |
+| 2026-11-27 | v1.118 | 小队列表 CfResourceCard + CfViewModeToggle | orjrs |
+| 2026-11-27 | v1.117 | 工作室虚拟机/IM 即将推出占位 | orjrs |
+| 2026-11-27 | v1.116 | MCP 列表 CfViewModeToggle 卡片/表格 | orjrs |
+| 2026-11-27 | v1.115 | 对话输入浏览器语音听写（STT） | orjrs |
+| 2026-11-27 | v1.114 | 对话助手回复浏览器朗读（TTS） | orjrs |
+| 2026-11-27 | v1.113 | 知识库列表 CfViewModeToggle 卡片/表格 | orjrs |
+| 2026-11-27 | v1.112 | CfResourceCard：agents/knowledge 卡片壳 | orjrs |
+| 2026-11-27 | v1.111 | 猜你想问：空态推荐与一键填入 | orjrs |
+| 2026-11-27 | v1.110 | 工作室发布渠道：网页/API/嵌入 | orjrs |
+| 2026-11-27 | v1.109 | 工作室配置版本历史侧栏与回滚 | orjrs |
+| 2026-11-27 | v1.108 | 工作室提示词 / 插变量、@ 绑定技能工具知识库 | orjrs |
+| 2026-11-27 | v1.107 | 「了解更多」链到 /help/agent-studio | orjrs |
+| 2026-11-27 | v1.106 | 工作室顶栏「对话日志」跳转 Playground | orjrs |
+| 2026-11-27 | v1.105 | 工作室预览附件上传（allow_attachments） | orjrs |
+| 2026-11-27 | v1.104 | 工作室可多选绑定知识库（rag_kb_ids） | orjrs |
+| 2026-11-27 | v1.103 | 工作室开场白 + 预设问题；Playground 空态展示 | orjrs |
+| 2026-11-27 | v1.102 | Playground 对话改走 useAgentChat / useChatStream | orjrs |
+| 2026-11-27 | v1.101 | 共用 CfFieldHelp：表单旁帮助图标 | orjrs |
+| 2026-11-27 | v1.100 | 共用 CfEmptyState / CfLoadingState：列表空态与加载 | orjrs |
+| 2026-11-27 | v1.99 | 共用 CfConfirmModal：列表删除确认 | orjrs |
+| 2026-11-27 | v1.98 | 通用版默认隐藏密级相关 UI | orjrs |
+| 2026-11-27 | v1.97 | 监控页密级审计 Tab | orjrs |
+| 2026-11-27 | v1.96 | 调试流式：画布节点 hint + 侧栏 Live stream | orjrs |
 | 2026-11-24 | v1.95 | 工作流「整理布局」：按连线自动左→右排版 | orjrs |
 | 2026-11-24 | v1.94 | 工作流连线加终点箭头，标明执行方向 | orjrs |
 | 2026-11-24 | v1.93 | 小队页一键生成流水线；画布 Agent 可绑定智能体 | orjrs |
@@ -120,6 +267,24 @@
 - **变更前 vs 变更后**：~~内容区底部一排返回/重置/上传~~ → 去掉重置；返回与下一步/上传进 CfModal 页脚，顶部分隔线
 - **包含代码**：`cogniforge-web/pages/knowledge/[id].vue`
 
+## [变更] 通用版隐藏密级 UI（2026-11-27）
+
+- **原因**：密级是金融扩展，通用版不展示
+- **落地**：`NUXT_PUBLIC_SHOW_SECURITY_LEVEL`；`useSecurityFeatures`
+- **含代码**：跨仓 knowledge / users / roles / monitor
+
+## [变更] 监控密级审计 Tab（2026-11-27）
+
+- **原因**：金融扩展审计要可看
+- **落地**：监控页第二 Tab 拉 `/admin/security-audits`
+- **含代码**：跨仓 `pages/monitor.vue`、`useMonitor`
+
+## [变更] 调试流式进度 UI（2026-11-27）
+
+- **原因**：LLM 流式开启后用户要在编辑器看见「正在生成」
+- **落地**：节点 `hint`/`streamProgress`；调试侧栏「流式进度」块；时间线 note 跟 `detail.progress`
+- **含代码**：跨仓 `WorkflowFlowNode`、`WorkflowCanvas`、`workflows/[id].vue`
+
 ## [变更] 工作流整理布局（2026-11-24）
 
 - **变更原因**：节点拖乱、横向拉太开时难看；需要一键按执行方向排整齐
@@ -168,21 +333,887 @@
 - **变更后**：构建助手输出 `agent-config`；应用到左侧或保存时自动写入；工具仅限已接入 MCP
 - **包含代码**：`cogniforge-web/utils/agentBuildConfig.ts`、`AgentStudio.vue`
 
+## [变更] 共用删除确认 CfConfirmModal（2026-11-27）
+
+- **变更原因**：各列表页手写同一套 CfModal 删除确认，文案/按钮重复
+- **变更后**：`CfConfirmModal`（窄窗、关缩放/最大化、取消+危险确认）；已接 agents / teams / models / keys / workflows / knowledge / prompts / mcp / users / roles
+- **未迁**：知识库文档删除、用户重置密码等非「列表删资源」确认仍可保留原 CfModal
+- **包含代码**：`cogniforge-web/components/CfConfirmModal.vue`；上述列表页
+
+## [变更] 共用空态/加载 CfEmptyState · CfLoadingState（2026-11-27）
+
+- **变更原因**：各列表手写 `cf-state` 转圈与空图标文案
+- **变更后**：`CfLoadingState`、`CfEmptyState`（可选 icon / message / #action）；已接 agents / teams / models / mcp / prompts / kb / workflows / keys / users / roles / monitor / evals
+- **未迁**：详情页紧凑态、Playground 对话空态、用量图等特殊布局仍可自写
+- **包含代码**：`cogniforge-web/components/CfEmptyState.vue`、`CfLoadingState.vue`
+
+## [变更] 共用表单帮助 CfFieldHelp（2026-11-27）
+
+- **变更原因**：知识库检索/分段旁反复手写 UTooltip + help 按钮
+- **变更后**：`CfFieldHelp`（`text` + 可选 `icon`）；已接知识库详情检索查询与分段参数标签
+- **包含代码**：`cogniforge-web/components/CfFieldHelp.vue`、`pages/knowledge/[id].vue`
+
+## [变更] 工作室对话日志（2026-11-27）
+
+- **变更原因**：工作室 backlog；查看该 Agent 在对话页的历史
+- **变更后**：顶栏「对话日志」侧栏列表（`GET /conversations?agent_id=`）；点条目打开 `/playground?agent=&c=`
+- **包含代码**：`AgentStudio.vue`、`useConversations.ts`；主仓 API v1.98
+
+## [变更] 工作室预览附件上传（2026-11-27）
+
+- **变更原因**：工作室 backlog；对齐 Playground attachments
+- **变更后**：左侧「允许上传附件」；预览区回形针上传文档并随 `streamAgentChat` 传 `attachments`；Playground 按开关显隐文件钮
+- **包含代码**：`AgentStudio.vue`、`playground.vue`；主仓 API v1.97 / DB v1.42
+
+## [变更] 工作室绑定知识库（2026-11-27）
+
+- **变更原因**：工作室 backlog；对话需自动检索所选知识库
+- **变更后**：左侧多选 `rag_kb_ids`（≤8）；保存到 Agent；预览/Playground 选该 Agent 对话时后端自动 RAG
+- **包含代码**：`AgentStudio.vue`、`useAgents.ts`；主仓 API v1.96 / DB v1.41
+
+## [变更] 工作室开场白与预设问题（2026-11-27）
+
+- **变更原因**：竞品常见首屏欢迎语 + 一点即发预设问
+- **变更后**：左侧可配 `opening_message` / `suggested_prompts`（≤6）；预览空态与 Playground 空态展示；不发给模型
+- **包含代码**：`AgentStudio.vue`、`playground.vue`、`useAgents.ts`；主仓 API v1.95 / DB v1.40
+
+## [变更] Playground 改走 useAgentChat / useChatStream（2026-11-27）
+
+- **变更原因**：对话页仍内联 SSE，与工作室共用 composable 重复
+- **变更后**：有 Agent → `useAgentChat.streamChat`；无 Agent → `useChatStream`（含 web_search mcp）；去掉页面内 fetchSse
+- **包含代码**：`playground.vue`、`useAgentChat.ts`、`useChatStream.ts`
+
 ## [变更] 共用聊天面板 CfChatPanel（2026-11-20）
 
 - **变更原因**：工作室构建/预览与对话页聊天 UI、SSE 发送重复
 - **变更后**：`CfChatPanel` 共用消息区+输入框；`useChatStream` 管 `/chat/stream`；`useAgentChat` 管 Agent 对话；错误码 `mapChatHttpError`
-- **后续去重**：`CfConfirmModal` / `CfEmptyState` / `CfFieldHelp` / Playground 改走 `useAgentChat` 等见 Web 开发计划 v1.68
+- **后续去重**：~~`CfConfirmModal`~~ / ~~`CfEmptyState`~~ / ~~`CfFieldHelp`~~ / ~~Playground 内联 SSE~~ / ~~`CfResourceCard`~~（2026-11-27）
 - **包含代码**：`cogniforge-web/components/CfChatPanel.vue`、`useChatStream.ts`、`AgentStudio.vue`、`playground.vue`、`prompts.vue`
+
+## [变更] CfResourceCard 共用卡片壳（2026-11-27）
+
+- **变更原因**：agents/knowledge 卡片头图/操作/描述重复
+- **变更后**：`CfResourceCard` 提供图标、标题、徽章、操作、描述、meta 槽；两页列表改用
+- **包含代码**：`CfResourceCard.vue`、`pages/agents/index.vue`、`pages/knowledge/index.vue`
+
+## [变更] 知识库列表视图切换（2026-11-27）
+
+- **变更原因**：对齐智能体列表；去重 backlog 中的 ViewModeToggle
+- **变更后**：知识库顶栏可切卡片/表格；偏好记 `cf-kb-view`
+- **包含代码**：`pages/knowledge/index.vue`、`CfViewModeToggle`
 
 ## [变更] 智能体工作室后续 TODO（2026-11-20）
 
 - **变更原因**：本期只做工作室骨架与列表卡片；截图其余能力需明确 backlog
 - **后续 TODO**：
-  - 优先：绑定知识库、开场白/预设问、预览附件上传、`/` `@` 提示词增强、「了解更多」文档链、对话日志、配置版本历史
-  - 中期：发布渠道、猜你想问
-  - 远期：虚拟机、语音播放/输入（依赖套餐或运行时）
+  - 优先：绑定知识库、开场白/预设问、预览附件上传、~~`/` `@` 提示词增强~~、~~「了解更多」文档链~~、对话日志、~~配置版本历史~~
+  - 中期：~~发布渠道~~（Web/API/嵌入已做；IM 仍待）、~~猜你想问~~
+  - 远期：~~虚拟机~~（UI 占位；运行时仍待）、~~语音播放~~（浏览器 TTS）、~~语音输入~~（浏览器 STT；云 ASR 另排）
 - **详见**：`cogniforge-web/docs/99-dev-plan/01-development-plan.md` v1.67；主仓开发计划「后续待办」
+
+## [变更] 条件运算符 {{变量}} / last_condition_operator（2026-11-28）
+
+- **变更原因**：运算符只能下拉写死，无法按入参切换比较方式
+- **变更后**：`operator` 先展开；成功写 `last_condition_operator`；抽屉可选手写；本文 §11 / §11.1
+- **包含代码**：`nodes/condition.go`；Web 条件抽屉
+
+## [变更] 节点抽屉 last_* 一键复制（2026-11-28）
+
+- **变更原因**：列表只能看，粘贴到下游仍要手打 `{{…}}`
+- **变更后**：点击变量名复制 `{{last_xxx}}` 到剪贴板
+- **包含代码**：Web `[id].vue`
+
+## [变更] 节点抽屉展示本节点 last_*（2026-11-28）
+
+- **变更原因**：§11.1 速查在文档里，编辑时仍要翻文档
+- **变更后**：有写出变量的节点抽屉底部折叠「本节点写出的结果变量」；`lastResultVarsForKind`
+- **包含代码**：Web `[id].vue`；`workflowNodeSettings.ts`
+
+## [变更] 附录 §11.1 last_* 结果变量速查（2026-11-28）
+
+- **变更原因**：节点各自 hint 散落，产品/调试时难一次看清全部 `last_*`
+- **变更后**：本文 §11.1 总表；Web `WORKFLOW_LAST_RESULT_VARS` + 单测覆盖写出节点
+- **包含代码**：`utils/workflowNodeSettings.ts`；本文 §11.1
+
+## [变更] 检索 search_mode {{变量}} / last_search_mode（2026-11-28）
+
+- **变更原因**：检索方式只能下拉写死，无法按入参切 semantic/keyword/hybrid
+- **变更后**：`search_mode` 先展开并转小写；空→跟库；成功写 `last_search_mode`；抽屉可选手写；本文 §11
+- **包含代码**：`nodes/search.go`；Web 检索抽屉
+
+## [变更] HTTP last_http_ok（2026-11-28）
+
+- **变更原因**：下游条件要判断 HTTP 成败时只能比 status 数字，不够直观
+- **变更后**：每次响应写 `last_http_ok`（status&lt;400）；与 fail_on_error 阈值一致；抽屉说明；本文 §11
+- **包含代码**：`nodes/http.go`；Web HTTP 抽屉 hint
+
+## [变更] 代码语言 {{变量}} / last_code_language（2026-11-28）
+
+- **变更原因**：代码语言只能下拉写死，无法按入参切换 expression/python/js
+- **变更后**：`language` 先展开；成功写 `last_code_language`；抽屉可选手写；本文 §11
+- **包含代码**：`nodes/code.go`；Web 代码抽屉
+
+## [变更] 延时单位 {{变量}}（2026-11-28）
+
+- **变更原因**：延时单位只能下拉写死，无法按入参切秒/分/时
+- **变更后**：`unit` 先展开并归一为 seconds/minutes/hours；抽屉可选手写；本文 §11
+- **包含代码**：`nodes/delay.go`；Web 延时抽屉
+
+## [变更] 循环 for_each 元素/下标变量名 {{变量}}（2026-11-28）
+
+- **变更原因**：`item_var` / `key_var` 只能写死名字，多段循环难复用
+- **变更后**：先 `{{变量}}` 展开再作为写入目标变量名；写 `last_loop_item_var` / `last_loop_key_var`；抽屉 hint；本文 §11
+- **包含代码**：`nodes/loop.go`；Web 循环抽屉
+
+## [变更] 检索 Rerank 模型 ID {{变量}} / last_search_rerank_provider_id（2026-11-28）
+
+- **变更原因**：开启重排后模型只能下拉选死 ID，无法按入参切换
+- **变更后**：`rerank_provider_id` 先展开；成功写 `last_search_rerank_provider_id`；抽屉可选手写；本文 §11
+- **包含代码**：`nodes/search.go`；Web 检索抽屉
+
+## [变更] HTTP method {{变量}} / last_http_method（2026-11-28）
+
+- **变更原因**：HTTP 方法只能下拉写死，动态路由（GET/POST 切换）要拆两个节点
+- **变更后**：`method` 先 `{{变量}}` 展开并转大写；空→GET；成功写 `last_http_method`；抽屉可选手写；本文 §11
+- **包含代码**：`nodes/http.go`；Web HTTP 抽屉
+
+## [变更] 子流程 workflow ID {{变量}} / last_subflow_workflow_id（2026-11-28）
+
+- **变更原因**：嵌套工作流只能下拉选死 ID，无法按入参切换
+- **变更后**：`workflow_id` 先展开；成功写 `last_subflow_workflow_id`；抽屉可选手写；本文 §11
+- **包含代码**：`nodes/subflow.go`；Web 子流程抽屉
+
+## [变更] 检索知识库 ID {{变量}} / last_search_kb_id（2026-11-28）
+
+- **变更原因**：知识库只能下拉选死 ID，无法按入参切换
+- **变更后**：`knowledge_base_id` 先展开；成功写 `last_search_kb_id`；抽屉可选手写；本文 §11
+- **包含代码**：`nodes/search.go`；Web 检索抽屉
+
+## [变更] Team ID {{变量}} / last_team_id（2026-11-28）
+
+- **变更原因**：小队只能下拉选死 ID，无法按入参切换
+- **变更后**：`team_id` 先展开；成功写 `last_team_id`（活跃成员兼写 `last_agent_id`）；抽屉可选手写；本文 §11
+- **包含代码**：`nodes/team.go`；Web Team 抽屉
+
+## [变更] Agent ID {{变量}} / last_agent_id（2026-11-28）
+
+- **变更原因**：智能体只能下拉选死 ID，无法按入参切换
+- **变更后**：`agent_id`（及可选 `model`）先展开；成功写 `last_agent_id`；抽屉可选手写；本文 §11
+- **包含代码**：`nodes/agent.go`；Web Agent 抽屉
+
+## [变更] LLM last_llm_* 结果变量（2026-11-28）
+
+- **变更原因**：只有 `last_agent_content`，下游拿不到模型与用量
+- **变更后**：成功写 `last_llm_model` / `last_llm_tokens` / `last_llm_latency_ms`；抽屉 hint；本文 §11
+- **包含代码**：`nodes/llm.go`；Web LLM 抽屉
+
+## [变更] LLM 模型名 {{变量}}（2026-11-28）
+
+- **变更原因**：模型只能从下拉选死 ID，无法按入参切换
+- **变更后**：`model` 先 `{{变量}}` 展开；抽屉可选手写模板；本文 §11
+- **包含代码**：`nodes/llm.go`；Web LLM 抽屉
+
+## [变更] 循环 for_each 数组变量名 {{变量}}（2026-11-28）
+
+- **变更原因**：`array_var` 只能写死变量名
+- **变更后**：先 `{{变量}}` 展开再取数组；抽屉 hint；本文 §11
+- **包含代码**：`nodes/loop.go`；Web 循环抽屉
+
+## [变更] 条件比较字段 {{变量}}（2026-11-28）
+
+- **变更原因**：比较字段名只能写死；占位曾暗示模板但引擎未展开
+- **变更后**：`field` 先 `{{变量}}` 展开再取值；抽屉 hint；本文 §11
+- **包含代码**：`nodes/condition.go`；Web 条件抽屉
+
+## [变更] 检索混合语义权重 {{变量}}（2026-11-28）
+
+- **变更原因**：混合语义权重只能写死数字
+- **变更后**：`hybrid_semantic_weight` 可为数字或 `{{变量}}`；空跟库默认（0 也是合法覆盖）
+- **包含代码**：`nodes/search.go`；`resolveOptionalFlexibleFloat`；Web 抽屉；本文 §11
+
+## [变更] LLM 温度/maxTokens {{变量}}（2026-11-28）
+
+- **变更原因**：温度与最大生成长度只能写死数字
+- **变更后**：`temperature` / `max_tokens` 可为数字或 `{{变量}}`；空/≤0 跟模型默认；抽屉 hint
+- **包含代码**：`nodes/llm.go`；`resolveFlexibleFloat`/`Int`；Web LLM 抽屉；本文 §11
+
+## [变更] 检索最低分 {{变量}}（2026-11-28）
+
+- **变更原因**：min_score 只能写死数字
+- **变更后**：`min_score` 可为数字或 `{{变量}}`；空/0 仍跟库默认；抽屉 hint
+- **包含代码**：`nodes/search.go`；`resolveFlexibleFloat`；Web 最低分输入
+
+## [变更] 检索 Top-K {{变量}}（2026-11-28）
+
+- **变更原因**：Top-K 只能写死数字
+- **变更后**：`top_k` 可为数字或 `{{变量}}`；空/0 仍跟库默认；抽屉 hint
+- **包含代码**：`nodes/search.go`；Web Top-K 输入
+
+## [变更] last_wait_decision（2026-11-28）
+
+- **变更原因**：审批后只有 `approval_decision`，与 `last_wait_*` 命名不一致；普通「继续」无决策变量
+- **变更后**：审批写 `last_wait_decision=approved`（兼写 `approval_decision`）；继续写 `resumed`；有批注时兼写 `last_wait_comment`
+- **包含代码**：`workflow/service.go`；Web 等待 hint
+
+## [变更] 代码沙箱超时 {{变量}}（2026-11-28）
+
+- **变更原因**：沙箱超时只能写死秒数
+- **变更后**：`timeout` 可为数字或 `{{变量}}`；抽屉 hint；表达式仍忽略
+- **包含代码**：`nodes/code.go`；Web 超时输入
+
+## [变更] HTTP 超时 {{变量}}（2026-11-28）
+
+- **变更原因**：HTTP 超时只能写死秒数
+- **变更后**：`timeout` 可为数字或 `{{变量}}`；空/0→30；抽屉 hint
+- **包含代码**：`nodes/http.go`；Web 超时输入
+
+## [变更] 循环次数/上限 {{变量}}（2026-11-28）
+
+- **变更原因**：固定次数与 max_iter 只能写死数字
+- **变更后**：`count` / `max_iter` 可为数字或 `{{变量}}`；抽屉 hint
+- **包含代码**：`nodes/loop.go`；Web 循环输入
+
+## [变更] 等待超时 {{变量}}（2026-11-28）
+
+- **变更原因**：等待超时只能写死秒数
+- **变更后**：`timeout_sec` 可为数字或 `{{变量}}`；空/0=不超时；抽屉 hint
+- **包含代码**：`nodes/wait.go`；共用 `resolveFlexibleInt`；Web 超时输入
+
+## [变更] 延时时长 {{变量}}（2026-11-28）
+
+- **变更原因**：延时只能写死数字，无法按入参动态等待
+- **变更后**：`duration` 可为数字或 `{{变量}}`（展开后解析为整数）；抽屉 hint；上限仍 5 分钟
+- **包含代码**：`nodes/delay.go`；Web 时长输入
+
+## [变更] LLM/Agent/Team 写出 last_agent_content 说明（2026-11-28）
+
+- **变更原因**：引擎已写结果变量，抽屉只写了「留空可接」；系统提示误套了用户提示 hint；Agent 文案仍写「仅执行输入」
+- **变更后**：三者补结果变量 hint；系统提示仅 `{{变量}}`；Agent 占位/总表对齐空接 `last_agent_content`
+- **包含代码**：Web 抽屉 / i18n / `workflowNodeSettings`；本文 §11
+
+## [变更] 等待 last_wait_*（2026-11-28）
+
+- **变更原因**：挂起原因/文案难在恢复后下游模板引用
+- **变更后**：挂起时写 `last_wait_reason` / `last_wait_message` / `last_wait_timeout_sec`；抽屉注明审批后有 `approval_decision`
+- **包含代码**：`nodes/wait.go`；Web hint
+
+## [变更] 延时 last_delay_*（2026-11-28）
+
+- **变更原因**：延时实际毫秒/配置时长难在下游模板引用
+- **变更后**：写 `last_delay_ms` / `last_delay_duration` / `last_delay_unit`；抽屉 hint
+- **包含代码**：`nodes/delay.go`；Web hint
+
+## [变更] 循环 last_loop_*（2026-11-28）
+
+- **变更原因**：循环结束后次数/末次下标难在下游模板引用（`loop.index` 仅循环内）
+- **变更后**：写 `last_loop_total` / `last_loop_index` / `last_loop_type`；抽屉 hint
+- **包含代码**：`nodes/loop.go`；Web hint
+
+## [变更] 条件 last_condition_*（2026-11-28）
+
+- **变更原因**：分支判定结果难在下游模板引用
+- **变更后**：写 `last_condition_result` / `last_condition_branch` / `last_condition_field`；抽屉 hint
+- **包含代码**：`nodes/condition.go`；Web hint
+
+## [变更] 子流程 last_subflow_output（2026-11-28）
+
+- **变更原因**：嵌套结果难在下游模板引用；等待原因已支持模板但抽屉未写
+- **变更后**：写 `last_subflow_output`（JSON）；有 `content` 时兼写 `last_agent_content`；等待原因 hint
+- **包含代码**：`nodes/subflow.go`；Web hint
+
+## [变更] 代码 last_code_output（2026-11-28）
+
+- **变更原因**：代码结果只能看节点输出，模板不便写
+- **变更后**：成功后写 `last_code_output`；抽屉 hint
+- **包含代码**：`nodes/code.go`；Web hint
+
+## [变更] 检索 last_search_* 抽屉说明（2026-11-28）
+
+- **变更原因**：引擎早已写 `last_search_context` 等，抽屉未告知下游可引用
+- **变更后**：问句 hint 写明空值回退；结果变量 hint；总表补注
+- **包含代码**：Web 抽屉；`workflowNodeSettings`
+
+## [变更] HTTP last_http_* 变量（2026-11-27）
+
+- **变更原因**：下游要用响应体/状态码时，只能翻节点输出，模板不便写
+- **变更后**：每次 HTTP 结束后写 `last_http_status` / `last_http_body`；抽屉说明
+- **包含代码**：`nodes/http.go`；Web hint
+
+## [变更] Team 写入/接 last_agent_content（2026-11-27）
+
+- **变更原因**：与 LLM/Agent 流水线变量对齐，小队任务空时也应接上游
+- **变更后**：Team 成功写 `last_agent_content`；空 task 优先接该变量
+- **包含代码**：`nodes/team.go`；Web placeholder
+
+## [变更] LLM 写入 last_agent_content（2026-11-27）
+
+- **变更原因**：设计约定 LLM/Agent 串联，但 LLM 未写 `last_agent_content`，下游 Agent 接不上
+- **变更后**：LLM 成功后写入；空用户提示优先接该变量；抽屉 hint 说明
+- **包含代码**：`nodes/llm.go`；Web hint
+
+## [变更] HTTP 非 2xx 失败（2026-11-27）
+
+- **变更原因**：HTTP 默认只把 status 写入输出，业务常需 4xx/5xx 直接失败
+- **变更后**：可选 `fail_on_error`；开启后 ≥400 节点失败；副文案「严校验」
+- **包含代码**：`nodes/http.go`；Web 开关；`vueDataToConfig`
+
+## [变更] LLM 温度与 max tokens（2026-11-27）
+
+- **变更原因**：引擎已支持 `temperature` / `max_tokens`，抽屉无入口
+- **变更后**：可选温度与最大生成长度（0=跟模型默认）；副文案带 t= / maxN；加载回填
+- **包含代码**：Web 抽屉；`vueDataToConfig` 兼容 `llmTemperature` / `llmMaxTokens`
+
+## [变更] LLM/智能体/小队提示词 {{变量}} 提示（2026-11-27）
+
+- **变更原因**：引擎早已替换 prompt/system/task 模板，抽屉未写明
+- **变更后**：LLM 系统/用户、Agent 用户、Team 任务均有 hint 与示例 placeholder
+- **包含代码**：Web 抽屉；`workflowNodeSettings` 字段 note
+
+## [变更] 循环 while {{变量}}（2026-11-27）
+
+- **变更原因**：条件节点已支持模板，while 条件原先写死比较值
+- **变更后**：while 表达式运行时替换 `{{var}}`；抽屉提示与示例 placeholder
+- **包含代码**：`nodes/loop.go`；Web 抽屉 hint
+
+## [变更] 代码节点沙箱超时（2026-11-27）
+
+- **变更原因**：引擎 / 沙箱已支持 `timeout`（默认 30、最长 60），抽屉无入口
+- **变更后**：代码抽屉可填超时；副文案非默认时带 · Ns；仅 Python/JS 生效
+- **包含代码**：Web 抽屉与 `workflowNodeSettings`；`vueDataToConfig` 已透传 `codeTimeout`
+
+## [变更] 子流程入参映射（2026-11-27）
+
+- **变更原因**：引擎已支持 `input` + `{{变量}}`，抽屉无入口
+- **变更后**：可选 JSON 入参；副文案「自定义入参」；`workflowJsonObject`
+- **包含代码**：Web 抽屉；引擎原有 `subflow` input
+
+## [变更] 等待/条件 {{变量}}（2026-11-27）
+
+- **变更原因**：审批提示与条件期望值常要带入参
+- **变更后**：wait message/reason、condition value 运行时替换；抽屉提示
+- **包含代码**：`nodes/wait.go`、`condition.go`
+
+## [变更] HTTP 节点 {{变量}} 替换（2026-11-27）
+
+- **变更原因**：LLM/检索已支持模板，HTTP URL/头/体原先写死
+- **变更后**：运行时替换 `{{var}}`；超时真正生效；抽屉提示可用变量
+- **包含代码**：`nodes/http.go`；Web 提示文案
+
+## [变更] HTTP 节点请求头配置（2026-11-27）
+
+- **变更原因**：引擎已有 `headers`，抽屉无入口
+- **变更后**：JSON 请求头字段；副文案带 n 头；`vueDataToConfig` 透传
+- **包含代码**：Web 抽屉、`workflowHttpHeaders`；Go `vueDataToConfig`
+
+## [变更] 工作流节点设置总表附录（2026-11-27）
+
+- **变更原因**：调试 UX §8「节点设置总表」；抽屉字段散落难对照
+- **变更后**：本文 §11 总表；Web `workflowNodeSettings` 与调色板单测对齐
+- **包含代码**：`cogniforge-web/utils/workflowNodeSettings.ts`
+
+## [变更] 调试输出可复制与总耗时（2026-11-27）
+
+- **变更原因**：摘要截断难带走；完成试跑看不出总耗时
+- **变更后**：步骤/整次「复制」全文；「这一次」显示总耗时
+- **包含代码**：`formatExecutionOutputForCopy`、`copyDebugText`
+
+## [变更] 子流程禁止指向自身（2026-11-27）
+
+- **变更原因**：旧图/导入可能仍嵌套当前工作流；引擎会拒但画布无提示
+- **变更后**：`isSubflowSelfReference` 计入未绑定；副文案「不能嵌套自身」；保存/试跑拦截
+- **包含代码**：`workflowBind`、画布 `currentWorkflowId`、抽屉警示
+
+## [变更] 历史试跑输入回填（2026-11-27）
+
+- **变更原因**：改一点再跑要手抄上次输入
+- **变更后**：当前/更早试跑「填入上方再跑」；`formatExecutionInputJson`
+- **包含代码**：调试侧栏按钮、`workflowDebugStep` 单测
+
+## [变更] 时间线标注已灌入上游输出（2026-11-27）
+
+- **变更原因**：从此调试跳过步骤看不出是否带了上次输出
+- **变更后**：`isSeededDebugSkip`；文案「已跳过，并带上上次上游输出」
+- **包含代码**：时间线 note、`workflowDebugStep` 单测
+
+## [变更] 一键取消全部卡住试跑（2026-11-27）
+
+- **变更原因**：多条卡住 running 逐条取消费事
+- **变更后**：≥2 条超时活跃时显示「取消全部卡住」；`listStaleActiveExecutionIds` 单测
+- **包含代码**：`cancelAllStuckExecutions`
+
+## [变更] 从此调试可灌入上次上游输出（2026-11-27）
+
+- **变更原因**：跳过祖先后下游缺输出
+- **变更后**：调试侧栏默认勾选；传 `seed_execution_id`；toast 区分是否带种子
+- **包含代码**：`seedUpstreamOnDebugFrom`、`useWorkflows.debug`
+
+## [变更] 新开调试/取消时清画布运行高亮（2026-11-27）
+
+- **变更原因**：上次试跑高亮残留到下一次开始前
+- **变更后**：`clearCanvasRunDecorations`；startDebug / cancel 清节点与边
+- **包含代码**：`clearCanvasRunHighlight`、`workflowDebugStep` 单测
+
+## [变更] 调试时淡显指向 skipped 的连线（2026-11-27）
+
+- **变更原因**：未选分支节点淡显但连线仍醒目
+- **变更后**：`decorateEdgesForSkippedTargets`；虚线+低透明度；单测
+- **包含代码**：`applyNodeRunHighlight`、`.run-edge-skipped`
+
+## [变更] 画布选中节点同步时间线摘要（2026-11-27）
+
+- **变更原因**：只点时间线能看摘要，点画布节点不会对齐
+- **变更后**：`handleNodeClick` 对齐最近一步；空白清除；`findLatestTimelineKeyForNode` 单测
+- **包含代码**：`[id].vue`、`workflowDebugStep.ts`
+
+## [变更] 调试时间线点开步骤摘要（2026-11-27）
+
+- **变更原因**：时间线只能扫状态，看不到该步输出/错误
+- **变更后**：点步骤展开摘要；选中画布节点；`formatNodeRunOutputPreview` 单测
+- **包含代码**：`selectTimelineStep`、`debug-step-summary`
+
+## [变更] 更早试跑可取消卡住执行（2026-11-27）
+
+- **变更原因**：旧 running 历史一直挂着，只有文案提示
+- **变更后**：活跃状态显示取消；超 10 分钟标「取消卡住」；`workflowExecStatus` 单测
+- **包含代码**：`cancelHistoryExecution`、历史列表按钮
+
+## [变更] 条件真/假出口常显与连线标签（2026-11-27）
+
+- **变更原因**：真/假口只悬停可见，连线无区分，配置半成品
+- **变更后**：节点口常显「真/假」；`s-top`/`s-bottom` 边绿/红 + 标签；抽屉出口说明
+- **包含代码**：`WorkflowFlowNode`、`withEdgeArrow`、`conditionBranchKind`
+
+## [变更] 未选条件分支画布淡显（2026-11-27）
+
+- **变更原因**：独占后未落 node_runs，轮询无法淡显未选支
+- **变更后**：主仓 skipped 入 `node_runs`；画布沿用 `run-skipped`（opacity 0.55）
+- **主仓**：API v1.105；开发计划 v1.307
+
+## [变更] 引擎按条件句柄独占分支（2026-11-27）
+
+- **变更原因**：画布真/假出口已落库，试跑仍双开两支
+- **变更后**：主仓引擎按 `s-top`/`s-bottom` 独占；未选边 `skipped`
+- **主仓**：API v1.104；架构 v4.19；Engine 18.5
+
+## [变更] 边句柄持久化（2026-11-27）
+
+- **变更原因**：保存 definition 时丢掉 `sourceHandle`，条件真/假边重载后串线
+- **变更后**：`toDefinitionEdge` / `fromDefinitionEdge` 双写 camel + `source_handle`；单测覆盖
+- **包含代码**：`utils/workflowEdge.ts`、保存/加载边映射
+
+## [变更] 画布未保存离开提示（2026-11-27）
+
+- **变更原因**：改完画布直接返回/关页会丢修改
+- **变更后**：顶栏「未保存」徽章；返回与路由离开弹确认；关页 beforeunload；调试进度不计入脏
+- **包含代码**：`canvasDirty`、`askLeaveIfDirty`、`onBeforeRouteLeave`
+
+## [变更] 问题摘要菜单关闭交互（2026-11-27）
+
+- **变更原因**：摘要菜单打开后只能点项关闭，点空白不收起
+- **变更后**：点菜单外 / Esc / 画布空白均可关闭
+- **包含代码**：`onIssueMenuPointerDown`、`onIssueMenuKeydown`、`handlePaneClick`
+
+## [变更] 小队打开流水线与覆盖确认（2026-11-27）
+
+- **变更原因**：「打开/更新」一点就重生成，易误覆盖画布
+- **变更后**：有绑定时「打开」只跳转；「重新生成」与已有工作流上的并行图需确认覆盖
+- **包含代码**：`expandPipeline` 直达、`askRegenPipeline`、`CfConfirmModal`
+
+## [变更] 顶栏校验芯片问题摘要（2026-11-27）
+
+- **变更原因**：图校验芯片增至 7 类，顶栏易挤爆
+- **变更后**：不足 3 类仍逐个显示；≥3 类收成「n 类问题」菜单，点项跳转
+- **包含代码**：`graphIssues`、`collapseIssueChips`、`issue-summary`
+
+## [变更] 画布条件分支不全醒目标记（2026-11-27）
+
+- **变更原因**：顶栏芯片之外，画布上也要一眼看出缺真/假出边的条件节点
+- **变更后**：琥珀虚线框 + `≠` 角标；未绑定 / 不可达优先
+- **包含代码**：`WorkflowFlowNode.branchGap`、`WorkflowCanvas.isBranchGap`
+
+## [变更] 画布死胡同节点醒目标记（2026-11-27）
+
+- **变更原因**：顶栏芯片之外，画布上也要一眼看出没有出边的中间节点
+- **变更后**：紫虚线框 + `×` 角标；未绑定 / 不可达样式优先
+- **包含代码**：`WorkflowFlowNode.deadEnd`、`WorkflowCanvas.isDeadEnd`
+
+## [变更] 非结束节点缺出边（死胡同）（2026-11-27）
+
+- **变更原因**：LLM 等中间节点无出边时流程会卡死，却仍可保存
+- **变更后**：仅检查从 start 可达的非 end/output；条件节点由分支校验覆盖；顶栏芯片
+- **包含代码**：`findDeadEndNodes`、`ensureNoDeadEnds`
+
+## [变更] 条件节点缺真/假出边（2026-11-27）
+
+- **变更原因**：条件节点上下两个出口，只连一条时另一分支静默不通
+- **变更后**：保存/执行/调试拦截；顶栏「n 个分支不全」芯片
+- **包含代码**：`findConditionsMissingBranches`、`ensureConditionBranches`
+
+## [变更] 开始/输入节点禁止入边（2026-11-27）
+
+- **变更原因**：开始类节点无入口线头，但旧图/导入仍可能残留入边
+- **变更后**：保存/执行/调试拦截；顶栏「n 个开始有入边」芯片
+- **包含代码**：`findStartsWithIncoming`、`ensureNoStartIncoming`
+
+## [变更] 结束/输出节点禁止出边（2026-11-27）
+
+- **变更原因**：结束类节点无出口线头，但旧图/导入仍可能残留出边
+- **变更后**：保存/执行/调试拦截；顶栏芯片；连线时拒 end/output 出、start/input 入
+- **包含代码**：`findEndsWithOutgoing`、`ensureNoEndOutgoing`、`isValidConnection`
+
+## [变更] 多开始节点拦截（2026-11-27）
+
+- **变更原因**：可达性只认第一个 start；多开始会导致半图静默不跑
+- **变更后**：保存/执行/调试拦截；顶栏「n 个开始」芯片；调色板禁止再加第二个
+- **包含代码**：`findStartNodes`、`ensureSingleStartNode`、`addNode` 守卫
+
+## [变更] 画布不可达节点醒目标记（2026-11-27）
+
+- **变更原因**：顶栏芯片之外，画布上也应一眼看出孤立节点
+- **变更后**：灰虚线框 + `?` 角标；未绑定优先于未连通样式
+- **包含代码**：`WorkflowCanvas.vue`、`WorkflowFlowNode.vue`
+
+## [变更] 顶栏未连通芯片（2026-11-27）
+
+- **变更原因**：孤立节点仅保存时才提示，编辑中不易发现
+- **变更后**：顶栏「n 个未连通」芯片，点击打开首个不可达节点
+- **包含代码**：`pages/workflows/[id].vue`
+
+## [变更] 孤立节点可达性校验（2026-11-27）
+
+- **变更原因**：未连边的节点保存后运行时永远不会执行
+- **变更后**：BFS 从 start 不可达则拦截；单测覆盖
+- **包含代码**：`utils/workflowReachability.ts`、`pages/workflows/[id].vue`
+
+## [变更] 缺开始节点拦截（2026-11-27）
+
+- **变更原因**：已校验 end，start 对称缺失仍可保存/试跑
+- **变更后**：`ensureHasTerminalNodes` 同时要求 start + end
+- **包含代码**：`pages/workflows/[id].vue`
+
+## [变更] 结束节点副文案与必填校验（2026-11-27）
+
+- **变更原因**：结束节点无副文案；无结束节点仍可保存/试跑
+- **变更后**：副文案「流程结束」；保存/执行/调试前校验至少一个 end；补 input/output bindKind 文案
+- **包含代码**：`pages/workflows/[id].vue`、`WorkflowCanvas.vue`
+
+## [变更] input/output 未设变量醒目标记（2026-11-27）
+
+- **变更原因**：输入/输出节点变量为空时保存/执行未拦截，画布也无未绑定样式
+- **变更后**：纳入 `isWorkflowBindUnbound`；虚线框 + 顶栏计数 + 保存/调试校验
+- **包含代码**：`utils/workflowBind.ts`、`WorkflowCanvas.vue`
+
+## [变更] 画布 input/output 变量副文案（2026-11-27）
+
+- **变更原因**：输入/输出节点有变量配置但画布无副文案；`workflowNodeMeta` 再导出 `workflowBind` 触发 Nuxt 重复导入告警
+- **变更后**：显示「变量 x / 未设变量」；bind 工具从 `workflowBind` 直引
+- **包含代码**：`pages/workflows/[id].vue`、`WorkflowCanvas.vue`、`workflowNodeMeta.ts`
+
+## [变更] 提示词标签筛选空串 500（2026-11-27）
+
+- **变更原因**：USelect 禁止 `SelectItem` value 为空串，「全部」用 `''` 会整页 500
+- **变更后**：哨兵 `__all__`；列表加载对非数组 data 容错
+- **包含代码**：`pages/prompts.vue`
+
+## [变更] Playground 插入发送确认框（2026-11-27）
+
+- **变更原因**：中间插入会删后续消息时仍用浏览器 `confirm`
+- **变更后**：改用 `CfConfirmModal`
+- **包含代码**：`pages/playground.vue`
+
+## [变更] 知识库弃编辑确认框（2026-11-27）
+
+- **变更原因**：未保存文档编辑离开时仍用浏览器 `confirm`
+- **变更后**：切 Tab / 换文档 / 关闭预览统一改用 `CfConfirmModal`
+- **包含代码**：`pages/knowledge/[id].vue`
+
+## [变更] 工作室版本回滚确认框（2026-11-27）
+
+- **变更原因**：配置版本回滚仍用浏览器 `confirm`
+- **变更后**：改用 `CfConfirmModal`
+- **包含代码**：`components/AgentStudio.vue`
+
+## [变更] Playground 删对话确认框（2026-11-27）
+
+- **变更原因**：删对话仍用浏览器 `confirm`
+- **变更后**：改用 `CfConfirmModal`
+- **包含代码**：`pages/playground.vue`
+
+## [变更] 评估页删除确认框（2026-11-27）
+
+- **变更原因**：套件删除仍用浏览器 `confirm`；用例删除无确认
+- **变更后**：套件与用例删除均走 `CfConfirmModal`
+- **包含代码**：`pages/evals.vue`、i18n
+
+## [变更] Cron 校验与确认框（2026-11-27）
+
+- **变更原因**：5 段 Cron 要到后端才报错；删除调度/回滚仍用浏览器 confirm
+- **变更后**：前端先校验 6 段；调度删除与版本回滚改用 `CfConfirmModal`
+- **包含代码**：`pages/workflows/[id].vue`、i18n
+
+## [变更] Webhook 校验与 HTTP 超时副文案（2026-11-27）
+
+- **变更原因**：回调可填脏地址；HTTP 节点看不出非默认超时
+- **变更后**：保存基础信息时校验 http(s)；HTTP 副文案在超时≠30s 时显示 `· Ns`
+- **包含代码**：`pages/workflows/[id].vue`、i18n
+
+## [变更] Playwright 默认不复用端口（2026-11-27）
+
+- **变更原因**：本地占用 3010 的其它服务被误复用，e2e 访问 `/prompts` 得 404
+- **变更后**：默认自起 Nuxt；探活 `/login`；`PW_REUSE=1` 才复用
+- **包含代码**：`cogniforge-web/playwright.config.ts`
+
+## [变更] 画布副文案补充（2026-11-27）
+
+- **变更原因**：LLM/检索/等待已绑定后仍看不出流式、条数、超时
+- **变更后**：LLM 显示「模型 · 流式」；检索「库名 · mode · top N」；等待附带 `Ns` 超时
+- **包含代码**：`pages/workflows/[id].vue`、i18n
+
+## [变更] 循环节点 for_each（2026-11-27）
+
+- **变更原因**：引擎已支持遍历数组，画布只有 times/while
+- **变更后**：循环方式可选「遍历数组」；填数组/元素/下标变量；未填数组标未绑定；画布副文案 `数组 → 元素`
+- **包含代码**：`pages/workflows/[id].vue`、`WorkflowCanvas.vue`、`workflowBind.ts`、i18n；Go `vueDataToConfig`
+
+## [变更] 提示词版本归档 / 回滚发版（2026-11-27）
+
+- **变更原因**：17.17 运维需废弃旧版与按正文回滚
+- **变更后**：版本卡可归档（非当前 published）；回滚发版按旧正文发新 published；徽章区分 archived
+- **包含代码**：`pages/prompts.vue`、`usePrompts.ts`、i18n
+
+## [变更] 开始节点画布副文案（2026-11-27）
+
+- **变更原因**：开始节点在画布上看不出入参变量
+- **变更后**：无入参显示「无入参」；≤2 个显示变量名；更多显示「a, b 等 N 个」
+- **包含代码**：`WorkflowCanvas.vue`、`pages/workflows/[id].vue`、i18n
+
+## [变更] 循环节点画布副文案（2026-11-27）
+
+- **变更原因**：循环节点在画布上看不出次数或条件
+- **变更后**：固定次数显示「固定次数 ×N」；条件循环显示条件摘要或「≤最大次数」；新建默认 times×3
+- **包含代码**：`WorkflowCanvas.vue`、`pages/workflows/[id].vue`
+
+## [变更] 延时/等待节点画布副文案（2026-11-27）
+
+- **变更原因**：延时与等待在画布上看不出配置摘要
+- **变更后**：延时显示「N 秒/分/时」；等待显示原因（及消息摘要）；新建带默认值
+- **包含代码**：`WorkflowCanvas.vue`、`pages/workflows/[id].vue`
+
+## [变更] 节点必填绑定单测（2026-11-27）
+
+- **变更原因**：近期补了多种未绑定拦截，缺回归保护
+- **变更后**：抽出 `workflowBind.ts`；`isWorkflowBindUnbound` vitest 覆盖 llm/http/code/condition/team/agent/search/subflow
+- **包含代码**：`utils/workflowBind.ts`、`utils/workflowBind.test.ts`、`workflowNodeMeta.ts` 再导出
+
+## [变更] LLM 节点模型空态提示（2026-11-27）
+
+- **变更原因**：无模型时下拉空且无引导；点开不刷新列表
+- **变更后**：空态提示 + `/models`；点开 LLM 节点刷新模型列表
+- **包含代码**：`pages/workflows/[id].vue`、i18n
+
+## [变更] 条件节点未填字段醒目标记（2026-11-27）
+
+- **变更原因**：条件节点无判断字段仍可保存/跑
+- **变更后**：`isWorkflowBindUnbound('condition')`；虚线框 + 顶栏计数；填好后显示 `字段 运算符 值`
+- **包含代码**：`workflowNodeMeta.ts`、`WorkflowCanvas.vue`、`pages/workflows/[id].vue`、i18n
+
+## [变更] 代码节点未填代码醒目标记（2026-11-27）
+
+- **变更原因**：代码节点空源码仍可保存/跑
+- **变更后**：`isWorkflowBindUnbound('code')`；虚线框 + 顶栏计数；填好后显示 `语言: 首行摘要`
+- **包含代码**：`workflowNodeMeta.ts`、`WorkflowCanvas.vue`、`pages/workflows/[id].vue`、i18n
+
+## [变更] HTTP 节点未填 URL 醒目标记（2026-11-27）
+
+- **变更原因**：HTTP 节点空地址仍可保存/跑
+- **变更后**：`isWorkflowBindUnbound('http')`；虚线框 + 顶栏计数；填好后显示 `METHOD url` 副文案
+- **包含代码**：`workflowNodeMeta.ts`、`WorkflowCanvas.vue`、`pages/workflows/[id].vue`、i18n
+
+## [变更] LLM 节点未选模型醒目标记（2026-11-27）
+
+- **变更原因**：LLM 节点无模型也可保存/跑，与其它绑定节点不一致
+- **变更后**：`isWorkflowBindUnbound('llm')`；虚线框 + 顶栏计数；选中后显示模型名副文案
+- **包含代码**：`workflowNodeMeta.ts`、`WorkflowCanvas.vue`、`pages/workflows/[id].vue`、i18n
+
+## [变更] 提示词版本行级 diff（2026-11-27）
+
+- **变更原因**：P2 17.15；并排原文难定位改动
+- **变更后**：对比弹窗默认行级差异（可切并排）；`lineDiff` LCS
+- **包含代码**：`utils/lineDiff.ts`、`pages/prompts.vue`、i18n
+
+## [变更] 提示词 Tags 编辑与筛选（2026-11-27）
+
+- **变更原因**：P2 17.16；后端已有 `tags`，前端未做
+- **变更后**：新建/详情编辑标签（逗号分隔）；列表按标签筛选；卡片徽章展示
+- **包含代码**：`pages/prompts.vue`、i18n
+
+## [变更] 角色管理列表卡片视图（2026-11-27）
+
+- **变更原因**：跨模块列表去重；管理端角色页仍只有表格
+- **变更后**：默认卡片 + `CfViewModeToggle`（`cf-roles-view`）；系统/默认徽章；表格保留；分页共用
+- **包含代码**：`pages/admin/roles.vue`
+
+## [变更] 用户管理列表卡片视图（2026-11-27）
+
+- **变更原因**：跨模块列表去重；管理端用户页仍只有表格
+- **变更后**：默认卡片 + `CfViewModeToggle`（`cf-users-view`）；角色/状态徽章；表格保留；搜索/分页共用
+- **包含代码**：`pages/admin/users.vue`
+
+## [变更] 评估列表卡片视图（2026-11-27）
+
+- **变更原因**：跨模块列表去重；评估套件页仍只有表格
+- **变更后**：默认卡片 + `CfViewModeToggle`（`cf-evals-view`）；表格视图保留
+- **包含代码**：`pages/evals.vue`
+
+## [变更] 画布已绑定节点显示资源名（2026-11-27）
+
+- **变更原因**：绑好后画布仍只显示节点类型名，看不出绑的是谁
+- **变更后**：`bindCaption` 副文案（小队/智能体/知识库/子流程名）；保存与选项刷新时同步；流式进度优先
+- **包含代码**：`WorkflowCanvas.vue`、`pages/workflows/[id].vue`
+
+## [变更] 画布顶栏未绑定数量芯片（2026-11-27）
+
+- **变更原因**：节点多时难扫全图；需要顶栏汇总
+- **变更后**：有未绑定节点时顶栏显示「N 个未绑定」芯片；点击打开第一个未配置节点；与校验共用 `focusFirstUnboundNode`
+- **包含代码**：`pages/workflows/[id].vue`、i18n
+
+## [变更] 画布未绑定节点醒目标记（2026-11-27）
+
+- **变更原因**：保存/执行拦截前，画布上看不出哪些节点还没绑资源
+- **变更后**：agent/team/search/subflow 未绑定时虚线琥珀边框 + `!` 角标 + 副文案；`isWorkflowBindUnbound` 与校验共用；补齐 `#node-subflow` 模板
+- **包含代码**：`WorkflowFlowNode.vue`、`WorkflowCanvas.vue`、`workflowNodeMeta.ts`、`pages/workflows/[id].vue`、i18n
+
+## [变更] 执行/调试校验节点绑定（2026-11-27）
+
+- **变更原因**：仅保存拦截不够，正式运行/调试仍可能带着空绑定出发
+- **变更后**：`ensureBindConfigured` 共用；保存 / 执行 / 调试均拦截
+- **包含代码**：`pages/workflows/[id].vue`
+
+## [变更] 保存校验节点绑定（2026-11-27）
+
+- **变更原因**：未选团队/智能体/知识库/子流程仍可保存，运行才报错
+- **变更后**：保存前拦截并打开第一个未配置节点；子流程 `workflow_id` 写入 definition.config
+- **包含代码**：`pages/workflows/[id].vue`、i18n
+
+## [变更] 画布检索节点知识库空态（2026-11-27）
+
+- **变更原因**：无知识库时下拉空且无引导
+- **变更后**：空态提示 + `/knowledge`；点开节点刷新列表
+- **包含代码**：`pages/workflows/[id].vue`、i18n
+
+## [变更] 画布子流程节点空态（2026-11-27）
+
+- **变更原因**：无可嵌套工作流时下拉空且无说明；当前图会被排除
+- **变更后**：空态提示 + `/workflows`；点开节点刷新列表
+- **包含代码**：`pages/workflows/[id].vue`、i18n
+
+## [变更] 画布 Agent 节点空态（2026-11-27）
+
+- **变更原因**：与多智能体节点一致；无 Agent 时下拉空且无引导
+- **变更后**：空态提示 + `/agents/new`；点开节点刷新列表
+- **包含代码**：`pages/workflows/[id].vue`、i18n
+
+## [变更] MCP 列表 CfResourceCard（2026-11-27）
+
+- **变更原因**：MCP 页自绘卡片；对齐其它资源列表共用壳
+- **变更后**：卡片视图改用 `CfResourceCard`；开关/工具数/操作保留
+- **包含代码**：`pages/mcp.vue`
+
+## [变更] 画布多智能体节点文案与空态（2026-11-27）
+
+- **变更原因**：绑定下拉常为空且无说明；「小队节点」叫法偏内部
+- **变更后**：节点名「多智能体」；字段「选择团队」；无团队时提示并链到 `/teams`；点开节点时刷新列表
+- **包含代码**：`pages/workflows/[id].vue`、i18n
+
+## [变更] 小队委派深度/步数限额（2026-11-27）
+
+- **变更原因**：`config.max_depth` / `max_steps` 仅后端默认，产品不可改
+- **变更后**：新建可填；列表「限额」弹窗改深度/步数/失败重试；卡片 meta 展示
+- **包含代码**：`pages/teams/index.vue`、i18n
+
+## [变更] 小队工人失败重试开关（2026-11-27）
+
+- **变更原因**：后端已有 `config.worker_retry_once`，前端无入口
+- **变更后**：新建勾选；列表/卡片一键开关；徽章「失败重试」
+- **包含代码**：`pages/teams/index.vue`、i18n
+
+## [变更] API Key 列表卡片壳（2026-11-27）
+
+- **变更原因**：Keys 页仅表格；对齐其它资源列表
+- **变更后**：默认卡片 + `CfViewModeToggle`（`cf-keys-view`）；密钥展示/复制/吊销；表格保留
+- **包含代码**：`pages/keys.vue`
+
+## [变更] 提示词列表卡片壳（2026-11-27）
+
+- **变更原因**：提示词页仅表格；对齐其它资源列表
+- **变更后**：默认卡片 + `CfViewModeToggle`（`cf-prompts-view`）；表格保留
+- **包含代码**：`pages/prompts.vue`
+
+## [变更] 工作流列表卡片壳（2026-11-27）
+
+- **变更原因**：工作流页仅表格；对齐 agents/knowledge/teams
+- **变更后**：默认卡片 + `CfViewModeToggle`（`cf-workflows-view`）；表格保留
+- **包含代码**：`pages/workflows/index.vue`
+
+## [变更] 小队列表卡片壳（2026-11-27）
+
+- **变更原因**：小队页自绘卡片；对齐 agents/knowledge 共用壳
+- **变更后**：`CfResourceCard` + `CfViewModeToggle`（`cf-teams-view`）；支持表格视图
+- **包含代码**：`pages/teams/index.vue`
+
+## [变更] 工作室虚拟机/IM 占位（2026-11-27）
+
+- **变更原因**：远期能力未落地，避免用户以为已开通
+- **变更后**：发布侧栏展示 IM/虚拟机「即将推出」；左侧虚拟机开关禁用；帮助页补充说明
+- **包含代码**：`AgentStudio.vue`、`pages/help/agent-studio.vue`、i18n
+
+## [变更] 浏览器语音听写（2026-11-27）
+
+- **变更原因**：远期语音输入；先用不依赖云 ASR 的浏览器 SpeechRecognition
+- **变更后**：`CfChatPanel` 输入栏麦克风听写写入 composer；需麦克风权限
+- **包含代码**：`utils/speechStt.ts`、`CfChatPanel.vue`
+
+## [变更] MCP 列表视图切换（2026-11-27）
+
+- **变更原因**：对齐 agents/knowledge；去重 backlog
+- **变更后**：MCP 顶栏可切卡片/表格；偏好 `cf-mcp-view`
+- **包含代码**：`pages/mcp.vue`、`CfViewModeToggle`
+
+## [变更] 浏览器朗读助手回复（2026-11-27）
+
+- **变更原因**：远期语音播放；先用不依赖云服务的浏览器 TTS
+- **变更后**：`CfChatPanel` 助手消息旁朗读/停止；Playground 与工作室共用
+- **包含代码**：`utils/speechTts.ts`、`CfChatPanel.vue`
+
+## [变更] 猜你想问（2026-11-27）
+
+- **变更原因**：无预设问题时空态太冷；与 `suggested_prompts` 合并设计
+- **变更后**：无预设时按名称/描述启发式生成芯片；工作室可「填入猜你想问」写入后再保存
+- **包含代码**：`utils/guessSuggestedPrompts.ts`、`AgentStudio.vue`、`playground.vue`
+
+## [变更] 工作室发布渠道（2026-11-27）
+
+- **变更原因**：中期 backlog；先给可复制接入
+- **变更后**：顶栏「发布」侧栏：对话页链接（`?agent=`）、API curl、iframe 嵌入；第三方 IM 未做
+- **包含代码**：`AgentStudio.vue`、i18n
+
+## [变更] 工作室配置版本历史（2026-11-27）
+
+- **变更原因**：竞品时钟回滚；对齐工作流版本弹窗
+- **变更后**：顶栏「版本」侧栏列 `agent_versions`；可回滚；显示当前 `vN`
+- **包含代码**：`AgentStudio.vue`、`useAgents.ts`；主仓 API v1.99 / DB v1.43
+
+## [变更] 工作室提示词 / @ 插入（2026-11-27）
+
+- **变更原因**：系统提示编辑要能快速插变量与引用已有能力
+- **变更后**：未绑定提示词资产时可 `/` 插入 `{{var}}`；`@` 勾选技能/工具/知识库并写入 `[@类型: 名称]` 标注（后端不解析）
+- **包含代码**：`PromptMentionMenu.vue`、`utils/promptInsert.ts`、`AgentStudio.vue`
+
+## [变更] 工作室「了解更多」说明页（2026-11-27）
+
+- **变更原因**：构建/预览帮助气泡「了解更多」无跳转目标
+- **变更后**：`/help/agent-studio` 说明页；构建与预览 tip 均链到该页
+- **包含代码**：`cogniforge-web/pages/help/agent-studio.vue`、`AgentStudio.vue`、i18n
 
 ## [变更] 智能体工作室与卡片列表（2026-11-20）
 
@@ -1382,10 +2413,84 @@ Mobile 问题记入 backlog，**不阻断** Web 主路径合并。
 | `01-frontend-design.md` | 历史前端设计；涉及冲突时以本文为准 |
 | `02-settings-module-design.md` | 设置功能逻辑仍有效；控件换成 shadcn |
 | `99-dev-plan/01-development-plan.md` | 记录本里程碑进度 |
+| `01-requirements/12-workflow-debug-ux-design.md` | 调试信息架构；节点总表见本文 §11 |
 
 ---
 
-**文档版本**: v1.10  
-**最后更新**: 2026-08-12  
+## 11. 附录：工作流节点设置总表（2026-11-27）
+
+> 与编辑器右侧抽屉对齐。机器可读副本：`cogniforge-web/utils/workflowNodeSettings.ts`（调色板类型缺条目单测会红）。  
+> 所有节点都有「节点名称」。标 **必填** 的参与保存/试跑未绑定校验。
+
+| 类型 | 调色板 | 画布副文案 | 主要字段 |
+|------|--------|------------|----------|
+| `start` | 是 | 入参变量名 | `variables[]`（name/type/required/default/description） |
+| `end` | 是 | 「流程结束」 | （仅名称） |
+| `llm` | 是 | 模型名；流式 / t= / maxN | **model**（ID 或 `{{变量}}`）、systemPrompt、prompt（`{{变量}}`；空接 `last_agent_content`）、llmStream、temperature / maxTokens（数字或 `{{变量}}`；空/0 跟模型默认）；成功写 `last_agent_content` 与 `last_llm_model`/`tokens`/`latency_ms` |
+| `agent` | 是 | 智能体名 | **agentId**（ID 或 `{{变量}}`）、prompt（`{{变量}}`；空接 `last_agent_content` / 流程输入）；成功写 `last_agent_content` / `last_agent_id` |
+| `team` | 是 | 小队名 | **teamId**（ID 或 `{{变量}}`）、prompt/task（`{{变量}}`；空接 `last_agent_content`）；成功写 `last_agent_content` / `last_team_id` |
+| `search` | 是 | 库名 · 模式 · topK | **knowledgeBaseId**（ID 或 `{{变量}}`）、query（`{{变量}}`；空接 input/last_agent_content）、**searchMode**（semantic/keyword/hybrid 或 `{{变量}}`；空跟库）、topK / minScore / hybridSemanticWeight（数字或 `{{变量}}`；空跟库）、**rerankProviderId**（ID 或 `{{变量}}`；空跟库）、覆盖项；结果写 `last_search_context`/`query`/`total`/`kb_id`/`mode`/`rerank_provider_id` |
+| `subflow` | 是 | 嵌套工作流名 · 自定义入参 | **subflowWorkflowId**（ID 或 `{{变量}}`；禁自身；最多 3 层）；可选 `input` JSON（`{{变量}}`）；结果写 `last_subflow_output` / `last_subflow_workflow_id`（有 content 兼写 `last_agent_content`） |
+| `condition` | 是 | 字段 运算符 值 | **conditionField**（`{{变量}}` 展开为字段名）、**operator**（`==`/contains…或 `{{变量}}`）、value（`{{变量}}`）、description；须真/假出边；结果写 `last_condition_result`/`branch`/`field`/`operator` |
+| `loop` | 是 | 次数/条件/数组→元素 | loopType；times 的 count / max_iter 支持数字或 `{{变量}}`；while 条件支持 `{{变量}}`；for_each 时 **loopArrayVar** / **loopItemVar** / **loopKeyVar**（均可 `{{变量}}` 展开为变量名）；结束后写 `last_loop_total`/`index`/`type`（for_each 另写 `item_var`/`key_var`） |
+| `http` | 是 | METHOD url · 头/超时/严校验 | **method**（或 `{{变量}}`，展开后转大写）、**httpUrl**、body、**headers**、timeout（数字或 `{{变量}}`）、failOnError；URL/头/体 `{{变量}}`；结果写 `last_http_method`/`status`/`body`/`ok`（status&lt;400） |
+| `code` | 是 | 语言: 首行 · Ns | **language**（expression/python/javascript 或 `{{变量}}`）、**codeSource**、timeout（沙箱；数字或 `{{变量}}`）；结果写 `last_code_output`/`last_code_language` |
+| `delay` | 是 | 时长+单位 | delayDuration（数字或 `{{变量}}`）、**delayUnit**（seconds/minutes/hours 或 `{{变量}}`）；结束后写 `last_delay_ms`/`duration`/`unit` |
+| `wait` | 是 | 原因:消息 · 超时 | waitReason（`{{变量}}`）、waitMessage（`{{变量}}`）、timeoutSec（数字或 `{{变量}}`）；挂起写 `last_wait_*`；继续/审批后 `last_wait_decision`（兼 `approval_decision`） |
+| `input` | 否（旧图） | 变量名 | **variable** |
+| `output` | 否（旧图） | 变量名 | **variable** |
+
+**改字段时**：先改抽屉与 `vueDataToConfig` / 引擎 config，再改本表与 `workflowNodeSettings.ts`。
+
+### 11.1 结果变量速查（`last_*`）
+
+> 机器可读副本：`cogniforge-web/utils/workflowNodeSettings.ts` → `WORKFLOW_LAST_RESULT_VARS`。  
+> 用法：下游节点配置里写 `{{last_xxx}}`。同一变量被后执行的节点覆盖。
+
+| 变量 | 写出节点 | 说明 |
+|------|----------|------|
+| `last_agent_content` | llm / agent / team / subflow | 文本输出；subflow 仅当结果含 content |
+| `last_agent_id` | agent / team | Agent ID；Team 写活跃成员 |
+| `last_team_id` | team | 小队 ID |
+| `last_llm_model` | llm | 实际模型名 |
+| `last_llm_tokens` | llm | 总 token |
+| `last_llm_latency_ms` | llm | 延迟毫秒 |
+| `last_search_query` | search | 实际问句 |
+| `last_search_context` | search | 拼接上下文 |
+| `last_search_total` | search | 命中条数 |
+| `last_search_kb_id` | search | 知识库 ID |
+| `last_search_mode` | search | 展开后的模式；空=跟库 |
+| `last_search_rerank_provider_id` | search | 重排模型 ID；可空 |
+| `last_subflow_output` | subflow | 子流程输出 JSON 字符串 |
+| `last_subflow_workflow_id` | subflow | 嵌套工作流 ID |
+| `last_condition_result` | condition | 比较结果 bool |
+| `last_condition_branch` | condition | true / false 分支名 |
+| `last_condition_field` | condition | 展开后的字段名 |
+| `last_condition_operator` | condition | 展开后的运算符 |
+| `last_loop_total` | loop | 实际迭代次数 |
+| `last_loop_index` | loop | 末轮下标；无迭代为 -1 |
+| `last_loop_type` | loop | times / while / for_each |
+| `last_loop_item_var` | loop | 仅 for_each；元素变量名 |
+| `last_loop_key_var` | loop | 仅 for_each；下标变量名 |
+| `last_http_method` | http | 实际方法（大写） |
+| `last_http_status` | http | HTTP 状态码 |
+| `last_http_body` | http | 响应体文本 |
+| `last_http_ok` | http | status &lt; 400 |
+| `last_code_output` | code | 代码输出 |
+| `last_code_language` | code | 实际语言 |
+| `last_delay_ms` | delay | 实际睡眠毫秒（含上限裁切） |
+| `last_delay_duration` | delay | 配置时长数字 |
+| `last_delay_unit` | delay | seconds / minutes / hours |
+| `last_wait_reason` | wait | 挂起原因 |
+| `last_wait_message` | wait | 挂起提示文案 |
+| `last_wait_timeout_sec` | wait | 超时秒；无则 0 |
+| `last_wait_decision` | wait（继续/审批后） | 非节点内写入；兼 `approval_decision` |
+
+**新增 `last_*` 时**：改引擎 `SetVariable` → 本表 → `WORKFLOW_LAST_RESULT_VARS` → 对应抽屉 hint。
+
+---
+
+**文档版本**: v1.242  
+**最后更新**: 2026-11-28  
 **维护**: CogniForge 前端  
 **分支建议**: `feat/nuxt-shadcn-vue`

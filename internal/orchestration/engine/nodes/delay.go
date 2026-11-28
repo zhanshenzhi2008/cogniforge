@@ -11,8 +11,8 @@ import (
 )
 
 type DelayNodeConfig struct {
-	Duration int    `json:"duration"`
-	Unit     string `json:"unit"`
+	Duration json.RawMessage `json:"duration"` // 数字或 "{{变量}}" 字符串
+	Unit     string          `json:"unit"`
 }
 
 type DelayNodeExecutor struct{}
@@ -23,18 +23,27 @@ func (e *DelayNodeExecutor) Execute(ctx *core.ExecutionContext, config json.RawM
 		return nil, fmt.Errorf("invalid delay config: %w", err)
 	}
 
-	if cfg.Duration <= 0 {
-		cfg.Duration = 1
+	durN := resolveDelayDuration(cfg.Duration, ctx)
+	if durN <= 0 {
+		durN = 1
+	}
+
+	unit := strings.ToLower(strings.TrimSpace(resolveTemplate(cfg.Unit, ctx)))
+	if unit == "" {
+		unit = "seconds"
 	}
 
 	var duration time.Duration
-	switch strings.ToLower(cfg.Unit) {
+	switch unit {
 	case "minutes", "minute", "m":
-		duration = time.Duration(cfg.Duration) * time.Minute
+		duration = time.Duration(durN) * time.Minute
+		unit = "minutes"
 	case "hours", "hour", "h":
-		duration = time.Duration(cfg.Duration) * time.Hour
+		duration = time.Duration(durN) * time.Hour
+		unit = "hours"
 	default:
-		duration = time.Duration(cfg.Duration) * time.Second
+		duration = time.Duration(durN) * time.Second
+		unit = "seconds"
 	}
 
 	maxDelay := 5 * time.Minute
@@ -46,12 +55,124 @@ func (e *DelayNodeExecutor) Execute(ctx *core.ExecutionContext, config json.RawM
 	ctx.Logger.Logf(ctx.NodeID, "info", "Delaying for %v", duration)
 	time.Sleep(duration)
 
-	return map[string]any{
+	out := map[string]any{
 		"delayed":   true,
-		"duration":  cfg.Duration,
-		"unit":      cfg.Unit,
+		"duration":  durN,
+		"unit":      unit,
 		"actual_ms": duration.Milliseconds(),
-	}, nil
+	}
+	storeLastDelay(ctx, out)
+	return out, nil
+}
+
+// resolveFlexibleInt 支持 JSON 数字，或经 {{变量}} 展开后的整数字符串；失败返回 0
+func resolveFlexibleInt(raw json.RawMessage, ctx *core.ExecutionContext) int {
+	if len(raw) == 0 || string(raw) == "null" {
+		return 0
+	}
+	var n int
+	if err := json.Unmarshal(raw, &n); err == nil {
+		return n
+	}
+	var f float64
+	if err := json.Unmarshal(raw, &f); err == nil {
+		return int(f)
+	}
+	var s string
+	if err := json.Unmarshal(raw, &s); err != nil {
+		return 0
+	}
+	s = strings.TrimSpace(resolveTemplate(s, ctx))
+	if s == "" {
+		return 0
+	}
+	if i, err := strconv.Atoi(s); err == nil {
+		return i
+	}
+	if fv, err := strconv.ParseFloat(s, 64); err == nil {
+		return int(fv)
+	}
+	return 0
+}
+
+// resolveFlexibleFloat 支持 JSON 数字，或经 {{变量}} 展开后的浮点字符串；失败返回 0
+func resolveFlexibleFloat(raw json.RawMessage, ctx *core.ExecutionContext) float64 {
+	if len(raw) == 0 || string(raw) == "null" {
+		return 0
+	}
+	var f float64
+	if err := json.Unmarshal(raw, &f); err == nil {
+		return f
+	}
+	var n int
+	if err := json.Unmarshal(raw, &n); err == nil {
+		return float64(n)
+	}
+	var s string
+	if err := json.Unmarshal(raw, &s); err != nil {
+		return 0
+	}
+	s = strings.TrimSpace(resolveTemplate(s, ctx))
+	if s == "" {
+		return 0
+	}
+	fv, err := strconv.ParseFloat(s, 64)
+	if err != nil {
+		return 0
+	}
+	return fv
+}
+
+// resolveOptionalFlexibleFloat 同 resolveFlexibleFloat，但空/null/无法解析时返回 nil（表示「未覆盖」）
+func resolveOptionalFlexibleFloat(raw json.RawMessage, ctx *core.ExecutionContext) *float64 {
+	if len(raw) == 0 || string(raw) == "null" {
+		return nil
+	}
+	var s string
+	if err := json.Unmarshal(raw, &s); err == nil {
+		s = strings.TrimSpace(s)
+		if s == "" {
+			return nil
+		}
+		s = strings.TrimSpace(resolveTemplate(s, ctx))
+		if s == "" {
+			return nil
+		}
+		fv, err := strconv.ParseFloat(s, 64)
+		if err != nil {
+			return nil
+		}
+		return &fv
+	}
+	var f float64
+	if err := json.Unmarshal(raw, &f); err == nil {
+		return &f
+	}
+	var n int
+	if err := json.Unmarshal(raw, &n); err == nil {
+		fv := float64(n)
+		return &fv
+	}
+	return nil
+}
+
+// resolveDelayDuration 同 resolveFlexibleInt；≤0 时默认 1 秒
+func resolveDelayDuration(raw json.RawMessage, ctx *core.ExecutionContext) int {
+	n := resolveFlexibleInt(raw, ctx)
+	if n <= 0 {
+		return 1
+	}
+	return n
+}
+
+// storeLastDelay 供下游 {{last_delay_ms}} / {{last_delay_duration}} / {{last_delay_unit}} 引用
+func storeLastDelay(ctx *core.ExecutionContext, out map[string]any) {
+	if ctx == nil || out == nil {
+		return
+	}
+	ctx.SetVariable("last_delay_ms", out["actual_ms"])
+	ctx.SetVariable("last_delay_duration", out["duration"])
+	ctx.SetVariable("last_delay_unit", out["unit"])
 }
 
 func parseDuration(s string) (time.Duration, error) {

@@ -22,8 +22,9 @@ type ExecutionContext struct {
 	Output         map[string]any
 	State          map[string]string
 	DefinitionHash string // 工作流定义哈希（checkpoint）
+	SubflowDepth   int    // 嵌套子流程深度（根=0）
 	StartTime      time.Time
-	mu             sync.RWMutex
+	mu             *sync.RWMutex
 	Logger         *ExecutionLogger
 	OnNodeStart    func(nodeID string)
 	OnNodeEnd      func(nodeID string, status string)
@@ -59,8 +60,42 @@ func NewExecutionContextWithTraceID(workflowID, executionID string, input map[st
 		Output:      make(map[string]any),
 		State:       make(map[string]string),
 		StartTime:   time.Now(),
+		mu:          &sync.RWMutex{},
 		Logger:      NewExecutionLogger(executionID, traceID),
 	}
+}
+
+// ForNode 浅拷贝上下文并固定 NodeID（并行波次每节点一份，共享 Variables/Output/锁）
+func (ctx *ExecutionContext) ForNode(nodeID string) *ExecutionContext {
+	if ctx == nil {
+		return nil
+	}
+	child := *ctx
+	child.NodeID = nodeID
+	return &child
+}
+
+// SetNodeOutput 线程安全写入节点输出
+func (ctx *ExecutionContext) SetNodeOutput(nodeID string, value any) {
+	ctx.ensureMu()
+	ctx.mu.Lock()
+	defer ctx.mu.Unlock()
+	if ctx.Output == nil {
+		ctx.Output = make(map[string]any)
+	}
+	ctx.Output[nodeID] = value
+}
+
+// LookupOutput 线程安全读取 Output 映射
+func (ctx *ExecutionContext) LookupOutput(key string) (any, bool) {
+	ctx.ensureMu()
+	ctx.mu.RLock()
+	defer ctx.mu.RUnlock()
+	if ctx.Output == nil {
+		return nil, false
+	}
+	v, ok := ctx.Output[key]
+	return v, ok
 }
 
 // WithUserID 设置执行用户（链式）
@@ -69,13 +104,21 @@ func (ctx *ExecutionContext) WithUserID(userID string) *ExecutionContext {
 	return ctx
 }
 
+func (ctx *ExecutionContext) ensureMu() {
+	if ctx.mu == nil {
+		ctx.mu = &sync.RWMutex{}
+	}
+}
+
 func (ctx *ExecutionContext) SetVariable(key string, value any) {
+	ctx.ensureMu()
 	ctx.mu.Lock()
 	defer ctx.mu.Unlock()
 	ctx.Variables[key] = value
 }
 
 func (ctx *ExecutionContext) GetVariable(key string) (any, bool) {
+	ctx.ensureMu()
 	ctx.mu.RLock()
 	defer ctx.mu.RUnlock()
 	v, ok := ctx.Variables[key]
@@ -83,12 +126,14 @@ func (ctx *ExecutionContext) GetVariable(key string) (any, bool) {
 }
 
 func (ctx *ExecutionContext) SetNodeState(nodeID, status string) {
+	ctx.ensureMu()
 	ctx.mu.Lock()
 	defer ctx.mu.Unlock()
 	ctx.State[nodeID] = status
 }
 
 func (ctx *ExecutionContext) GetNodeState(nodeID string) string {
+	ctx.ensureMu()
 	ctx.mu.RLock()
 	defer ctx.mu.RUnlock()
 	return ctx.State[nodeID]
@@ -155,6 +200,36 @@ type EdgeDefinition struct {
 	Target       string `json:"target"`
 	SourceHandle string `json:"source_handle,omitempty"`
 	TargetHandle string `json:"target_handle,omitempty"`
+}
+
+// UnmarshalJSON 兼容前端 camelCase（sourceHandle）与 snake_case（source_handle）
+func (e *EdgeDefinition) UnmarshalJSON(data []byte) error {
+	var raw struct {
+		ID            string `json:"id"`
+		Source        string `json:"source"`
+		Target        string `json:"target"`
+		SourceHandle  string `json:"source_handle"`
+		SourceHandleC string `json:"sourceHandle"`
+		TargetHandle  string `json:"target_handle"`
+		TargetHandleC string `json:"targetHandle"`
+	}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	e.ID = raw.ID
+	e.Source = raw.Source
+	e.Target = raw.Target
+	if raw.SourceHandle != "" {
+		e.SourceHandle = raw.SourceHandle
+	} else {
+		e.SourceHandle = raw.SourceHandleC
+	}
+	if raw.TargetHandle != "" {
+		e.TargetHandle = raw.TargetHandle
+	} else {
+		e.TargetHandle = raw.TargetHandleC
+	}
+	return nil
 }
 
 type Position struct {

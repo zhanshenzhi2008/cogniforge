@@ -13,6 +13,14 @@ type UpdateWorkflowRequest struct {
 	Description string         `json:"description"`
 	Status      string         `json:"status"`
 	Definition  map[string]any `json:"definition"`
+	WebhookURL  *string        `json:"webhook_url"` // 传空串可清空
+}
+
+type CreateScheduleRequest struct {
+	Name           string         `json:"name"`
+	CronExpression string         `json:"cron_expression" binding:"required"`
+	DefaultInput   map[string]any `json:"default_input"`
+	IsActive       *bool          `json:"is_active"`
 }
 
 type ExecuteWorkflowRequest struct {
@@ -22,6 +30,10 @@ type ExecuteWorkflowRequest struct {
 type DebugWorkflowRequest struct {
 	Input           map[string]any `json:"input"`
 	NodeBreakpoints []string       `json:"node_breakpoints"`
+	// StartFromNode 从此节点开始调试：跳过其祖先（start 除外），下游照常执行
+	StartFromNode string `json:"start_from_node,omitempty"`
+	// SeedExecutionID 可选：从该次执行灌入被跳过祖先的 node 输出（从此调试用）
+	SeedExecutionID string `json:"seed_execution_id,omitempty"`
 }
 
 type ResumeExecutionRequest struct {

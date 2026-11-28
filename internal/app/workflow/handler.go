@@ -1,6 +1,8 @@
 package workflow
 
 import (
+	"strconv"
+
 	"github.com/gin-gonic/gin"
 
 	orchwf "cogniforge/internal/orchestration/workflow"
@@ -122,6 +124,151 @@ func (h *WorkflowHandler) DeleteWorkflow(c *gin.Context) {
 	}
 
 	response.SuccessWithMessage(c, nil, "工作流已删除")
+}
+
+// CloneWorkflow 复制工作流
+func (h *WorkflowHandler) CloneWorkflow(c *gin.Context) {
+	userID := c.GetString("user_id")
+	if userID == "" {
+		response.Unauthorized(c, "unauthorized")
+		return
+	}
+
+	workflowID := c.Param("id")
+	workflow, err := h.service.CloneWorkflow(userID, workflowID)
+	if err != nil {
+		response.NotFound(c, err.Error())
+		return
+	}
+
+	response.Created(c, workflow)
+}
+
+// CreateWorkflowSchedule 创建 Cron 调度
+func (h *WorkflowHandler) CreateWorkflowSchedule(c *gin.Context) {
+	userID := c.GetString("user_id")
+	if userID == "" {
+		response.Unauthorized(c, "unauthorized")
+		return
+	}
+	var req orchwf.CreateScheduleRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "请求参数无效: "+err.Error())
+		return
+	}
+	sch, err := h.service.CreateSchedule(userID, c.Param("id"), &req)
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+	response.Created(c, sch)
+}
+
+// ListWorkflowSchedules 调度列表
+func (h *WorkflowHandler) ListWorkflowSchedules(c *gin.Context) {
+	userID := c.GetString("user_id")
+	if userID == "" {
+		response.Unauthorized(c, "unauthorized")
+		return
+	}
+	list, err := h.service.ListSchedules(userID, c.Param("id"))
+	if err != nil {
+		response.NotFound(c, err.Error())
+		return
+	}
+	response.Success(c, list)
+}
+
+// DeleteWorkflowSchedule 删除调度
+func (h *WorkflowHandler) DeleteWorkflowSchedule(c *gin.Context) {
+	userID := c.GetString("user_id")
+	if userID == "" {
+		response.Unauthorized(c, "unauthorized")
+		return
+	}
+	if err := h.service.DeleteSchedule(userID, c.Param("id"), c.Param("scheduleId")); err != nil {
+		response.NotFound(c, err.Error())
+		return
+	}
+	response.SuccessWithMessage(c, nil, "调度已删除")
+}
+
+// PauseWorkflowSchedule 暂停调度
+func (h *WorkflowHandler) PauseWorkflowSchedule(c *gin.Context) {
+	userID := c.GetString("user_id")
+	if userID == "" {
+		response.Unauthorized(c, "unauthorized")
+		return
+	}
+	if err := h.service.PauseSchedule(userID, c.Param("id"), c.Param("scheduleId")); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+	response.SuccessWithMessage(c, nil, "调度已暂停")
+}
+
+// ResumeWorkflowSchedule 恢复调度
+func (h *WorkflowHandler) ResumeWorkflowSchedule(c *gin.Context) {
+	userID := c.GetString("user_id")
+	if userID == "" {
+		response.Unauthorized(c, "unauthorized")
+		return
+	}
+	if err := h.service.ResumeSchedule(userID, c.Param("id"), c.Param("scheduleId")); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+	response.SuccessWithMessage(c, nil, "调度已恢复")
+}
+
+// RunWorkflowScheduleNow 立刻按调度默认入参跑一次
+func (h *WorkflowHandler) RunWorkflowScheduleNow(c *gin.Context) {
+	userID := c.GetString("user_id")
+	if userID == "" {
+		response.Unauthorized(c, "unauthorized")
+		return
+	}
+	execID, err := h.service.RunScheduleNow(userID, c.Param("id"), c.Param("scheduleId"))
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+	response.Success(c, gin.H{"execution_id": execID})
+}
+
+// ListWorkflowVersions 历史版本列表
+func (h *WorkflowHandler) ListWorkflowVersions(c *gin.Context) {
+	userID := c.GetString("user_id")
+	if userID == "" {
+		response.Unauthorized(c, "unauthorized")
+		return
+	}
+	list, err := h.service.ListWorkflowVersions(userID, c.Param("id"))
+	if err != nil {
+		response.NotFound(c, err.Error())
+		return
+	}
+	response.Success(c, list)
+}
+
+// RollbackWorkflowVersion 回滚到指定历史版本
+func (h *WorkflowHandler) RollbackWorkflowVersion(c *gin.Context) {
+	userID := c.GetString("user_id")
+	if userID == "" {
+		response.Unauthorized(c, "unauthorized")
+		return
+	}
+	ver, err := strconv.Atoi(c.Param("version"))
+	if err != nil || ver < 1 {
+		response.BadRequest(c, "无效版本号")
+		return
+	}
+	workflow, err := h.service.RollbackWorkflowVersion(userID, c.Param("id"), ver)
+	if err != nil {
+		response.NotFound(c, err.Error())
+		return
+	}
+	response.Success(c, workflow)
 }
 
 // ExecuteWorkflow 执行工作流
@@ -343,6 +490,15 @@ func (h *WorkflowHandler) RegisterRoutes(rg *gin.RouterGroup) {
 		workflows.GET("/:id", h.GetWorkflow)
 		workflows.PUT("/:id", h.UpdateWorkflow)
 		workflows.DELETE("/:id", h.DeleteWorkflow)
+		workflows.POST("/:id/clone", h.CloneWorkflow)
+		workflows.GET("/:id/schedules", h.ListWorkflowSchedules)
+		workflows.POST("/:id/schedules", h.CreateWorkflowSchedule)
+		workflows.DELETE("/:id/schedules/:scheduleId", h.DeleteWorkflowSchedule)
+		workflows.POST("/:id/schedules/:scheduleId/pause", h.PauseWorkflowSchedule)
+		workflows.POST("/:id/schedules/:scheduleId/resume", h.ResumeWorkflowSchedule)
+		workflows.POST("/:id/schedules/:scheduleId/run", h.RunWorkflowScheduleNow)
+		workflows.GET("/:id/versions", h.ListWorkflowVersions)
+		workflows.POST("/:id/versions/:version/rollback", h.RollbackWorkflowVersion)
 		workflows.POST("/:id/execute", h.ExecuteWorkflow)
 		workflows.POST("/:id/debug", h.DebugWorkflow)
 		workflows.GET("/:id/executions", h.ListWorkflowExecutions)

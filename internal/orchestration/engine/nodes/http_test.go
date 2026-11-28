@@ -1,0 +1,129 @@
+package nodes
+
+import (
+	"encoding/json"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+
+	"cogniforge/internal/orchestration/engine/core"
+)
+
+func TestHTTPNodeExecutor_ResolvesTemplates(t *testing.T) {
+	var gotMethod, gotURL, gotAuth, gotBody string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotMethod = r.Method
+		gotURL = r.URL.String()
+		gotAuth = r.Header.Get("Authorization")
+		b, _ := io.ReadAll(r.Body)
+		gotBody = string(b)
+		w.WriteHeader(201)
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}))
+	defer srv.Close()
+
+	ex := &HTTPNodeExecutor{client: srv.Client()}
+	ctx := core.NewExecutionContext("wf", "exec", map[string]any{"token": "abc"}).WithUserID("u1")
+	ctx.SetVariable("path", "/v1/items")
+	ctx.SetVariable("q", "hello")
+	ctx.SetVariable("ttl", "5")
+	ctx.SetVariable("verb", "post")
+
+	cfg, _ := json.Marshal(map[string]any{
+		"url":    srv.URL + "{{path}}",
+		"method": "{{verb}}",
+		"headers": map[string]string{
+			"Authorization": "Bearer {{token}}",
+		},
+		"body": map[string]any{
+			"query": "{{q}}",
+		},
+		"timeout": "{{ttl}}",
+	})
+	out, err := ex.Execute(ctx, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if gotMethod != "POST" || gotURL != "/v1/items" {
+		t.Fatalf("req method=%s url=%s", gotMethod, gotURL)
+	}
+	if gotAuth != "Bearer abc" {
+		t.Fatalf("auth=%q", gotAuth)
+	}
+	if gotBody != `{"query":"hello"}` {
+		t.Fatalf("body=%q", gotBody)
+	}
+	m, ok := out.(map[string]any)
+	if !ok || m["status_code"] != 201 {
+		t.Fatalf("out=%v", out)
+	}
+	if meth, ok := ctx.GetVariable("last_http_method"); !ok || meth != "POST" {
+		t.Fatalf("last_http_method=%v ok=%v", meth, ok)
+	}
+	if st, ok := ctx.GetVariable("last_http_status"); !ok || st != 201 {
+		t.Fatalf("last_http_status=%v ok=%v", st, ok)
+	}
+	if body, ok := ctx.GetVariable("last_http_body"); !ok || body != `{"ok":true}` {
+		t.Fatalf("last_http_body=%v ok=%v", body, ok)
+	}
+	if httpOK, ok := ctx.GetVariable("last_http_ok"); !ok || httpOK != true {
+		t.Fatalf("last_http_ok=%v ok=%v", httpOK, ok)
+	}
+}
+
+func TestHTTPNodeExecutor_FailOnError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(502)
+		_, _ = w.Write([]byte(`upstream down`))
+	}))
+	defer srv.Close()
+
+	ex := &HTTPNodeExecutor{client: srv.Client()}
+	ctx := core.NewExecutionContext("wf", "exec", nil)
+
+	cfgOK, _ := json.Marshal(map[string]any{
+		"url":    srv.URL,
+		"method": "GET",
+	})
+	out, err := ex.Execute(ctx, cfgOK)
+	if err != nil {
+		t.Fatalf("default should not fail on 502: %v", err)
+	}
+	if m, _ := out.(map[string]any); m["status_code"] != 502 {
+		t.Fatalf("out=%v", out)
+	}
+
+	cfgFail, _ := json.Marshal(map[string]any{
+		"url":           srv.URL,
+		"method":        "GET",
+		"fail_on_error": true,
+	})
+	_, err = ex.Execute(ctx, cfgFail)
+	if err == nil {
+		t.Fatal("expected error when fail_on_error")
+	}
+	if !strings.Contains(err.Error(), "502") {
+		t.Fatalf("err=%v", err)
+	}
+	if httpOK, ok := ctx.GetVariable("last_http_ok"); !ok || httpOK != false {
+		t.Fatalf("last_http_ok=%v ok=%v (expected false on 502)", httpOK, ok)
+	}
+}
+
+func TestResolveAnyTemplates(t *testing.T) {
+	ctx := core.NewExecutionContext("wf", "exec", map[string]any{"a": 1})
+	ctx.SetVariable("name", "Ada")
+	got := resolveAnyTemplates(map[string]any{
+		"hi": "Hello {{name}}",
+		"n":  []any{"{{a}}", 2},
+	}, ctx).(map[string]any)
+	if got["hi"] != "Hello Ada" {
+		t.Fatalf("hi=%v", got["hi"])
+	}
+	arr := got["n"].([]any)
+	if arr[0] != "1" {
+		t.Fatalf("arr=%v", arr)
+	}
+}

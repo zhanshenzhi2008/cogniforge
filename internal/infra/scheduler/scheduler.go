@@ -6,10 +6,12 @@ import (
 	"sync"
 	"time"
 
-	"cogniforge/internal/infra/database"
-	"cogniforge/internal/orchestration/engine"
-	"cogniforge/internal/model"
+	"github.com/google/uuid"
 	"github.com/robfig/cron/v3"
+
+	"cogniforge/internal/infra/database"
+	"cogniforge/internal/model"
+	"cogniforge/internal/orchestration/engine"
 )
 
 type Scheduler struct {
@@ -32,11 +34,84 @@ type ScheduledWorkflow struct {
 }
 
 func NewScheduler() *Scheduler {
+	return NewSchedulerWithEngine(nil)
+}
+
+func NewSchedulerWithEngine(eng *engine.WorkflowEngine) *Scheduler {
+	if eng == nil {
+		eng = engine.NewEngine()
+	}
 	return &Scheduler{
 		cron:        cron.New(cron.WithSeconds()),
-		engine:      engine.NewEngine(),
+		engine:      eng,
 		runningJobs: make(map[string]cron.EntryID),
 	}
+}
+
+// Create 写入 DB；若启用则注册到 cron（表达式需 6 段：秒 分 时 日 月 周）
+func (s *Scheduler) Create(schedule *model.WorkflowSchedule) error {
+	if schedule == nil {
+		return fmt.Errorf("缺少调度")
+	}
+	if schedule.ID == "" {
+		schedule.ID = uuid.New().String()
+	}
+	if schedule.CronExpression == "" {
+		return fmt.Errorf("缺少 cron 表达式")
+	}
+	if _, err := cron.NewParser(cron.Second | cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow).
+		Parse(schedule.CronExpression); err != nil {
+		return fmt.Errorf("无效 cron 表达式（需 6 段）: %w", err)
+	}
+	if err := database.DB.Create(schedule).Error; err != nil {
+		return fmt.Errorf("保存调度失败")
+	}
+	if schedule.IsActive {
+		if err := s.AddSchedule(schedule); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Delete 停掉任务并软删
+func (s *Scheduler) Delete(scheduleID string) error {
+	s.mu.Lock()
+	if entryID, exists := s.runningJobs[scheduleID]; exists {
+		s.cron.Remove(entryID)
+		delete(s.runningJobs, scheduleID)
+	}
+	s.mu.Unlock()
+	res := database.DB.Where("id = ?", scheduleID).Delete(&model.WorkflowSchedule{})
+	if res.Error != nil {
+		return fmt.Errorf("删除调度失败")
+	}
+	if res.RowsAffected == 0 {
+		return fmt.Errorf("调度不存在")
+	}
+	return nil
+}
+
+func (s *Scheduler) ListByWorkflow(userID, workflowID string) ([]model.WorkflowSchedule, error) {
+	var schedules []model.WorkflowSchedule
+	q := database.DB.Model(&model.WorkflowSchedule{}).Where("workflow_id = ?", workflowID)
+	if userID != "" {
+		q = q.Where("user_id = ?", userID)
+	}
+	if err := q.Order("created_at DESC").Find(&schedules).Error; err != nil {
+		return nil, fmt.Errorf("查询调度失败")
+	}
+	for i := range schedules {
+		s.mu.RLock()
+		if entryID, exists := s.runningJobs[schedules[i].ID]; exists {
+			if entry := s.cron.Entry(entryID); entry.ID != 0 {
+				nextRun := entry.Next
+				schedules[i].NextRun = &nextRun
+			}
+		}
+		s.mu.RUnlock()
+	}
+	return schedules, nil
 }
 
 func (s *Scheduler) Start() error {
@@ -184,15 +259,18 @@ func (s *Scheduler) PauseSchedule(scheduleID string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	entryID, exists := s.runningJobs[scheduleID]
-	if !exists {
-		return fmt.Errorf("schedule %s not found", scheduleID)
+	if entryID, exists := s.runningJobs[scheduleID]; exists {
+		s.cron.Remove(entryID)
+		delete(s.runningJobs, scheduleID)
 	}
 
-	s.cron.Remove(entryID)
-	delete(s.runningJobs, scheduleID)
-
-	database.DB.Model(&model.WorkflowSchedule{}).Where("id = ?", scheduleID).Update("is_active", false)
+	res := database.DB.Model(&model.WorkflowSchedule{}).Where("id = ?", scheduleID).Update("is_active", false)
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return fmt.Errorf("schedule %s not found", scheduleID)
+	}
 	log.Printf("Paused schedule %s", scheduleID)
 	return nil
 }

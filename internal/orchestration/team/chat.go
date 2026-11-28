@@ -21,6 +21,8 @@ type ChatDeps struct {
 	MCP     *mcp.Registry
 	DB      *gorm.DB
 	Skill   *skill.Service
+	// OnProgress 可选：delegate/handoff 子步骤进度（画布 team 节点 → ExecutionContext.OnProgress）
+	OnProgress func(message string)
 }
 
 // ChatResult 一次小队对话结果
@@ -206,6 +208,13 @@ type compositeExecutor struct {
 	inner  chat.ToolExecutor
 }
 
+func (e *compositeExecutor) report(msg string) {
+	if e == nil || e.deps == nil || e.deps.OnProgress == nil || strings.TrimSpace(msg) == "" {
+		return
+	}
+	e.deps.OnProgress(msg)
+}
+
 func (e *compositeExecutor) Execute(call chat.ToolCall) (string, error) {
 	name := call.Function.Name
 	switch name {
@@ -237,8 +246,14 @@ func (e *compositeExecutor) delegate(call chat.ToolCall) (string, error) {
 	if err := e.state.RecordDelegate(workerID, task, ""); err != nil {
 		return "", err
 	}
+	workerName := workerID
+	if ag, err := e.deps.loadAgent(e.userID, workerID); err == nil {
+		workerName = ag.Name
+	}
+	e.report(fmt.Sprintf("delegate → %s：%s", workerName, truncate(task, 80)))
 	summary, err := e.runWorker(workerID, task)
 	if err != nil && workerRetryOnce(e.team) {
+		e.report(fmt.Sprintf("delegate 重试 → %s", workerName))
 		summary, err = e.runWorker(workerID, task)
 	}
 	if err != nil {
@@ -248,6 +263,7 @@ func (e *compositeExecutor) delegate(call chat.ToolCall) (string, error) {
 			e.state.DelegateHistory[n-1].ResultSummary = truncate(msg, 500)
 		}
 		e.state.SetScratch("last_delegate_error_"+workerID, msg)
+		e.report(fmt.Sprintf("delegate 失败 ← %s：%s", workerName, truncate(err.Error(), 80)))
 		return msg, nil
 	}
 	// 回填摘要
@@ -255,6 +271,7 @@ func (e *compositeExecutor) delegate(call chat.ToolCall) (string, error) {
 		e.state.DelegateHistory[n-1].ResultSummary = truncate(summary, 500)
 	}
 	e.state.SetScratch("last_delegate_"+workerID, summary)
+	e.report(fmt.Sprintf("delegate 完成 ← %s（%d 字）", workerName, len([]rune(summary))))
 	return summary, nil
 }
 
@@ -293,6 +310,11 @@ func (e *compositeExecutor) handoff(call chat.ToolCall) (string, error) {
 	if ag, err := e.deps.loadAgent(e.userID, toID); err == nil {
 		name = ag.Name
 	}
+	reasonHint := reason
+	if reasonHint == "" {
+		reasonHint = "无说明"
+	}
+	e.report(fmt.Sprintf("handoff → %s：%s", name, truncate(reasonHint, 80)))
 	return fmt.Sprintf("已交接给 %s (%s)。请用简短话告知用户后续由对方接手；本轮不要再长篇作答。", name, toID), nil
 }
 

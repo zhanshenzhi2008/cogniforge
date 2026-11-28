@@ -2,13 +2,28 @@ package rbac
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
 
 	"cogniforge/internal/infra/database"
 	"cogniforge/internal/model"
+	"cogniforge/internal/shared/secaudit"
 )
+
+func normalizeRoleSecurityLevel(raw string) (string, error) {
+	lv := strings.TrimSpace(strings.ToLower(raw))
+	if lv == "" {
+		return "", nil
+	}
+	switch lv {
+	case model.DocSecurityPublic, model.DocSecurityInternal, model.DocSecurityConfidential, model.DocSecuritySecret:
+		return lv, nil
+	default:
+		return "", fmt.Errorf("无效密级上限")
+	}
+}
 
 type RBACService struct {
 	db *gorm.DB
@@ -107,18 +122,23 @@ func (s *RBACService) CreateRole(req *CreateRoleRequest) error {
 		return fmt.Errorf("角色代码已存在")
 	}
 
+	clearance, err := normalizeRoleSecurityLevel(req.MaxSecurityLevel)
+	if err != nil {
+		return err
+	}
 	role := model.Role{
-		ID:          generateID(),
-		Name:        req.Name,
-		Code:        req.Code,
-		Description: req.Description,
-		IsSystem:    false,
-		IsDefault:   false,
-		CreatedAt:   time.Now(),
-		UpdatedAt:   time.Now(),
+		ID:               generateID(),
+		Name:             req.Name,
+		Code:             req.Code,
+		Description:      req.Description,
+		MaxSecurityLevel: clearance,
+		IsSystem:         false,
+		IsDefault:        false,
+		CreatedAt:        time.Now(),
+		UpdatedAt:        time.Now(),
 	}
 
-	return s.db.Transaction(func(tx *gorm.DB) error {
+	err = s.db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(&role).Error; err != nil {
 			return err
 		}
@@ -136,9 +156,13 @@ func (s *RBACService) CreateRole(req *CreateRoleRequest) error {
 		}
 		return nil
 	})
+	if err == nil && clearance != "" {
+		secaudit.Write(s.db, req.ActorUserID, "role_clearance_set", "role", role.ID, "", "", clearance, "success", "create:"+role.Code)
+	}
+	return err
 }
 
-// UpdateRole 更新角色
+// UpdateRole 更新角色（系统角色仅允许改 max_security_level）
 func (s *RBACService) UpdateRole(roleID string, req *UpdateRoleRequest) error {
 	var role model.Role
 	if err := s.db.Where("id = ?", roleID).First(&role).Error; err != nil {
@@ -148,16 +172,44 @@ func (s *RBACService) UpdateRole(roleID string, req *UpdateRoleRequest) error {
 		return err
 	}
 
+	oldClearance := role.MaxSecurityLevel
 	if role.IsSystem {
-		return fmt.Errorf("系统预置角色不可修改")
+		if req == nil || req.MaxSecurityLevel == nil {
+			return fmt.Errorf("系统预置角色不可修改（仅可改密级上限）")
+		}
+		clearance, err := normalizeRoleSecurityLevel(*req.MaxSecurityLevel)
+		if err != nil {
+			return err
+		}
+		if err := s.db.Model(&role).Updates(map[string]interface{}{
+			"max_security_level": clearance,
+			"updated_at":         time.Now(),
+		}).Error; err != nil {
+			return err
+		}
+		if clearance != oldClearance {
+			secaudit.Write(s.db, req.ActorUserID, "role_clearance_change", "role", roleID, "", oldClearance, clearance, "success", role.Code)
+		}
+		return nil
 	}
 
 	updates := map[string]interface{}{}
+	var newClearance string
+	clearanceChanged := false
 	if req.Name != "" {
 		updates["name"] = req.Name
 	}
 	if req.Description != "" {
 		updates["description"] = req.Description
+	}
+	if req.MaxSecurityLevel != nil {
+		clearance, err := normalizeRoleSecurityLevel(*req.MaxSecurityLevel)
+		if err != nil {
+			return err
+		}
+		updates["max_security_level"] = clearance
+		newClearance = clearance
+		clearanceChanged = clearance != oldClearance
 	}
 
 	if len(updates) > 0 {
@@ -165,6 +217,9 @@ func (s *RBACService) UpdateRole(roleID string, req *UpdateRoleRequest) error {
 		if err := s.db.Model(&role).Updates(updates).Error; err != nil {
 			return err
 		}
+	}
+	if clearanceChanged {
+		secaudit.Write(s.db, req.ActorUserID, "role_clearance_change", "role", roleID, "", oldClearance, newClearance, "success", role.Code)
 	}
 
 	if len(req.PermissionIDs) > 0 {
@@ -404,15 +459,16 @@ func toRoleResponse(role *model.Role, permissions []model.Permission) RoleRespon
 	}
 
 	return RoleResponse{
-		ID:          role.ID,
-		Name:        role.Name,
-		Code:        role.Code,
-		Description: role.Description,
-		IsSystem:    role.IsSystem,
-		IsDefault:   role.IsDefault,
-		Permissions: permResponses,
-		CreatedAt:   role.CreatedAt.Format("2006-01-02 15:04:05"),
-		UpdatedAt:   role.UpdatedAt.Format("2006-01-02 15:04:05"),
+		ID:               role.ID,
+		Name:             role.Name,
+		Code:             role.Code,
+		Description:      role.Description,
+		IsSystem:         role.IsSystem,
+		IsDefault:        role.IsDefault,
+		MaxSecurityLevel: role.MaxSecurityLevel,
+		Permissions:      permResponses,
+		CreatedAt:        role.CreatedAt.Format("2006-01-02 15:04:05"),
+		UpdatedAt:        role.UpdatedAt.Format("2006-01-02 15:04:05"),
 	}
 }
 

@@ -18,6 +18,15 @@ const (
 	codeMaxTimeout     = 60
 )
 
+// ExecuteSandboxedCode 本地子进程沙箱（与内置 MCP code_execute_* 同源；非完整容器隔离）
+func ExecuteSandboxedCode(language, code string, timeoutSec int) (map[string]interface{}, error) {
+	args := map[string]interface{}{"code": code}
+	if timeoutSec > 0 {
+		args["timeout"] = float64(timeoutSec)
+	}
+	return NewBuiltInExecutor().codeExecute(language, args)
+}
+
 // codeExecute 在本地子进程沙箱中执行代码（超时截断；非完整容器隔离）
 func (e *BuiltInExecutor) codeExecute(language string, args map[string]interface{}) (map[string]interface{}, error) {
 	if os.Getenv("CODE_EXECUTE_DISABLED") == "1" || strings.EqualFold(os.Getenv("CODE_EXECUTE_DISABLED"), "true") {

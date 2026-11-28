@@ -2,6 +2,7 @@ package nodes
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -37,6 +38,53 @@ func TestDefaultLLMUserPrompt_FromInput(t *testing.T) {
 	require.Contains(t, out, "input")
 }
 
+func TestResolveLLMUserPrompt_PrefersLastAgentContent(t *testing.T) {
+	ctx := core.NewExecutionContext("wf", "exec", map[string]any{"order_id": "ORD-1"})
+	ctx.SetVariable("last_agent_content", "上游摘要")
+	out := resolveLLMUserPrompt("", ctx)
+	require.Equal(t, "上游摘要", out)
+
+	out = resolveLLMUserPrompt("固定 {{order_id}}", ctx)
+	require.Equal(t, "固定 ORD-1", out)
+}
+
+func TestResolveLLMModelTemplate(t *testing.T) {
+	ctx := core.NewExecutionContext("wf", "exec", nil)
+	ctx.SetVariable("model_id", "deepseek-chat")
+	require.Equal(t, "deepseek-chat", strings.TrimSpace(resolveTemplate("{{model_id}}", ctx)))
+	require.Equal(t, "fixed-model", strings.TrimSpace(resolveTemplate("fixed-model", ctx)))
+}
+
+func TestStoreLastLLMMeta(t *testing.T) {
+	ctx := core.NewExecutionContext("wf", "exec", nil)
+	ctx.SetVariable("last_agent_content", "hi")
+	ctx.SetVariable("last_llm_model", "m1")
+	ctx.SetVariable("last_llm_tokens", 42)
+	ctx.SetVariable("last_llm_latency_ms", int64(12))
+	gotM, ok := ctx.GetVariable("last_llm_model")
+	require.True(t, ok)
+	require.Equal(t, "m1", gotM)
+	gotT, ok := ctx.GetVariable("last_llm_tokens")
+	require.True(t, ok)
+	require.Equal(t, 42, gotT)
+}
+
+func TestLLMNodeConfig_TemperatureMaxTokensTemplate(t *testing.T) {
+	ctx := core.NewExecutionContext("wf", "exec", nil)
+	ctx.SetVariable("temp", "0.7")
+	ctx.SetVariable("cap", "512")
+	raw := []byte(`{"model":"m","prompt":"hi","temperature":"{{temp}}","max_tokens":"{{cap}}"}`)
+	var cfg LLMNodeConfig
+	require.NoError(t, json.Unmarshal(raw, &cfg))
+	require.InDelta(t, 0.7, resolveFlexibleFloat(cfg.Temperature, ctx), 1e-9)
+	require.Equal(t, 512, resolveFlexibleInt(cfg.MaxTokens, ctx))
+
+	rawNum := []byte(`{"model":"m","prompt":"hi","temperature":0.3,"max_tokens":128}`)
+	require.NoError(t, json.Unmarshal(rawNum, &cfg))
+	require.InDelta(t, 0.3, resolveFlexibleFloat(cfg.Temperature, ctx), 1e-9)
+	require.Equal(t, 128, resolveFlexibleInt(cfg.MaxTokens, ctx))
+}
+
 func TestLLMNodeExecutor_SystemPromptOnly_UsesFallbackUser(t *testing.T) {
 	e := &LLMNodeExecutor{}
 	cfg, _ := json.Marshal(LLMNodeConfig{SystemPrompt: "你是助手", Model: "m"})
@@ -52,4 +100,16 @@ func TestAgentNodeExecutor_RequiresAgentID(t *testing.T) {
 	ctx := core.NewExecutionContext("wf", "exec", nil).WithUserID("u1")
 	_, err := e.Execute(ctx, cfg)
 	require.Error(t, err)
+}
+
+func TestAgentNodeConfig_AgentIDTemplate(t *testing.T) {
+	ctx := core.NewExecutionContext("wf", "exec", nil)
+	ctx.SetVariable("aid", "agent-42")
+	require.Equal(t, "agent-42", strings.TrimSpace(resolveTemplate("{{aid}}", ctx)))
+}
+
+func TestTeamNodeConfig_TeamIDTemplate(t *testing.T) {
+	ctx := core.NewExecutionContext("wf", "exec", nil)
+	ctx.SetVariable("tid", "team-7")
+	require.Equal(t, "team-7", strings.TrimSpace(resolveTemplate("{{tid}}", ctx)))
 }

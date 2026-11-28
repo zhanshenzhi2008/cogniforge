@@ -2,6 +2,7 @@ package agent
 
 import (
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -131,6 +132,42 @@ func (h *AgentHandler) DeleteAgent(c *gin.Context) {
 	response.SuccessWithMessage(c, nil, "Agent 已删除")
 }
 
+func (h *AgentHandler) ListAgentVersions(c *gin.Context) {
+	userID := c.GetString("user_id")
+	list, err := h.service.ListAgentVersions(userID, c.Param("id"))
+	if err != nil {
+		if err.Error() == "Agent 不存在" {
+			response.NotFound(c, err.Error())
+		} else {
+			response.InternalError(c, err.Error())
+		}
+		return
+	}
+	response.Success(c, list)
+}
+
+func (h *AgentHandler) RollbackAgentVersion(c *gin.Context) {
+	userID := c.GetString("user_id")
+	ver, err := strconv.Atoi(c.Param("version"))
+	if err != nil || ver < 1 {
+		response.BadRequest(c, "无效版本号")
+		return
+	}
+	agent, err := h.service.RollbackAgentVersion(userID, c.Param("id"), ver)
+	if err != nil {
+		msg := err.Error()
+		if msg == "Agent 不存在" || msg == "版本不存在" {
+			response.NotFound(c, msg)
+		} else if msg == "无效版本号" || msg == "版本数据损坏" {
+			response.BadRequest(c, msg)
+		} else {
+			response.InternalError(c, msg)
+		}
+		return
+	}
+	response.Success(c, agent)
+}
+
 func (h *AgentHandler) AgentChat(c *gin.Context) {
 	agentID := c.Param("id")
 	userID := c.GetString("user_id")
@@ -138,7 +175,7 @@ func (h *AgentHandler) AgentChat(c *gin.Context) {
 	// 必须用带 TableName 的 model.Agent；匿名 struct 会被 GORM 推错表名，导致「查询 Agent 失败」
 	var dbAgent agentmodel.Agent
 	if err := database.DB.Where("id = ? AND user_id = ?", agentID, userID).
-		Select("id, user_id, model, system_prompt, prompt_id, skill_id, memory_type, memory_turns, tools").
+		Select("id, user_id, model, system_prompt, prompt_id, skill_id, memory_type, memory_turns, tools, rag_kb_ids").
 		First(&dbAgent).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			response.NotFound(c, "Agent 不存在")
@@ -212,6 +249,7 @@ func (h *AgentHandler) AgentChat(c *gin.Context) {
 	}
 	messages := append([]rtchat.ChatMessage{{Role: "system", Content: systemPrompt}}, req.Messages...)
 
+	agentKBIDs := []string(dbAgent.RAGKnowledgeBaseIDs)
 	ragReq := &rtchat.ChatRequest{
 		Messages:            req.Messages,
 		Attachments:         req.Attachments,
@@ -219,7 +257,9 @@ func (h *AgentHandler) AgentChat(c *gin.Context) {
 		RAGTopK:             req.RAGTopK,
 		RAGMinScore:         req.RAGMinScore,
 	}
-	messages = rtchat.InjectRAGSystemIfNeeded(c.Request.Context(), h.rag, userID, ragReq, nil, messages)
+	// 请求 rag_kb_ids ∪ Agent 绑定知识库 ∪ 附件所属库
+	mergedKBIDs := rtchat.ResolveRAGKnowledgeBaseIDs(c.Request.Context(), h.rag, userID, ragReq, agentKBIDs)
+	messages = rtchat.InjectRAGSystemIfNeeded(c.Request.Context(), h.rag, userID, ragReq, agentKBIDs, messages)
 
 	if h.quota != nil {
 		if err := h.quota.Allow(c.Request.Context(), userID, "agent"); err != nil {
@@ -237,7 +277,7 @@ func (h *AgentHandler) AgentChat(c *gin.Context) {
 		Temperature:         req.Temperature,
 		MaxTokens:           req.MaxTokens,
 		Attachments:         req.Attachments,
-		RAGKnowledgeBaseIDs: req.RAGKnowledgeBaseIDs,
+		RAGKnowledgeBaseIDs: mergedKBIDs,
 		RAGTopK:             req.RAGTopK,
 		RAGMinScore:         req.RAGMinScore,
 	}
@@ -369,6 +409,8 @@ func (h *AgentHandler) RegisterRoutes(rg *gin.RouterGroup) {
 		agents.GET("/:id", h.GetAgent)
 		agents.PUT("/:id", h.UpdateAgent)
 		agents.DELETE("/:id", h.DeleteAgent)
+		agents.GET("/:id/versions", h.ListAgentVersions)
+		agents.POST("/:id/versions/:version/rollback", h.RollbackAgentVersion)
 		agents.POST("/:id/chat", h.AgentChat)
 	}
 }

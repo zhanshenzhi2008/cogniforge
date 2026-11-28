@@ -16,11 +16,64 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
-	"cogniforge/internal/infra/database"
-	"cogniforge/internal/model"
-	"cogniforge/internal/infra/trace"
 	"cogniforge/internal/capability/webfetch"
+	"cogniforge/internal/infra/database"
+	"cogniforge/internal/infra/trace"
+	"cogniforge/internal/model"
+	"cogniforge/internal/shared/secaudit"
 )
+
+// enforceKBSecurityLevel 金融扩展：KB_ENFORCE_SECURITY_LEVEL=1 时按人侧 clearance 过滤检索
+func enforceKBSecurityLevel() bool {
+	v := strings.TrimSpace(os.Getenv("KB_ENFORCE_SECURITY_LEVEL"))
+	return v == "1" || strings.EqualFold(v, "true")
+}
+
+// authorizeSecurityLevelChange 抬到机密/绝密需 clearance≥目标，或 admin；降密/改公开·内部不拦
+func (s *KnowledgeService) authorizeSecurityLevelChange(userID, oldLevel, newLevel string) error {
+	newRank := model.SecurityLevelRank(newLevel)
+	if newRank <= model.SecurityLevelRank(model.DocSecurityInternal) {
+		return nil
+	}
+	oldRank := model.SecurityLevelRank(oldLevel)
+	if newRank <= oldRank {
+		return nil // 未抬高敏感档
+	}
+	clearance := s.resolveUserClearance(userID)
+	if model.SecurityLevelRank(clearance) >= newRank {
+		return nil
+	}
+	var user model.User
+	if err := s.db.Select("role").Where("id = ?", userID).First(&user).Error; err == nil && user.Role == "admin" {
+		return nil
+	}
+	return fmt.Errorf("无权将文档密级抬至 %s（需要不低于该级的 clearance，或管理员）", newLevel)
+}
+
+// resolveUserClearance 人员覆盖 → 角色上限 → 默认 secret（不限制）
+func (s *KnowledgeService) resolveUserClearance(userID string) string {
+	if userID == "" {
+		return model.DocSecuritySecret
+	}
+	var user model.User
+	if err := s.db.Select("id", "role", "max_security_level").Where("id = ?", userID).First(&user).Error; err != nil {
+		return model.DocSecuritySecret
+	}
+	if lv := strings.TrimSpace(strings.ToLower(user.MaxSecurityLevel)); lv != "" {
+		return lv
+	}
+	if user.Role == "" {
+		return model.DocSecuritySecret
+	}
+	var role model.Role
+	if err := s.db.Select("max_security_level").Where("code = ?", user.Role).First(&role).Error; err != nil {
+		return model.DocSecuritySecret
+	}
+	if lv := strings.TrimSpace(strings.ToLower(role.MaxSecurityLevel)); lv != "" {
+		return lv
+	}
+	return model.DocSecuritySecret
+}
 
 const (
 	AllowedFileTypePDF  = "pdf"
@@ -111,10 +164,11 @@ func (s *KnowledgeService) ensureFolderOwned(userID, folderID string) error {
 	return nil
 }
 
-// ListKnowledgeBases 获取知识库列表
+// ListKnowledgeBases 获取知识库列表（自己的 + visibility=org 的共享库）
 func (s *KnowledgeService) ListKnowledgeBases(userID string) ([]model.KnowledgeBase, error) {
 	var kbs []model.KnowledgeBase
-	if err := s.db.Where("user_id = ?", userID).Order("created_at DESC").Find(&kbs).Error; err != nil {
+	if err := s.db.Where("user_id = ? OR visibility = ?", userID, VisibilityOrg).
+		Order("created_at DESC").Find(&kbs).Error; err != nil {
 		return nil, fmt.Errorf("查询知识库列表失败")
 	}
 	return kbs, nil
@@ -148,7 +202,7 @@ func (s *KnowledgeService) CreateKnowledgeBase(userID string, req *CreateKBReque
 		RagMinScoreHybrid:    0.3,
 		HybridSemanticWeight: 0.7,
 		SearchMode:           "semantic",
-		Visibility:           "private",
+		Visibility:           normalizeVisibility(req.Visibility),
 		Status:               "active",
 		Metadata:             model.JSONBMap{},
 		CreatedAt:            time.Now(),
@@ -167,6 +221,7 @@ func (s *KnowledgeService) CreateKnowledgeBase(userID string, req *CreateKBReque
 	}
 	kb.StorageDir = storageDir
 	applyCreateParseDefaults(&kb, req)
+	kb.Visibility = normalizeVisibility(kb.Visibility)
 
 	if err := s.db.Create(&kb).Error; err != nil {
 		return nil, fmt.Errorf("创建知识库失败")
@@ -175,26 +230,16 @@ func (s *KnowledgeService) CreateKnowledgeBase(userID string, req *CreateKBReque
 	return &kb, nil
 }
 
-// GetKnowledgeBase 获取知识库详情
+// GetKnowledgeBase 获取知识库详情（所有者或 org 共享可读）
 func (s *KnowledgeService) GetKnowledgeBase(userID, kbID string) (*model.KnowledgeBase, error) {
-	var kb model.KnowledgeBase
-	if err := s.db.Where("id = ? AND user_id = ?", kbID, userID).First(&kb).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, fmt.Errorf("知识库不存在")
-		}
-		return nil, fmt.Errorf("查询知识库失败")
-	}
-	return &kb, nil
+	return s.loadKBForRead(userID, kbID)
 }
 
-// UpdateKnowledgeBase 更新知识库
+// UpdateKnowledgeBase 更新知识库（仅所有者）
 func (s *KnowledgeService) UpdateKnowledgeBase(userID, kbID string, req *UpdateKBRequest) (*model.KnowledgeBase, error) {
-	var kb model.KnowledgeBase
-	if err := s.db.Where("id = ? AND user_id = ?", kbID, userID).First(&kb).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, fmt.Errorf("知识库不存在")
-		}
-		return nil, fmt.Errorf("查询知识库失败")
+	kb, err := s.loadKBForWrite(userID, kbID)
+	if err != nil {
+		return nil, err
 	}
 
 	if req.Name != "" && req.Name != kb.Name {
@@ -223,8 +268,8 @@ func (s *KnowledgeService) UpdateKnowledgeBase(userID, kbID string, req *UpdateK
 	if req.EmbeddingModel != "" {
 		kb.EmbeddingModel = req.EmbeddingModel
 	}
-	applyUpdateParseDefaults(&kb, req)
-	if err := s.validateKBRerankProviders(userID, &kb); err != nil {
+	applyUpdateParseDefaults(kb, req)
+	if err := s.validateKBRerankProviders(userID, kb); err != nil {
 		return nil, err
 	}
 	if req.Status != "" {
@@ -232,37 +277,30 @@ func (s *KnowledgeService) UpdateKnowledgeBase(userID, kbID string, req *UpdateK
 	}
 	kb.UpdatedAt = time.Now()
 
-	if err := s.db.Save(&kb).Error; err != nil {
+	if err := s.db.Save(kb).Error; err != nil {
 		return nil, fmt.Errorf("更新知识库失败")
 	}
 
-	return &kb, nil
+	return kb, nil
 }
 
-// DeleteKnowledgeBase 删除知识库
+// DeleteKnowledgeBase 删除知识库（仅所有者）
 func (s *KnowledgeService) DeleteKnowledgeBase(userID, kbID string) error {
-	var kb model.KnowledgeBase
-	if err := s.db.Where("id = ? AND user_id = ?", kbID, userID).First(&kb).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return fmt.Errorf("知识库不存在")
-		}
-		return fmt.Errorf("查询知识库失败")
+	kb, err := s.loadKBForWrite(userID, kbID)
+	if err != nil {
+		return err
 	}
 
-	if err := s.db.Delete(&kb).Error; err != nil {
+	if err := s.db.Delete(kb).Error; err != nil {
 		return fmt.Errorf("删除知识库失败")
 	}
 	return nil
 }
 
-// ListDocuments 获取文档列表
+// ListDocuments 获取文档列表（所有者或 org 共享可读）
 func (s *KnowledgeService) ListDocuments(userID, kbID string) ([]model.Document, error) {
-	var kb model.KnowledgeBase
-	if err := s.db.Where("id = ? AND user_id = ?", kbID, userID).First(&kb).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, fmt.Errorf("知识库不存在")
-		}
-		return nil, fmt.Errorf("查询知识库失败")
+	if _, err := s.loadKBForRead(userID, kbID); err != nil {
+		return nil, err
 	}
 
 	var docs []model.Document
@@ -274,14 +312,10 @@ func (s *KnowledgeService) ListDocuments(userID, kbID string) ([]model.Document,
 
 const maxPreviewRunes = 120000
 
-// GetDocument 文档详情；文本类附带正文预览
+// GetDocument 文档详情；文本类附带正文预览（所有者或 org 共享可读）
 func (s *KnowledgeService) GetDocument(userID, kbID, docID string) (*DocumentPreview, error) {
-	var kb model.KnowledgeBase
-	if err := s.db.Where("id = ? AND user_id = ?", kbID, userID).First(&kb).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, fmt.Errorf("知识库不存在")
-		}
-		return nil, fmt.Errorf("查询知识库失败")
+	if _, err := s.loadKBForRead(userID, kbID); err != nil {
+		return nil, err
 	}
 
 	var doc model.Document
@@ -329,12 +363,8 @@ func (s *KnowledgeService) UpdateDocumentContent(ctx context.Context, userID, kb
 		return nil, fmt.Errorf("正文超过大小限制（%dMB）", MaxFileSize/(1024*1024))
 	}
 
-	var kb model.KnowledgeBase
-	if err := s.db.Where("id = ? AND user_id = ?", kbID, userID).First(&kb).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, fmt.Errorf("知识库不存在")
-		}
-		return nil, fmt.Errorf("查询知识库失败")
+	if _, err := s.loadKBForWrite(userID, kbID); err != nil {
+		return nil, err
 	}
 
 	var doc model.Document
@@ -381,14 +411,93 @@ func (s *KnowledgeService) UpdateDocumentContent(ctx context.Context, userID, kb
 	return s.GetDocument(userID, kbID, docID)
 }
 
-// DeleteDocument 删除文档
-func (s *KnowledgeService) DeleteDocument(userID, kbID, docID string) error {
-	var kb model.KnowledgeBase
-	if err := s.db.Where("id = ? AND user_id = ?", kbID, userID).First(&kb).Error; err != nil {
+// UpdateDocumentLifecycle 更新业务状态与有效期（与解析 status 无关）
+func (s *KnowledgeService) UpdateDocumentLifecycle(userID, kbID, docID string, req *UpdateDocumentLifecycleRequest) (*model.Document, error) {
+	if req == nil {
+		return nil, fmt.Errorf("请求无效")
+	}
+	if _, err := s.loadKBForWrite(userID, kbID); err != nil {
+		return nil, err
+	}
+	var doc model.Document
+	if err := s.db.Where("id = ? AND knowledge_base_id = ?", docID, kbID).First(&doc).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return fmt.Errorf("知识库不存在")
+			return nil, fmt.Errorf("文档不存在")
 		}
-		return fmt.Errorf("查询知识库失败")
+		return nil, fmt.Errorf("查询文档失败")
+	}
+
+	updates := map[string]any{}
+	if req.LifecycleStatus != nil {
+		st := strings.TrimSpace(*req.LifecycleStatus)
+		switch st {
+		case model.DocLifecycleDraft, model.DocLifecycleReview, model.DocLifecyclePublished, model.DocLifecycleAbolished:
+			updates["lifecycle_status"] = st
+		default:
+			return nil, fmt.Errorf("无效生命周期状态")
+		}
+	}
+	if req.SecurityLevel != nil {
+		lv := strings.TrimSpace(strings.ToLower(*req.SecurityLevel))
+		switch lv {
+		case model.DocSecurityPublic, model.DocSecurityInternal, model.DocSecurityConfidential, model.DocSecuritySecret:
+			oldLv := doc.SecurityLevel
+			if err := s.authorizeSecurityLevelChange(userID, oldLv, lv); err != nil {
+				s.writeSecurityAudit(userID, "document_security_level_change", "document", docID, kbID, oldLv, lv, "denied", err.Error())
+				return nil, err
+			}
+			if oldLv != lv {
+				updates["security_level"] = lv
+			}
+		default:
+			return nil, fmt.Errorf("无效密级")
+		}
+	}
+	if req.ClearEffective {
+		updates["effective_at"] = nil
+	} else if req.EffectiveAt != nil {
+		updates["effective_at"] = *req.EffectiveAt
+	}
+	if req.ClearExpire {
+		updates["expire_at"] = nil
+	} else if req.ExpireAt != nil {
+		updates["expire_at"] = *req.ExpireAt
+	}
+	if len(updates) == 0 {
+		return &doc, nil
+	}
+	oldSec := doc.SecurityLevel
+	if err := s.db.Model(&doc).Updates(updates).Error; err != nil {
+		return nil, fmt.Errorf("更新文档生命周期失败")
+	}
+	if newSec, ok := updates["security_level"].(string); ok && newSec != oldSec {
+		s.writeSecurityAudit(userID, "document_security_level_change", "document", docID, kbID, oldSec, newSec, "success", "")
+	}
+	_ = s.db.Where("id = ?", docID).First(&doc).Error
+	return &doc, nil
+}
+
+func (s *KnowledgeService) writeSecurityAudit(actorID, action, resType, resID, kbID, oldV, newV, result, detail string) {
+	secaudit.Write(s.db, actorID, action, resType, resID, kbID, oldV, newV, result, detail)
+}
+
+// ListSecurityAudits 管理员查看密级审计（新在前）
+func (s *KnowledgeService) ListSecurityAudits(limit int) ([]model.SecurityAuditLog, error) {
+	if limit <= 0 || limit > 200 {
+		limit = 50
+	}
+	var rows []model.SecurityAuditLog
+	if err := s.db.Order("created_at DESC").Limit(limit).Find(&rows).Error; err != nil {
+		return nil, fmt.Errorf("查询密级审计失败")
+	}
+	return rows, nil
+}
+
+// DeleteDocument 删除文档（仅所有者）
+func (s *KnowledgeService) DeleteDocument(userID, kbID, docID string) error {
+	kb, err := s.loadKBForWrite(userID, kbID)
+	if err != nil {
+		return err
 	}
 
 	var doc model.Document
@@ -408,18 +517,14 @@ func (s *KnowledgeService) DeleteDocument(userID, kbID, docID string) error {
 		return fmt.Errorf("删除文档失败")
 	}
 
-	s.db.Model(&kb).Update("doc_count", gorm.Expr("doc_count - 1"))
+	s.db.Model(kb).Update("doc_count", gorm.Expr("doc_count - 1"))
 	return nil
 }
 
-// ReparseDocument 重新解析文档：先删除旧向量，重置状态，再重新处理
+// ReparseDocument 重新解析文档：先删除旧向量，重置状态，再重新处理（仅所有者）
 func (s *KnowledgeService) ReparseDocument(ctx context.Context, userID, kbID, docID string) (*model.Document, error) {
-	var kb model.KnowledgeBase
-	if err := s.db.Where("id = ? AND user_id = ?", kbID, userID).First(&kb).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, fmt.Errorf("知识库不存在")
-		}
-		return nil, fmt.Errorf("查询知识库失败")
+	if _, err := s.loadKBForWrite(userID, kbID); err != nil {
+		return nil, err
 	}
 
 	var doc model.Document
@@ -460,14 +565,11 @@ func (s *KnowledgeService) ReparseDocument(ctx context.Context, userID, kbID, do
 	return &doc, nil
 }
 
-// UploadDocument 上传文档（opts 为空时用知识库默认分段）
+// UploadDocument 上传文档（opts 为空时用知识库默认分段；仅所有者）
 func (s *KnowledgeService) UploadDocument(ctx context.Context, userID, kbID string, file *multipart.FileHeader, opts *ParseOptions) (*model.Document, error) {
-	var kb model.KnowledgeBase
-	if err := s.db.Where("id = ? AND user_id = ?", kbID, userID).First(&kb).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, fmt.Errorf("知识库不存在")
-		}
-		return nil, fmt.Errorf("查询知识库失败")
+	kb, err := s.loadKBForWrite(userID, kbID)
+	if err != nil {
+		return nil, err
 	}
 
 	if file.Size > MaxFileSize {
@@ -479,7 +581,7 @@ func (s *KnowledgeService) UploadDocument(ctx context.Context, userID, kbID stri
 		return nil, fmt.Errorf("不支持的文件类型，支持：PDF、TXT、MD、DOCX、HTML")
 	}
 
-	dir, err := ensureUploadDir(s.userDirName(userID), kbStorageKey(&kb))
+	dir, err := ensureUploadDir(s.userDirName(userID), kbStorageKey(kb))
 	if err != nil {
 		return nil, fmt.Errorf("创建上传目录失败")
 	}
@@ -493,7 +595,7 @@ func (s *KnowledgeService) UploadDocument(ctx context.Context, userID, kbID stri
 		return nil, fmt.Errorf("保存文件失败: %w", err)
 	}
 
-	resolved := resolveParseOptions(&kb, opts)
+	resolved := resolveParseOptions(kb, opts)
 	meta := model.JSONBMap{
 		"chunk_size":      resolved.ChunkSize,
 		"chunk_overlap":   resolved.ChunkOverlap,
@@ -523,7 +625,7 @@ func (s *KnowledgeService) UploadDocument(ctx context.Context, userID, kbID stri
 		return nil, fmt.Errorf("创建文档记录失败")
 	}
 
-	s.db.Model(&kb).Update("doc_count", gorm.Expr("doc_count + 1"))
+	s.db.Model(kb).Update("doc_count", gorm.Expr("doc_count + 1"))
 
 	go func() {
 		s.processDocumentAsync(docID, trace.GetTraceIDFromContext(ctx))
@@ -630,12 +732,9 @@ func (s *KnowledgeService) createDocumentFromBytes(
 	opts *ParseOptions,
 	extraMeta map[string]interface{},
 ) (*model.Document, error) {
-	var kb model.KnowledgeBase
-	if err := s.db.Where("id = ? AND user_id = ?", kbID, userID).First(&kb).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, fmt.Errorf("知识库不存在")
-		}
-		return nil, fmt.Errorf("查询知识库失败")
+	kb, err := s.loadKBForWrite(userID, kbID)
+	if err != nil {
+		return nil, err
 	}
 	if len(data) == 0 {
 		return nil, fmt.Errorf("内容为空")
@@ -644,7 +743,7 @@ func (s *KnowledgeService) createDocumentFromBytes(
 		return nil, fmt.Errorf("文件大小不能超过 %dMB", MaxFileSize/(1024*1024))
 	}
 
-	dir, err := ensureUploadDir(s.userDirName(userID), kbStorageKey(&kb))
+	dir, err := ensureUploadDir(s.userDirName(userID), kbStorageKey(kb))
 	if err != nil {
 		return nil, fmt.Errorf("创建上传目录失败")
 	}
@@ -656,7 +755,7 @@ func (s *KnowledgeService) createDocumentFromBytes(
 		return nil, fmt.Errorf("保存文件失败: %w", err)
 	}
 
-	resolved := resolveParseOptions(&kb, opts)
+	resolved := resolveParseOptions(kb, opts)
 	meta := model.JSONBMap{
 		"chunk_size":      resolved.ChunkSize,
 		"chunk_overlap":   resolved.ChunkOverlap,
@@ -687,7 +786,7 @@ func (s *KnowledgeService) createDocumentFromBytes(
 		os.Remove(destPath)
 		return nil, fmt.Errorf("创建文档记录失败")
 	}
-	s.db.Model(&kb).Update("doc_count", gorm.Expr("doc_count + 1"))
+	s.db.Model(kb).Update("doc_count", gorm.Expr("doc_count + 1"))
 
 	go func() {
 		s.processDocumentAsync(docID, trace.GetTraceIDFromContext(ctx))
@@ -695,14 +794,11 @@ func (s *KnowledgeService) createDocumentFromBytes(
 	return &doc, nil
 }
 
-// PreviewChunks 临时保存文件并调用 AI 预览分块（不入库、不向量化）
+// PreviewChunks 临时保存文件并调用 AI 预览分块（不入库、不向量化；仅所有者，属上传准备）
 func (s *KnowledgeService) PreviewChunks(ctx context.Context, userID, kbID string, file *multipart.FileHeader, opts *ParseOptions) (*ChunkPreviewResponse, error) {
-	var kb model.KnowledgeBase
-	if err := s.db.Where("id = ? AND user_id = ?", kbID, userID).First(&kb).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, fmt.Errorf("知识库不存在")
-		}
-		return nil, fmt.Errorf("查询知识库失败")
+	kb, err := s.loadKBForWrite(userID, kbID)
+	if err != nil {
+		return nil, err
 	}
 
 	if file.Size > MaxFileSize {
@@ -712,7 +808,7 @@ func (s *KnowledgeService) PreviewChunks(ctx context.Context, userID, kbID strin
 		return nil, fmt.Errorf("不支持的文件类型，支持：PDF、TXT、MD、DOCX、HTML")
 	}
 
-	dir, err := ensureUploadDir(s.userDirName(userID), kbStorageKey(&kb))
+	dir, err := ensureUploadDir(s.userDirName(userID), kbStorageKey(kb))
 	if err != nil {
 		return nil, fmt.Errorf("创建上传目录失败")
 	}
@@ -728,7 +824,7 @@ func (s *KnowledgeService) PreviewChunks(ctx context.Context, userID, kbID strin
 	}
 	defer os.Remove(destPath)
 
-	resolved := resolveParseOptions(&kb, opts)
+	resolved := resolveParseOptions(kb, opts)
 	aiPath := toSharedUploadPath(destPath)
 	result, err := s.pythonClient.PreviewChunks(&PreviewChunksRequest{
 		Context:      ctx,
@@ -751,14 +847,11 @@ func (s *KnowledgeService) SearchKnowledge(c *gin.Context, userID, kbID string, 
 	return s.SearchByUser(ctx, userID, kbID, req)
 }
 
-// SearchByUser 供 Chat 等内部调用：按用户校验知识库后做向量检索
+// SearchByUser 供 Chat 等内部调用：所有者或 org 共享可读后做向量检索
 func (s *KnowledgeService) SearchByUser(ctx context.Context, userID, kbID string, req *SearchRequest) (*SearchResponse, error) {
-	var kb model.KnowledgeBase
-	if err := s.db.WithContext(ctx).Where("id = ? AND user_id = ?", kbID, userID).First(&kb).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, fmt.Errorf("知识库不存在")
-		}
-		return nil, fmt.Errorf("查询知识库失败")
+	kb, err := s.loadKBForReadCtx(ctx, userID, kbID)
+	if err != nil {
+		return nil, err
 	}
 
 	startTime := time.Now()
@@ -767,7 +860,7 @@ func (s *KnowledgeService) SearchByUser(ctx context.Context, userID, kbID string
 	if req.SearchMode == "" {
 		mode = normalizeSearchMode(kb.SearchMode)
 	}
-	topK, minScore := resolveModeRetrievalParams(&kb, mode, req.TopK, req.MinScore)
+	topK, minScore := resolveModeRetrievalParams(kb, mode, req.TopK, req.MinScore)
 
 	hy := kb.HybridSemanticWeight
 	if req.HybridSemanticWeight != nil {
@@ -776,13 +869,31 @@ func (s *KnowledgeService) SearchByUser(ctx context.Context, userID, kbID string
 	hy = clampHybridSemanticWeight(hy)
 	hyPtr := hy
 
-	rerank, rerankProv := resolveSearchRerank(&kb, mode, req)
+	rerank, rerankProv := resolveSearchRerank(kb, mode, req)
+
+	enforceSec := enforceKBSecurityLevel()
+	clearance := ""
+	if enforceSec {
+		clearance = s.resolveUserClearance(userID)
+	}
+
+	// 多取一些再按生命周期/密级过滤，尽量凑满 TopK
+	fetchK := topK
+	if !req.IncludeDrafts || !req.IgnoreValidity || enforceSec {
+		fetchK = topK * 3
+		if fetchK < topK {
+			fetchK = topK
+		}
+		if fetchK > 50 {
+			fetchK = 50
+		}
+	}
 
 	pythonResp, err := s.pythonClient.Search(&SearchRequest{
 		Context:              ctx,
 		Query:                req.Query,
 		CollectionName:       kbID,
-		TopK:                 topK,
+		TopK:                 fetchK,
 		MinScore:             minScore,
 		SearchMode:           mode,
 		Rerank:               rerank,
@@ -793,23 +904,52 @@ func (s *KnowledgeService) SearchByUser(ctx context.Context, userID, kbID string
 		return nil, fmt.Errorf("检索失败: %w", err)
 	}
 
+	allowed := s.searchableDocIDs(ctx, kbID, req.IncludeDrafts, req.IgnoreValidity, clearance, enforceSec)
+
 	var results []SearchResult
+	droppedByPolicy := 0
 	for _, r := range pythonResp.Results {
+		docID := ""
 		docName := ""
 		if r.Metadata != nil {
+			if id, ok := r.Metadata["document_id"].(string); ok {
+				docID = id
+			}
 			if n, ok := r.Metadata["document_name"].(string); ok {
 				docName = n
 			} else if n, ok := r.Metadata["file_name"].(string); ok {
 				docName = n
 			}
 		}
+		if docID == "" {
+			// 旧向量无 document_id：尝试从 chunk_id 前缀推断
+			docID = inferDocIDFromChunk(r.ChunkID)
+		}
+		if allowed != nil {
+			if docID == "" || !allowed[docID] {
+				droppedByPolicy++
+				continue
+			}
+		}
 		results = append(results, SearchResult{
-			DocumentID:   r.ChunkID,
+			DocumentID:   docID,
 			DocumentName: docName,
 			ChunkID:      r.ChunkID,
 			Content:      r.Content,
 			Score:        r.Score,
 		})
+		if len(results) >= topK {
+			break
+		}
+	}
+
+	if enforceSec {
+		qPreview := strings.TrimSpace(req.Query)
+		if rs := []rune(qPreview); len(rs) > 64 {
+			qPreview = string(rs[:64]) + "…"
+		}
+		detail := fmt.Sprintf("clearance=%s kept=%d dropped=%d q=%q", clearance, len(results), droppedByPolicy, qPreview)
+		s.writeSecurityAudit(userID, "kb_secured_search", "knowledge_base", kbID, kbID, "", clearance, "success", detail)
 	}
 
 	return &SearchResponse{
@@ -818,6 +958,71 @@ func (s *KnowledgeService) SearchByUser(ctx context.Context, userID, kbID string
 		Query:    req.Query,
 		Duration: time.Since(startTime).Milliseconds(),
 	}, nil
+}
+
+// searchableDocIDs 返回当前可被召回的文档 ID 集合；
+// includeDrafts+ignoreValidity 且不强制密级时返回 nil（不过滤）
+func (s *KnowledgeService) searchableDocIDs(
+	ctx context.Context,
+	kbID string,
+	includeDrafts, ignoreValidity bool,
+	maxClearance string,
+	enforceSecurity bool,
+) map[string]bool {
+	if includeDrafts && ignoreValidity && !enforceSecurity {
+		return nil
+	}
+	var docs []model.Document
+	q := s.db.WithContext(ctx).Where("knowledge_base_id = ?", kbID)
+	if !includeDrafts {
+		q = q.Where("lifecycle_status = ? OR lifecycle_status = '' OR lifecycle_status IS NULL", model.DocLifecyclePublished)
+	} else {
+		q = q.Where("lifecycle_status <> ?", model.DocLifecycleAbolished)
+	}
+	if err := q.Find(&docs).Error; err != nil {
+		return map[string]bool{}
+	}
+	now := time.Now()
+	out := make(map[string]bool, len(docs))
+	for i := range docs {
+		d := &docs[i]
+		ok := false
+		if includeDrafts {
+			if d.LifecycleStatus == model.DocLifecycleAbolished {
+				continue
+			}
+			if !ignoreValidity {
+				if d.EffectiveAt != nil && now.Before(*d.EffectiveAt) {
+					continue
+				}
+				if d.ExpireAt != nil && !now.Before(*d.ExpireAt) {
+					continue
+				}
+			}
+			ok = true
+		} else if d.IsSearchableNow(now) || (ignoreValidity && (d.LifecycleStatus == "" || d.LifecycleStatus == model.DocLifecyclePublished)) {
+			ok = true
+		}
+		if !ok {
+			continue
+		}
+		if enforceSecurity && !d.AccessibleByClearance(maxClearance) {
+			continue
+		}
+		out[d.ID] = true
+	}
+	return out
+}
+
+func inferDocIDFromChunk(chunkID string) string {
+	if chunkID == "" {
+		return ""
+	}
+	const sep = "_chunk_"
+	if i := strings.LastIndex(chunkID, sep); i > 0 {
+		return chunkID[:i]
+	}
+	return ""
 }
 
 // ResolveKBIDsForDocuments 根据文档 ID 解析所属知识库（用户隔离）
@@ -974,8 +1179,7 @@ func applyCreateParseDefaults(kb *model.KnowledgeBase, req *CreateKBRequest) {
 		kb.RerankProviderHybrid = strings.TrimSpace(*req.RerankProviderHybrid)
 	}
 	if req.Visibility != "" {
-		// 阶段三：暂仅 private；org 等后续 ACL
-		kb.Visibility = "private"
+		kb.Visibility = normalizeVisibility(req.Visibility)
 	}
 }
 
@@ -1023,7 +1227,7 @@ func applyUpdateParseDefaults(kb *model.KnowledgeBase, req *UpdateKBRequest) {
 		kb.RerankProviderHybrid = strings.TrimSpace(*req.RerankProviderHybrid)
 	}
 	if req.Visibility != "" {
-		kb.Visibility = "private"
+		kb.Visibility = normalizeVisibility(req.Visibility)
 	}
 }
 

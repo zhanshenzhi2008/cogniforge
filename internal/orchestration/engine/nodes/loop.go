@@ -10,13 +10,13 @@ import (
 )
 
 type LoopNodeConfig struct {
-	Type      string `json:"type"`
-	Count     int    `json:"count"`
-	ArrayVar  string `json:"array_var"`
-	ItemVar   string `json:"item_var"`
-	KeyVar    string `json:"key_var"`
-	MaxIter   int    `json:"max_iter"`
-	Condition string `json:"condition"`
+	Type      string          `json:"type"`
+	Count     json.RawMessage `json:"count"` // 数字或 "{{变量}}"
+	ArrayVar  string          `json:"array_var"`
+	ItemVar   string          `json:"item_var"`
+	KeyVar    string          `json:"key_var"`
+	MaxIter   json.RawMessage `json:"max_iter"` // 数字或 "{{变量}}"
+	Condition string          `json:"condition"`
 }
 
 type LoopNodeExecutor struct{}
@@ -27,28 +27,55 @@ func (e *LoopNodeExecutor) Execute(ctx *core.ExecutionContext, config json.RawMe
 		return nil, fmt.Errorf("invalid loop config: %w", err)
 	}
 
-	if cfg.MaxIter == 0 {
-		cfg.MaxIter = 100
+	count := resolveFlexibleInt(cfg.Count, ctx)
+	maxIter := resolveFlexibleInt(cfg.MaxIter, ctx)
+	if maxIter == 0 {
+		maxIter = 100
 	}
 
 	var iterations []map[string]any
 
 	switch cfg.Type {
 	case "count", "times":
-		iterations = e.executeTimesLoop(ctx, cfg.Count, cfg.MaxIter)
+		iterations = e.executeTimesLoop(ctx, count, maxIter)
 	case "while":
-		iterations = e.executeWhileLoop(ctx, cfg.Condition, cfg.MaxIter)
+		iterations = e.executeWhileLoop(ctx, cfg.Condition, maxIter)
 	case "for_each":
-		iterations = e.executeForEachLoop(ctx, cfg.ArrayVar, cfg.ItemVar, cfg.KeyVar, cfg.MaxIter)
+		arrayVar := strings.TrimSpace(resolveTemplate(cfg.ArrayVar, ctx))
+		if arrayVar == "" {
+			arrayVar = strings.TrimSpace(cfg.ArrayVar)
+		}
+		itemVar := strings.TrimSpace(resolveTemplate(cfg.ItemVar, ctx))
+		keyVar := strings.TrimSpace(resolveTemplate(cfg.KeyVar, ctx))
+		iterations = e.executeForEachLoop(ctx, arrayVar, itemVar, keyVar, maxIter)
+		ctx.SetVariable("last_loop_item_var", itemVar)
+		ctx.SetVariable("last_loop_key_var", keyVar)
 	default:
 		return nil, fmt.Errorf("unknown loop type: %s", cfg.Type)
 	}
 
-	return map[string]any{
+	out := map[string]any{
 		"type":       cfg.Type,
 		"iterations": iterations,
 		"total":      len(iterations),
-	}, nil
+	}
+	storeLastLoop(ctx, out)
+	return out, nil
+}
+
+// storeLastLoop 供下游 {{last_loop_total}} / {{last_loop_index}} / {{last_loop_type}} 引用
+func storeLastLoop(ctx *core.ExecutionContext, out map[string]any) {
+	if ctx == nil || out == nil {
+		return
+	}
+	total, _ := out["total"].(int)
+	ctx.SetVariable("last_loop_total", total)
+	ctx.SetVariable("last_loop_type", out["type"])
+	if total > 0 {
+		ctx.SetVariable("last_loop_index", total-1)
+	} else {
+		ctx.SetVariable("last_loop_index", -1)
+	}
 }
 
 func (e *LoopNodeExecutor) executeTimesLoop(ctx *core.ExecutionContext, count, maxIter int) []map[string]any {
@@ -106,7 +133,9 @@ func (e *LoopNodeExecutor) executeForEachLoop(ctx *core.ExecutionContext, arrayV
 	if !ok {
 		arr, ok := ctx.Input[arrayVar]
 		if !ok {
-			ctx.Logger.Logf(ctx.NodeID, "warn", "Array variable %s not found", arrayVar)
+			if ctx.Logger != nil {
+				ctx.Logger.Logf(ctx.NodeID, "warn", "Array variable %s not found", arrayVar)
+			}
 			return iterations
 		}
 		arrayVal = arr
@@ -114,14 +143,18 @@ func (e *LoopNodeExecutor) executeForEachLoop(ctx *core.ExecutionContext, arrayV
 
 	arr, ok := arrayVal.([]any)
 	if !ok {
-		ctx.Logger.Logf(ctx.NodeID, "warn", "Variable %s is not an array", arrayVar)
+		if ctx.Logger != nil {
+			ctx.Logger.Logf(ctx.NodeID, "warn", "Variable %s is not an array", arrayVar)
+		}
 		return iterations
 	}
 
 	count := len(arr)
 	if count > maxIter {
 		count = maxIter
-		ctx.Logger.Logf(ctx.NodeID, "warn", "Array length %d exceeds max_iter %d, capped", len(arr), maxIter)
+		if ctx.Logger != nil {
+			ctx.Logger.Logf(ctx.NodeID, "warn", "Array length %d exceeds max_iter %d, capped", len(arr), maxIter)
+		}
 	}
 
 	for i := 0; i < count; i++ {
@@ -139,13 +172,17 @@ func (e *LoopNodeExecutor) executeForEachLoop(ctx *core.ExecutionContext, arrayV
 			"count": count,
 			"item":  arr[i],
 		})
-		ctx.Logger.Logf(ctx.NodeID, "info", "ForEach iteration %d/%d", i+1, count)
+		if ctx.Logger != nil {
+			ctx.Logger.Logf(ctx.NodeID, "info", "ForEach iteration %d/%d", i+1, count)
+		}
 	}
 
 	return iterations
 }
 
 func (e *LoopNodeExecutor) evaluateCondition(ctx *core.ExecutionContext, condition string) bool {
+	// 先替换 {{变量}}，再解析比较（与 condition 节点一致）
+	condition = resolveTemplate(condition, ctx)
 	condExpr := strings.ReplaceAll(condition, "&&", " AND ")
 	condExpr = strings.ReplaceAll(condExpr, "||", " OR ")
 
@@ -219,7 +256,7 @@ func (e *LoopNodeExecutor) getFieldValue(field string, ctx *core.ExecutionContex
 	if val, ok := ctx.Input[field]; ok {
 		return val
 	}
-	if val, ok := ctx.Output[field]; ok {
+	if val, ok := ctx.LookupOutput(field); ok {
 		return val
 	}
 	return nil

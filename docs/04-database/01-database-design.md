@@ -3,6 +3,18 @@
 ## [变更记录]
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|---------|--------|
+| 2026-11-28 | v1.44 | knowledge_bases.visibility：org=本站可读、仅所有者可写 | orjrs |
+| 2026-11-27 | v1.43 | agents.version + agent_versions 配置快照 | orjrs |
+| 2026-11-27 | v1.42 | agents：allow_attachments 附件上传开关 | orjrs |
+| 2026-11-27 | v1.41 | agents：rag_kb_ids 绑定知识库 | orjrs |
+| 2026-11-27 | v1.40 | agents：opening_message / suggested_prompts | orjrs |
+| 2026-11-27 | v1.39 | security_audit_logs：文档密级变更审计 | orjrs |
+| 2026-11-27 | v1.38 | roles/users 增 max_security_level（clearance） | orjrs |
+| 2026-11-27 | v1.37 | documents 增 security_level（默认 internal） | orjrs |
+| 2026-11-27 | v1.36 | documents 增 lifecycle_status / effective_at / expire_at | orjrs |
+| 2026-11-27 | v1.35 | workflows.webhook_url；启用 workflow_schedules 产品化 | orjrs |
+| 2026-11-26 | v1.34 | workflow_versions：定义历史快照（简单回滚） | orjrs |
+| 2026-11-26 | v1.33 | node_runs 支持 human_action 审批审计行 | orjrs |
 | 2026-11-23 | v1.32 | chat_conversations.team_id；Redis cogniforge:team:run:*；config.worker_retry_once | orjrs |
 | 2026-11-23 | v1.31 | agent_teams：多 Agent 小队表（mode/supervisor/members/config） | orjrs |
 | 2026-11-19 | v1.30 | capabilities 增 rerank；ai_providers.rerank_model；KB 分模式 rerank_provider_* | orjrs |
@@ -33,6 +45,77 @@
 | 2026-08-16 | v1.2 | Redis 键统一 `cogniforge:` 前缀；多项目用前缀隔离，不拆 db0/db1 | orjrs |
 | 2026-08-15 | v1.1 | 落地模型配置 Redis 键（当时为 `cf:modelcfg:*`） | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
+
+## [变更] knowledge_bases.visibility=org（2026-11-28）
+
+- **原因**：库级可见性长期占位，创建/更新强制 private
+- **变更**：`visibility` 取值 `private` \| `org`；`org`=本部署全体登录用户可读，仅所有者可写
+- **代码**：`internal/capability/knowledge/access.go`
+
+## [变更] Agent 配置版本快照（2026-11-27）
+
+- **原因**：工作室「配置版本历史」简单回滚
+- **变更**：`agents.version`（默认 1）；新表 `agent_versions`：`id` / `agent_id` / `version` / `config` text(JSON) / `note` / `created_at`；唯一 `uk_agent_ver(agent_id, version)`
+- **行为**：配置字段变更保存前写入当前版快照并 bump `version`
+
+## [变更] Agent 附件上传开关（2026-11-27）
+
+- **扩展 `agents.allow_attachments`**：bool，默认 false；开则工作室预览/Playground 可选该 Agent 时可上传文档
+- **AutoMigrate**：`Agent`
+
+## [变更] Agent 绑定知识库（2026-11-27）
+
+- **扩展 `agents.rag_kb_ids`**：jsonb 字符串数组（最多 8）；对话 `/agents/:id/chat` 自动并入 RAG
+- **AutoMigrate**：`Agent`
+
+## [变更] Agent 开场白与预设问题（2026-11-27）
+
+- **扩展 `agents`**：`opening_message`（text）、`suggested_prompts`（jsonb 字符串数组，最多 6）
+- **用途**：工作室预览 / Playground 空态展示；不进入模型上下文
+- **AutoMigrate**：`Agent`
+
+## [变更] 密级审计表（2026-11-27）
+
+- **新表 `security_audit_logs`**：`actor_user_id` / `action` / `resource_*` / `old_value` / `new_value` / `result`（success|denied）
+- **写入点**：文档 lifecycle 改 `security_level`（含抬密被拒）；角色/用户 `max_security_level` 变更；`KB_ENFORCE` 开启时的检索（`kb_secured_search`）
+- **AutoMigrate**：`SecurityAuditLog`
+
+## [变更] 角色/人员 clearance（2026-11-27）
+
+- **扩展 `roles.max_security_level`**、`users.max_security_level`（人员覆盖角色；空=不限制按 secret）
+- **检索**：`KB_ENFORCE_SECURITY_LEVEL=1` 时按 clearance 过滤
+- **AutoMigrate**：`Role` / `User`
+
+## [变更] 文档密级字段（2026-11-27）
+
+- **扩展 `documents.security_level`**：`public|internal|confidential|secret`，默认 `internal`，索引 `idx_doc_security`
+- **辅助**：`SecurityLevelRank` / `AccessibleByClearance`
+- **AutoMigrate**：`Document`
+
+## [变更] 文档业务生命周期字段（2026-11-27）
+
+- **扩展 `documents`**：`lifecycle_status`（默认 published）、`effective_at`、`expire_at`
+- **与**解析流水 `status`（pending/…）**分开**；旧行空值按 published 检索
+- **AutoMigrate**：`Document`
+
+## [变更] webhook_url + schedules 产品化（2026-11-27）
+
+- **扩展 `workflows.webhook_url`**：VARCHAR(500)；终态回调
+- **表 `workflow_schedules`**：已有模型落地 CRUD + 进程内 cron（6 段）
+- **AutoMigrate**：`Workflow` / `WorkflowSchedule`
+
+## [变更] workflow_versions 历史快照（2026-11-26）
+
+- **原因**：简单版本回滚；旧稿 `cf_workflow_versions` 未落地
+- **新表 `workflow_versions`**：`id` / `workflow_id` / `version` / `definition` text / `note` / `created_at`；唯一 `uk_wf_ver(workflow_id, version)`
+- **时机**：改 definition 前写入当前版；回滚前再快照当前
+- **AutoMigrate**：`router.go`
+
+## [变更] node_runs 人工审批审计行（2026-11-26）
+
+- **原因**：审批谁/何时/哪个 wait 需可观测，不另开表
+- **约定**：`workflow_node_runs` 可写 `node_type=human_action`，`status=approved|rejected`；`node_id`=当时 wait 节点；`detail`：`human_action` / `action` / `actor_user_id` / `wait_node_id` / `wait_reason` / `at` / `note`
+- **表结构**：无 DDL 变更（复用 jsonb detail）
 
 ## [变更] 小队预览落库 + Redis run_state（2026-11-23）
 
@@ -117,7 +200,7 @@
   - `split_mode` VARCHAR(32) 默认 `recursive`（recursive / fixed / separator）
   - `split_separator` VARCHAR(64) 可空（应用层默认 `\n\n`）
   - `rag_top_k` INT 默认 5；`rag_min_score` DOUBLE 默认 0.3（阶段二使用）
-  - `visibility` VARCHAR(32) 默认 `private`（阶段三占位）
+  - `visibility` VARCHAR(32) 默认 `private`；取值 `private` \| `org`（`org`=本部署全体登录用户可读，仅所有者可写；~~阶段三占位~~ 2026-11-28 已落地）
 - **文档**：上传时把实际分段参数写入 `documents.metadata`
 
 ## [变更] 知识库目录（2026-11-15）

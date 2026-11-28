@@ -37,6 +37,7 @@ import (
 	"cogniforge/internal/infra/token"
 	"cogniforge/internal/app/user"
 	appwf "cogniforge/internal/app/workflow"
+	appscheduler "cogniforge/internal/infra/scheduler"
 	orchwf "cogniforge/internal/orchestration/workflow"
 )
 
@@ -53,7 +54,18 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 	mc := modelcache.NewFromRedis(rdb)
 	providerSvc := provider.NewService(providerRepo, mc)
 	_ = model.MigrateProviders(db)
-	_ = db.AutoMigrate(&model.UserSettings{}, &model.AgentTeam{}, &model.ChatConversation{})
+	_ = db.AutoMigrate(
+		&model.UserSettings{},
+		&model.Agent{},
+		&model.AgentVersion{},
+		&model.AgentTeam{},
+		&model.ChatConversation{},
+		&model.WorkflowVersion{},
+		&model.WorkflowSchedule{},
+		&model.Workflow{},
+		&model.Document{},
+		&model.SecurityAuditLog{},
+	)
 	providerSvc.RepairVendorLabels()
 	providerSvc.RefreshCache()
 	providerHandler := appprovider.NewHandler(providerSvc)
@@ -98,6 +110,9 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 	})
 	wfSvc := orchwf.NewWorkflowServiceWithDeps(wfEngine, rdb)
 	orchwf.StartWaitTimeoutScanner(wfSvc, 30*time.Second)
+	wfScheduler := appscheduler.NewSchedulerWithEngine(wfEngine)
+	_ = wfScheduler.Start()
+	wfSvc.SetScheduler(wfScheduler)
 	workflowHandler := appwf.NewWorkflowHandlerWithService(wfSvc)
 	skillHandler := appskill.NewHandler(db)
 	evalHandler := appeval.NewHandler(db, chatHandler.Service())
@@ -219,6 +234,7 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 			admin.POST("/admin/users/:id/reset-password", userHandler.AdminResetPassword)
 			admin.POST("/admin/users/:id/roles", rbacHandler.AssignRole)
 			admin.GET("/admin/users/:id/role", rbacHandler.GetUserRole)
+			admin.GET("/admin/security-audits", knowledgeHandler.ListSecurityAudits)
 			quotaHandler.RegisterAdminRoutes(admin)
 		}
 	}

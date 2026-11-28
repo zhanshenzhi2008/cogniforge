@@ -28,16 +28,17 @@ func (Permission) TableName() string {
 
 // Role 角色表
 type Role struct {
-	ID          string         `gorm:"primaryKey;type:varchar(64)" json:"id"`
-	Name        string         `gorm:"type:varchar(100);not null" json:"name"`             // 角色名称
-	Code        string         `gorm:"type:varchar(100);not null;uniqueIndex" json:"code"` // 角色代码（如：admin, user）
-	Description string         `gorm:"type:text" json:"description"`                       // 描述
-	IsSystem    bool           `gorm:"default:false" json:"is_system"`                     // 是否系统预置角色（不可删除）
-	IsDefault   bool           `gorm:"default:false" json:"is_default"`                    // 是否默认角色
-	Permissions string         `gorm:"type:text" json:"-"`                                 // 权限列表（缓存用，不直接查询）
-	CreatedAt   time.Time      `json:"created_at"`
-	UpdatedAt   time.Time      `json:"updated_at"`
-	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
+	ID               string         `gorm:"primaryKey;type:varchar(64)" json:"id"`
+	Name             string         `gorm:"type:varchar(100);not null" json:"name"`             // 角色名称
+	Code             string         `gorm:"type:varchar(100);not null;uniqueIndex" json:"code"` // 角色代码（如：admin, user）
+	Description      string         `gorm:"type:text" json:"description"`                       // 描述
+	IsSystem         bool           `gorm:"default:false" json:"is_system"`                     // 是否系统预置角色（不可删除）
+	IsDefault        bool           `gorm:"default:false" json:"is_default"`                    // 是否默认角色
+	MaxSecurityLevel string         `gorm:"type:varchar(32);default:''" json:"max_security_level"` // 最高可访问知识密级；空=不限制（按 secret）
+	Permissions      string         `gorm:"type:text" json:"-"`                                 // 权限列表（缓存用，不直接查询）
+	CreatedAt        time.Time      `json:"created_at"`
+	UpdatedAt        time.Time      `json:"updated_at"`
+	DeletedAt        gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
 func (Role) TableName() string {

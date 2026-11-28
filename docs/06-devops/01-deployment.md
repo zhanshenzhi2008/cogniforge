@@ -3,6 +3,10 @@
 ## [变更记录]
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|---------|--------|
+| 2026-11-27 | v1.45 | 智能体工作室部署冒烟清单（A1–A12） | orjrs |
+| 2026-11-27 | v1.44 | 通用版隐藏密级 UI：NUXT_PUBLIC_SHOW_SECURITY_LEVEL | orjrs |
+| 2026-11-27 | v1.43 | 补充 KB_ENFORCE_SECURITY_LEVEL 运维开关 | orjrs |
+| 2026-11-26 | v1.42 | 工作流部署冒烟清单：执行→等待→审批→完成 | orjrs |
 | 2026-11-16 | v1.41 | 前端 Nginx 请求体上限 60MB，避免知识库预览/上传 413 | orjrs |
 | 2026-10-18 | v1.40 | CD：关 provenance/sbom；部署去掉 image prune（修 pull 失败） | orjrs |
 | 2026-10-17 | v1.39 | Go 监听端口改名 COGNIFORGE_PORT（兼容旧 PORT） | orjrs |
@@ -18,6 +22,57 @@
 | 2026-08-16 | v1.29 | 前端 Docker 钉 pnpm@9，避免 ERR_PNPM_IGNORED_BUILDS | orjrs |
 | 2026-08-15 | v1.28 | 模型配置走 Redis；cogniforge-ai 增加 REDIS_HOST | orjrs |
 | 2026-08-15 | v1.27 | Python LLM 回调 Go；cogniforge-ai 增加 COGNIFORGE_API_URL | orjrs |
+
+## [变更] 工作流部署冒烟清单（2026-11-26）
+
+- **原因**：P0 待办「执行 → 等待 → 审批 → 完成」需可勾选验收；known-issues §10 已修，部署后需人工确认
+- **落地**：见下文「工作流冒烟（W3 审批路径）」
+
+## [变更] 智能体工作室部署冒烟清单（2026-11-27）
+
+- **原因**：工作室优先/中期能力已合入本地 develop，需部署后人工勾选
+- **落地**：见下文「智能体工作室冒烟（A1–A12）」；含 `agent_versions` AutoMigrate
+
+## 工作流冒烟（W3 审批路径）
+
+**前置**：`cogniforge` + `cogniforge-web` 已 CD 到含 resume/end 修复与审批审计的版本；测试账号已登录；至少配置一个可用 LLM。
+
+**推荐样例图**（画布手搭或已有「客服接待与退款审批」类流程）：
+
+`start` → `wait`（reason=approval）→ `llm`（短提示）→ `end`
+
+| # | 步骤 | 期望 |
+|---|------|------|
+| 1 | 工作流状态设为 **已发布**；打开调试侧栏，填入参后点调试/执行 | 执行出现；状态进入 `running` 后变 `waiting` |
+| 2 | 顶栏/侧栏出现等待审批；画布 wait 节点高亮 | `wait_reason=approval`；时间线有 wait 步骤 |
+| 3 | 点 **审批通过** | 继续跑完 llm → end；整次 `completed`/`succeeded`；end 的 node_run **不是**长期 `running` |
+| 4 | 打开本试跑时间线 | 有一条 `human_action`：通过 + 操作人/时间（审批审计） |
+| 5 | （可选）再跑一次，在 wait 时点 **拒绝** | 执行 `failed`；时间线有拒绝审计行 |
+
+**不通过时**：查 `workflow_executions` / `workflow_node_runs`；对照 `docs/99-dev-plan/03-known-issues.md` §10；确认部署的镜像 commit 含 end 卡住修复。
+
+**清单状态**：⬜ 待线上勾选（文档已备好；勾完后把开发计划 P0「部署冒烟」打勾）
+
+## 智能体工作室冒烟（A1–A12）
+
+**前置**：`cogniforge` + `cogniforge-web` 已部署含工作室近期改动的版本（含 `agents.version` / `agent_versions` AutoMigrate）；测试账号已登录；至少一个可用 LLM；可选：知识库、MCP 工具。
+
+| # | 步骤 | 期望 |
+|---|------|------|
+| A1 | `/agents/new` 建智能体：模型 + 系统提示，保存 | 跳转编辑页；顶栏显示已保存 / 版本 `v1` |
+| A2 | 左侧配开场白 + 2 条预设问题；预览空态 | 看到开场白与芯片；点击芯片可发送 |
+| A3 | 清空预设后看预览空态 | 出现「猜你想问」启发式芯片；「填入猜你想问」可写回左侧 |
+| A4 | 绑定 1 个知识库；预览提问能命中库内容（有文档时） | 回答含检索相关内容；未绑库时不误报 |
+| A5 | 打开附件开关；预览上传小文件再问 | 附件可上传；关闭开关后预览无附件钮 |
+| A6 | 系统提示输入 `/` 与 `@` | `/` 插入 `{{var}}`；`@` 勾选技能/工具/知识库并写入标注 |
+| A7 | 顶栏「对话日志」 | 侧栏列出该 Agent 会话；点击进 Playground 且带 `agent` |
+| A8 | 改提示词后保存 →「版本」→ 回滚到上一版 | 历史有快照；回滚后表单恢复；版本号递增 |
+| A9 | 顶栏「发布」 | 可复制网页链接、API curl、iframe；IM/虚拟机显示即将推出 |
+| A10 | Playground 选该 Agent 对话 | 走 Agent 对话；空态开场白/预设或猜你想问正常 |
+| A11 | 助手消息点朗读；输入栏点麦克风（Chrome） | TTS 可朗读/停止；STT 听写写入输入框（需麦克风权限） |
+| A12 | 帮助气泡「了解更多」 | 打开 `/help/agent-studio`；返回正常 |
+
+**清单状态**：⬜ 待线上勾选（勾完后同步开发计划「线上冒烟」相关项）
 
 ## [变更] 前端 Nginx 放宽上传体（2026-11-16）
 
@@ -109,6 +164,8 @@
 ## [变更] MCP 工具运维开关（2026-10-15）
 
 - **code_execute**：Go 进程内本地子进程执行（需镜像/宿主机有 `python3` / `node` / `go`）；生产若暂不开放设 `CODE_EXECUTE_DISABLED=1`
+- **知识密级检索**：金融场景设 `KB_ENFORCE_SECURITY_LEVEL=1`，并在「角色」里配置 `max_security_level`；未开开关时密级字段只存不滤
+- **密级 UI**：通用版默认隐藏文档密级 / clearance / 审计 Tab；金融构建前端时加 `NUXT_PUBLIC_SHOW_SECURITY_LEVEL=1`（Docker build-arg 同名）
 - **web_search**：读 `TAVILY_API_KEY`（空则 keyless）；见 `.env.example`
 - **包含配置**：`.env.example` 注释段；详细设计 `docs/01-requirements/06-mcp-skill-design.md`
 

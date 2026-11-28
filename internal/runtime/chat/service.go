@@ -2,6 +2,7 @@ package chat
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -12,9 +13,16 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"cogniforge/internal/model"
 	"cogniforge/internal/capability/provider"
+	"cogniforge/internal/model"
 )
+
+// StreamCollectResult 非 HTTP 场景下收集流式回复
+type StreamCollectResult struct {
+	Content string
+	Model   string
+	Usage   ChatUsage
+}
 
 type ChatService struct {
 	providerSvc *provider.Service
@@ -295,6 +303,87 @@ func extractToolCalls(resp *ChatResponse) []ToolCall {
 		}
 	}
 	return calls
+}
+
+// ChatCollectStream 流式调用上游并汇总全文（供工作流等非 SSE 场景）。
+// onDelta 可为空；每收到一段 content delta 回调一次。
+func (s *ChatService) ChatCollectStream(ctx context.Context, req *ChatRequest, onDelta func(delta string)) (*StreamCollectResult, error) {
+	if req.Model == "" {
+		req.Model = s.defaultModel(req.UserID)
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	baseURL, apiKey, extraHeaders, err := s.activeChatConfig(req.UserID)
+	if err != nil {
+		return nil, err
+	}
+
+	providerURL := s.aiChatCompletionsURL(baseURL)
+	slog.Info("collecting AI provider stream", "url", providerURL, "model", req.Model)
+
+	payload := s.buildPayload(req, true)
+	body, _ := json.Marshal(payload)
+
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", providerURL, bytes.NewBuffer(body))
+	if err != nil {
+		return nil, err
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Accept", "text/event-stream")
+	httpReq.Header.Set("Authorization", "Bearer "+apiKey)
+	for k, v := range extraHeaders {
+		httpReq.Header.Set(k, v)
+	}
+
+	client := &http.Client{Timeout: 120 * time.Second}
+	resp, err := client.Do(httpReq)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("AI provider returned status %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	scan := &sseUsageScan{}
+	lastLen := 0
+	buf := make([]byte, 4096)
+	for {
+		n, readErr := resp.Body.Read(buf)
+		if n > 0 {
+			scan.feed(buf[:n])
+			if onDelta != nil {
+				full := scan.text.String()
+				if len(full) > lastLen {
+					onDelta(full[lastLen:])
+					lastLen = len(full)
+				}
+			}
+		}
+		if readErr != nil {
+			if readErr != io.EOF {
+				return nil, readErr
+			}
+			break
+		}
+	}
+
+	usage := scan.usage
+	content := scan.text.String()
+	if usage.TotalTokens == 0 {
+		usage = EstimateUsage(req.Messages, content)
+		usage.Estimated = true
+	}
+	modelName := req.Model
+	return &StreamCollectResult{
+		Content: content,
+		Model:   modelName,
+		Usage:   usage,
+	}, nil
 }
 
 // ChatStream 流式对话。返回本次 usage（上游没有则估算）。

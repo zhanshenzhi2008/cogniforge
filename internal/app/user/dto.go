@@ -14,18 +14,22 @@ type ListUsersRequest struct {
 }
 
 type CreateUserRequest struct {
-	Email    string `json:"email" binding:"required,email"`
-	Name     string `json:"name" binding:"required,min=2,max=100"`
-	Password string `json:"password" binding:"required,min=6"`
-	Role     string `json:"role" binding:"oneof=admin user"`
-	Status   string `json:"status" binding:"oneof=active disabled locked"`
+	Email            string `json:"email" binding:"required,email"`
+	Name             string `json:"name" binding:"required,min=2,max=100"`
+	Password         string `json:"password" binding:"required,min=6"`
+	Role             string `json:"role" binding:"oneof=admin user"`
+	Status           string `json:"status" binding:"oneof=active disabled locked"`
+	MaxSecurityLevel string `json:"max_security_level"` // 空=跟随角色
+	ActorUserID      string `json:"-"`                  // 操作人（handler 注入）
 }
 
 type UpdateUserRequest struct {
-	Name      string `json:"name" binding:"min=2,max=100"`
-	AvatarURL string `json:"avatar_url"`
-	Status    string `json:"status" binding:"oneof=active disabled locked"`
-	Role      string `json:"role" binding:"oneof=admin user"`
+	Name             string  `json:"name" binding:"omitempty,min=2,max=100"`
+	AvatarURL        string  `json:"avatar_url"`
+	Status           string  `json:"status" binding:"omitempty,oneof=active disabled locked"`
+	Role             string  `json:"role" binding:"omitempty,oneof=admin user"`
+	MaxSecurityLevel *string `json:"max_security_level"` // nil=不改；""=清除覆盖
+	ActorUserID      string  `json:"-"`                  // 操作人（handler 注入）
 }
 
 type ChangePasswordRequest struct {

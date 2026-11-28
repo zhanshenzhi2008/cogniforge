@@ -29,6 +29,33 @@ func TestLoopNode_TimesLoop(t *testing.T) {
 
 	iterations := result["iterations"].([]map[string]any)
 	assert.Len(t, iterations, 5)
+
+	gotTotal, ok := ctx.GetVariable("last_loop_total")
+	assert.True(t, ok)
+	assert.Equal(t, 5, gotTotal)
+	gotIndex, ok := ctx.GetVariable("last_loop_index")
+	assert.True(t, ok)
+	assert.Equal(t, 4, gotIndex)
+	gotType, ok := ctx.GetVariable("last_loop_type")
+	assert.True(t, ok)
+	assert.Equal(t, "times", gotType)
+}
+
+func TestLoopNode_TimesLoop_CountTemplate(t *testing.T) {
+	executor := &nodes.LoopNodeExecutor{}
+	config := `{
+		"type": "times",
+		"count": "{{rounds}}",
+		"max_iter": "{{cap}}"
+	}`
+	ctx := engine.NewExecutionContext("wf1", "exec1", nil)
+	ctx.SetVariable("rounds", "4")
+	ctx.SetVariable("cap", "10")
+
+	output, err := executor.Execute(ctx, json.RawMessage(config))
+	assert.NoError(t, err)
+	result := output.(map[string]any)
+	assert.Equal(t, 4, result["total"])
 }
 
 func TestLoopNode_TimesLoop_MaxIterCapped(t *testing.T) {
@@ -89,6 +116,54 @@ func TestLoopNode_ForEachLoop(t *testing.T) {
 
 	iterations := result["iterations"].([]map[string]any)
 	assert.Len(t, iterations, 3)
+}
+
+func TestLoopNode_ForEachLoop_ArrayVarTemplate(t *testing.T) {
+	executor := &nodes.LoopNodeExecutor{}
+	config := `{
+		"type": "for_each",
+		"array_var": "{{list_name}}",
+		"item_var": "item",
+		"max_iter": 100
+	}`
+
+	ctx := engine.NewExecutionContext("wf1", "exec1", nil)
+	ctx.SetVariable("list_name", "items")
+	ctx.SetVariable("items", []any{"x", "y"})
+	output, err := executor.Execute(ctx, json.RawMessage(config))
+
+	assert.NoError(t, err)
+	result := output.(map[string]any)
+	assert.Equal(t, 2, result["total"])
+}
+
+func TestLoopNode_ForEachLoop_ItemKeyVarTemplate(t *testing.T) {
+	executor := &nodes.LoopNodeExecutor{}
+	config := `{
+		"type": "for_each",
+		"array_var": "items",
+		"item_var": "{{iname}}",
+		"key_var": "{{kname}}",
+		"max_iter": 100
+	}`
+
+	ctx := engine.NewExecutionContext("wf1", "exec1", nil)
+	ctx.SetVariable("iname", "cur")
+	ctx.SetVariable("kname", "idx")
+	ctx.SetVariable("items", []any{"a", "b"})
+	_, err := executor.Execute(ctx, json.RawMessage(config))
+
+	assert.NoError(t, err)
+	item, ok := ctx.GetVariable("cur")
+	assert.True(t, ok)
+	assert.Equal(t, "b", item)
+	key, ok := ctx.GetVariable("idx")
+	assert.True(t, ok)
+	assert.Equal(t, 1, key)
+	iv, _ := ctx.GetVariable("last_loop_item_var")
+	assert.Equal(t, "cur", iv)
+	kv, _ := ctx.GetVariable("last_loop_key_var")
+	assert.Equal(t, "idx", kv)
 }
 
 func TestLoopNode_ForEachLoop_EmptyArray(t *testing.T) {
@@ -185,6 +260,23 @@ func TestLoopNode_WhileLoop_MaxIterReached(t *testing.T) {
 	assert.NoError(t, err)
 	result := output.(map[string]any)
 	assert.Equal(t, 5, result["total"])
+}
+
+func TestLoopNode_WhileLoop_TemplateValue(t *testing.T) {
+	executor := &nodes.LoopNodeExecutor{}
+
+	config := `{
+		"type": "while",
+		"condition": "loop.index < {{limit}}",
+		"max_iter": 20
+	}`
+
+	ctx := engine.NewExecutionContext("wf1", "exec1", map[string]any{"limit": 4})
+	output, err := executor.Execute(ctx, json.RawMessage(config))
+
+	assert.NoError(t, err)
+	result := output.(map[string]any)
+	assert.Equal(t, 4, result["total"])
 }
 
 func TestLoopNode_InvalidType(t *testing.T) {

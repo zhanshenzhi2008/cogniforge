@@ -3,16 +3,20 @@ package rbac
 // ============ 请求结构 ============
 
 type CreateRoleRequest struct {
-	Name          string   `json:"name" binding:"required,min=2,max=100"`
-	Code          string   `json:"code" binding:"required,alpha,min=2,max=50"`
-	Description   string   `json:"description"`
-	PermissionIDs []string `json:"permission_ids"`
+	Name             string   `json:"name" binding:"required,min=2,max=100"`
+	Code             string   `json:"code" binding:"required,alpha,min=2,max=50"`
+	Description      string   `json:"description"`
+	MaxSecurityLevel string   `json:"max_security_level"`
+	PermissionIDs    []string `json:"permission_ids"`
+	ActorUserID      string   `json:"-"` // 操作人（handler 注入）
 }
 
 type UpdateRoleRequest struct {
-	Name          string   `json:"name" binding:"min=2,max=100"`
-	Description   string   `json:"description"`
-	PermissionIDs []string `json:"permission_ids"`
+	Name             string   `json:"name" binding:"omitempty,min=2,max=100"`
+	Description      string   `json:"description"`
+	MaxSecurityLevel *string  `json:"max_security_level"`
+	PermissionIDs    []string `json:"permission_ids"`
+	ActorUserID      string   `json:"-"` // 操作人（handler 注入）
 }
 
 type CreatePermissionRequest struct {
@@ -37,15 +41,16 @@ type PermissionResponse struct {
 }
 
 type RoleResponse struct {
-	ID          string               `json:"id"`
-	Name        string               `json:"name"`
-	Code        string               `json:"code"`
-	Description string               `json:"description"`
-	IsSystem    bool                 `json:"is_system"`
-	IsDefault   bool                 `json:"is_default"`
-	Permissions []PermissionResponse `json:"permissions"`
-	CreatedAt   string               `json:"created_at"`
-	UpdatedAt   string               `json:"updated_at"`
+	ID               string               `json:"id"`
+	Name             string               `json:"name"`
+	Code             string               `json:"code"`
+	Description      string               `json:"description"`
+	IsSystem         bool                 `json:"is_system"`
+	IsDefault        bool                 `json:"is_default"`
+	MaxSecurityLevel string               `json:"max_security_level"`
+	Permissions      []PermissionResponse `json:"permissions"`
+	CreatedAt        string               `json:"created_at"`
+	UpdatedAt        string               `json:"updated_at"`
 }
 
 type UserRoleResponse struct {

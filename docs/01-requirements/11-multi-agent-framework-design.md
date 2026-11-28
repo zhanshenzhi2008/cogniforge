@@ -4,6 +4,13 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-27 | v0.15 | Team 节点亦写入/接 last_agent_content | orjrs |
+| 2026-11-27 | v0.14 | LLM 亦写入 last_agent_content 串联下游 | orjrs |
+| 2026-11-27 | v0.13 | Web：max_depth/max_steps 限额可配 | orjrs |
+| 2026-11-27 | v0.12 | Web：worker_retry_once 创建/列表可配 | orjrs |
+| 2026-11-27 | v0.11 | team 节点 OnProgress：delegate/handoff 子步骤 | orjrs |
+| 2026-11-27 | v0.10 | M4 产品：expand-pipeline layout=parallel 扇出图 | orjrs |
+| 2026-11-27 | v0.9 | M4 引擎：同层无依赖节点并行（ready-wave） | orjrs |
 | 2026-11-24 | v0.8 | Pipeline 一键成图 expand-pipeline；Agent 串联吃上一步输出 | orjrs |
 | 2026-11-23 | v0.7 | POST /teams/:id/run；画布 team 节点绑定小队 | orjrs |
 | 2026-11-23 | v0.6 | §12 落地：软失败+可选重试、team_id 落 chat、Redis run_state、Web 续聊 | orjrs |
@@ -13,14 +20,48 @@
 | 2026-11-23 | v0.2 | M1 起步：agent_teams 表 + Team CRUD + RunState/handoff 原语 | orjrs |
 | 2026-11-23 | v0.1 | 立项：模式分层、与现有工作流关系、参考来源、分期不做清单 | orjrs |
 
+## [变更] max_depth / max_steps Web 配置（2026-11-27）
+
+- **变更原因**：门禁默认写进 config，产品侧原先改不了
+- **已落地**：新建填深度/步数；「限额」弹窗改现有小队（含失败重试）
+- **代码**：`cogniforge-web/pages/teams`；前端设计 v1.123
+
+## [变更] worker_retry_once Web 配置（2026-11-27）
+
+- **变更原因**：§12.4 可选同人重试仅后端可读 config，产品无开关
+- **已落地**：跨仓小队新建勾选 + 列表/卡片切换；写 `config.worker_retry_once`
+- **代码**：`cogniforge-web/pages/teams`；前端设计 v1.122
+
+## [变更] team 节点子步骤进度（2026-11-27）
+
+- **变更原因**：画布 team 跑完才出结果，中间委派/交接不可见
+- **已落地**：`ChatDeps.OnProgress`；delegate/handoff 上报 → `node_runs.detail.progress`（复用 LLM 进度通道）
+- **未做**：自动换人（默认关）；独立 SSE 事件流仍可后续加
+- **代码**：`orchestration/team/chat.go`、`engine/nodes/team.go`；API v1.100
+
+## [变更] M4 扇出成图（2026-11-27）
+
+- **变更原因**：引擎已能并行；产品侧要一键生成 start→工人们→end
+- **已落地**：`BuildParallelFanoutDefinition`；`expand-pipeline` body `layout=parallel`（最多 8 工人，剔除主管）
+- **Web**：小队卡「生成并行图」
+- **代码**：`orchestration/team/pipeline.go`、`ExpandOptions`；跨仓 `pages/teams`
+
+## [变更] M4 引擎同层并行（2026-11-27）
+
+- **变更原因**：扇出/汇合需要引擎能同时跑无依赖节点
+- **已落地**：`WorkflowEngine.Execute` 按就绪波次调度；白名单类型同波并行；Output/`ForNode` 线程安全
+- **未做**：~~Team 配置扇出工人产品化~~（2026-11-27 已做）；无上限并行仍禁止
+- **代码**：`engine/core/workflow_engine.go`（EngineVersion 18.4）
+
 ## [变更] Pipeline 一键成图（2026-11-24）
 
 - **变更原因**：M1「从 Team 生成线性图」；用户能说清流水线 vs 单 Agent
 - **已落地**：
   - `POST /api/v1/teams/:id/expand-pipeline`：pipeline → start→agent…→end；其它模式 → start→team→end；回写 `workflow_id`
   - Agent 节点空 prompt 时接 `last_agent_content`（上一步输出）
+  - ~~LLM 未写该变量~~（2026-11-27：LLM 成功亦写入；空 prompt 优先接上游）
   - Web 小队卡「生成/打开流水线」
-- **未做**：并行工人、自动换人
+- **未做**：~~并行工人~~（2026-11-27 引擎侧已做）→ Team 扇出 UI、自动换人
 - **代码**：`orchestration/team/pipeline.go`、`service.ExpandToWorkflow`、`engine/nodes/agent.go`；Web `pages/teams`
 
 ## [变更] 任务型 /run + 画布 team 节点（2026-11-23）
@@ -30,7 +71,7 @@
   - `POST /api/v1/teams/:id/run`：`task`/`goal` → `RunTask`；**不**落 `chat_conversations`
   - 工作流节点类型 `team`：绑 `team_id` + 任务说明；引擎内 `TeamNodeExecutor` → `RunTask`；输出含 `content`/`run_state` 进 `node_runs`
   - Web 画布节点面板可选小队、填任务
-- **未做**：~~Pipeline 一键生成线性图~~（2026-11-24 已跟）→ 自动换人、team 节点 SSE 子步骤拆分仍待
+- **未做**：~~Pipeline 一键生成线性图~~（2026-11-24 已跟）→ ~~team 节点子步骤进度~~（2026-11-27 OnProgress）；自动换人仍待
 - **代码**：`orchestration/team/run.go`、`engine/nodes/team.go`、`app/team/handler.go`；Web `workflows/[id].vue`
 
 ## [变更] §12 拍板项落地（2026-11-23）
@@ -302,7 +343,7 @@ POST       /api/v1/teams/:id/run       # 非对话任务型（可选，可与 wo
 | **M1 Pipeline 产品化** | 文档/UI 明确「多 Agent 节点流水线」；可选一键从 Team 生成线性图 | 用户能说清与单 Agent 差别 |
 | **M2 Supervisor** | `delegate_to_agent` + Team CRUD + 预览 SSE 带 agent 标签 | 主管能分活，工人结果可汇总；checkpoint 可恢复 |
 | **M3 Handoff** | `active_agent_id` 切换 + 前端展示当前角色 | 分诊场景可演示 |
-| **M4 并行工人** | 扇出/汇合（需引擎并行或子 run） | 可选 |
+| **M4 并行工人** | 扇出/汇合（需引擎并行或子 run） | 引擎并行 + `layout=parallel` 成图（2026-11-27） |
 | **以后** | GroupChat、A2A、跨租户 Agent 市场 | backlog |
 
 ---

@@ -3,18 +3,18 @@ package nodes
 import (
 	"encoding/json"
 	"fmt"
-	"math"
 	"regexp"
 	"strconv"
 	"strings"
-	"time"
 
+	"cogniforge/internal/capability/mcp"
 	"cogniforge/internal/orchestration/engine/core"
 )
 
 type CodeNodeConfig struct {
-	Language string `json:"language"`
-	Code     string `json:"code"`
+	Language string          `json:"language"`
+	Code     string          `json:"code"`
+	Timeout  json.RawMessage `json:"timeout,omitempty"` // 数字或 "{{变量}}"；沙箱用，空/0→默认
 }
 
 type CodeNodeExecutor struct{}
@@ -25,16 +25,47 @@ func (e *CodeNodeExecutor) Execute(ctx *core.ExecutionContext, config json.RawMe
 		return nil, fmt.Errorf("invalid code config: %w", err)
 	}
 
-	ctx.Logger.Log("code", "info", fmt.Sprintf("Executing code (language: %s)", cfg.Language))
-
-	switch cfg.Language {
-	case "expression":
-		return e.executeExpression(ctx, cfg.Code)
-	case "javascript":
-		return e.executeJavaScript(ctx, cfg.Code)
-	default:
-		return nil, fmt.Errorf("unsupported language: %s", cfg.Language)
+	lang := strings.ToLower(strings.TrimSpace(resolveTemplate(cfg.Language, ctx)))
+	if lang == "" {
+		lang = "expression"
 	}
+	ctx.Logger.Log("code", "info", fmt.Sprintf("Executing code (language: %s)", lang))
+
+	timeoutSec := resolveFlexibleInt(cfg.Timeout, ctx)
+
+	var out any
+	var err error
+	switch lang {
+	case "expression":
+		out, err = e.executeExpression(ctx, cfg.Code)
+	case "javascript", "js", "node", "python":
+		out, err = e.executeSandboxed(ctx, lang, cfg.Code, timeoutSec)
+	default:
+		return nil, fmt.Errorf("unsupported language: %s", lang)
+	}
+	if err != nil {
+		return nil, err
+	}
+	storeLastCode(ctx, lang, out)
+	return out, nil
+}
+
+// storeLastCode 供下游 {{last_code_output}} / {{last_code_language}} 引用
+func storeLastCode(ctx *core.ExecutionContext, lang string, out any) {
+	if ctx == nil {
+		return
+	}
+	ctx.SetVariable("last_code_language", lang)
+	if out == nil {
+		return
+	}
+	if m, ok := out.(map[string]any); ok {
+		if s, ok := m["output"].(string); ok {
+			ctx.SetVariable("last_code_output", s)
+			return
+		}
+	}
+	ctx.SetVariable("last_code_output", fmt.Sprint(out))
 }
 
 func (e *CodeNodeExecutor) executeExpression(ctx *core.ExecutionContext, code string) (any, error) {
@@ -76,55 +107,67 @@ func (e *CodeNodeExecutor) executeExpression(ctx *core.ExecutionContext, code st
 	return e.resolveValue(strings.TrimSpace(code), ctx), nil
 }
 
-func (e *CodeNodeExecutor) executeJavaScript(ctx *core.ExecutionContext, code string) (any, error) {
-	code = strings.TrimSpace(code)
-
-	if strings.HasPrefix(code, "return ") {
-		code = code[7:]
+func (e *CodeNodeExecutor) executeSandboxed(ctx *core.ExecutionContext, language, code string, timeoutSec int) (any, error) {
+	wrapped, err := wrapCodeWithContext(language, code, ctx)
+	if err != nil {
+		return nil, err
 	}
-
-	for _, fn := range []struct {
-		name string
-		fn   func(args ...any) any
-	}{
-		{"Math.abs", func(args ...any) any { return math.Abs(toFloat64(args[0])) }},
-		{"Math.round", func(args ...any) any { return math.Round(toFloat64(args[0])) }},
-		{"Math.floor", func(args ...any) any { return math.Floor(toFloat64(args[0])) }},
-		{"Math.ceil", func(args ...any) any { return math.Ceil(toFloat64(args[0])) }},
-		{"Math.max", func(args ...any) any { return math.Max(toFloat64(args[0]), toFloat64(args[1])) }},
-		{"Math.min", func(args ...any) any { return math.Min(toFloat64(args[0]), toFloat64(args[1])) }},
-		{"Math.sqrt", func(args ...any) any { return math.Sqrt(toFloat64(args[0])) }},
-		{"Math.pow", func(args ...any) any { return math.Pow(toFloat64(args[0]), toFloat64(args[1])) }},
-		{"String.length", func(args ...any) any { return float64(len(toString(args[0]))) }},
-		{"String.uppercase", func(args ...any) any { return strings.ToUpper(toString(args[0])) }},
-		{"String.lowercase", func(args ...any) any { return strings.ToLower(toString(args[0])) }},
-		{"String.trim", func(args ...any) any { return strings.TrimSpace(toString(args[0])) }},
-		{"String.includes", func(args ...any) any { return strings.Contains(toString(args[0]), toString(args[1])) }},
-		{"Array.length", func(args ...any) any { return float64(len(toSlice(args[0]))) }},
-		{"Date.now", func(args ...any) any { return float64(time.Now().UnixMilli()) }},
-	} {
-		for _, placeholder := range []string{
-			fmt.Sprintf("%s()", fn.name),
-			fmt.Sprintf("%s(%s)", fn.name, "args"),
-		} {
-			if strings.Contains(code, placeholder) {
-				ctx.Logger.Log("code", "warn", fmt.Sprintf("Function %s is simulated", fn.name))
-			}
+	sandboxLang := language
+	if sandboxLang == "js" || sandboxLang == "node" {
+		sandboxLang = "javascript"
+	}
+	res, err := mcp.ExecuteSandboxedCode(sandboxLang, wrapped, timeoutSec)
+	if err != nil {
+		return nil, err
+	}
+	status, _ := res["status"].(string)
+	out, _ := res["output"].(string)
+	if status == "disabled" {
+		return nil, fmt.Errorf("code sandbox disabled (CODE_EXECUTE_DISABLED)")
+	}
+	if status != "ok" {
+		if out == "" {
+			out = status
 		}
+		return nil, fmt.Errorf("sandbox %s: %s", status, out)
 	}
+	return map[string]any{
+		"language":   sandboxLang,
+		"output":     out,
+		"status":     status,
+		"exit_code":  res["exit_code"],
+		"elapsed_ms": res["elapsed_ms"],
+	}, nil
+}
 
-	result := code
-	for key, val := range ctx.Variables {
-		placeholder := fmt.Sprintf("{{%s}}", key)
-		result = strings.ReplaceAll(result, placeholder, fmt.Sprintf("%v", val))
+func wrapCodeWithContext(language, code string, ctx *core.ExecutionContext) (string, error) {
+	vars := map[string]any{}
+	for k, v := range ctx.Variables {
+		vars[k] = v
 	}
-
-	for key, val := range ctx.Input {
-		placeholder := fmt.Sprintf("{{input.%s}}", key)
-		result = strings.ReplaceAll(result, placeholder, fmt.Sprintf("%v", val))
+	payload := map[string]any{
+		"input":     ctx.Input,
+		"variables": vars,
 	}
-
-	return result, nil
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		return "", err
+	}
+	quoted := strconv.Quote(string(raw))
+	code = strings.TrimSpace(code)
+	switch strings.ToLower(language) {
+	case "python":
+		return fmt.Sprintf(
+			"import json\n_cf_context = json.loads(%s)\nvariables = _cf_context.get('variables') or {}\ninput = _cf_context.get('input') or {}\n%s\n",
+			quoted, code,
+		), nil
+	default:
+		// javascript / node
+		return fmt.Sprintf(
+			"const _cf_context = JSON.parse(%s);\nconst variables = _cf_context.variables || {};\nconst input = _cf_context.input || {};\n%s\n",
+			quoted, code,
+		), nil
+	}
 }
 
 func (e *CodeNodeExecutor) resolveValue(name string, ctx *core.ExecutionContext) any {
@@ -134,7 +177,7 @@ func (e *CodeNodeExecutor) resolveValue(name string, ctx *core.ExecutionContext)
 	if val, ok := ctx.Input[name]; ok {
 		return val
 	}
-	if val, ok := ctx.Output[name]; ok {
+	if val, ok := ctx.LookupOutput(name); ok {
 		return val
 	}
 
@@ -175,20 +218,3 @@ func toFloat(v any) (float64, bool) {
 	return 0, false
 }
 
-func toFloat64(v any) float64 {
-	if f, ok := toFloat(v); ok {
-		return f
-	}
-	return 0
-}
-
-func toString(v any) string {
-	return fmt.Sprintf("%v", v)
-}
-
-func toSlice(v any) []any {
-	if s, ok := v.([]any); ok {
-		return s
-	}
-	return nil
-}

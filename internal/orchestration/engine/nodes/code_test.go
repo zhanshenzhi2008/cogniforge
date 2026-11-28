@@ -1,0 +1,60 @@
+package nodes
+
+import (
+	"encoding/json"
+	"fmt"
+	"testing"
+
+	"cogniforge/internal/orchestration/engine/core"
+)
+
+func TestCodeNodeExecutor_ExpressionWritesLastCodeOutput(t *testing.T) {
+	ex := &CodeNodeExecutor{}
+	ctx := core.NewExecutionContext("wf", "exec", nil)
+	ctx.SetVariable("score", 42)
+	ctx.SetVariable("ttl", "15")
+
+	cfg, _ := json.Marshal(map[string]any{
+		"language": "expression",
+		"code":     "score",
+		"timeout":  "{{ttl}}", // 表达式忽略超时，但须能解析模板字段
+	})
+	out, err := ex.Execute(ctx, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out != 42 {
+		t.Fatalf("out=%v (%T)", out, out)
+	}
+	got, ok := ctx.GetVariable("last_code_output")
+	if !ok || fmt.Sprint(got) != "42" {
+		t.Fatalf("last_code_output=%v ok=%v", got, ok)
+	}
+	lang, ok := ctx.GetVariable("last_code_language")
+	if !ok || lang != "expression" {
+		t.Fatalf("last_code_language=%v ok=%v", lang, ok)
+	}
+}
+
+func TestCodeNodeExecutor_LanguageTemplate(t *testing.T) {
+	ex := &CodeNodeExecutor{}
+	ctx := core.NewExecutionContext("wf", "exec", nil)
+	ctx.SetVariable("score", 7)
+	ctx.SetVariable("lang", "expression")
+
+	cfg, _ := json.Marshal(map[string]any{
+		"language": "{{lang}}",
+		"code":     "score",
+	})
+	out, err := ex.Execute(ctx, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out != 7 {
+		t.Fatalf("out=%v", out)
+	}
+	lang, ok := ctx.GetVariable("last_code_language")
+	if !ok || lang != "expression" {
+		t.Fatalf("last_code_language=%v ok=%v", lang, ok)
+	}
+}

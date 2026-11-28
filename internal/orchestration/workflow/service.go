@@ -3,20 +3,37 @@ package workflow
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 
 	"cogniforge/internal/infra/database"
-	"cogniforge/internal/orchestration/engine"
 	"cogniforge/internal/model"
+	"cogniforge/internal/orchestration/engine"
 )
 
 type WorkflowService struct {
 	db             *gorm.DB
 	workflowEngine *engine.WorkflowEngine
 	locker         *ExecLocker
+	scheduler      ScheduleRunner
+}
+
+// ScheduleRunner 定时调度能力（由 infra/scheduler 实现）
+type ScheduleRunner interface {
+	Create(schedule *model.WorkflowSchedule) error
+	Delete(scheduleID string) error
+	ListByWorkflow(userID, workflowID string) ([]model.WorkflowSchedule, error)
+	PauseSchedule(scheduleID string) error
+	ResumeSchedule(scheduleID string) error
+	RunNow(scheduleID string) (executionID string, err error)
+}
+
+func (s *WorkflowService) SetScheduler(r ScheduleRunner) {
+	s.scheduler = r
 }
 
 func NewWorkflowService() *WorkflowService {
@@ -104,9 +121,27 @@ func (s *WorkflowService) UpdateWorkflow(userID, workflowID string, req *UpdateW
 	if req.Status != "" {
 		updates["status"] = req.Status
 	}
+	if req.WebhookURL != nil {
+		hook := strings.TrimSpace(*req.WebhookURL)
+		if hook != "" {
+			u, err := url.ParseRequestURI(hook)
+			if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+				return nil, fmt.Errorf("webhook_url 须为 http(s) 地址")
+			}
+		}
+		updates["webhook_url"] = hook
+	}
+	defChanged := false
 	if req.Definition != nil {
 		defJSON, _ := json.Marshal(req.Definition)
-		updates["definition"] = string(defJSON)
+		newDef := string(defJSON)
+		if newDef != workflow.Definition {
+			defChanged = true
+			// 改定义前先把当前版写入历史，便于回滚
+			s.snapshotVersion(&workflow, "before_update")
+			updates["definition"] = newDef
+			updates["version"] = workflow.Version + 1
+		}
 	}
 
 	if len(updates) > 0 {
@@ -115,9 +150,79 @@ func (s *WorkflowService) UpdateWorkflow(userID, workflowID string, req *UpdateW
 		}
 	}
 
-	s.db.Model(&workflow).Update("version", workflow.Version+1)
+	// 仅改名/状态时不 bump；定义变更已在 updates 里 bump
+	if !defChanged && len(updates) > 0 {
+		// 保持 version 不变
+	}
 	s.db.First(&workflow, "id = ?", workflowID)
 	return &workflow, nil
+}
+
+func (s *WorkflowService) snapshotVersion(wf *model.Workflow, note string) {
+	if s.db == nil || wf == nil {
+		return
+	}
+	ver := wf.Version
+	if ver < 1 {
+		ver = 1
+	}
+	var exists int64
+	_ = s.db.Model(&model.WorkflowVersion{}).
+		Where("workflow_id = ? AND version = ?", wf.ID, ver).
+		Count(&exists).Error
+	if exists > 0 {
+		return
+	}
+	_ = s.db.Create(&model.WorkflowVersion{
+		ID:         newID(),
+		WorkflowID: wf.ID,
+		Version:    ver,
+		Definition: wf.Definition,
+		Note:       note,
+	}).Error
+}
+
+// ListWorkflowVersions 历史版本（不含当前未快照的最新版时仍可读 workflows.version）
+func (s *WorkflowService) ListWorkflowVersions(userID, workflowID string) ([]model.WorkflowVersion, error) {
+	if _, err := s.GetWorkflow(userID, workflowID); err != nil {
+		return nil, err
+	}
+	var list []model.WorkflowVersion
+	if err := s.db.Where("workflow_id = ?", workflowID).
+		Order("version DESC").
+		Limit(50).
+		Find(&list).Error; err != nil {
+		return nil, fmt.Errorf("查询版本失败")
+	}
+	return list, nil
+}
+
+// RollbackWorkflowVersion 回滚到历史版本：先快照当前，再把目标定义写回并 bump version
+func (s *WorkflowService) RollbackWorkflowVersion(userID, workflowID string, targetVersion int) (*model.Workflow, error) {
+	wf, err := s.GetWorkflow(userID, workflowID)
+	if err != nil {
+		return nil, err
+	}
+	if targetVersion < 1 {
+		return nil, fmt.Errorf("无效版本号")
+	}
+	var snap model.WorkflowVersion
+	if err := s.db.Where("workflow_id = ? AND version = ?", workflowID, targetVersion).First(&snap).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, fmt.Errorf("版本不存在")
+		}
+		return nil, fmt.Errorf("查询版本失败")
+	}
+	s.snapshotVersion(wf, "before_rollback")
+	next := wf.Version + 1
+	if err := s.db.Model(&model.Workflow{}).Where("id = ?", workflowID).Updates(map[string]any{
+		"definition": snap.Definition,
+		"version":    next,
+	}).Error; err != nil {
+		return nil, fmt.Errorf("回滚失败")
+	}
+	s.db.First(wf, "id = ?", workflowID)
+	return wf, nil
 }
 
 // DeleteWorkflow 删除工作流
@@ -130,6 +235,32 @@ func (s *WorkflowService) DeleteWorkflow(userID, workflowID string) error {
 		return fmt.Errorf("工作流不存在")
 	}
 	return nil
+}
+
+// CloneWorkflow 复制工作流定义（不含执行历史）；新副本固定 draft / version=1
+func (s *WorkflowService) CloneWorkflow(userID, workflowID string) (*model.Workflow, error) {
+	src, err := s.GetWorkflow(userID, workflowID)
+	if err != nil {
+		return nil, err
+	}
+	name := src.Name
+	if name == "" {
+		name = "workflow"
+	}
+	name = name + " (副本)"
+	clone := model.Workflow{
+		ID:          generateID(),
+		UserID:      userID,
+		Name:        name,
+		Description: src.Description,
+		Definition:  src.Definition,
+		Status:      "draft",
+		Version:     1,
+	}
+	if err := s.db.Create(&clone).Error; err != nil {
+		return nil, fmt.Errorf("复制工作流失败")
+	}
+	return &clone, nil
 }
 
 // ExecuteWorkflow 异步执行工作流
@@ -235,7 +366,9 @@ func (s *WorkflowService) ListCheckpoints(userID, executionID string) ([]model.W
 
 // ResumeExecution 从 checkpoint 继续（仅 waiting）
 func (s *WorkflowService) ResumeExecution(userID, executionID string, req *ResumeExecutionRequest) (*ExecuteResponse, error) {
-	return s.resumeWithExtras(userID, executionID, req, nil)
+	return s.resumeWithExtras(userID, executionID, req, map[string]any{
+		"last_wait_decision": "resumed",
+	})
 }
 
 // ApproveExecution 审批通过 → resume（W3）
@@ -247,12 +380,20 @@ func (s *WorkflowService) ApproveExecution(userID, executionID string, req *Appr
 	if exec.Status != "waiting" {
 		return nil, fmt.Errorf("仅 waiting 可审批，当前: %s", exec.Status)
 	}
-	extras := map[string]any{
-		"approval_decision": "approved",
-		"approved_at":       time.Now().UTC().Format(time.RFC3339),
+	comment := ""
+	if req != nil {
+		comment = req.Comment
 	}
-	if req != nil && req.Comment != "" {
-		extras["approval_comment"] = req.Comment
+	s.recordHumanAction(exec, userID, "approve", comment)
+	extras := map[string]any{
+		"approval_decision":  "approved",
+		"last_wait_decision": "approved",
+		"approved_at":        time.Now().UTC().Format(time.RFC3339),
+		"approved_by":        userID,
+	}
+	if comment != "" {
+		extras["approval_comment"] = comment
+		extras["last_wait_comment"] = comment
 	}
 	var resumeReq *ResumeExecutionRequest
 	if req != nil && req.Seq != nil {
@@ -274,6 +415,7 @@ func (s *WorkflowService) RejectExecution(userID, executionID string, req *Rejec
 	if req != nil && req.Reason != "" {
 		reason = req.Reason
 	}
+	s.recordHumanAction(exec, userID, "reject", reason)
 	now := time.Now()
 	return s.db.Model(&model.WorkflowExecution{}).Where("id = ?", executionID).Updates(map[string]any{
 		"status":       "failed",
@@ -283,6 +425,53 @@ func (s *WorkflowService) RejectExecution(userID, executionID string, req *Rejec
 		"current_node": "",
 		"completed_at": &now,
 	}).Error
+}
+
+// recordHumanAction 把审批/拒绝写入 node_runs，供时间线审计（谁、何时、哪个 wait）
+func (s *WorkflowService) recordHumanAction(exec *model.WorkflowExecution, actorUserID, action, note string) {
+	if s.db == nil || exec == nil {
+		return
+	}
+	waitNode := exec.CurrentNode
+	if waitNode == "" {
+		waitNode = "wait"
+	}
+	var maxAttempt int
+	_ = s.db.Model(&model.WorkflowNodeRun{}).
+		Where("execution_id = ? AND node_id = ?", exec.ID, waitNode).
+		Select("COALESCE(MAX(attempt), 0)").Scan(&maxAttempt).Error
+	now := time.Now()
+	detail := model.JSONBMap{
+		"human_action":  true,
+		"action":        action,
+		"actor_user_id": actorUserID,
+		"wait_node_id":  waitNode,
+		"wait_reason":   exec.WaitReason,
+		"at":            now.UTC().Format(time.RFC3339),
+	}
+	if note != "" {
+		detail["note"] = note
+	}
+	status := "approved"
+	if action == "reject" {
+		status = "rejected"
+	}
+	run := model.WorkflowNodeRun{
+		ID:          newID(),
+		ExecutionID: exec.ID,
+		NodeID:      waitNode,
+		NodeType:    "human_action",
+		Attempt:     maxAttempt + 1,
+		Status:      status,
+		Detail:      detail,
+		StartedAt:   &now,
+		FinishedAt:  &now,
+		CreatedAt:   now,
+	}
+	if err := s.db.Create(&run).Error; err != nil {
+		// 审计失败不阻断审批主流程
+		_ = err
+	}
 }
 
 // CallbackExecution 外部回调 approve/reject（W3；需登录，与审批同权）
@@ -365,6 +554,14 @@ func (s *WorkflowService) resumeWithExtras(userID, executionID string, req *Resu
 		}()
 		ctx := engine.NewExecutionContextWithTraceID(exec.WorkflowID, executionID, input, exec.TraceID).WithUserID(userID)
 		ctx.DefinitionHash = engine.HashDefinition(wf.Definition)
+		ctx.OnNodeStart = func(nodeID string) {
+			s.db.Model(&model.WorkflowExecution{}).Where("id = ?", executionID).
+				Update("current_node", nodeID)
+		}
+		ctx.OnProgress = func(nodeID, message string) {
+			ctx.Logger.Logf(nodeID, "info", "%s", message)
+			engine.PatchNodeRunProgress(executionID, nodeID, message)
+		}
 		engine.ApplyCheckpoint(ctx, &cp)
 		for k, v := range extras {
 			ctx.SetVariable(k, v)
@@ -458,10 +655,14 @@ func (s *WorkflowService) DebugWorkflowWithTraceID(userID, workflowID string, re
 	go func() {
 		ctx := engine.NewExecutionContextWithTraceID(workflowID, executionID, input, traceID).WithUserID(userID)
 		ctx.DefinitionHash = engine.HashDefinition(workflow.Definition)
-		// 节点进度由引擎写 current_node / node_runs；勿用节点 status 覆盖整次执行 status
+		// 只更新 current_node；整次执行 status 由引擎 updateExecutionStatus 负责，避免覆盖 completed
 		ctx.OnNodeStart = func(nodeID string) {
 			s.db.Model(&model.WorkflowExecution{}).Where("id = ?", executionID).
-				Updates(map[string]any{"current_node": nodeID, "status": "running"})
+				Update("current_node", nodeID)
+		}
+		ctx.OnProgress = func(nodeID, message string) {
+			ctx.Logger.Logf(nodeID, "info", "%s", message)
+			engine.PatchNodeRunProgress(executionID, nodeID, message)
 		}
 
 		def, err := s.workflowEngine.ParseDefinition(workflow.Definition)
@@ -470,6 +671,57 @@ func (s *WorkflowService) DebugWorkflowWithTraceID(userID, workflowID string, re
 				Where("id = ?", executionID).
 				Updates(map[string]any{"status": "failed", "error": err.Error()})
 			return
+		}
+
+		if req != nil && req.StartFromNode != "" {
+			skipped, skipErr := engine.ApplyStartFrom(ctx, def, req.StartFromNode)
+			if skipErr != nil {
+				s.db.Model(&model.WorkflowExecution{}).
+					Where("id = ?", executionID).
+					Updates(map[string]any{"status": "failed", "error": skipErr.Error()})
+				return
+			}
+			seeded := map[string]map[string]any{}
+			if req.SeedExecutionID != "" && len(skipped) > 0 {
+				ids := make([]string, 0, len(skipped))
+				for _, n := range skipped {
+					ids = append(ids, n.ID)
+				}
+				var seedEx model.WorkflowExecution
+				if err := s.db.Where("id = ? AND workflow_id = ? AND user_id = ?",
+					req.SeedExecutionID, workflowID, userID).First(&seedEx).Error; err == nil {
+					var seedRuns []model.WorkflowNodeRun
+					_ = s.db.Where("execution_id = ? AND node_id IN ?", req.SeedExecutionID, ids).
+						Order("created_at asc").Find(&seedRuns).Error
+					seeded = pickSeedOutputs(seedRuns, ids)
+					applySeedOutputsToContext(ctx, seeded)
+				}
+			}
+			now := time.Now()
+			for _, n := range skipped {
+				detail := model.JSONBMap{
+					"start_from":  req.StartFromNode,
+					"skip_reason": "debug_from_node",
+				}
+				var out model.JSONBMap
+				if o, ok := seeded[n.ID]; ok {
+					out = model.JSONBMap(o)
+					detail["seeded_from"] = req.SeedExecutionID
+				}
+				_ = s.db.Create(&model.WorkflowNodeRun{
+					ID:          newID(),
+					ExecutionID: executionID,
+					NodeID:      n.ID,
+					NodeType:    n.Type,
+					Attempt:     1,
+					Status:      "skipped",
+					Output:      out,
+					Detail:      detail,
+					StartedAt:   &now,
+					FinishedAt:  &now,
+					CreatedAt:   now,
+				}).Error
+			}
 		}
 
 		_ = s.workflowEngine.Execute(ctx, def)
@@ -485,4 +737,100 @@ func (s *WorkflowService) DebugWorkflowWithTraceID(userID, workflowID string, re
 // generateID 生成唯一ID
 func generateID() string {
 	return newID()
+}
+
+// CreateSchedule 为工作流创建 Cron 调度
+func (s *WorkflowService) CreateSchedule(userID, workflowID string, req *CreateScheduleRequest) (*model.WorkflowSchedule, error) {
+	if s.scheduler == nil {
+		return nil, fmt.Errorf("调度器未启用")
+	}
+	if _, err := s.GetWorkflow(userID, workflowID); err != nil {
+		return nil, err
+	}
+	active := true
+	if req != nil && req.IsActive != nil {
+		active = *req.IsActive
+	}
+	name := ""
+	cronExpr := ""
+	var input model.JSONBMap
+	if req != nil {
+		name = req.Name
+		cronExpr = req.CronExpression
+		if req.DefaultInput != nil {
+			input = model.JSONBMap(req.DefaultInput)
+		}
+	}
+	if name == "" {
+		name = "schedule"
+	}
+	sch := &model.WorkflowSchedule{
+		WorkflowID:     workflowID,
+		UserID:         userID,
+		Name:           name,
+		CronExpression: cronExpr,
+		IsActive:       active,
+		DefaultInput:   input,
+	}
+	if err := s.scheduler.Create(sch); err != nil {
+		return nil, err
+	}
+	return sch, nil
+}
+
+func (s *WorkflowService) ListSchedules(userID, workflowID string) ([]model.WorkflowSchedule, error) {
+	if s.scheduler == nil {
+		return nil, fmt.Errorf("调度器未启用")
+	}
+	if _, err := s.GetWorkflow(userID, workflowID); err != nil {
+		return nil, err
+	}
+	return s.scheduler.ListByWorkflow(userID, workflowID)
+}
+
+func (s *WorkflowService) ensureScheduleOwned(userID, workflowID, scheduleID string) error {
+	if s.scheduler == nil {
+		return fmt.Errorf("调度器未启用")
+	}
+	if _, err := s.GetWorkflow(userID, workflowID); err != nil {
+		return err
+	}
+	list, err := s.scheduler.ListByWorkflow(userID, workflowID)
+	if err != nil {
+		return err
+	}
+	for _, it := range list {
+		if it.ID == scheduleID {
+			return nil
+		}
+	}
+	return fmt.Errorf("调度不存在")
+}
+
+func (s *WorkflowService) DeleteSchedule(userID, workflowID, scheduleID string) error {
+	if err := s.ensureScheduleOwned(userID, workflowID, scheduleID); err != nil {
+		return err
+	}
+	return s.scheduler.Delete(scheduleID)
+}
+
+func (s *WorkflowService) PauseSchedule(userID, workflowID, scheduleID string) error {
+	if err := s.ensureScheduleOwned(userID, workflowID, scheduleID); err != nil {
+		return err
+	}
+	return s.scheduler.PauseSchedule(scheduleID)
+}
+
+func (s *WorkflowService) ResumeSchedule(userID, workflowID, scheduleID string) error {
+	if err := s.ensureScheduleOwned(userID, workflowID, scheduleID); err != nil {
+		return err
+	}
+	return s.scheduler.ResumeSchedule(scheduleID)
+}
+
+func (s *WorkflowService) RunScheduleNow(userID, workflowID, scheduleID string) (string, error) {
+	if err := s.ensureScheduleOwned(userID, workflowID, scheduleID); err != nil {
+		return "", err
+	}
+	return s.scheduler.RunNow(scheduleID)
 }

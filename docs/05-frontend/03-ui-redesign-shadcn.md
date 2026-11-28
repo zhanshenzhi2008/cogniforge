@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-28 | v1.239 | 附录 §11.1：工作流 last_* 结果变量速查 | orjrs |
 | 2026-11-28 | v1.238 | 检索 search_mode 支持 {{变量}}；写 last_search_mode | orjrs |
 | 2026-11-28 | v1.237 | HTTP 写入 last_http_ok（status&lt;400） | orjrs |
 | 2026-11-28 | v1.236 | 代码语言支持 {{变量}}；写 last_code_language | orjrs |
@@ -406,6 +407,12 @@
   - 中期：~~发布渠道~~（Web/API/嵌入已做；IM 仍待）、~~猜你想问~~
   - 远期：~~虚拟机~~（UI 占位；运行时仍待）、~~语音播放~~（浏览器 TTS）、~~语音输入~~（浏览器 STT；云 ASR 另排）
 - **详见**：`cogniforge-web/docs/99-dev-plan/01-development-plan.md` v1.67；主仓开发计划「后续待办」
+
+## [变更] 附录 §11.1 last_* 结果变量速查（2026-11-28）
+
+- **变更原因**：节点各自 hint 散落，产品/调试时难一次看清全部 `last_*`
+- **变更后**：本文 §11.1 总表；Web `WORKFLOW_LAST_RESULT_VARS` + 单测覆盖写出节点
+- **包含代码**：`utils/workflowNodeSettings.ts`；本文 §11.1
 
 ## [变更] 检索 search_mode {{变量}} / last_search_mode（2026-11-28）
 
@@ -2414,9 +2421,54 @@ Mobile 问题记入 backlog，**不阻断** Web 主路径合并。
 
 **改字段时**：先改抽屉与 `vueDataToConfig` / 引擎 config，再改本表与 `workflowNodeSettings.ts`。
 
+### 11.1 结果变量速查（`last_*`）
+
+> 机器可读副本：`cogniforge-web/utils/workflowNodeSettings.ts` → `WORKFLOW_LAST_RESULT_VARS`。  
+> 用法：下游节点配置里写 `{{last_xxx}}`。同一变量被后执行的节点覆盖。
+
+| 变量 | 写出节点 | 说明 |
+|------|----------|------|
+| `last_agent_content` | llm / agent / team / subflow | 文本输出；subflow 仅当结果含 content |
+| `last_agent_id` | agent / team | Agent ID；Team 写活跃成员 |
+| `last_team_id` | team | 小队 ID |
+| `last_llm_model` | llm | 实际模型名 |
+| `last_llm_tokens` | llm | 总 token |
+| `last_llm_latency_ms` | llm | 延迟毫秒 |
+| `last_search_query` | search | 实际问句 |
+| `last_search_context` | search | 拼接上下文 |
+| `last_search_total` | search | 命中条数 |
+| `last_search_kb_id` | search | 知识库 ID |
+| `last_search_mode` | search | 展开后的模式；空=跟库 |
+| `last_search_rerank_provider_id` | search | 重排模型 ID；可空 |
+| `last_subflow_output` | subflow | 子流程输出 JSON 字符串 |
+| `last_subflow_workflow_id` | subflow | 嵌套工作流 ID |
+| `last_condition_result` | condition | 比较结果 bool |
+| `last_condition_branch` | condition | true / false 分支名 |
+| `last_condition_field` | condition | 展开后的字段名 |
+| `last_loop_total` | loop | 实际迭代次数 |
+| `last_loop_index` | loop | 末轮下标；无迭代为 -1 |
+| `last_loop_type` | loop | times / while / for_each |
+| `last_loop_item_var` | loop | 仅 for_each；元素变量名 |
+| `last_loop_key_var` | loop | 仅 for_each；下标变量名 |
+| `last_http_method` | http | 实际方法（大写） |
+| `last_http_status` | http | HTTP 状态码 |
+| `last_http_body` | http | 响应体文本 |
+| `last_http_ok` | http | status &lt; 400 |
+| `last_code_output` | code | 代码输出 |
+| `last_code_language` | code | 实际语言 |
+| `last_delay_ms` | delay | 实际睡眠毫秒（含上限裁切） |
+| `last_delay_duration` | delay | 配置时长数字 |
+| `last_delay_unit` | delay | seconds / minutes / hours |
+| `last_wait_reason` | wait | 挂起原因 |
+| `last_wait_message` | wait | 挂起提示文案 |
+| `last_wait_timeout_sec` | wait | 超时秒；无则 0 |
+| `last_wait_decision` | wait（继续/审批后） | 非节点内写入；兼 `approval_decision` |
+
+**新增 `last_*` 时**：改引擎 `SetVariable` → 本表 → `WORKFLOW_LAST_RESULT_VARS` → 对应抽屉 hint。
+
 ---
 
-**文档版本**: v1.193  
-**最后更新**: 2026-08-12  
+**文档版本**: v1.239  
+**最后更新**: 2026-11-28  
 **维护**: CogniForge 前端  
 **分支建议**: `feat/nuxt-shadcn-vue`

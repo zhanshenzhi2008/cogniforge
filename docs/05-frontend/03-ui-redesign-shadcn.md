@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-28 | v1.217 | HTTP 超时支持 {{变量}} | orjrs |
 | 2026-11-28 | v1.216 | 循环次数/最大迭代支持 {{变量}} | orjrs |
 | 2026-11-28 | v1.215 | 等待超时 timeout_sec 支持 {{变量}} | orjrs |
 | 2026-11-28 | v1.214 | 延时时长支持 {{变量}} | orjrs |
@@ -384,6 +385,12 @@
   - 中期：~~发布渠道~~（Web/API/嵌入已做；IM 仍待）、~~猜你想问~~
   - 远期：~~虚拟机~~（UI 占位；运行时仍待）、~~语音播放~~（浏览器 TTS）、~~语音输入~~（浏览器 STT；云 ASR 另排）
 - **详见**：`cogniforge-web/docs/99-dev-plan/01-development-plan.md` v1.67；主仓开发计划「后续待办」
+
+## [变更] HTTP 超时 {{变量}}（2026-11-28）
+
+- **变更原因**：HTTP 超时只能写死秒数
+- **变更后**：`timeout` 可为数字或 `{{变量}}`；空/0→30；抽屉 hint
+- **包含代码**：`nodes/http.go`；Web 超时输入
 
 ## [变更] 循环次数/上限 {{变量}}（2026-11-28）
 
@@ -2251,7 +2258,7 @@ Mobile 问题记入 backlog，**不阻断** Web 主路径合并。
 | `subflow` | 是 | 嵌套工作流名 · 自定义入参 | **subflowWorkflowId**（禁自身；最多 3 层）；可选 `input` JSON（`{{变量}}`）；结果写 `last_subflow_output`（有 content 兼写 `last_agent_content`） |
 | `condition` | 是 | 字段 运算符 值 | **conditionField**、operator、value（`{{变量}}`）、description；须真/假出边；结果写 `last_condition_result`/`branch`/`field` |
 | `loop` | 是 | 次数/条件/数组→元素 | loopType；times 的 count / max_iter 支持数字或 `{{变量}}`；while 条件支持 `{{变量}}`；for_each 时 **loopArrayVar**；结束后写 `last_loop_total`/`index`/`type` |
-| `http` | 是 | METHOD url · 头/超时/严校验 | method、**httpUrl**、body、**headers**、timeout、failOnError；URL/头/体 `{{变量}}`；结果写 `last_http_status`/`last_http_body` |
+| `http` | 是 | METHOD url · 头/超时/严校验 | method、**httpUrl**、body、**headers**、timeout（数字或 `{{变量}}`）、failOnError；URL/头/体 `{{变量}}`；结果写 `last_http_status`/`last_http_body` |
 | `code` | 是 | 语言: 首行 · Ns | language、**codeSource**、timeout（沙箱）；结果写 `last_code_output` |
 | `delay` | 是 | 时长+单位 | delayDuration（数字或 `{{变量}}`）、delayUnit；结束后写 `last_delay_ms`/`duration`/`unit` |
 | `wait` | 是 | 原因:消息 · 超时 | waitReason（`{{变量}}`）、waitMessage（`{{变量}}`）、timeoutSec（数字或 `{{变量}}`）；挂起写 `last_wait_*`；审批后 `approval_decision` |

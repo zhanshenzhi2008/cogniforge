@@ -16,7 +16,7 @@ type HTTPNodeConfig struct {
 	Method      string            `json:"method"`
 	Headers     map[string]string `json:"headers,omitempty"`
 	Body        any               `json:"body,omitempty"`
-	Timeout     int               `json:"timeout,omitempty"`
+	Timeout     json.RawMessage   `json:"timeout,omitempty"` // 数字或 "{{变量}}"；空/0→30
 	FailOnError bool              `json:"fail_on_error,omitempty"` // true 时 status>=400 使节点失败
 }
 
@@ -39,8 +39,9 @@ func (e *HTTPNodeExecutor) Execute(ctx *core.ExecutionContext, config json.RawMe
 	if cfg.Method == "" {
 		cfg.Method = "GET"
 	}
-	if cfg.Timeout == 0 {
-		cfg.Timeout = 30
+	timeoutSec := resolveFlexibleInt(cfg.Timeout, ctx)
+	if timeoutSec <= 0 {
+		timeoutSec = 30
 	}
 
 	url := resolveTemplate(cfg.URL, ctx)
@@ -75,10 +76,10 @@ func (e *HTTPNodeExecutor) Execute(ctx *core.ExecutionContext, config json.RawMe
 
 	client := e.client
 	if client == nil {
-		client = &http.Client{Timeout: time.Duration(cfg.Timeout) * time.Second}
-	} else if cfg.Timeout > 0 {
+		client = &http.Client{Timeout: time.Duration(timeoutSec) * time.Second}
+	} else {
 		client = &http.Client{
-			Timeout:   time.Duration(cfg.Timeout) * time.Second,
+			Timeout:   time.Duration(timeoutSec) * time.Second,
 			Transport: e.client.Transport,
 		}
 	}

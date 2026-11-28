@@ -28,6 +28,7 @@ func TestHTTPNodeExecutor_ResolvesTemplates(t *testing.T) {
 	ctx := core.NewExecutionContext("wf", "exec", map[string]any{"token": "abc"}).WithUserID("u1")
 	ctx.SetVariable("path", "/v1/items")
 	ctx.SetVariable("q", "hello")
+	ctx.SetVariable("ttl", "5")
 
 	cfg, _ := json.Marshal(map[string]any{
 		"url":    srv.URL + "{{path}}",
@@ -38,7 +39,7 @@ func TestHTTPNodeExecutor_ResolvesTemplates(t *testing.T) {
 		"body": map[string]any{
 			"query": "{{q}}",
 		},
-		"timeout": 5,
+		"timeout": "{{ttl}}",
 	})
 	out, err := ex.Execute(ctx, cfg)
 	if err != nil {

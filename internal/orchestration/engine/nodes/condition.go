@@ -30,10 +30,12 @@ func (e *ConditionNodeExecutor) Execute(ctx *core.ExecutionContext, config json.
 	}
 
 	if len(cfg.Conditions) == 0 {
-		return map[string]any{
+		out := map[string]any{
 			"result": true,
 			"branch": "default",
-		}, nil
+		}
+		storeLastCondition(ctx, out)
+		return out, nil
 	}
 
 	for _, condition := range cfg.Conditions {
@@ -49,21 +51,37 @@ func (e *ConditionNodeExecutor) Execute(ctx *core.ExecutionContext, config json.
 			condition.Field, condition.Operator, expected, result, fieldValue)
 
 		if result {
-			return map[string]any{
+			out := map[string]any{
 				"result":   true,
 				"branch":   condition.Branch,
 				"field":    condition.Field,
 				"operator": condition.Operator,
 				"expected": expected,
 				"actual":   fieldValue,
-			}, nil
+			}
+			storeLastCondition(ctx, out)
+			return out, nil
 		}
 	}
 
-	return map[string]any{
+	out := map[string]any{
 		"result": false,
 		"branch": "default",
-	}, nil
+	}
+	storeLastCondition(ctx, out)
+	return out, nil
+}
+
+// storeLastCondition 供下游 {{last_condition_result}} / {{last_condition_branch}} 引用
+func storeLastCondition(ctx *core.ExecutionContext, out map[string]any) {
+	if ctx == nil || out == nil {
+		return
+	}
+	ctx.SetVariable("last_condition_result", out["result"])
+	ctx.SetVariable("last_condition_branch", out["branch"])
+	if f, ok := out["field"]; ok {
+		ctx.SetVariable("last_condition_field", f)
+	}
 }
 
 func (e *ConditionNodeExecutor) getFieldValue(field string, ctx *core.ExecutionContext) any {

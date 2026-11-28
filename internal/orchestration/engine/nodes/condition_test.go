@@ -31,6 +31,15 @@ func TestConditionNode_EqualOperator(t *testing.T) {
 	result := output.(map[string]any)
 	assert.Equal(t, true, result["result"])
 	assert.Equal(t, "active_branch", result["branch"])
+	gotResult, ok := ctx.GetVariable("last_condition_result")
+	assert.True(t, ok)
+	assert.Equal(t, true, gotResult)
+	gotBranch, ok := ctx.GetVariable("last_condition_branch")
+	assert.True(t, ok)
+	assert.Equal(t, "active_branch", gotBranch)
+	gotField, ok := ctx.GetVariable("last_condition_field")
+	assert.True(t, ok)
+	assert.Equal(t, "status", gotField)
 }
 
 func TestConditionNode_NotEqual(t *testing.T) {

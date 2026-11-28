@@ -366,7 +366,9 @@ func (s *WorkflowService) ListCheckpoints(userID, executionID string) ([]model.W
 
 // ResumeExecution 从 checkpoint 继续（仅 waiting）
 func (s *WorkflowService) ResumeExecution(userID, executionID string, req *ResumeExecutionRequest) (*ExecuteResponse, error) {
-	return s.resumeWithExtras(userID, executionID, req, nil)
+	return s.resumeWithExtras(userID, executionID, req, map[string]any{
+		"last_wait_decision": "resumed",
+	})
 }
 
 // ApproveExecution 审批通过 → resume（W3）
@@ -384,12 +386,14 @@ func (s *WorkflowService) ApproveExecution(userID, executionID string, req *Appr
 	}
 	s.recordHumanAction(exec, userID, "approve", comment)
 	extras := map[string]any{
-		"approval_decision": "approved",
-		"approved_at":       time.Now().UTC().Format(time.RFC3339),
-		"approved_by":       userID,
+		"approval_decision":  "approved",
+		"last_wait_decision": "approved",
+		"approved_at":        time.Now().UTC().Format(time.RFC3339),
+		"approved_by":        userID,
 	}
 	if comment != "" {
 		extras["approval_comment"] = comment
+		extras["last_wait_comment"] = comment
 	}
 	var resumeReq *ResumeExecutionRequest
 	if req != nil && req.Seq != nil {

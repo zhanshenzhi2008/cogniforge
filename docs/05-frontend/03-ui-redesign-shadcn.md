@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-28 | v1.219 | 继续/审批写入 last_wait_decision | orjrs |
 | 2026-11-28 | v1.218 | 代码沙箱超时支持 {{变量}} | orjrs |
 | 2026-11-28 | v1.217 | HTTP 超时支持 {{变量}} | orjrs |
 | 2026-11-28 | v1.216 | 循环次数/最大迭代支持 {{变量}} | orjrs |
@@ -386,6 +387,12 @@
   - 中期：~~发布渠道~~（Web/API/嵌入已做；IM 仍待）、~~猜你想问~~
   - 远期：~~虚拟机~~（UI 占位；运行时仍待）、~~语音播放~~（浏览器 TTS）、~~语音输入~~（浏览器 STT；云 ASR 另排）
 - **详见**：`cogniforge-web/docs/99-dev-plan/01-development-plan.md` v1.67；主仓开发计划「后续待办」
+
+## [变更] last_wait_decision（2026-11-28）
+
+- **变更原因**：审批后只有 `approval_decision`，与 `last_wait_*` 命名不一致；普通「继续」无决策变量
+- **变更后**：审批写 `last_wait_decision=approved`（兼写 `approval_decision`）；继续写 `resumed`；有批注时兼写 `last_wait_comment`
+- **包含代码**：`workflow/service.go`；Web 等待 hint
 
 ## [变更] 代码沙箱超时 {{变量}}（2026-11-28）
 
@@ -2268,7 +2275,7 @@ Mobile 问题记入 backlog，**不阻断** Web 主路径合并。
 | `http` | 是 | METHOD url · 头/超时/严校验 | method、**httpUrl**、body、**headers**、timeout（数字或 `{{变量}}`）、failOnError；URL/头/体 `{{变量}}`；结果写 `last_http_status`/`last_http_body` |
 | `code` | 是 | 语言: 首行 · Ns | language、**codeSource**、timeout（沙箱；数字或 `{{变量}}`）；结果写 `last_code_output` |
 | `delay` | 是 | 时长+单位 | delayDuration（数字或 `{{变量}}`）、delayUnit；结束后写 `last_delay_ms`/`duration`/`unit` |
-| `wait` | 是 | 原因:消息 · 超时 | waitReason（`{{变量}}`）、waitMessage（`{{变量}}`）、timeoutSec（数字或 `{{变量}}`）；挂起写 `last_wait_*`；审批后 `approval_decision` |
+| `wait` | 是 | 原因:消息 · 超时 | waitReason（`{{变量}}`）、waitMessage（`{{变量}}`）、timeoutSec（数字或 `{{变量}}`）；挂起写 `last_wait_*`；继续/审批后 `last_wait_decision`（兼 `approval_decision`） |
 | `input` | 否（旧图） | 变量名 | **variable** |
 | `output` | 否（旧图） | 变量名 | **variable** |
 

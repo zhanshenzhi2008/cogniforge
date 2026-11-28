@@ -165,7 +165,17 @@ func (e *LLMNodeExecutor) Execute(ctx *core.ExecutionContext, config json.RawMes
 	}
 	// 与 Agent 共用：下游空 prompt / 检索问句可接 last_agent_content
 	ctx.SetVariable("last_agent_content", content)
-	ctx.Logger.Logf(ctx.NodeID, "info", "LLM ok mode=%s model=%s latency=%dms content_len=%d", mode, outModel, latency, len(content))
+	// 供下游引用本次调用元数据（条件/日志/配额展示）
+	if outModel != "" {
+		ctx.SetVariable("last_llm_model", outModel)
+	} else if model != "" {
+		ctx.SetVariable("last_llm_model", model)
+	}
+	ctx.SetVariable("last_llm_tokens", usageTokens.TotalTokens)
+	ctx.SetVariable("last_llm_latency_ms", latency)
+	if ctx.Logger != nil {
+		ctx.Logger.Logf(ctx.NodeID, "info", "LLM ok mode=%s model=%s latency=%dms content_len=%d", mode, outModel, latency, len(content))
+	}
 
 	return map[string]any{
 		"model":      outModel,

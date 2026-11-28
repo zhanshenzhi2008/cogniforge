@@ -55,6 +55,20 @@ func TestResolveLLMModelTemplate(t *testing.T) {
 	require.Equal(t, "fixed-model", strings.TrimSpace(resolveTemplate("fixed-model", ctx)))
 }
 
+func TestStoreLastLLMMeta(t *testing.T) {
+	ctx := core.NewExecutionContext("wf", "exec", nil)
+	ctx.SetVariable("last_agent_content", "hi")
+	ctx.SetVariable("last_llm_model", "m1")
+	ctx.SetVariable("last_llm_tokens", 42)
+	ctx.SetVariable("last_llm_latency_ms", int64(12))
+	gotM, ok := ctx.GetVariable("last_llm_model")
+	require.True(t, ok)
+	require.Equal(t, "m1", gotM)
+	gotT, ok := ctx.GetVariable("last_llm_tokens")
+	require.True(t, ok)
+	require.Equal(t, 42, gotT)
+}
+
 func TestLLMNodeConfig_TemperatureMaxTokensTemplate(t *testing.T) {
 	ctx := core.NewExecutionContext("wf", "exec", nil)
 	ctx.SetVariable("temp", "0.7")

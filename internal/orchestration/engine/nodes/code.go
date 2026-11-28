@@ -25,7 +25,7 @@ func (e *CodeNodeExecutor) Execute(ctx *core.ExecutionContext, config json.RawMe
 		return nil, fmt.Errorf("invalid code config: %w", err)
 	}
 
-	lang := strings.ToLower(strings.TrimSpace(cfg.Language))
+	lang := strings.ToLower(strings.TrimSpace(resolveTemplate(cfg.Language, ctx)))
 	if lang == "" {
 		lang = "expression"
 	}
@@ -41,18 +41,22 @@ func (e *CodeNodeExecutor) Execute(ctx *core.ExecutionContext, config json.RawMe
 	case "javascript", "js", "node", "python":
 		out, err = e.executeSandboxed(ctx, lang, cfg.Code, timeoutSec)
 	default:
-		return nil, fmt.Errorf("unsupported language: %s", cfg.Language)
+		return nil, fmt.Errorf("unsupported language: %s", lang)
 	}
 	if err != nil {
 		return nil, err
 	}
-	storeLastCodeOutput(ctx, out)
+	storeLastCode(ctx, lang, out)
 	return out, nil
 }
 
-// storeLastCodeOutput 供下游 {{last_code_output}} 引用
-func storeLastCodeOutput(ctx *core.ExecutionContext, out any) {
-	if ctx == nil || out == nil {
+// storeLastCode 供下游 {{last_code_output}} / {{last_code_language}} 引用
+func storeLastCode(ctx *core.ExecutionContext, lang string, out any) {
+	if ctx == nil {
+		return
+	}
+	ctx.SetVariable("last_code_language", lang)
+	if out == nil {
 		return
 	}
 	if m, ok := out.(map[string]any); ok {

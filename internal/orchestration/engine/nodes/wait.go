@@ -38,7 +38,22 @@ func (e *WaitNodeExecutor) Execute(ctx *core.ExecutionContext, config json.RawMe
 	if cfg.TimeoutSec > 0 {
 		out["timeout_sec"] = cfg.TimeoutSec
 	}
+	storeLastWait(ctx, out)
 	return out, nil
+}
+
+// storeLastWait 挂起前写入，供下游/审批后续步骤 {{last_wait_reason}} 等引用
+func storeLastWait(ctx *core.ExecutionContext, out map[string]any) {
+	if ctx == nil || out == nil {
+		return
+	}
+	ctx.SetVariable("last_wait_reason", out["reason"])
+	ctx.SetVariable("last_wait_message", out["message"])
+	if sec, ok := out["timeout_sec"]; ok {
+		ctx.SetVariable("last_wait_timeout_sec", sec)
+	} else {
+		ctx.SetVariable("last_wait_timeout_sec", 0)
+	}
 }
 
 // IsWaitOutput 判断节点输出是否为等待信号

@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-28 | v1.335 | 子流程写入 last_subflow_output；等待原因模板提示 | orjrs |
 | 2026-11-28 | v1.334 | 代码节点写入 last_code_output 供下游引用 | orjrs |
 | 2026-11-28 | v1.333 | 跨仓：检索抽屉标明 last_search_* 结果变量 | orjrs |
 | 2026-11-27 | v1.332 | HTTP 写入 last_http_status/body 供下游引用 | orjrs |
@@ -551,6 +552,12 @@
 - **原因**：未绑定可保存、运行才失败
 - **落地**：跨仓保存前拦截 team/agent/search/subflow
 - **Web**：开发计划 v1.161；前端设计 v1.129
+
+## [变更] 子流程 last_subflow_output（2026-11-28）
+
+- **原因**：嵌套输出难在模板引用
+- **落地**：`last_subflow_output` + content→`last_agent_content`；等待原因 hint；前端设计 v1.208
+- **Web**：开发计划 v1.244
 
 ## [变更] 代码 last_code_output（2026-11-28）
 

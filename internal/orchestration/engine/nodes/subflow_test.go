@@ -43,6 +43,29 @@ func TestSubflowNodeExecutor_PassesVariables(t *testing.T) {
 	if !ok || m["status"] != "completed" {
 		t.Fatalf("out=%v", out)
 	}
+	got, ok := ctx.GetVariable("last_subflow_output")
+	if !ok {
+		t.Fatal("missing last_subflow_output")
+	}
+	s, _ := got.(string)
+	var parsed map[string]any
+	if err := json.Unmarshal([]byte(s), &parsed); err != nil || parsed["ok"] != true {
+		t.Fatalf("last_subflow_output=%v", got)
+	}
+}
+
+func TestSubflowNodeExecutor_PromotesContentToLastAgent(t *testing.T) {
+	ex := &SubflowNodeExecutor{Run: func(parent *core.ExecutionContext, workflowID string, input map[string]any) (map[string]any, error) {
+		return map[string]any{"content": "子流程结论"}, nil
+	}}
+	ctx := core.NewExecutionContext("wf-parent", "exec-1", nil).WithUserID("u1")
+	_, err := ex.Execute(ctx, json.RawMessage(`{"workflow_id":"wf-child"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v, ok := ctx.GetVariable("last_agent_content"); !ok || v != "子流程结论" {
+		t.Fatalf("last_agent_content=%v ok=%v", v, ok)
+	}
 }
 
 func TestSubflowNodeExecutor_CustomInputTemplates(t *testing.T) {

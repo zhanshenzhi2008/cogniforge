@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-28 | v1.208 | 子流程写入 last_subflow_output；等待原因 {{变量}} 提示 | orjrs |
 | 2026-11-28 | v1.207 | 代码节点写入 last_code_output | orjrs |
 | 2026-11-28 | v1.206 | 检索抽屉标明 last_search_* 结果变量 | orjrs |
 | 2026-11-27 | v1.205 | HTTP 写入 last_http_status/body 供下游引用 | orjrs |
@@ -375,6 +376,12 @@
   - 中期：~~发布渠道~~（Web/API/嵌入已做；IM 仍待）、~~猜你想问~~
   - 远期：~~虚拟机~~（UI 占位；运行时仍待）、~~语音播放~~（浏览器 TTS）、~~语音输入~~（浏览器 STT；云 ASR 另排）
 - **详见**：`cogniforge-web/docs/99-dev-plan/01-development-plan.md` v1.67；主仓开发计划「后续待办」
+
+## [变更] 子流程 last_subflow_output（2026-11-28）
+
+- **变更原因**：嵌套结果难在下游模板引用；等待原因已支持模板但抽屉未写
+- **变更后**：写 `last_subflow_output`（JSON）；有 `content` 时兼写 `last_agent_content`；等待原因 hint
+- **包含代码**：`nodes/subflow.go`；Web hint
 
 ## [变更] 代码 last_code_output（2026-11-28）
 
@@ -2185,13 +2192,13 @@ Mobile 问题记入 backlog，**不阻断** Web 主路径合并。
 | `agent` | 是 | 智能体名 | **agentId**、prompt（`{{变量}}`） |
 | `team` | 是 | 小队名 | **teamId**、prompt/task（`{{变量}}`；空接 `last_agent_content`）；成功写该变量 |
 | `search` | 是 | 库名 · 模式 · topK | **knowledgeBaseId**、query（`{{变量}}`；空接 input/last_agent_content）、覆盖项；结果写 `last_search_context`/`query`/`total` |
-| `subflow` | 是 | 嵌套工作流名 · 自定义入参 | **subflowWorkflowId**（禁自身；最多 3 层）；可选 `input` JSON（`{{变量}}`） |
+| `subflow` | 是 | 嵌套工作流名 · 自定义入参 | **subflowWorkflowId**（禁自身；最多 3 层）；可选 `input` JSON（`{{变量}}`）；结果写 `last_subflow_output`（有 content 兼写 `last_agent_content`） |
 | `condition` | 是 | 字段 运算符 值 | **conditionField**、operator、value（`{{变量}}`）、description；须真/假出边 |
 | `loop` | 是 | 次数/条件/数组→元素 | loopType；while 条件支持 `{{变量}}`；for_each 时 **loopArrayVar** |
 | `http` | 是 | METHOD url · 头/超时/严校验 | method、**httpUrl**、body、**headers**、timeout、failOnError；URL/头/体 `{{变量}}`；结果写 `last_http_status`/`last_http_body` |
 | `code` | 是 | 语言: 首行 · Ns | language、**codeSource**、timeout（沙箱）；结果写 `last_code_output` |
 | `delay` | 是 | 时长+单位 | delayDuration、delayUnit |
-| `wait` | 是 | 原因:消息 · 超时 | waitReason、waitMessage（`{{变量}}`）、timeoutSec |
+| `wait` | 是 | 原因:消息 · 超时 | waitReason（`{{变量}}`）、waitMessage（`{{变量}}`）、timeoutSec |
 | `input` | 否（旧图） | 变量名 | **variable** |
 | `output` | 否（旧图） | 变量名 | **variable** |
 

@@ -46,12 +46,24 @@ func (e *DelayNodeExecutor) Execute(ctx *core.ExecutionContext, config json.RawM
 	ctx.Logger.Logf(ctx.NodeID, "info", "Delaying for %v", duration)
 	time.Sleep(duration)
 
-	return map[string]any{
+	out := map[string]any{
 		"delayed":   true,
 		"duration":  cfg.Duration,
 		"unit":      cfg.Unit,
 		"actual_ms": duration.Milliseconds(),
-	}, nil
+	}
+	storeLastDelay(ctx, out)
+	return out, nil
+}
+
+// storeLastDelay 供下游 {{last_delay_ms}} / {{last_delay_duration}} / {{last_delay_unit}} 引用
+func storeLastDelay(ctx *core.ExecutionContext, out map[string]any) {
+	if ctx == nil || out == nil {
+		return
+	}
+	ctx.SetVariable("last_delay_ms", out["actual_ms"])
+	ctx.SetVariable("last_delay_duration", out["duration"])
+	ctx.SetVariable("last_delay_unit", out["unit"])
 }
 
 func parseDuration(s string) (time.Duration, error) {

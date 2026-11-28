@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-28 | v1.211 | 延时节点写入 last_delay_ms/duration/unit | orjrs |
 | 2026-11-28 | v1.210 | 循环节点写入 last_loop_total/index/type | orjrs |
 | 2026-11-28 | v1.209 | 条件节点写入 last_condition_result/branch/field | orjrs |
 | 2026-11-28 | v1.208 | 子流程写入 last_subflow_output；等待原因 {{变量}} 提示 | orjrs |
@@ -378,6 +379,12 @@
   - 中期：~~发布渠道~~（Web/API/嵌入已做；IM 仍待）、~~猜你想问~~
   - 远期：~~虚拟机~~（UI 占位；运行时仍待）、~~语音播放~~（浏览器 TTS）、~~语音输入~~（浏览器 STT；云 ASR 另排）
 - **详见**：`cogniforge-web/docs/99-dev-plan/01-development-plan.md` v1.67；主仓开发计划「后续待办」
+
+## [变更] 延时 last_delay_*（2026-11-28）
+
+- **变更原因**：延时实际毫秒/配置时长难在下游模板引用
+- **变更后**：写 `last_delay_ms` / `last_delay_duration` / `last_delay_unit`；抽屉 hint
+- **包含代码**：`nodes/delay.go`；Web hint
 
 ## [变更] 循环 last_loop_*（2026-11-28）
 
@@ -2211,7 +2218,7 @@ Mobile 问题记入 backlog，**不阻断** Web 主路径合并。
 | `loop` | 是 | 次数/条件/数组→元素 | loopType；while 条件支持 `{{变量}}`；for_each 时 **loopArrayVar**；结束后写 `last_loop_total`/`index`/`type` |
 | `http` | 是 | METHOD url · 头/超时/严校验 | method、**httpUrl**、body、**headers**、timeout、failOnError；URL/头/体 `{{变量}}`；结果写 `last_http_status`/`last_http_body` |
 | `code` | 是 | 语言: 首行 · Ns | language、**codeSource**、timeout（沙箱）；结果写 `last_code_output` |
-| `delay` | 是 | 时长+单位 | delayDuration、delayUnit |
+| `delay` | 是 | 时长+单位 | delayDuration、delayUnit；结束后写 `last_delay_ms`/`duration`/`unit` |
 | `wait` | 是 | 原因:消息 · 超时 | waitReason（`{{变量}}`）、waitMessage（`{{变量}}`）、timeoutSec |
 | `input` | 否（旧图） | 变量名 | **variable** |
 | `output` | 否（旧图） | 变量名 | **variable** |

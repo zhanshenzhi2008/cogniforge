@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-28 | v1.242 | 条件运算符支持 {{变量}}；写 last_condition_operator | orjrs |
 | 2026-11-28 | v1.241 | 节点抽屉 last_* 一键复制 {{变量}} | orjrs |
 | 2026-11-28 | v1.240 | 节点抽屉折叠展示本节点写出的 last_* | orjrs |
 | 2026-11-28 | v1.239 | 附录 §11.1：工作流 last_* 结果变量速查 | orjrs |
@@ -409,6 +410,12 @@
   - 中期：~~发布渠道~~（Web/API/嵌入已做；IM 仍待）、~~猜你想问~~
   - 远期：~~虚拟机~~（UI 占位；运行时仍待）、~~语音播放~~（浏览器 TTS）、~~语音输入~~（浏览器 STT；云 ASR 另排）
 - **详见**：`cogniforge-web/docs/99-dev-plan/01-development-plan.md` v1.67；主仓开发计划「后续待办」
+
+## [变更] 条件运算符 {{变量}} / last_condition_operator（2026-11-28）
+
+- **变更原因**：运算符只能下拉写死，无法按入参切换比较方式
+- **变更后**：`operator` 先展开；成功写 `last_condition_operator`；抽屉可选手写；本文 §11 / §11.1
+- **包含代码**：`nodes/condition.go`；Web 条件抽屉
 
 ## [变更] 节点抽屉 last_* 一键复制（2026-11-28）
 
@@ -2424,7 +2431,7 @@ Mobile 问题记入 backlog，**不阻断** Web 主路径合并。
 | `team` | 是 | 小队名 | **teamId**（ID 或 `{{变量}}`）、prompt/task（`{{变量}}`；空接 `last_agent_content`）；成功写 `last_agent_content` / `last_team_id` |
 | `search` | 是 | 库名 · 模式 · topK | **knowledgeBaseId**（ID 或 `{{变量}}`）、query（`{{变量}}`；空接 input/last_agent_content）、**searchMode**（semantic/keyword/hybrid 或 `{{变量}}`；空跟库）、topK / minScore / hybridSemanticWeight（数字或 `{{变量}}`；空跟库）、**rerankProviderId**（ID 或 `{{变量}}`；空跟库）、覆盖项；结果写 `last_search_context`/`query`/`total`/`kb_id`/`mode`/`rerank_provider_id` |
 | `subflow` | 是 | 嵌套工作流名 · 自定义入参 | **subflowWorkflowId**（ID 或 `{{变量}}`；禁自身；最多 3 层）；可选 `input` JSON（`{{变量}}`）；结果写 `last_subflow_output` / `last_subflow_workflow_id`（有 content 兼写 `last_agent_content`） |
-| `condition` | 是 | 字段 运算符 值 | **conditionField**（`{{变量}}` 展开为字段名）、operator、value（`{{变量}}`）、description；须真/假出边；结果写 `last_condition_result`/`branch`/`field` |
+| `condition` | 是 | 字段 运算符 值 | **conditionField**（`{{变量}}` 展开为字段名）、**operator**（`==`/contains…或 `{{变量}}`）、value（`{{变量}}`）、description；须真/假出边；结果写 `last_condition_result`/`branch`/`field`/`operator` |
 | `loop` | 是 | 次数/条件/数组→元素 | loopType；times 的 count / max_iter 支持数字或 `{{变量}}`；while 条件支持 `{{变量}}`；for_each 时 **loopArrayVar** / **loopItemVar** / **loopKeyVar**（均可 `{{变量}}` 展开为变量名）；结束后写 `last_loop_total`/`index`/`type`（for_each 另写 `item_var`/`key_var`） |
 | `http` | 是 | METHOD url · 头/超时/严校验 | **method**（或 `{{变量}}`，展开后转大写）、**httpUrl**、body、**headers**、timeout（数字或 `{{变量}}`）、failOnError；URL/头/体 `{{变量}}`；结果写 `last_http_method`/`status`/`body`/`ok`（status&lt;400） |
 | `code` | 是 | 语言: 首行 · Ns | **language**（expression/python/javascript 或 `{{变量}}`）、**codeSource**、timeout（沙箱；数字或 `{{变量}}`）；结果写 `last_code_output`/`last_code_language` |
@@ -2459,6 +2466,7 @@ Mobile 问题记入 backlog，**不阻断** Web 主路径合并。
 | `last_condition_result` | condition | 比较结果 bool |
 | `last_condition_branch` | condition | true / false 分支名 |
 | `last_condition_field` | condition | 展开后的字段名 |
+| `last_condition_operator` | condition | 展开后的运算符 |
 | `last_loop_total` | loop | 实际迭代次数 |
 | `last_loop_index` | loop | 末轮下标；无迭代为 -1 |
 | `last_loop_type` | loop | times / while / for_each |
@@ -2482,7 +2490,7 @@ Mobile 问题记入 backlog，**不阻断** Web 主路径合并。
 
 ---
 
-**文档版本**: v1.241  
+**文档版本**: v1.242  
 **最后更新**: 2026-11-28  
 **维护**: CogniForge 前端  
 **分支建议**: `feat/nuxt-shadcn-vue`

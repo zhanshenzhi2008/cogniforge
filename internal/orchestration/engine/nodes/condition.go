@@ -43,17 +43,21 @@ func (e *ConditionNodeExecutor) Execute(ctx *core.ExecutionContext, config json.
 		if field == "" {
 			field = strings.TrimSpace(condition.Field)
 		}
+		op := strings.TrimSpace(resolveTemplate(condition.Operator, ctx))
+		if op == "" {
+			op = strings.TrimSpace(condition.Operator)
+		}
 		fieldValue := e.getFieldValue(field, ctx)
 		expected := condition.Value
 		if s, ok := expected.(string); ok {
 			expected = resolveTemplate(s, ctx)
 		}
-		result := e.evaluateCondition(fieldValue, condition.Operator, expected, ctx)
+		result := e.evaluateCondition(fieldValue, op, expected, ctx)
 
 		if ctx.Logger != nil {
 			ctx.Logger.Logf(ctx.NodeID, "info",
 				"Condition: %s %s %v = %v (actual: %v)",
-				field, condition.Operator, expected, result, fieldValue)
+				field, op, expected, result, fieldValue)
 		}
 
 		if result {
@@ -61,7 +65,7 @@ func (e *ConditionNodeExecutor) Execute(ctx *core.ExecutionContext, config json.
 				"result":   true,
 				"branch":   condition.Branch,
 				"field":    field,
-				"operator": condition.Operator,
+				"operator": op,
 				"expected": expected,
 				"actual":   fieldValue,
 			}
@@ -87,6 +91,9 @@ func storeLastCondition(ctx *core.ExecutionContext, out map[string]any) {
 	ctx.SetVariable("last_condition_branch", out["branch"])
 	if f, ok := out["field"]; ok {
 		ctx.SetVariable("last_condition_field", f)
+	}
+	if op, ok := out["operator"]; ok {
+		ctx.SetVariable("last_condition_operator", op)
 	}
 }
 

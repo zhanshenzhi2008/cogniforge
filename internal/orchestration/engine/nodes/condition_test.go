@@ -312,3 +312,20 @@ func TestConditionNode_FieldTemplate(t *testing.T) {
 	assert.Equal(t, "status", result["field"])
 	assert.Equal(t, "yes", result["branch"])
 }
+
+func TestConditionNode_OperatorTemplate(t *testing.T) {
+	executor := &nodes.ConditionNodeExecutor{}
+	config := `{"conditions":[{"field":"status","operator":"{{op}}","value":"active","branch":"ok"}]}`
+
+	ctx := engine.NewExecutionContext("wf1", "exec1", map[string]any{"status": "active"})
+	ctx.SetVariable("op", "==")
+	output, err := executor.Execute(ctx, json.RawMessage(config))
+
+	assert.NoError(t, err)
+	result := output.(map[string]any)
+	assert.Equal(t, true, result["result"])
+	assert.Equal(t, "==", result["operator"])
+	gotOp, ok := ctx.GetVariable("last_condition_operator")
+	assert.True(t, ok)
+	assert.Equal(t, "==", gotOp)
+}

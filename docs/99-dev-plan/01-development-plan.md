@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-28 | v1.368 | 检索 search_mode 支持 {{变量}}；写 last_search_mode | orjrs |
 | 2026-11-28 | v1.367 | HTTP 写入 last_http_ok（status&lt;400） | orjrs |
 | 2026-11-28 | v1.366 | 代码语言支持 {{变量}}；写 last_code_language | orjrs |
 | 2026-11-28 | v1.365 | 延时单位支持 {{变量}} | orjrs |
@@ -584,6 +585,12 @@
 - **原因**：未绑定可保存、运行才失败
 - **落地**：跨仓保存前拦截 team/agent/search/subflow
 - **Web**：开发计划 v1.161；前端设计 v1.129
+
+## [变更] 检索 search_mode {{变量}} / last_search_mode（2026-11-28）
+
+- **原因**：检索方式只能写死
+- **落地**：`search_mode` 支持模板；写 `last_search_mode`；前端设计 v1.238
+- **Web**：开发计划 v1.277
 
 ## [变更] HTTP last_http_ok（2026-11-28）
 

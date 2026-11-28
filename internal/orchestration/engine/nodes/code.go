@@ -12,9 +12,9 @@ import (
 )
 
 type CodeNodeConfig struct {
-	Language string `json:"language"`
-	Code     string `json:"code"`
-	Timeout  int    `json:"timeout,omitempty"`
+	Language string          `json:"language"`
+	Code     string          `json:"code"`
+	Timeout  json.RawMessage `json:"timeout,omitempty"` // 数字或 "{{变量}}"；沙箱用，空/0→默认
 }
 
 type CodeNodeExecutor struct{}
@@ -31,13 +31,15 @@ func (e *CodeNodeExecutor) Execute(ctx *core.ExecutionContext, config json.RawMe
 	}
 	ctx.Logger.Log("code", "info", fmt.Sprintf("Executing code (language: %s)", lang))
 
+	timeoutSec := resolveFlexibleInt(cfg.Timeout, ctx)
+
 	var out any
 	var err error
 	switch lang {
 	case "expression":
 		out, err = e.executeExpression(ctx, cfg.Code)
 	case "javascript", "js", "node", "python":
-		out, err = e.executeSandboxed(ctx, lang, cfg.Code, cfg.Timeout)
+		out, err = e.executeSandboxed(ctx, lang, cfg.Code, timeoutSec)
 	default:
 		return nil, fmt.Errorf("unsupported language: %s", cfg.Language)
 	}

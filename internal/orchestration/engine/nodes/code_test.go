@@ -12,10 +12,12 @@ func TestCodeNodeExecutor_ExpressionWritesLastCodeOutput(t *testing.T) {
 	ex := &CodeNodeExecutor{}
 	ctx := core.NewExecutionContext("wf", "exec", nil)
 	ctx.SetVariable("score", 42)
+	ctx.SetVariable("ttl", "15")
 
 	cfg, _ := json.Marshal(map[string]any{
 		"language": "expression",
 		"code":     "score",
+		"timeout":  "{{ttl}}", // 表达式忽略超时，但须能解析模板字段
 	})
 	out, err := ex.Execute(ctx, cfg)
 	if err != nil {

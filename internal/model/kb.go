@@ -62,7 +62,7 @@ type KnowledgeBase struct {
 	RerankProviderSemantic   string `gorm:"type:varchar(64);default:''" json:"rerank_provider_semantic"`
 	RerankProviderKeyword    string `gorm:"type:varchar(64);default:''" json:"rerank_provider_keyword"`
 	RerankProviderHybrid     string `gorm:"type:varchar(64);default:''" json:"rerank_provider_hybrid"`
-	// 可见性占位（阶段三）：private | org（暂仅 private）
+	// 可见性：private=仅所有者；org=本部署全体登录用户可读（仅所有者可写；非部门/组织表）
 	Visibility string `gorm:"type:varchar(32);default:'private'" json:"visibility"`
 	Status     string `gorm:"type:varchar(50);default:'active'" json:"status"`
 	Metadata   JSONBMap       `gorm:"type:jsonb" json:"metadata"`

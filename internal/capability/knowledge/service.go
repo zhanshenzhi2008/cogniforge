@@ -164,10 +164,11 @@ func (s *KnowledgeService) ensureFolderOwned(userID, folderID string) error {
 	return nil
 }
 
-// ListKnowledgeBases 获取知识库列表
+// ListKnowledgeBases 获取知识库列表（自己的 + visibility=org 的共享库）
 func (s *KnowledgeService) ListKnowledgeBases(userID string) ([]model.KnowledgeBase, error) {
 	var kbs []model.KnowledgeBase
-	if err := s.db.Where("user_id = ?", userID).Order("created_at DESC").Find(&kbs).Error; err != nil {
+	if err := s.db.Where("user_id = ? OR visibility = ?", userID, VisibilityOrg).
+		Order("created_at DESC").Find(&kbs).Error; err != nil {
 		return nil, fmt.Errorf("查询知识库列表失败")
 	}
 	return kbs, nil
@@ -201,7 +202,7 @@ func (s *KnowledgeService) CreateKnowledgeBase(userID string, req *CreateKBReque
 		RagMinScoreHybrid:    0.3,
 		HybridSemanticWeight: 0.7,
 		SearchMode:           "semantic",
-		Visibility:           "private",
+		Visibility:           normalizeVisibility(req.Visibility),
 		Status:               "active",
 		Metadata:             model.JSONBMap{},
 		CreatedAt:            time.Now(),
@@ -220,6 +221,7 @@ func (s *KnowledgeService) CreateKnowledgeBase(userID string, req *CreateKBReque
 	}
 	kb.StorageDir = storageDir
 	applyCreateParseDefaults(&kb, req)
+	kb.Visibility = normalizeVisibility(kb.Visibility)
 
 	if err := s.db.Create(&kb).Error; err != nil {
 		return nil, fmt.Errorf("创建知识库失败")
@@ -228,26 +230,16 @@ func (s *KnowledgeService) CreateKnowledgeBase(userID string, req *CreateKBReque
 	return &kb, nil
 }
 
-// GetKnowledgeBase 获取知识库详情
+// GetKnowledgeBase 获取知识库详情（所有者或 org 共享可读）
 func (s *KnowledgeService) GetKnowledgeBase(userID, kbID string) (*model.KnowledgeBase, error) {
-	var kb model.KnowledgeBase
-	if err := s.db.Where("id = ? AND user_id = ?", kbID, userID).First(&kb).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, fmt.Errorf("知识库不存在")
-		}
-		return nil, fmt.Errorf("查询知识库失败")
-	}
-	return &kb, nil
+	return s.loadKBForRead(userID, kbID)
 }
 
-// UpdateKnowledgeBase 更新知识库
+// UpdateKnowledgeBase 更新知识库（仅所有者）
 func (s *KnowledgeService) UpdateKnowledgeBase(userID, kbID string, req *UpdateKBRequest) (*model.KnowledgeBase, error) {
-	var kb model.KnowledgeBase
-	if err := s.db.Where("id = ? AND user_id = ?", kbID, userID).First(&kb).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, fmt.Errorf("知识库不存在")
-		}
-		return nil, fmt.Errorf("查询知识库失败")
+	kb, err := s.loadKBForWrite(userID, kbID)
+	if err != nil {
+		return nil, err
 	}
 
 	if req.Name != "" && req.Name != kb.Name {
@@ -276,8 +268,8 @@ func (s *KnowledgeService) UpdateKnowledgeBase(userID, kbID string, req *UpdateK
 	if req.EmbeddingModel != "" {
 		kb.EmbeddingModel = req.EmbeddingModel
 	}
-	applyUpdateParseDefaults(&kb, req)
-	if err := s.validateKBRerankProviders(userID, &kb); err != nil {
+	applyUpdateParseDefaults(kb, req)
+	if err := s.validateKBRerankProviders(userID, kb); err != nil {
 		return nil, err
 	}
 	if req.Status != "" {
@@ -285,37 +277,30 @@ func (s *KnowledgeService) UpdateKnowledgeBase(userID, kbID string, req *UpdateK
 	}
 	kb.UpdatedAt = time.Now()
 
-	if err := s.db.Save(&kb).Error; err != nil {
+	if err := s.db.Save(kb).Error; err != nil {
 		return nil, fmt.Errorf("更新知识库失败")
 	}
 
-	return &kb, nil
+	return kb, nil
 }
 
-// DeleteKnowledgeBase 删除知识库
+// DeleteKnowledgeBase 删除知识库（仅所有者）
 func (s *KnowledgeService) DeleteKnowledgeBase(userID, kbID string) error {
-	var kb model.KnowledgeBase
-	if err := s.db.Where("id = ? AND user_id = ?", kbID, userID).First(&kb).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return fmt.Errorf("知识库不存在")
-		}
-		return fmt.Errorf("查询知识库失败")
+	kb, err := s.loadKBForWrite(userID, kbID)
+	if err != nil {
+		return err
 	}
 
-	if err := s.db.Delete(&kb).Error; err != nil {
+	if err := s.db.Delete(kb).Error; err != nil {
 		return fmt.Errorf("删除知识库失败")
 	}
 	return nil
 }
 
-// ListDocuments 获取文档列表
+// ListDocuments 获取文档列表（所有者或 org 共享可读）
 func (s *KnowledgeService) ListDocuments(userID, kbID string) ([]model.Document, error) {
-	var kb model.KnowledgeBase
-	if err := s.db.Where("id = ? AND user_id = ?", kbID, userID).First(&kb).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, fmt.Errorf("知识库不存在")
-		}
-		return nil, fmt.Errorf("查询知识库失败")
+	if _, err := s.loadKBForRead(userID, kbID); err != nil {
+		return nil, err
 	}
 
 	var docs []model.Document
@@ -327,14 +312,10 @@ func (s *KnowledgeService) ListDocuments(userID, kbID string) ([]model.Document,
 
 const maxPreviewRunes = 120000
 
-// GetDocument 文档详情；文本类附带正文预览
+// GetDocument 文档详情；文本类附带正文预览（所有者或 org 共享可读）
 func (s *KnowledgeService) GetDocument(userID, kbID, docID string) (*DocumentPreview, error) {
-	var kb model.KnowledgeBase
-	if err := s.db.Where("id = ? AND user_id = ?", kbID, userID).First(&kb).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, fmt.Errorf("知识库不存在")
-		}
-		return nil, fmt.Errorf("查询知识库失败")
+	if _, err := s.loadKBForRead(userID, kbID); err != nil {
+		return nil, err
 	}
 
 	var doc model.Document
@@ -382,12 +363,8 @@ func (s *KnowledgeService) UpdateDocumentContent(ctx context.Context, userID, kb
 		return nil, fmt.Errorf("正文超过大小限制（%dMB）", MaxFileSize/(1024*1024))
 	}
 
-	var kb model.KnowledgeBase
-	if err := s.db.Where("id = ? AND user_id = ?", kbID, userID).First(&kb).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, fmt.Errorf("知识库不存在")
-		}
-		return nil, fmt.Errorf("查询知识库失败")
+	if _, err := s.loadKBForWrite(userID, kbID); err != nil {
+		return nil, err
 	}
 
 	var doc model.Document
@@ -439,12 +416,8 @@ func (s *KnowledgeService) UpdateDocumentLifecycle(userID, kbID, docID string, r
 	if req == nil {
 		return nil, fmt.Errorf("请求无效")
 	}
-	var kb model.KnowledgeBase
-	if err := s.db.Where("id = ? AND user_id = ?", kbID, userID).First(&kb).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, fmt.Errorf("知识库不存在")
-		}
-		return nil, fmt.Errorf("查询知识库失败")
+	if _, err := s.loadKBForWrite(userID, kbID); err != nil {
+		return nil, err
 	}
 	var doc model.Document
 	if err := s.db.Where("id = ? AND knowledge_base_id = ?", docID, kbID).First(&doc).Error; err != nil {
@@ -520,14 +493,11 @@ func (s *KnowledgeService) ListSecurityAudits(limit int) ([]model.SecurityAuditL
 	return rows, nil
 }
 
-// DeleteDocument 删除文档
+// DeleteDocument 删除文档（仅所有者）
 func (s *KnowledgeService) DeleteDocument(userID, kbID, docID string) error {
-	var kb model.KnowledgeBase
-	if err := s.db.Where("id = ? AND user_id = ?", kbID, userID).First(&kb).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return fmt.Errorf("知识库不存在")
-		}
-		return fmt.Errorf("查询知识库失败")
+	kb, err := s.loadKBForWrite(userID, kbID)
+	if err != nil {
+		return err
 	}
 
 	var doc model.Document
@@ -547,18 +517,14 @@ func (s *KnowledgeService) DeleteDocument(userID, kbID, docID string) error {
 		return fmt.Errorf("删除文档失败")
 	}
 
-	s.db.Model(&kb).Update("doc_count", gorm.Expr("doc_count - 1"))
+	s.db.Model(kb).Update("doc_count", gorm.Expr("doc_count - 1"))
 	return nil
 }
 
-// ReparseDocument 重新解析文档：先删除旧向量，重置状态，再重新处理
+// ReparseDocument 重新解析文档：先删除旧向量，重置状态，再重新处理（仅所有者）
 func (s *KnowledgeService) ReparseDocument(ctx context.Context, userID, kbID, docID string) (*model.Document, error) {
-	var kb model.KnowledgeBase
-	if err := s.db.Where("id = ? AND user_id = ?", kbID, userID).First(&kb).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, fmt.Errorf("知识库不存在")
-		}
-		return nil, fmt.Errorf("查询知识库失败")
+	if _, err := s.loadKBForWrite(userID, kbID); err != nil {
+		return nil, err
 	}
 
 	var doc model.Document
@@ -599,14 +565,11 @@ func (s *KnowledgeService) ReparseDocument(ctx context.Context, userID, kbID, do
 	return &doc, nil
 }
 
-// UploadDocument 上传文档（opts 为空时用知识库默认分段）
+// UploadDocument 上传文档（opts 为空时用知识库默认分段；仅所有者）
 func (s *KnowledgeService) UploadDocument(ctx context.Context, userID, kbID string, file *multipart.FileHeader, opts *ParseOptions) (*model.Document, error) {
-	var kb model.KnowledgeBase
-	if err := s.db.Where("id = ? AND user_id = ?", kbID, userID).First(&kb).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, fmt.Errorf("知识库不存在")
-		}
-		return nil, fmt.Errorf("查询知识库失败")
+	kb, err := s.loadKBForWrite(userID, kbID)
+	if err != nil {
+		return nil, err
 	}
 
 	if file.Size > MaxFileSize {
@@ -618,7 +581,7 @@ func (s *KnowledgeService) UploadDocument(ctx context.Context, userID, kbID stri
 		return nil, fmt.Errorf("不支持的文件类型，支持：PDF、TXT、MD、DOCX、HTML")
 	}
 
-	dir, err := ensureUploadDir(s.userDirName(userID), kbStorageKey(&kb))
+	dir, err := ensureUploadDir(s.userDirName(userID), kbStorageKey(kb))
 	if err != nil {
 		return nil, fmt.Errorf("创建上传目录失败")
 	}
@@ -632,7 +595,7 @@ func (s *KnowledgeService) UploadDocument(ctx context.Context, userID, kbID stri
 		return nil, fmt.Errorf("保存文件失败: %w", err)
 	}
 
-	resolved := resolveParseOptions(&kb, opts)
+	resolved := resolveParseOptions(kb, opts)
 	meta := model.JSONBMap{
 		"chunk_size":      resolved.ChunkSize,
 		"chunk_overlap":   resolved.ChunkOverlap,
@@ -662,7 +625,7 @@ func (s *KnowledgeService) UploadDocument(ctx context.Context, userID, kbID stri
 		return nil, fmt.Errorf("创建文档记录失败")
 	}
 
-	s.db.Model(&kb).Update("doc_count", gorm.Expr("doc_count + 1"))
+	s.db.Model(kb).Update("doc_count", gorm.Expr("doc_count + 1"))
 
 	go func() {
 		s.processDocumentAsync(docID, trace.GetTraceIDFromContext(ctx))
@@ -769,12 +732,9 @@ func (s *KnowledgeService) createDocumentFromBytes(
 	opts *ParseOptions,
 	extraMeta map[string]interface{},
 ) (*model.Document, error) {
-	var kb model.KnowledgeBase
-	if err := s.db.Where("id = ? AND user_id = ?", kbID, userID).First(&kb).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, fmt.Errorf("知识库不存在")
-		}
-		return nil, fmt.Errorf("查询知识库失败")
+	kb, err := s.loadKBForWrite(userID, kbID)
+	if err != nil {
+		return nil, err
 	}
 	if len(data) == 0 {
 		return nil, fmt.Errorf("内容为空")
@@ -783,7 +743,7 @@ func (s *KnowledgeService) createDocumentFromBytes(
 		return nil, fmt.Errorf("文件大小不能超过 %dMB", MaxFileSize/(1024*1024))
 	}
 
-	dir, err := ensureUploadDir(s.userDirName(userID), kbStorageKey(&kb))
+	dir, err := ensureUploadDir(s.userDirName(userID), kbStorageKey(kb))
 	if err != nil {
 		return nil, fmt.Errorf("创建上传目录失败")
 	}
@@ -795,7 +755,7 @@ func (s *KnowledgeService) createDocumentFromBytes(
 		return nil, fmt.Errorf("保存文件失败: %w", err)
 	}
 
-	resolved := resolveParseOptions(&kb, opts)
+	resolved := resolveParseOptions(kb, opts)
 	meta := model.JSONBMap{
 		"chunk_size":      resolved.ChunkSize,
 		"chunk_overlap":   resolved.ChunkOverlap,
@@ -826,7 +786,7 @@ func (s *KnowledgeService) createDocumentFromBytes(
 		os.Remove(destPath)
 		return nil, fmt.Errorf("创建文档记录失败")
 	}
-	s.db.Model(&kb).Update("doc_count", gorm.Expr("doc_count + 1"))
+	s.db.Model(kb).Update("doc_count", gorm.Expr("doc_count + 1"))
 
 	go func() {
 		s.processDocumentAsync(docID, trace.GetTraceIDFromContext(ctx))
@@ -834,14 +794,11 @@ func (s *KnowledgeService) createDocumentFromBytes(
 	return &doc, nil
 }
 
-// PreviewChunks 临时保存文件并调用 AI 预览分块（不入库、不向量化）
+// PreviewChunks 临时保存文件并调用 AI 预览分块（不入库、不向量化；仅所有者，属上传准备）
 func (s *KnowledgeService) PreviewChunks(ctx context.Context, userID, kbID string, file *multipart.FileHeader, opts *ParseOptions) (*ChunkPreviewResponse, error) {
-	var kb model.KnowledgeBase
-	if err := s.db.Where("id = ? AND user_id = ?", kbID, userID).First(&kb).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, fmt.Errorf("知识库不存在")
-		}
-		return nil, fmt.Errorf("查询知识库失败")
+	kb, err := s.loadKBForWrite(userID, kbID)
+	if err != nil {
+		return nil, err
 	}
 
 	if file.Size > MaxFileSize {
@@ -851,7 +808,7 @@ func (s *KnowledgeService) PreviewChunks(ctx context.Context, userID, kbID strin
 		return nil, fmt.Errorf("不支持的文件类型，支持：PDF、TXT、MD、DOCX、HTML")
 	}
 
-	dir, err := ensureUploadDir(s.userDirName(userID), kbStorageKey(&kb))
+	dir, err := ensureUploadDir(s.userDirName(userID), kbStorageKey(kb))
 	if err != nil {
 		return nil, fmt.Errorf("创建上传目录失败")
 	}
@@ -867,7 +824,7 @@ func (s *KnowledgeService) PreviewChunks(ctx context.Context, userID, kbID strin
 	}
 	defer os.Remove(destPath)
 
-	resolved := resolveParseOptions(&kb, opts)
+	resolved := resolveParseOptions(kb, opts)
 	aiPath := toSharedUploadPath(destPath)
 	result, err := s.pythonClient.PreviewChunks(&PreviewChunksRequest{
 		Context:      ctx,
@@ -890,14 +847,11 @@ func (s *KnowledgeService) SearchKnowledge(c *gin.Context, userID, kbID string, 
 	return s.SearchByUser(ctx, userID, kbID, req)
 }
 
-// SearchByUser 供 Chat 等内部调用：按用户校验知识库后做向量检索
+// SearchByUser 供 Chat 等内部调用：所有者或 org 共享可读后做向量检索
 func (s *KnowledgeService) SearchByUser(ctx context.Context, userID, kbID string, req *SearchRequest) (*SearchResponse, error) {
-	var kb model.KnowledgeBase
-	if err := s.db.WithContext(ctx).Where("id = ? AND user_id = ?", kbID, userID).First(&kb).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, fmt.Errorf("知识库不存在")
-		}
-		return nil, fmt.Errorf("查询知识库失败")
+	kb, err := s.loadKBForReadCtx(ctx, userID, kbID)
+	if err != nil {
+		return nil, err
 	}
 
 	startTime := time.Now()
@@ -906,7 +860,7 @@ func (s *KnowledgeService) SearchByUser(ctx context.Context, userID, kbID string
 	if req.SearchMode == "" {
 		mode = normalizeSearchMode(kb.SearchMode)
 	}
-	topK, minScore := resolveModeRetrievalParams(&kb, mode, req.TopK, req.MinScore)
+	topK, minScore := resolveModeRetrievalParams(kb, mode, req.TopK, req.MinScore)
 
 	hy := kb.HybridSemanticWeight
 	if req.HybridSemanticWeight != nil {
@@ -915,7 +869,7 @@ func (s *KnowledgeService) SearchByUser(ctx context.Context, userID, kbID string
 	hy = clampHybridSemanticWeight(hy)
 	hyPtr := hy
 
-	rerank, rerankProv := resolveSearchRerank(&kb, mode, req)
+	rerank, rerankProv := resolveSearchRerank(kb, mode, req)
 
 	enforceSec := enforceKBSecurityLevel()
 	clearance := ""
@@ -1225,8 +1179,7 @@ func applyCreateParseDefaults(kb *model.KnowledgeBase, req *CreateKBRequest) {
 		kb.RerankProviderHybrid = strings.TrimSpace(*req.RerankProviderHybrid)
 	}
 	if req.Visibility != "" {
-		// 阶段三：暂仅 private；org 等后续 ACL
-		kb.Visibility = "private"
+		kb.Visibility = normalizeVisibility(req.Visibility)
 	}
 }
 
@@ -1274,7 +1227,7 @@ func applyUpdateParseDefaults(kb *model.KnowledgeBase, req *UpdateKBRequest) {
 		kb.RerankProviderHybrid = strings.TrimSpace(*req.RerankProviderHybrid)
 	}
 	if req.Visibility != "" {
-		kb.Visibility = "private"
+		kb.Visibility = normalizeVisibility(req.Visibility)
 	}
 }
 

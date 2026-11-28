@@ -46,6 +46,12 @@
 | 2026-08-15 | v1.1 | 落地模型配置 Redis 键（当时为 `cf:modelcfg:*`） | orjrs |
 | 2026-03-16 | v1.0 | 初始版本 | orjrs |
 
+## [变更] knowledge_bases.visibility=org（2026-11-28）
+
+- **原因**：库级可见性长期占位，创建/更新强制 private
+- **变更**：`visibility` 取值 `private` \| `org`；`org`=本部署全体登录用户可读，仅所有者可写
+- **代码**：`internal/capability/knowledge/access.go`
+
 ## [变更] Agent 配置版本快照（2026-11-27）
 
 - **原因**：工作室「配置版本历史」简单回滚

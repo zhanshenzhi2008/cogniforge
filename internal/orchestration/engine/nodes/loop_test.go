@@ -29,6 +29,16 @@ func TestLoopNode_TimesLoop(t *testing.T) {
 
 	iterations := result["iterations"].([]map[string]any)
 	assert.Len(t, iterations, 5)
+
+	gotTotal, ok := ctx.GetVariable("last_loop_total")
+	assert.True(t, ok)
+	assert.Equal(t, 5, gotTotal)
+	gotIndex, ok := ctx.GetVariable("last_loop_index")
+	assert.True(t, ok)
+	assert.Equal(t, 4, gotIndex)
+	gotType, ok := ctx.GetVariable("last_loop_type")
+	assert.True(t, ok)
+	assert.Equal(t, "times", gotType)
 }
 
 func TestLoopNode_TimesLoop_MaxIterCapped(t *testing.T) {

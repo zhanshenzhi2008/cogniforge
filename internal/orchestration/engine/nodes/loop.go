@@ -44,11 +44,28 @@ func (e *LoopNodeExecutor) Execute(ctx *core.ExecutionContext, config json.RawMe
 		return nil, fmt.Errorf("unknown loop type: %s", cfg.Type)
 	}
 
-	return map[string]any{
+	out := map[string]any{
 		"type":       cfg.Type,
 		"iterations": iterations,
 		"total":      len(iterations),
-	}, nil
+	}
+	storeLastLoop(ctx, out)
+	return out, nil
+}
+
+// storeLastLoop 供下游 {{last_loop_total}} / {{last_loop_index}} / {{last_loop_type}} 引用
+func storeLastLoop(ctx *core.ExecutionContext, out map[string]any) {
+	if ctx == nil || out == nil {
+		return
+	}
+	total, _ := out["total"].(int)
+	ctx.SetVariable("last_loop_total", total)
+	ctx.SetVariable("last_loop_type", out["type"])
+	if total > 0 {
+		ctx.SetVariable("last_loop_index", total-1)
+	} else {
+		ctx.SetVariable("last_loop_index", -1)
+	}
 }
 
 func (e *LoopNodeExecutor) executeTimesLoop(ctx *core.ExecutionContext, count, maxIter int) []map[string]any {

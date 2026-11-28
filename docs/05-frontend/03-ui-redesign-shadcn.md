@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-28 | v1.235 | 延时单位支持 {{变量}} | orjrs |
 | 2026-11-28 | v1.234 | 循环 for_each 元素/下标变量名支持 {{变量}} | orjrs |
 | 2026-11-28 | v1.233 | 检索 Rerank 模型 ID 支持 {{变量}}；写 last_search_rerank_provider_id | orjrs |
 | 2026-11-28 | v1.232 | HTTP method 支持 {{变量}}；写 last_http_method | orjrs |
@@ -402,6 +403,12 @@
   - 中期：~~发布渠道~~（Web/API/嵌入已做；IM 仍待）、~~猜你想问~~
   - 远期：~~虚拟机~~（UI 占位；运行时仍待）、~~语音播放~~（浏览器 TTS）、~~语音输入~~（浏览器 STT；云 ASR 另排）
 - **详见**：`cogniforge-web/docs/99-dev-plan/01-development-plan.md` v1.67；主仓开发计划「后续待办」
+
+## [变更] 延时单位 {{变量}}（2026-11-28）
+
+- **变更原因**：延时单位只能下拉写死，无法按入参切秒/分/时
+- **变更后**：`unit` 先展开并归一为 seconds/minutes/hours；抽屉可选手写；本文 §11
+- **包含代码**：`nodes/delay.go`；Web 延时抽屉
 
 ## [变更] 循环 for_each 元素/下标变量名 {{变量}}（2026-11-28）
 
@@ -2379,7 +2386,7 @@ Mobile 问题记入 backlog，**不阻断** Web 主路径合并。
 | `loop` | 是 | 次数/条件/数组→元素 | loopType；times 的 count / max_iter 支持数字或 `{{变量}}`；while 条件支持 `{{变量}}`；for_each 时 **loopArrayVar** / **loopItemVar** / **loopKeyVar**（均可 `{{变量}}` 展开为变量名）；结束后写 `last_loop_total`/`index`/`type`（for_each 另写 `item_var`/`key_var`） |
 | `http` | 是 | METHOD url · 头/超时/严校验 | **method**（或 `{{变量}}`，展开后转大写）、**httpUrl**、body、**headers**、timeout（数字或 `{{变量}}`）、failOnError；URL/头/体 `{{变量}}`；结果写 `last_http_method`/`last_http_status`/`last_http_body` |
 | `code` | 是 | 语言: 首行 · Ns | language、**codeSource**、timeout（沙箱；数字或 `{{变量}}`）；结果写 `last_code_output` |
-| `delay` | 是 | 时长+单位 | delayDuration（数字或 `{{变量}}`）、delayUnit；结束后写 `last_delay_ms`/`duration`/`unit` |
+| `delay` | 是 | 时长+单位 | delayDuration（数字或 `{{变量}}`）、**delayUnit**（seconds/minutes/hours 或 `{{变量}}`）；结束后写 `last_delay_ms`/`duration`/`unit` |
 | `wait` | 是 | 原因:消息 · 超时 | waitReason（`{{变量}}`）、waitMessage（`{{变量}}`）、timeoutSec（数字或 `{{变量}}`）；挂起写 `last_wait_*`；继续/审批后 `last_wait_decision`（兼 `approval_decision`） |
 | `input` | 否（旧图） | 变量名 | **variable** |
 | `output` | 否（旧图） | 变量名 | **variable** |

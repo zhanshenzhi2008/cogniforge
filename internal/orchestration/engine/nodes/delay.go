@@ -28,14 +28,22 @@ func (e *DelayNodeExecutor) Execute(ctx *core.ExecutionContext, config json.RawM
 		durN = 1
 	}
 
+	unit := strings.ToLower(strings.TrimSpace(resolveTemplate(cfg.Unit, ctx)))
+	if unit == "" {
+		unit = "seconds"
+	}
+
 	var duration time.Duration
-	switch strings.ToLower(cfg.Unit) {
+	switch unit {
 	case "minutes", "minute", "m":
 		duration = time.Duration(durN) * time.Minute
+		unit = "minutes"
 	case "hours", "hour", "h":
 		duration = time.Duration(durN) * time.Hour
+		unit = "hours"
 	default:
 		duration = time.Duration(durN) * time.Second
+		unit = "seconds"
 	}
 
 	maxDelay := 5 * time.Minute
@@ -50,7 +58,7 @@ func (e *DelayNodeExecutor) Execute(ctx *core.ExecutionContext, config json.RawM
 	out := map[string]any{
 		"delayed":   true,
 		"duration":  durN,
-		"unit":      cfg.Unit,
+		"unit":      unit,
 		"actual_ms": duration.Milliseconds(),
 	}
 	storeLastDelay(ctx, out)

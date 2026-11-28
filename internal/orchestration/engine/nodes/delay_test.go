@@ -46,3 +46,19 @@ func TestDelayNode_WritesLastDelayVars(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(t, "seconds", gotUnit)
 }
+
+func TestDelayNode_UnitTemplate(t *testing.T) {
+	executor := &DelayNodeExecutor{}
+	config := `{"duration": 1, "unit": "{{u}}"}`
+	ctx := core.NewExecutionContext("wf1", "exec1", nil)
+	ctx.SetVariable("u", "s") // seconds 别名，避免真 sleep 一分钟
+
+	output, err := executor.Execute(ctx, json.RawMessage(config))
+	assert.NoError(t, err)
+	result := output.(map[string]any)
+	assert.Equal(t, "seconds", result["unit"])
+	gotUnit, ok := ctx.GetVariable("last_delay_unit")
+	assert.True(t, ok)
+	assert.Equal(t, "seconds", gotUnit)
+	assert.Equal(t, int64(1000), result["actual_ms"])
+}

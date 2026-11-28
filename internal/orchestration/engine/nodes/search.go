@@ -21,7 +21,8 @@ type SearchNodeConfig struct {
 	SearchMode           string          `json:"search_mode,omitempty"`
 	Rerank               *bool           `json:"rerank,omitempty"`
 	RerankProviderID     string          `json:"rerank_provider_id,omitempty"`
-	HybridSemanticWeight *float64        `json:"hybrid_semantic_weight,omitempty"`
+	// HybridSemanticWeight：数字或 "{{变量}}"；空/null 跟库默认（0 也是合法覆盖）
+	HybridSemanticWeight json.RawMessage `json:"hybrid_semantic_weight,omitempty"`
 }
 
 // KnowledgeSearcher 与 Chat RAG 共用的检索能力
@@ -72,6 +73,7 @@ func (e *SearchNodeExecutor) Execute(ctx *core.ExecutionContext, config json.Raw
 
 	topK := resolveFlexibleInt(cfg.TopK, ctx)
 	minScore := resolveFlexibleFloat(cfg.MinScore, ctx)
+	hybridWeight := resolveOptionalFlexibleFloat(cfg.HybridSemanticWeight, ctx)
 
 	started := time.Now()
 	bg, cancel := context.WithTimeout(context.Background(), 60*time.Second)
@@ -84,7 +86,7 @@ func (e *SearchNodeExecutor) Execute(ctx *core.ExecutionContext, config json.Raw
 		SearchMode:           cfg.SearchMode,
 		Rerank:               cfg.Rerank,
 		RerankProviderID:     cfg.RerankProviderID,
-		HybridSemanticWeight: cfg.HybridSemanticWeight,
+		HybridSemanticWeight: hybridWeight,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("Search node: %w", err)

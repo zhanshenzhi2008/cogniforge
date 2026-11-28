@@ -10,10 +10,11 @@ import (
 )
 
 type mockKBSearcher struct {
-	lastQuery    string
-	lastKB       string
-	lastTopK     int
-	lastMinScore float64
+	lastQuery        string
+	lastKB           string
+	lastTopK         int
+	lastMinScore     float64
+	lastHybridWeight *float64
 }
 
 func (m *mockKBSearcher) SearchByUser(_ context.Context, _, kbID string, req *knowledge.SearchRequest) (*knowledge.SearchResponse, error) {
@@ -21,6 +22,7 @@ func (m *mockKBSearcher) SearchByUser(_ context.Context, _, kbID string, req *kn
 	m.lastQuery = req.Query
 	m.lastTopK = req.TopK
 	m.lastMinScore = req.MinScore
+	m.lastHybridWeight = req.HybridSemanticWeight
 	return &knowledge.SearchResponse{
 		Query: req.Query,
 		Results: []knowledge.SearchResult{
@@ -98,6 +100,25 @@ func TestSearchNodeExecutor_MinScoreTemplate(t *testing.T) {
 	}
 	if mock.lastMinScore < 0.419 || mock.lastMinScore > 0.421 {
 		t.Fatalf("lastMinScore=%v", mock.lastMinScore)
+	}
+}
+
+func TestSearchNodeExecutor_HybridWeightTemplate(t *testing.T) {
+	mock := &mockKBSearcher{}
+	ex := &SearchNodeExecutor{Knowledge: mock}
+	ctx := core.NewExecutionContext("wf", "exec", map[string]any{"query": "hi"})
+	ctx.UserID = "u1"
+	ctx.SetVariable("sem", "0.65")
+	cfg, _ := json.Marshal(map[string]any{
+		"knowledge_base_id":      "kb-1",
+		"query":                  "hi",
+		"hybrid_semantic_weight": "{{sem}}",
+	})
+	if _, err := ex.Execute(ctx, cfg); err != nil {
+		t.Fatal(err)
+	}
+	if mock.lastHybridWeight == nil || *mock.lastHybridWeight < 0.649 || *mock.lastHybridWeight > 0.651 {
+		t.Fatalf("lastHybridWeight=%v", mock.lastHybridWeight)
 	}
 }
 

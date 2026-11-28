@@ -115,6 +115,39 @@ func resolveFlexibleFloat(raw json.RawMessage, ctx *core.ExecutionContext) float
 	return fv
 }
 
+// resolveOptionalFlexibleFloat 同 resolveFlexibleFloat，但空/null/无法解析时返回 nil（表示「未覆盖」）
+func resolveOptionalFlexibleFloat(raw json.RawMessage, ctx *core.ExecutionContext) *float64 {
+	if len(raw) == 0 || string(raw) == "null" {
+		return nil
+	}
+	var s string
+	if err := json.Unmarshal(raw, &s); err == nil {
+		s = strings.TrimSpace(s)
+		if s == "" {
+			return nil
+		}
+		s = strings.TrimSpace(resolveTemplate(s, ctx))
+		if s == "" {
+			return nil
+		}
+		fv, err := strconv.ParseFloat(s, 64)
+		if err != nil {
+			return nil
+		}
+		return &fv
+	}
+	var f float64
+	if err := json.Unmarshal(raw, &f); err == nil {
+		return &f
+	}
+	var n int
+	if err := json.Unmarshal(raw, &n); err == nil {
+		fv := float64(n)
+		return &fv
+	}
+	return nil
+}
+
 // resolveDelayDuration 同 resolveFlexibleInt；≤0 时默认 1 秒
 func resolveDelayDuration(raw json.RawMessage, ctx *core.ExecutionContext) int {
 	n := resolveFlexibleInt(raw, ctx)

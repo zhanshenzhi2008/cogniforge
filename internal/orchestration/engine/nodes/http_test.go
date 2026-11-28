@@ -68,6 +68,9 @@ func TestHTTPNodeExecutor_ResolvesTemplates(t *testing.T) {
 	if body, ok := ctx.GetVariable("last_http_body"); !ok || body != `{"ok":true}` {
 		t.Fatalf("last_http_body=%v ok=%v", body, ok)
 	}
+	if httpOK, ok := ctx.GetVariable("last_http_ok"); !ok || httpOK != true {
+		t.Fatalf("last_http_ok=%v ok=%v", httpOK, ok)
+	}
 }
 
 func TestHTTPNodeExecutor_FailOnError(t *testing.T) {
@@ -103,6 +106,9 @@ func TestHTTPNodeExecutor_FailOnError(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "502") {
 		t.Fatalf("err=%v", err)
+	}
+	if httpOK, ok := ctx.GetVariable("last_http_ok"); !ok || httpOK != false {
+		t.Fatalf("last_http_ok=%v ok=%v (expected false on 502)", httpOK, ok)
 	}
 }
 

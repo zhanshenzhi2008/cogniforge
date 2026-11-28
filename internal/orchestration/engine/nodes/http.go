@@ -109,9 +109,11 @@ func (e *HTTPNodeExecutor) Execute(ctx *core.ExecutionContext, config json.RawMe
 	}
 
 	// 供下游 {{last_http_*}} 引用（与 last_agent_content 同套路）
+	ok := resp.StatusCode < 400
 	ctx.SetVariable("last_http_method", method)
 	ctx.SetVariable("last_http_status", resp.StatusCode)
 	ctx.SetVariable("last_http_body", bodyStr)
+	ctx.SetVariable("last_http_ok", ok)
 
 	ctx.Logger.Logf(ctx.NodeID, "info", "HTTP response: status=%d, duration=%dms", resp.StatusCode, duration.Milliseconds())
 

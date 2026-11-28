@@ -31,14 +31,35 @@ func (e *CodeNodeExecutor) Execute(ctx *core.ExecutionContext, config json.RawMe
 	}
 	ctx.Logger.Log("code", "info", fmt.Sprintf("Executing code (language: %s)", lang))
 
+	var out any
+	var err error
 	switch lang {
 	case "expression":
-		return e.executeExpression(ctx, cfg.Code)
+		out, err = e.executeExpression(ctx, cfg.Code)
 	case "javascript", "js", "node", "python":
-		return e.executeSandboxed(ctx, lang, cfg.Code, cfg.Timeout)
+		out, err = e.executeSandboxed(ctx, lang, cfg.Code, cfg.Timeout)
 	default:
 		return nil, fmt.Errorf("unsupported language: %s", cfg.Language)
 	}
+	if err != nil {
+		return nil, err
+	}
+	storeLastCodeOutput(ctx, out)
+	return out, nil
+}
+
+// storeLastCodeOutput 供下游 {{last_code_output}} 引用
+func storeLastCodeOutput(ctx *core.ExecutionContext, out any) {
+	if ctx == nil || out == nil {
+		return
+	}
+	if m, ok := out.(map[string]any); ok {
+		if s, ok := m["output"].(string); ok {
+			ctx.SetVariable("last_code_output", s)
+			return
+		}
+	}
+	ctx.SetVariable("last_code_output", fmt.Sprint(out))
 }
 
 func (e *CodeNodeExecutor) executeExpression(ctx *core.ExecutionContext, code string) (any, error) {

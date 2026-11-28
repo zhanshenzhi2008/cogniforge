@@ -16,10 +16,11 @@ type LLMNodeConfig struct {
 	Model        string            `json:"model"`
 	Prompt       string            `json:"prompt"`
 	SystemPrompt string            `json:"system_prompt,omitempty"`
-	Temperature  float64           `json:"temperature,omitempty"`
-	MaxTokens    int               `json:"max_tokens,omitempty"`
-	Stream       bool              `json:"stream,omitempty"`
-	Variables    map[string]string `json:"variables,omitempty"`
+	// Temperature / MaxTokens：数字或 "{{变量}}" 字符串（展开后须为数字；≤0 表示跟模型默认）
+	Temperature json.RawMessage `json:"temperature,omitempty"`
+	MaxTokens   json.RawMessage `json:"max_tokens,omitempty"`
+	Stream      bool               `json:"stream,omitempty"`
+	Variables   map[string]string  `json:"variables,omitempty"`
 }
 
 // LLMNodeExecutor 调用真实 ChatService（阶段十八 W0）
@@ -72,12 +73,10 @@ func (e *LLMNodeExecutor) Execute(ctx *core.ExecutionContext, config json.RawMes
 		UserID:   userID,
 		Stream:   cfg.Stream,
 	}
-	if cfg.Temperature > 0 {
-		t := cfg.Temperature
+	if t := resolveFlexibleFloat(cfg.Temperature, ctx); t > 0 {
 		req.Temperature = &t
 	}
-	if cfg.MaxTokens > 0 {
-		m := cfg.MaxTokens
+	if m := resolveFlexibleInt(cfg.MaxTokens, ctx); m > 0 {
 		req.MaxTokens = &m
 	}
 

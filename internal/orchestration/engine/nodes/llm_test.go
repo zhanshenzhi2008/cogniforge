@@ -47,6 +47,22 @@ func TestResolveLLMUserPrompt_PrefersLastAgentContent(t *testing.T) {
 	require.Equal(t, "固定 ORD-1", out)
 }
 
+func TestLLMNodeConfig_TemperatureMaxTokensTemplate(t *testing.T) {
+	ctx := core.NewExecutionContext("wf", "exec", nil)
+	ctx.SetVariable("temp", "0.7")
+	ctx.SetVariable("cap", "512")
+	raw := []byte(`{"model":"m","prompt":"hi","temperature":"{{temp}}","max_tokens":"{{cap}}"}`)
+	var cfg LLMNodeConfig
+	require.NoError(t, json.Unmarshal(raw, &cfg))
+	require.InDelta(t, 0.7, resolveFlexibleFloat(cfg.Temperature, ctx), 1e-9)
+	require.Equal(t, 512, resolveFlexibleInt(cfg.MaxTokens, ctx))
+
+	rawNum := []byte(`{"model":"m","prompt":"hi","temperature":0.3,"max_tokens":128}`)
+	require.NoError(t, json.Unmarshal(rawNum, &cfg))
+	require.InDelta(t, 0.3, resolveFlexibleFloat(cfg.Temperature, ctx), 1e-9)
+	require.Equal(t, 128, resolveFlexibleInt(cfg.MaxTokens, ctx))
+}
+
 func TestLLMNodeExecutor_SystemPromptOnly_UsesFallbackUser(t *testing.T) {
 	e := &LLMNodeExecutor{}
 	cfg, _ := json.Marshal(LLMNodeConfig{SystemPrompt: "你是助手", Model: "m"})

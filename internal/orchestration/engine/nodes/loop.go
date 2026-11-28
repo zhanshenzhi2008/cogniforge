@@ -45,7 +45,11 @@ func (e *LoopNodeExecutor) Execute(ctx *core.ExecutionContext, config json.RawMe
 		if arrayVar == "" {
 			arrayVar = strings.TrimSpace(cfg.ArrayVar)
 		}
-		iterations = e.executeForEachLoop(ctx, arrayVar, cfg.ItemVar, cfg.KeyVar, maxIter)
+		itemVar := strings.TrimSpace(resolveTemplate(cfg.ItemVar, ctx))
+		keyVar := strings.TrimSpace(resolveTemplate(cfg.KeyVar, ctx))
+		iterations = e.executeForEachLoop(ctx, arrayVar, itemVar, keyVar, maxIter)
+		ctx.SetVariable("last_loop_item_var", itemVar)
+		ctx.SetVariable("last_loop_key_var", keyVar)
 	default:
 		return nil, fmt.Errorf("unknown loop type: %s", cfg.Type)
 	}

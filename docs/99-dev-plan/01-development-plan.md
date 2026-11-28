@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-28 | v1.364 | 循环 for_each 元素/下标变量名支持 {{变量}} | orjrs |
 | 2026-11-28 | v1.363 | 检索 Rerank 模型 ID 支持 {{变量}}；写 last_search_rerank_provider_id | orjrs |
 | 2026-11-28 | v1.362 | HTTP method 支持 {{变量}}；写 last_http_method | orjrs |
 | 2026-11-28 | v1.361 | 子流程 workflow ID 支持 {{变量}}；写 last_subflow_workflow_id | orjrs |
@@ -580,6 +581,12 @@
 - **原因**：未绑定可保存、运行才失败
 - **落地**：跨仓保存前拦截 team/agent/search/subflow
 - **Web**：开发计划 v1.161；前端设计 v1.129
+
+## [变更] 循环 for_each 元素/下标变量名 {{变量}}（2026-11-28）
+
+- **原因**：`item_var` / `key_var` 只能写死
+- **落地**：支持模板展开；写 `last_loop_item_var` / `last_loop_key_var`；前端设计 v1.234
+- **Web**：开发计划 v1.273
 
 ## [变更] 检索 Rerank 模型 ID {{变量}} / last_search_rerank_provider_id（2026-11-28）
 

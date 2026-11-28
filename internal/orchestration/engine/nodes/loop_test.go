@@ -137,6 +137,35 @@ func TestLoopNode_ForEachLoop_ArrayVarTemplate(t *testing.T) {
 	assert.Equal(t, 2, result["total"])
 }
 
+func TestLoopNode_ForEachLoop_ItemKeyVarTemplate(t *testing.T) {
+	executor := &nodes.LoopNodeExecutor{}
+	config := `{
+		"type": "for_each",
+		"array_var": "items",
+		"item_var": "{{iname}}",
+		"key_var": "{{kname}}",
+		"max_iter": 100
+	}`
+
+	ctx := engine.NewExecutionContext("wf1", "exec1", nil)
+	ctx.SetVariable("iname", "cur")
+	ctx.SetVariable("kname", "idx")
+	ctx.SetVariable("items", []any{"a", "b"})
+	_, err := executor.Execute(ctx, json.RawMessage(config))
+
+	assert.NoError(t, err)
+	item, ok := ctx.GetVariable("cur")
+	assert.True(t, ok)
+	assert.Equal(t, "b", item)
+	key, ok := ctx.GetVariable("idx")
+	assert.True(t, ok)
+	assert.Equal(t, 1, key)
+	iv, _ := ctx.GetVariable("last_loop_item_var")
+	assert.Equal(t, "cur", iv)
+	kv, _ := ctx.GetVariable("last_loop_key_var")
+	assert.Equal(t, "idx", kv)
+}
+
 func TestLoopNode_ForEachLoop_EmptyArray(t *testing.T) {
 	executor := &nodes.LoopNodeExecutor{}
 

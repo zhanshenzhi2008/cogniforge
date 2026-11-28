@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-28 | v1.226 | LLM 模型名支持 {{变量}} | orjrs |
 | 2026-11-28 | v1.225 | 循环 for_each 数组变量名支持 {{变量}} | orjrs |
 | 2026-11-28 | v1.224 | 条件比较字段支持 {{变量}} | orjrs |
 | 2026-11-28 | v1.223 | 检索混合语义权重支持 {{变量}} | orjrs |
@@ -393,6 +394,12 @@
   - 中期：~~发布渠道~~（Web/API/嵌入已做；IM 仍待）、~~猜你想问~~
   - 远期：~~虚拟机~~（UI 占位；运行时仍待）、~~语音播放~~（浏览器 TTS）、~~语音输入~~（浏览器 STT；云 ASR 另排）
 - **详见**：`cogniforge-web/docs/99-dev-plan/01-development-plan.md` v1.67；主仓开发计划「后续待办」
+
+## [变更] LLM 模型名 {{变量}}（2026-11-28）
+
+- **变更原因**：模型只能从下拉选死 ID，无法按入参切换
+- **变更后**：`model` 先 `{{变量}}` 展开；抽屉可选手写模板；本文 §11
+- **包含代码**：`nodes/llm.go`；Web LLM 抽屉
 
 ## [变更] 循环 for_each 数组变量名 {{变量}}（2026-11-28）
 
@@ -2307,7 +2314,7 @@ Mobile 问题记入 backlog，**不阻断** Web 主路径合并。
 |------|--------|------------|----------|
 | `start` | 是 | 入参变量名 | `variables[]`（name/type/required/default/description） |
 | `end` | 是 | 「流程结束」 | （仅名称） |
-| `llm` | 是 | 模型名；流式 / t= / maxN | **model**、systemPrompt、prompt（`{{变量}}`；空接 `last_agent_content`）、llmStream、temperature / maxTokens（数字或 `{{变量}}`；空/0 跟模型默认）；成功写 `last_agent_content` |
+| `llm` | 是 | 模型名；流式 / t= / maxN | **model**（ID 或 `{{变量}}`）、systemPrompt、prompt（`{{变量}}`；空接 `last_agent_content`）、llmStream、temperature / maxTokens（数字或 `{{变量}}`；空/0 跟模型默认）；成功写 `last_agent_content` |
 | `agent` | 是 | 智能体名 | **agentId**、prompt（`{{变量}}`；空接 `last_agent_content` / 流程输入）；成功写 `last_agent_content` |
 | `team` | 是 | 小队名 | **teamId**、prompt/task（`{{变量}}`；空接 `last_agent_content`）；成功写 `last_agent_content` |
 | `search` | 是 | 库名 · 模式 · topK | **knowledgeBaseId**、query（`{{变量}}`；空接 input/last_agent_content）、topK / minScore / hybridSemanticWeight（数字或 `{{变量}}`；空跟库）、覆盖项；结果写 `last_search_context`/`query`/`total` |

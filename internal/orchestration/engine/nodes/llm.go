@@ -53,10 +53,10 @@ func (e *LLMNodeExecutor) Execute(ctx *core.ExecutionContext, config json.RawMes
 		systemPrompt = ""
 	}
 
-	model := cfg.Model
+	model := strings.TrimSpace(resolveTemplate(cfg.Model, ctx))
 	if model == "" {
 		if m, ok := ctx.Variables["model"].(string); ok {
-			model = m
+			model = strings.TrimSpace(m)
 		}
 	}
 

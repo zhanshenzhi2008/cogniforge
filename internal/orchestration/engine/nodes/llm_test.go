@@ -2,6 +2,7 @@ package nodes
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -45,6 +46,13 @@ func TestResolveLLMUserPrompt_PrefersLastAgentContent(t *testing.T) {
 
 	out = resolveLLMUserPrompt("固定 {{order_id}}", ctx)
 	require.Equal(t, "固定 ORD-1", out)
+}
+
+func TestResolveLLMModelTemplate(t *testing.T) {
+	ctx := core.NewExecutionContext("wf", "exec", nil)
+	ctx.SetVariable("model_id", "deepseek-chat")
+	require.Equal(t, "deepseek-chat", strings.TrimSpace(resolveTemplate("{{model_id}}", ctx)))
+	require.Equal(t, "fixed-model", strings.TrimSpace(resolveTemplate("fixed-model", ctx)))
 }
 
 func TestLLMNodeConfig_TemperatureMaxTokensTemplate(t *testing.T) {

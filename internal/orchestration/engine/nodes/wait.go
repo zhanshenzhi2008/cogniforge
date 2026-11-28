@@ -9,9 +9,9 @@ import (
 
 // WaitNodeConfig 人工/外部等待节点（阶段十八 W2/W3）
 type WaitNodeConfig struct {
-	Reason     string `json:"reason,omitempty"`      // approval / external / manual
-	Message    string `json:"message,omitempty"`     // 给人看的提示
-	TimeoutSec int    `json:"timeout_sec,omitempty"` // >0 时写入 wait_until；超时扫描置 failed
+	Reason     string          `json:"reason,omitempty"`      // approval / external / manual
+	Message    string          `json:"message,omitempty"`     // 给人看的提示
+	TimeoutSec json.RawMessage `json:"timeout_sec,omitempty"` // 数字或 "{{变量}}"；>0 时写入 wait_until
 }
 
 // WaitNodeExecutor 命中后由引擎挂起执行（status=waiting），不在此阻塞
@@ -35,8 +35,8 @@ func (e *WaitNodeExecutor) Execute(ctx *core.ExecutionContext, config json.RawMe
 		"reason":   reason,
 		"message":  msg,
 	}
-	if cfg.TimeoutSec > 0 {
-		out["timeout_sec"] = cfg.TimeoutSec
+	if sec := resolveFlexibleInt(cfg.TimeoutSec, ctx); sec > 0 {
+		out["timeout_sec"] = sec
 	}
 	storeLastWait(ctx, out)
 	return out, nil

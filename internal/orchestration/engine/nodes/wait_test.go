@@ -43,7 +43,7 @@ func TestWaitNodeExecutor_ResolvesMessageTemplate(t *testing.T) {
 func TestWaitNodeExecutor_WritesTimeoutVar(t *testing.T) {
 	ex := &WaitNodeExecutor{}
 	ctx := core.NewExecutionContext("wf", "exec", nil)
-	cfg, _ := json.Marshal(WaitNodeConfig{Reason: "external", TimeoutSec: 120})
+	cfg, _ := json.Marshal(map[string]any{"reason": "external", "timeout_sec": 120})
 	out, err := ex.Execute(ctx, cfg)
 	if err != nil {
 		t.Fatal(err)
@@ -57,5 +57,23 @@ func TestWaitNodeExecutor_WritesTimeoutVar(t *testing.T) {
 	}
 	if got, ok := ctx.GetVariable("last_wait_reason"); !ok || got != "external" {
 		t.Fatalf("last_wait_reason=%v ok=%v", got, ok)
+	}
+}
+
+func TestWaitNodeExecutor_TimeoutTemplate(t *testing.T) {
+	ex := &WaitNodeExecutor{}
+	ctx := core.NewExecutionContext("wf", "exec", nil)
+	ctx.SetVariable("ttl", "90")
+	cfg, _ := json.Marshal(map[string]any{
+		"reason":      "approval",
+		"timeout_sec": "{{ttl}}",
+	})
+	out, err := ex.Execute(ctx, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := out.(map[string]any)
+	if m["timeout_sec"] != 90 {
+		t.Fatalf("timeout_sec=%v", m["timeout_sec"])
 	}
 }

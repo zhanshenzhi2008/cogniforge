@@ -57,10 +57,10 @@ func (e *DelayNodeExecutor) Execute(ctx *core.ExecutionContext, config json.RawM
 	return out, nil
 }
 
-// resolveDelayDuration 支持 JSON 数字，或经 {{变量}} 展开后的整数字符串
-func resolveDelayDuration(raw json.RawMessage, ctx *core.ExecutionContext) int {
+// resolveFlexibleInt 支持 JSON 数字，或经 {{变量}} 展开后的整数字符串；失败返回 0
+func resolveFlexibleInt(raw json.RawMessage, ctx *core.ExecutionContext) int {
 	if len(raw) == 0 || string(raw) == "null" {
-		return 1
+		return 0
 	}
 	var n int
 	if err := json.Unmarshal(raw, &n); err == nil {
@@ -72,11 +72,11 @@ func resolveDelayDuration(raw json.RawMessage, ctx *core.ExecutionContext) int {
 	}
 	var s string
 	if err := json.Unmarshal(raw, &s); err != nil {
-		return 1
+		return 0
 	}
 	s = strings.TrimSpace(resolveTemplate(s, ctx))
 	if s == "" {
-		return 1
+		return 0
 	}
 	if i, err := strconv.Atoi(s); err == nil {
 		return i
@@ -84,7 +84,16 @@ func resolveDelayDuration(raw json.RawMessage, ctx *core.ExecutionContext) int {
 	if fv, err := strconv.ParseFloat(s, 64); err == nil {
 		return int(fv)
 	}
-	return 1
+	return 0
+}
+
+// resolveDelayDuration 同 resolveFlexibleInt；≤0 时默认 1 秒
+func resolveDelayDuration(raw json.RawMessage, ctx *core.ExecutionContext) int {
+	n := resolveFlexibleInt(raw, ctx)
+	if n <= 0 {
+		return 1
+	}
+	return n
 }
 
 // storeLastDelay 供下游 {{last_delay_ms}} / {{last_delay_duration}} / {{last_delay_unit}} 引用

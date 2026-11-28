@@ -17,6 +17,8 @@ func TestResolveDelayDuration_NumberAndTemplate(t *testing.T) {
 	assert.Equal(t, 3, resolveDelayDuration(json.RawMessage(`"{{wait_sec}}"`), ctx))
 	assert.Equal(t, 1, resolveDelayDuration(json.RawMessage(`"{{missing}}"`), ctx))
 	assert.Equal(t, 1, resolveDelayDuration(nil, ctx))
+	assert.Equal(t, 0, resolveFlexibleInt(nil, ctx))
+	assert.Equal(t, 3, resolveFlexibleInt(json.RawMessage(`"{{wait_sec}}"`), ctx))
 }
 
 func TestDelayNode_WritesLastDelayVars(t *testing.T) {

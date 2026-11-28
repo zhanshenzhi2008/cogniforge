@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"cogniforge/internal/orchestration/engine/core"
@@ -36,8 +37,9 @@ func (e *HTTPNodeExecutor) Execute(ctx *core.ExecutionContext, config json.RawMe
 		return nil, fmt.Errorf("invalid HTTP config: %w", err)
 	}
 
-	if cfg.Method == "" {
-		cfg.Method = "GET"
+	method := strings.ToUpper(strings.TrimSpace(resolveTemplate(cfg.Method, ctx)))
+	if method == "" {
+		method = "GET"
 	}
 	timeoutSec := resolveFlexibleInt(cfg.Timeout, ctx)
 	if timeoutSec <= 0 {
@@ -64,7 +66,7 @@ func (e *HTTPNodeExecutor) Execute(ctx *core.ExecutionContext, config json.RawMe
 		}
 	}
 
-	req, err := http.NewRequest(cfg.Method, url, bodyReader)
+	req, err := http.NewRequest(method, url, bodyReader)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -84,7 +86,7 @@ func (e *HTTPNodeExecutor) Execute(ctx *core.ExecutionContext, config json.RawMe
 		}
 	}
 
-	ctx.Logger.Logf(ctx.NodeID, "info", "Making HTTP request: %s %s", cfg.Method, url)
+	ctx.Logger.Logf(ctx.NodeID, "info", "Making HTTP request: %s %s", method, url)
 
 	startTime := time.Now()
 	resp, err := client.Do(req)
@@ -106,7 +108,8 @@ func (e *HTTPNodeExecutor) Execute(ctx *core.ExecutionContext, config json.RawMe
 		"duration_ms": duration.Milliseconds(),
 	}
 
-	// 供下游 {{last_http_body}} / {{last_http_status}} 引用（与 last_agent_content 同套路）
+	// 供下游 {{last_http_*}} 引用（与 last_agent_content 同套路）
+	ctx.SetVariable("last_http_method", method)
 	ctx.SetVariable("last_http_status", resp.StatusCode)
 	ctx.SetVariable("last_http_body", bodyStr)
 

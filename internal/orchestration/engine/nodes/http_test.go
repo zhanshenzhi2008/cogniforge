@@ -29,10 +29,11 @@ func TestHTTPNodeExecutor_ResolvesTemplates(t *testing.T) {
 	ctx.SetVariable("path", "/v1/items")
 	ctx.SetVariable("q", "hello")
 	ctx.SetVariable("ttl", "5")
+	ctx.SetVariable("verb", "post")
 
 	cfg, _ := json.Marshal(map[string]any{
 		"url":    srv.URL + "{{path}}",
-		"method": "POST",
+		"method": "{{verb}}",
 		"headers": map[string]string{
 			"Authorization": "Bearer {{token}}",
 		},
@@ -57,6 +58,9 @@ func TestHTTPNodeExecutor_ResolvesTemplates(t *testing.T) {
 	m, ok := out.(map[string]any)
 	if !ok || m["status_code"] != 201 {
 		t.Fatalf("out=%v", out)
+	}
+	if meth, ok := ctx.GetVariable("last_http_method"); !ok || meth != "POST" {
+		t.Fatalf("last_http_method=%v ok=%v", meth, ok)
 	}
 	if st, ok := ctx.GetVariable("last_http_status"); !ok || st != 201 {
 		t.Fatalf("last_http_status=%v ok=%v", st, ok)

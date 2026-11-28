@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-28 | v1.206 | 检索抽屉标明 last_search_* 结果变量 | orjrs |
 | 2026-11-27 | v1.205 | HTTP 写入 last_http_status/body 供下游引用 | orjrs |
 | 2026-11-27 | v1.204 | Team 节点写入/接 last_agent_content | orjrs |
 | 2026-11-27 | v1.203 | LLM 写入 last_agent_content 串联下游 | orjrs |
@@ -373,6 +374,12 @@
   - 中期：~~发布渠道~~（Web/API/嵌入已做；IM 仍待）、~~猜你想问~~
   - 远期：~~虚拟机~~（UI 占位；运行时仍待）、~~语音播放~~（浏览器 TTS）、~~语音输入~~（浏览器 STT；云 ASR 另排）
 - **详见**：`cogniforge-web/docs/99-dev-plan/01-development-plan.md` v1.67；主仓开发计划「后续待办」
+
+## [变更] 检索 last_search_* 抽屉说明（2026-11-28）
+
+- **变更原因**：引擎早已写 `last_search_context` 等，抽屉未告知下游可引用
+- **变更后**：问句 hint 写明空值回退；结果变量 hint；总表补注
+- **包含代码**：Web 抽屉；`workflowNodeSettings`
 
 ## [变更] HTTP last_http_* 变量（2026-11-27）
 
@@ -2170,7 +2177,7 @@ Mobile 问题记入 backlog，**不阻断** Web 主路径合并。
 | `llm` | 是 | 模型名；流式 / t= / maxN | **model**、systemPrompt、prompt（`{{变量}}`；空接 `last_agent_content`）、llmStream、temperature、maxTokens；成功写 `last_agent_content` |
 | `agent` | 是 | 智能体名 | **agentId**、prompt（`{{变量}}`） |
 | `team` | 是 | 小队名 | **teamId**、prompt/task（`{{变量}}`；空接 `last_agent_content`）；成功写该变量 |
-| `search` | 是 | 库名 · 模式 · topK | **knowledgeBaseId**、query、searchMode/topK/minScore/rerank*/hybrid* |
+| `search` | 是 | 库名 · 模式 · topK | **knowledgeBaseId**、query（`{{变量}}`；空接 input/last_agent_content）、覆盖项；结果写 `last_search_context`/`query`/`total` |
 | `subflow` | 是 | 嵌套工作流名 · 自定义入参 | **subflowWorkflowId**（禁自身；最多 3 层）；可选 `input` JSON（`{{变量}}`） |
 | `condition` | 是 | 字段 运算符 值 | **conditionField**、operator、value（`{{变量}}`）、description；须真/假出边 |
 | `loop` | 是 | 次数/条件/数组→元素 | loopType；while 条件支持 `{{变量}}`；for_each 时 **loopArrayVar** |

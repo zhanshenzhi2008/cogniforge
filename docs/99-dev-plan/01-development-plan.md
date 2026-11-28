@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-28 | v1.333 | 跨仓：检索抽屉标明 last_search_* 结果变量 | orjrs |
 | 2026-11-27 | v1.332 | HTTP 写入 last_http_status/body 供下游引用 | orjrs |
 | 2026-11-27 | v1.331 | Team 节点写入/接 last_agent_content | orjrs |
 | 2026-11-27 | v1.330 | LLM 成功写入 last_agent_content 串联下游 | orjrs |
@@ -549,6 +550,18 @@
 - **原因**：未绑定可保存、运行才失败
 - **落地**：跨仓保存前拦截 team/agent/search/subflow
 - **Web**：开发计划 v1.161；前端设计 v1.129
+
+## [变更] 跨仓：检索 last_search_* 说明（2026-11-28）
+
+- **原因**：引擎已写结果变量，抽屉未写明
+- **落地**：Web hint；前端设计 v1.206（引擎原有 `search.go`）
+- **Web**：开发计划 v1.242
+
+## [变更] HTTP last_http_* 变量（2026-11-27）
+
+- **原因**：下游模板难直接引用 HTTP 响应
+- **落地**：`last_http_status` / `last_http_body`；前端设计 v1.205
+- **Web**：开发计划 v1.241
 
 ## [变更] Team 写入/接 last_agent_content（2026-11-27）
 

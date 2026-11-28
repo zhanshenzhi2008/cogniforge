@@ -1,4 +1,4 @@
-package nodes_test
+package nodes
 
 import (
 	"encoding/json"
@@ -6,14 +6,23 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"cogniforge/internal/orchestration/engine"
-	"cogniforge/internal/orchestration/engine/nodes"
+	"cogniforge/internal/orchestration/engine/core"
 )
 
+func TestResolveDelayDuration_NumberAndTemplate(t *testing.T) {
+	ctx := core.NewExecutionContext("wf1", "exec1", nil)
+	ctx.SetVariable("wait_sec", "3")
+
+	assert.Equal(t, 2, resolveDelayDuration(json.RawMessage(`2`), ctx))
+	assert.Equal(t, 3, resolveDelayDuration(json.RawMessage(`"{{wait_sec}}"`), ctx))
+	assert.Equal(t, 1, resolveDelayDuration(json.RawMessage(`"{{missing}}"`), ctx))
+	assert.Equal(t, 1, resolveDelayDuration(nil, ctx))
+}
+
 func TestDelayNode_WritesLastDelayVars(t *testing.T) {
-	executor := &nodes.DelayNodeExecutor{}
+	executor := &DelayNodeExecutor{}
 	config := `{"duration": 1, "unit": "seconds"}`
-	ctx := engine.NewExecutionContext("wf1", "exec1", nil)
+	ctx := core.NewExecutionContext("wf1", "exec1", nil)
 
 	output, err := executor.Execute(ctx, json.RawMessage(config))
 	assert.NoError(t, err)

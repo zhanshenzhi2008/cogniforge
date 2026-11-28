@@ -11,8 +11,8 @@ import (
 )
 
 type DelayNodeConfig struct {
-	Duration int    `json:"duration"`
-	Unit     string `json:"unit"`
+	Duration json.RawMessage `json:"duration"` // 数字或 "{{变量}}" 字符串
+	Unit     string          `json:"unit"`
 }
 
 type DelayNodeExecutor struct{}
@@ -23,18 +23,19 @@ func (e *DelayNodeExecutor) Execute(ctx *core.ExecutionContext, config json.RawM
 		return nil, fmt.Errorf("invalid delay config: %w", err)
 	}
 
-	if cfg.Duration <= 0 {
-		cfg.Duration = 1
+	durN := resolveDelayDuration(cfg.Duration, ctx)
+	if durN <= 0 {
+		durN = 1
 	}
 
 	var duration time.Duration
 	switch strings.ToLower(cfg.Unit) {
 	case "minutes", "minute", "m":
-		duration = time.Duration(cfg.Duration) * time.Minute
+		duration = time.Duration(durN) * time.Minute
 	case "hours", "hour", "h":
-		duration = time.Duration(cfg.Duration) * time.Hour
+		duration = time.Duration(durN) * time.Hour
 	default:
-		duration = time.Duration(cfg.Duration) * time.Second
+		duration = time.Duration(durN) * time.Second
 	}
 
 	maxDelay := 5 * time.Minute
@@ -48,12 +49,42 @@ func (e *DelayNodeExecutor) Execute(ctx *core.ExecutionContext, config json.RawM
 
 	out := map[string]any{
 		"delayed":   true,
-		"duration":  cfg.Duration,
+		"duration":  durN,
 		"unit":      cfg.Unit,
 		"actual_ms": duration.Milliseconds(),
 	}
 	storeLastDelay(ctx, out)
 	return out, nil
+}
+
+// resolveDelayDuration 支持 JSON 数字，或经 {{变量}} 展开后的整数字符串
+func resolveDelayDuration(raw json.RawMessage, ctx *core.ExecutionContext) int {
+	if len(raw) == 0 || string(raw) == "null" {
+		return 1
+	}
+	var n int
+	if err := json.Unmarshal(raw, &n); err == nil {
+		return n
+	}
+	var f float64
+	if err := json.Unmarshal(raw, &f); err == nil {
+		return int(f)
+	}
+	var s string
+	if err := json.Unmarshal(raw, &s); err != nil {
+		return 1
+	}
+	s = strings.TrimSpace(resolveTemplate(s, ctx))
+	if s == "" {
+		return 1
+	}
+	if i, err := strconv.Atoi(s); err == nil {
+		return i
+	}
+	if fv, err := strconv.ParseFloat(s, 64); err == nil {
+		return int(fv)
+	}
+	return 1
 }
 
 // storeLastDelay 供下游 {{last_delay_ms}} / {{last_delay_duration}} / {{last_delay_unit}} 引用

@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-28 | v1.108 | Team：worker_auto_handoff + fallback 名单（默认关） | orjrs |
 | 2026-11-28 | v1.107 | 知识库 visibility=org：本站可读、仅所有者可写 | orjrs |
 | 2026-11-27 | v1.106 | debug 可选 seed_execution_id 灌入上游输出 | orjrs |
 | 2026-11-27 | v1.105 | 未选条件分支写入 node_runs status=skipped | orjrs |
@@ -351,6 +352,13 @@
 - **接口**：`POST /api/v1/teams/:id/run`（`task`/`goal`/`run_state`；不落 chat）
 - **工作流**：节点类型 `team`（config：`team_id`、`task`/`prompt`、`goal`）；输出含 `content`、`run_state`
 - **代码**：`app/team/handler.go`、`orchestration/team/run.go`、`engine/nodes/team.go`
+
+## [变更] 工人失败自动换人（2026-11-28）
+
+- **变更原因**：§12.4 自动换人默认关；产品可开 fallback
+- **行为**：`config.worker_auto_handoff=true` 时，同人重试仍失败后按 `worker_fallback_agent_ids` 依次换人（须为小队成员）；都失败再软回传主管
+- **接口**：无新路径；Team CRUD `config` JSON 读写上述键
+- **代码**：`orchestration/team/chat.go`、`model/team.go`
 
 ## [变更] 小队预览落库与软失败（2026-11-23）
 
@@ -1469,7 +1477,7 @@ POST /api/v1/teams/{id}/chat
   - 上一轮 `run_state` 原样回传 → 按 active_agent_id 换人设续聊（handoff 后生效）
   - 不传 `run_state` 但带 `conversation_id` → 服务端从 Redis 加载预览 run_state
   - 成功后写入 `chat_conversations`（标 team_id）并回 `conversation_id`
-  - 工人失败：工具结果字符串回传主管（软失败）；`config.worker_retry_once=true` 时可同人再试 1 次
+  - 工人失败：工具结果字符串回传主管（软失败）；`config.worker_retry_once=true` 时可同人再试 1 次；`worker_auto_handoff=true` 时可按 `worker_fallback_agent_ids` 换人
 响应 data:
   {
     "response": { "...": "ChatResponse" },

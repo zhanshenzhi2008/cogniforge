@@ -117,6 +117,12 @@
 - **约定**：`workflow_node_runs` 可写 `node_type=human_action`，`status=approved|rejected`；`node_id`=当时 wait 节点；`detail`：`human_action` / `action` / `actor_user_id` / `wait_node_id` / `wait_reason` / `at` / `note`
 - **表结构**：无 DDL 变更（复用 jsonb detail）
 
+## [变更] 工人失败自动换人 config（2026-11-28）
+
+- **变更原因**：§12.4 自动换人默认关；产品可开 fallback
+- **config（无 DDL）**：`worker_auto_handoff`（bool，默认 `false`）；`worker_fallback_agent_ids`（string[]，须为小队成员）
+- **代码**：`model/team.go`、`orchestration/team/chat.go`
+
 ## [变更] 小队预览落库 + Redis run_state（2026-11-23）
 
 - **变更原因**：设计 §12.2 / §12.4：预览历史标小队；续聊不丢 `run_state`

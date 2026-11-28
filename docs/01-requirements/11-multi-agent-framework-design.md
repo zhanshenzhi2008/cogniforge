@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-28 | v0.16 | 工人失败自动换人：worker_auto_handoff + fallback 名单 | orjrs |
 | 2026-11-27 | v0.15 | Team 节点亦写入/接 last_agent_content | orjrs |
 | 2026-11-27 | v0.14 | LLM 亦写入 last_agent_content 串联下游 | orjrs |
 | 2026-11-27 | v0.13 | Web：max_depth/max_steps 限额可配 | orjrs |
@@ -19,6 +20,13 @@
 | 2026-11-23 | v0.3 | M2 起步：POST /teams/:id/chat + delegate/handoff 工具 | orjrs |
 | 2026-11-23 | v0.2 | M1 起步：agent_teams 表 + Team CRUD + RunState/handoff 原语 | orjrs |
 | 2026-11-23 | v0.1 | 立项：模式分层、与现有工作流关系、参考来源、分期不做清单 | orjrs |
+
+## [变更] 工人失败自动换人（2026-11-28）
+
+- **变更原因**：§12.4 自动换人默认关；此前仅同人重试，无 fallback
+- **已落地**：`config.worker_auto_handoff`（默认 false）+ `worker_fallback_agent_ids`；重试仍失败后按名单换人（须为小队成员）；都失败再软回传主管
+- **Web**：新建 / 限额弹窗勾选 + 备用 ID；卡片/列表徽章
+- **代码**：`orchestration/team/chat.go`、`model/team.go`；跨仓 `pages/teams`
 
 ## [变更] max_depth / max_steps Web 配置（2026-11-27）
 
@@ -36,7 +44,7 @@
 
 - **变更原因**：画布 team 跑完才出结果，中间委派/交接不可见
 - **已落地**：`ChatDeps.OnProgress`；delegate/handoff 上报 → `node_runs.detail.progress`（复用 LLM 进度通道）
-- **未做**：自动换人（默认关）；独立 SSE 事件流仍可后续加
+- **未做**：~~自动换人（默认关）~~（2026-11-28 已做）；独立 SSE 事件流仍可后续加
 - **代码**：`orchestration/team/chat.go`、`engine/nodes/team.go`；API v1.100
 
 ## [变更] M4 扇出成图（2026-11-27）
@@ -61,7 +69,7 @@
   - Agent 节点空 prompt 时接 `last_agent_content`（上一步输出）
   - ~~LLM 未写该变量~~（2026-11-27：LLM 成功亦写入；空 prompt 优先接上游）
   - Web 小队卡「生成/打开流水线」
-- **未做**：~~并行工人~~（2026-11-27 引擎侧已做）→ Team 扇出 UI、自动换人
+- **未做**：~~并行工人~~（2026-11-27 引擎侧已做）→ ~~Team 扇出 UI~~（已做）→ ~~自动换人~~（2026-11-28 已做）
 - **代码**：`orchestration/team/pipeline.go`、`service.ExpandToWorkflow`、`engine/nodes/agent.go`；Web `pages/teams`
 
 ## [变更] 任务型 /run + 画布 team 节点（2026-11-23）
@@ -71,7 +79,7 @@
   - `POST /api/v1/teams/:id/run`：`task`/`goal` → `RunTask`；**不**落 `chat_conversations`
   - 工作流节点类型 `team`：绑 `team_id` + 任务说明；引擎内 `TeamNodeExecutor` → `RunTask`；输出含 `content`/`run_state` 进 `node_runs`
   - Web 画布节点面板可选小队、填任务
-- **未做**：~~Pipeline 一键生成线性图~~（2026-11-24 已跟）→ ~~team 节点子步骤进度~~（2026-11-27 OnProgress）；自动换人仍待
+- **未做**：~~Pipeline 一键生成线性图~~（2026-11-24 已跟）→ ~~team 节点子步骤进度~~（2026-11-27 OnProgress）→ ~~自动换人~~（2026-11-28 已做）
 - **代码**：`orchestration/team/run.go`、`engine/nodes/team.go`、`app/team/handler.go`；Web `workflows/[id].vue`
 
 ## [变更] §12 拍板项落地（2026-11-23）
@@ -82,7 +90,7 @@
   - `chat_conversations.team_id`；`POST /teams/:id/chat` 写会话并回 `conversation_id`
   - Redis `cogniforge:team:run:{user}:{team}:{session}`（TTL 24h）；无 body `run_state` 时按 conversation 加载
   - Web 小队预览：带 `conversation_id` 续聊、拉历史、展示工人失败提示
-- **未做**：~~画布 `team` 节点、`/teams/:id/run`~~（2026-11-23 已跟）→ 自动换人仍待
+- **未做**：~~画布 `team` 节点、`/teams/:id/run`~~（2026-11-23 已跟）→ ~~自动换人~~（2026-11-28 已做）
 - **代码**：`orchestration/team/{chat,store}.go`、`app/team/handler.go`、`model/conversation.go`；Web `useTeams` / `pages/teams`
 
 ## [变更] 开放问题拍板（2026-11-23）
@@ -396,14 +404,14 @@ POST       /api/v1/teams/:id/run       # 非对话任务型（可选，可与 wo
          → 可选 ② 同人自动重试 ≤1（仅瞬时类，config 可开）
          → 主管可再 delegate（计入 depth）
          → 触达 max_depth / max_steps → ④ 整 run failed
-自动换人 = 默认关（可选 fallback 名单后期再开）
+自动换人 = 默认关；`worker_auto_handoff` + `worker_fallback_agent_ids` 可开（2026-11-28 已落地）
 ```
 
 | 策略 | 默认 |
 |------|------|
 | 失败回传主管 | **开** |
-| 同人瞬时重试 ≤1 | 可选，默认建议开 1 次或关（实现时写进 `config`） |
-| 自动换人 | **关** |
+| 同人瞬时重试 ≤1 | 可选，默认关（`config.worker_retry_once`） |
+| 自动换人 | **关**（`config.worker_auto_handoff` + fallback 名单可开） |
 | 超限额整 run 失败 | **开**（硬闸门） |
 
 ---

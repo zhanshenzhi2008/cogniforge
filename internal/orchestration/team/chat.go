@@ -256,6 +256,26 @@ func (e *compositeExecutor) delegate(call chat.ToolCall) (string, error) {
 		e.report(fmt.Sprintf("delegate 重试 → %s", workerName))
 		summary, err = e.runWorker(workerID, task)
 	}
+	usedFallback := ""
+	if err != nil && workerAutoHandoff(e.team) {
+		for _, fid := range workerFallbackIDs(e.team) {
+			if fid == "" || fid == workerID || !teamAllowsAgent(e.team, fid) {
+				continue
+			}
+			fbName := fid
+			if ag, loadErr := e.deps.loadAgent(e.userID, fid); loadErr == nil {
+				fbName = ag.Name
+			}
+			e.report(fmt.Sprintf("delegate 自动换人 → %s", fbName))
+			summary, err = e.runWorker(fid, task)
+			if err == nil {
+				usedFallback = fid
+				workerName = fbName
+				break
+			}
+			e.report(fmt.Sprintf("delegate 换人失败 ← %s：%s", fbName, truncate(err.Error(), 80)))
+		}
+	}
 	if err != nil {
 		// 软失败：回传主管，不中断工具循环（设计 §12.4）
 		msg := "工人执行失败（已回传，请改派或说明）：" + err.Error()
@@ -268,18 +288,28 @@ func (e *compositeExecutor) delegate(call chat.ToolCall) (string, error) {
 	}
 	// 回填摘要
 	if n := len(e.state.DelegateHistory); n > 0 {
-		e.state.DelegateHistory[n-1].ResultSummary = truncate(summary, 500)
+		note := truncate(summary, 500)
+		if usedFallback != "" {
+			note = truncate("[自动换人→"+usedFallback+"] "+summary, 500)
+			e.state.DelegateHistory[n-1].WorkerAgentID = usedFallback
+		}
+		e.state.DelegateHistory[n-1].ResultSummary = note
 	}
-	e.state.SetScratch("last_delegate_"+workerID, summary)
+	keyID := workerID
+	if usedFallback != "" {
+		keyID = usedFallback
+		e.state.SetScratch("last_delegate_fallback_from_"+usedFallback, workerID)
+	}
+	e.state.SetScratch("last_delegate_"+keyID, summary)
 	e.report(fmt.Sprintf("delegate 完成 ← %s（%d 字）", workerName, len([]rune(summary))))
 	return summary, nil
 }
 
-func workerRetryOnce(t *model.AgentTeam) bool {
+func configBool(t *model.AgentTeam, key string) bool {
 	if t == nil || t.Config == nil {
 		return false
 	}
-	v, ok := t.Config["worker_retry_once"]
+	v, ok := t.Config[key]
 	if !ok {
 		return false
 	}
@@ -291,6 +321,45 @@ func workerRetryOnce(t *model.AgentTeam) bool {
 	default:
 		return false
 	}
+}
+
+func workerRetryOnce(t *model.AgentTeam) bool {
+	return configBool(t, "worker_retry_once")
+}
+
+func workerAutoHandoff(t *model.AgentTeam) bool {
+	return configBool(t, "worker_auto_handoff")
+}
+
+// workerFallbackIDs 解析 config.worker_fallback_agent_ids（[]string / []any / 逗号串）
+func workerFallbackIDs(t *model.AgentTeam) []string {
+	if t == nil || t.Config == nil {
+		return nil
+	}
+	v, ok := t.Config["worker_fallback_agent_ids"]
+	if !ok || v == nil {
+		return nil
+	}
+	var out []string
+	switch x := v.(type) {
+	case []string:
+		out = append(out, x...)
+	case []any:
+		for _, item := range x {
+			s := strings.TrimSpace(fmt.Sprint(item))
+			if s != "" && s != "<nil>" {
+				out = append(out, s)
+			}
+		}
+	case string:
+		for _, p := range strings.Split(x, ",") {
+			s := strings.TrimSpace(p)
+			if s != "" {
+				out = append(out, s)
+			}
+		}
+	}
+	return out
 }
 
 func (e *compositeExecutor) handoff(call chat.ToolCall) (string, error) {

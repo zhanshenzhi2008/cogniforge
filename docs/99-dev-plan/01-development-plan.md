@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-28 | v1.358 | Team ID 支持 {{变量}}；写 last_team_id | orjrs |
 | 2026-11-28 | v1.357 | Agent ID 支持 {{变量}}；写 last_agent_id | orjrs |
 | 2026-11-28 | v1.356 | LLM 写入 last_llm_model/tokens/latency | orjrs |
 | 2026-11-28 | v1.355 | LLM 模型名支持 {{变量}} | orjrs |
@@ -574,6 +575,12 @@
 - **原因**：未绑定可保存、运行才失败
 - **落地**：跨仓保存前拦截 team/agent/search/subflow
 - **Web**：开发计划 v1.161；前端设计 v1.129
+
+## [变更] Team ID {{变量}} / last_team_id（2026-11-28）
+
+- **原因**：小队只能写死 ID
+- **落地**：`team_id` 支持模板；写 `last_team_id`；前端设计 v1.229
+- **Web**：开发计划 v1.267
 
 ## [变更] Agent ID {{变量}} / last_agent_id（2026-11-28）
 

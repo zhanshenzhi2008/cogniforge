@@ -46,23 +46,25 @@ func (e *TeamNodeExecutor) Execute(ctx *core.ExecutionContext, config json.RawMe
 	if e.DB == nil {
 		return nil, fmt.Errorf("Team node: DB not configured")
 	}
-	if strings.TrimSpace(cfg.TeamID) == "" {
-		return nil, fmt.Errorf("Team node: team_id is required")
-	}
 	userID := ctx.UserID
 	if userID == "" {
 		return nil, fmt.Errorf("Team node: missing user_id on execution context")
 	}
 
+	teamID := strings.TrimSpace(resolveTemplate(cfg.TeamID, ctx))
+	if teamID == "" {
+		return nil, fmt.Errorf("Team node: team_id is required")
+	}
+
 	var team model.AgentTeam
-	if err := e.DB.Where("id = ? AND user_id = ?", cfg.TeamID, userID).First(&team).Error; err != nil {
+	if err := e.DB.Where("id = ? AND user_id = ?", teamID, userID).First(&team).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return nil, fmt.Errorf("team not found: %s", cfg.TeamID)
+			return nil, fmt.Errorf("team not found: %s", teamID)
 		}
 		return nil, fmt.Errorf("load team: %w", err)
 	}
 	if team.Status != "" && team.Status != "active" {
-		return nil, fmt.Errorf("team is not active: %s", cfg.TeamID)
+		return nil, fmt.Errorf("team is not active: %s", teamID)
 	}
 
 	task := resolveTemplate(cfg.Task, ctx)
@@ -156,13 +158,19 @@ func (e *TeamNodeExecutor) Execute(ctx *core.ExecutionContext, config json.RawMe
 	if content != "" {
 		ctx.SetVariable("last_agent_content", content)
 	}
-	ctx.Logger.Logf(ctx.NodeID, "info", "Team ok id=%s active=%s model=%s latency=%dms", cfg.TeamID, active, modelOut, latency)
+	ctx.SetVariable("last_team_id", teamID)
+	if active != "" {
+		ctx.SetVariable("last_agent_id", active)
+	}
+	if ctx.Logger != nil {
+		ctx.Logger.Logf(ctx.NodeID, "info", "Team ok id=%s active=%s model=%s latency=%dms", teamID, active, modelOut, latency)
+	}
 	if deps.OnProgress != nil {
 		deps.OnProgress(fmt.Sprintf("team 完成 active=%s latency=%dms", active, latency))
 	}
 
 	out := map[string]any{
-		"team_id":         cfg.TeamID,
+		"team_id":         teamID,
 		"active_agent_id": active,
 		"task":            task,
 		"content":         content,

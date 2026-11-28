@@ -107,3 +107,9 @@ func TestAgentNodeConfig_AgentIDTemplate(t *testing.T) {
 	ctx.SetVariable("aid", "agent-42")
 	require.Equal(t, "agent-42", strings.TrimSpace(resolveTemplate("{{aid}}", ctx)))
 }
+
+func TestTeamNodeConfig_TeamIDTemplate(t *testing.T) {
+	ctx := core.NewExecutionContext("wf", "exec", nil)
+	ctx.SetVariable("tid", "team-7")
+	require.Equal(t, "team-7", strings.TrimSpace(resolveTemplate("{{tid}}", ctx)))
+}

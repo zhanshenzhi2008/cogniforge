@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-28 | v1.229 | Team ID 支持 {{变量}}；写 last_team_id | orjrs |
 | 2026-11-28 | v1.228 | Agent ID 支持 {{变量}}；写 last_agent_id | orjrs |
 | 2026-11-28 | v1.227 | LLM 写入 last_llm_model/tokens/latency | orjrs |
 | 2026-11-28 | v1.226 | LLM 模型名支持 {{变量}} | orjrs |
@@ -396,6 +397,12 @@
   - 中期：~~发布渠道~~（Web/API/嵌入已做；IM 仍待）、~~猜你想问~~
   - 远期：~~虚拟机~~（UI 占位；运行时仍待）、~~语音播放~~（浏览器 TTS）、~~语音输入~~（浏览器 STT；云 ASR 另排）
 - **详见**：`cogniforge-web/docs/99-dev-plan/01-development-plan.md` v1.67；主仓开发计划「后续待办」
+
+## [变更] Team ID {{变量}} / last_team_id（2026-11-28）
+
+- **变更原因**：小队只能下拉选死 ID，无法按入参切换
+- **变更后**：`team_id` 先展开；成功写 `last_team_id`（活跃成员兼写 `last_agent_id`）；抽屉可选手写；本文 §11
+- **包含代码**：`nodes/team.go`；Web Team 抽屉
 
 ## [变更] Agent ID {{变量}} / last_agent_id（2026-11-28）
 
@@ -2330,7 +2337,7 @@ Mobile 问题记入 backlog，**不阻断** Web 主路径合并。
 | `end` | 是 | 「流程结束」 | （仅名称） |
 | `llm` | 是 | 模型名；流式 / t= / maxN | **model**（ID 或 `{{变量}}`）、systemPrompt、prompt（`{{变量}}`；空接 `last_agent_content`）、llmStream、temperature / maxTokens（数字或 `{{变量}}`；空/0 跟模型默认）；成功写 `last_agent_content` 与 `last_llm_model`/`tokens`/`latency_ms` |
 | `agent` | 是 | 智能体名 | **agentId**（ID 或 `{{变量}}`）、prompt（`{{变量}}`；空接 `last_agent_content` / 流程输入）；成功写 `last_agent_content` / `last_agent_id` |
-| `team` | 是 | 小队名 | **teamId**、prompt/task（`{{变量}}`；空接 `last_agent_content`）；成功写 `last_agent_content` |
+| `team` | 是 | 小队名 | **teamId**（ID 或 `{{变量}}`）、prompt/task（`{{变量}}`；空接 `last_agent_content`）；成功写 `last_agent_content` / `last_team_id` |
 | `search` | 是 | 库名 · 模式 · topK | **knowledgeBaseId**、query（`{{变量}}`；空接 input/last_agent_content）、topK / minScore / hybridSemanticWeight（数字或 `{{变量}}`；空跟库）、覆盖项；结果写 `last_search_context`/`query`/`total` |
 | `subflow` | 是 | 嵌套工作流名 · 自定义入参 | **subflowWorkflowId**（禁自身；最多 3 层）；可选 `input` JSON（`{{变量}}`）；结果写 `last_subflow_output`（有 content 兼写 `last_agent_content`） |
 | `condition` | 是 | 字段 运算符 值 | **conditionField**（`{{变量}}` 展开为字段名）、operator、value（`{{变量}}`）、description；须真/假出边；结果写 `last_condition_result`/`branch`/`field` |

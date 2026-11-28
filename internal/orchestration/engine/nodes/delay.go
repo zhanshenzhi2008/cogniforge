@@ -87,6 +87,34 @@ func resolveFlexibleInt(raw json.RawMessage, ctx *core.ExecutionContext) int {
 	return 0
 }
 
+// resolveFlexibleFloat 支持 JSON 数字，或经 {{变量}} 展开后的浮点字符串；失败返回 0
+func resolveFlexibleFloat(raw json.RawMessage, ctx *core.ExecutionContext) float64 {
+	if len(raw) == 0 || string(raw) == "null" {
+		return 0
+	}
+	var f float64
+	if err := json.Unmarshal(raw, &f); err == nil {
+		return f
+	}
+	var n int
+	if err := json.Unmarshal(raw, &n); err == nil {
+		return float64(n)
+	}
+	var s string
+	if err := json.Unmarshal(raw, &s); err != nil {
+		return 0
+	}
+	s = strings.TrimSpace(resolveTemplate(s, ctx))
+	if s == "" {
+		return 0
+	}
+	fv, err := strconv.ParseFloat(s, 64)
+	if err != nil {
+		return 0
+	}
+	return fv
+}
+
 // resolveDelayDuration 同 resolveFlexibleInt；≤0 时默认 1 秒
 func resolveDelayDuration(raw json.RawMessage, ctx *core.ExecutionContext) int {
 	n := resolveFlexibleInt(raw, ctx)

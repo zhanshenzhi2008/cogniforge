@@ -10,15 +10,17 @@ import (
 )
 
 type mockKBSearcher struct {
-	lastQuery string
-	lastKB    string
-	lastTopK  int
+	lastQuery    string
+	lastKB       string
+	lastTopK     int
+	lastMinScore float64
 }
 
 func (m *mockKBSearcher) SearchByUser(_ context.Context, _, kbID string, req *knowledge.SearchRequest) (*knowledge.SearchResponse, error) {
 	m.lastKB = kbID
 	m.lastQuery = req.Query
 	m.lastTopK = req.TopK
+	m.lastMinScore = req.MinScore
 	return &knowledge.SearchResponse{
 		Query: req.Query,
 		Results: []knowledge.SearchResult{
@@ -77,6 +79,25 @@ func TestSearchNodeExecutor_TopKTemplate(t *testing.T) {
 	}
 	if mock.lastTopK != 7 {
 		t.Fatalf("lastTopK=%d", mock.lastTopK)
+	}
+}
+
+func TestSearchNodeExecutor_MinScoreTemplate(t *testing.T) {
+	mock := &mockKBSearcher{}
+	ex := &SearchNodeExecutor{Knowledge: mock}
+	ctx := core.NewExecutionContext("wf", "exec", map[string]any{"query": "hi"})
+	ctx.UserID = "u1"
+	ctx.SetVariable("floor", "0.42")
+	cfg, _ := json.Marshal(map[string]any{
+		"knowledge_base_id": "kb-1",
+		"query":             "hi",
+		"min_score":         "{{floor}}",
+	})
+	if _, err := ex.Execute(ctx, cfg); err != nil {
+		t.Fatal(err)
+	}
+	if mock.lastMinScore < 0.419 || mock.lastMinScore > 0.421 {
+		t.Fatalf("lastMinScore=%v", mock.lastMinScore)
 	}
 }
 

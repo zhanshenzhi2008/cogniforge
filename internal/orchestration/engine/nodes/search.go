@@ -16,8 +16,8 @@ import (
 type SearchNodeConfig struct {
 	KnowledgeBaseID      string          `json:"knowledge_base_id"`
 	Query                string          `json:"query,omitempty"`
-	TopK                 json.RawMessage `json:"top_k,omitempty"` // 数字或 "{{变量}}"；≤0 跟库默认
-	MinScore             float64         `json:"min_score,omitempty"`
+	TopK                 json.RawMessage `json:"top_k,omitempty"`     // 数字或 "{{变量}}"；≤0 跟库默认
+	MinScore             json.RawMessage `json:"min_score,omitempty"` // 数字或 "{{变量}}"；≤0 跟库默认
 	SearchMode           string          `json:"search_mode,omitempty"`
 	Rerank               *bool           `json:"rerank,omitempty"`
 	RerankProviderID     string          `json:"rerank_provider_id,omitempty"`
@@ -71,6 +71,7 @@ func (e *SearchNodeExecutor) Execute(ctx *core.ExecutionContext, config json.Raw
 	}
 
 	topK := resolveFlexibleInt(cfg.TopK, ctx)
+	minScore := resolveFlexibleFloat(cfg.MinScore, ctx)
 
 	started := time.Now()
 	bg, cancel := context.WithTimeout(context.Background(), 60*time.Second)
@@ -79,7 +80,7 @@ func (e *SearchNodeExecutor) Execute(ctx *core.ExecutionContext, config json.Raw
 	resp, err := e.Knowledge.SearchByUser(bg, userID, cfg.KnowledgeBaseID, &knowledge.SearchRequest{
 		Query:                query,
 		TopK:                 topK,
-		MinScore:             cfg.MinScore,
+		MinScore:             minScore,
 		SearchMode:           cfg.SearchMode,
 		Rerank:               cfg.Rerank,
 		RerankProviderID:     cfg.RerankProviderID,

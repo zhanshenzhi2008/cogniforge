@@ -4,6 +4,7 @@
 
 | 日期 | 版本 | 变更摘要 | 负责人 |
 |------|------|----------|--------|
+| 2026-11-28 | v1.363 | 检索 Rerank 模型 ID 支持 {{变量}}；写 last_search_rerank_provider_id | orjrs |
 | 2026-11-28 | v1.362 | HTTP method 支持 {{变量}}；写 last_http_method | orjrs |
 | 2026-11-28 | v1.361 | 子流程 workflow ID 支持 {{变量}}；写 last_subflow_workflow_id | orjrs |
 | 2026-11-28 | v1.360 | 跨仓：修 Web prompts 回滚 E2E toast 严格模式 | orjrs |
@@ -579,6 +580,12 @@
 - **原因**：未绑定可保存、运行才失败
 - **落地**：跨仓保存前拦截 team/agent/search/subflow
 - **Web**：开发计划 v1.161；前端设计 v1.129
+
+## [变更] 检索 Rerank 模型 ID {{变量}} / last_search_rerank_provider_id（2026-11-28）
+
+- **原因**：开启重排后模型只能写死 ID
+- **落地**：`rerank_provider_id` 支持模板；写 `last_search_rerank_provider_id`；前端设计 v1.233
+- **Web**：开发计划 v1.272
 
 ## [变更] HTTP method {{变量}} / last_http_method（2026-11-28）
 

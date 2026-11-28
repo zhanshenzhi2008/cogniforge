@@ -10,11 +10,12 @@ import (
 )
 
 type mockKBSearcher struct {
-	lastQuery        string
-	lastKB           string
-	lastTopK         int
-	lastMinScore     float64
-	lastHybridWeight *float64
+	lastQuery            string
+	lastKB               string
+	lastTopK             int
+	lastMinScore         float64
+	lastHybridWeight     *float64
+	lastRerankProviderID string
 }
 
 func (m *mockKBSearcher) SearchByUser(_ context.Context, _, kbID string, req *knowledge.SearchRequest) (*knowledge.SearchResponse, error) {
@@ -23,6 +24,7 @@ func (m *mockKBSearcher) SearchByUser(_ context.Context, _, kbID string, req *kn
 	m.lastTopK = req.TopK
 	m.lastMinScore = req.MinScore
 	m.lastHybridWeight = req.HybridSemanticWeight
+	m.lastRerankProviderID = req.RerankProviderID
 	return &knowledge.SearchResponse{
 		Query: req.Query,
 		Results: []knowledge.SearchResult{
@@ -140,6 +142,30 @@ func TestSearchNodeExecutor_HybridWeightTemplate(t *testing.T) {
 	}
 	if mock.lastHybridWeight == nil || *mock.lastHybridWeight < 0.649 || *mock.lastHybridWeight > 0.651 {
 		t.Fatalf("lastHybridWeight=%v", mock.lastHybridWeight)
+	}
+}
+
+func TestSearchNodeExecutor_RerankProviderIDTemplate(t *testing.T) {
+	mock := &mockKBSearcher{}
+	ex := &SearchNodeExecutor{Knowledge: mock}
+	ctx := core.NewExecutionContext("wf", "exec", map[string]any{"query": "hi"})
+	ctx.UserID = "u1"
+	ctx.SetVariable("rrp", "prov-rerank-9")
+	on := true
+	cfg, _ := json.Marshal(map[string]any{
+		"knowledge_base_id":  "kb-1",
+		"query":              "hi",
+		"rerank":             on,
+		"rerank_provider_id": "{{rrp}}",
+	})
+	if _, err := ex.Execute(ctx, cfg); err != nil {
+		t.Fatal(err)
+	}
+	if mock.lastRerankProviderID != "prov-rerank-9" {
+		t.Fatalf("lastRerankProviderID=%s", mock.lastRerankProviderID)
+	}
+	if v, _ := ctx.GetVariable("last_search_rerank_provider_id"); v != "prov-rerank-9" {
+		t.Fatalf("last_search_rerank_provider_id=%v", v)
 	}
 }
 

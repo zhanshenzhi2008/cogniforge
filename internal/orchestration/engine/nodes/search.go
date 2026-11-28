@@ -76,6 +76,7 @@ func (e *SearchNodeExecutor) Execute(ctx *core.ExecutionContext, config json.Raw
 	topK := resolveFlexibleInt(cfg.TopK, ctx)
 	minScore := resolveFlexibleFloat(cfg.MinScore, ctx)
 	hybridWeight := resolveOptionalFlexibleFloat(cfg.HybridSemanticWeight, ctx)
+	rerankProviderID := strings.TrimSpace(resolveTemplate(cfg.RerankProviderID, ctx))
 
 	started := time.Now()
 	bg, cancel := context.WithTimeout(context.Background(), 60*time.Second)
@@ -87,7 +88,7 @@ func (e *SearchNodeExecutor) Execute(ctx *core.ExecutionContext, config json.Raw
 		MinScore:             minScore,
 		SearchMode:           cfg.SearchMode,
 		Rerank:               cfg.Rerank,
-		RerankProviderID:     cfg.RerankProviderID,
+		RerankProviderID:     rerankProviderID,
 		HybridSemanticWeight: hybridWeight,
 	})
 	if err != nil {
@@ -115,6 +116,7 @@ func (e *SearchNodeExecutor) Execute(ctx *core.ExecutionContext, config json.Raw
 	ctx.SetVariable("last_search_context", contextText)
 	ctx.SetVariable("last_search_total", len(results))
 	ctx.SetVariable("last_search_kb_id", kbID)
+	ctx.SetVariable("last_search_rerank_provider_id", rerankProviderID)
 
 	latency := time.Since(started).Milliseconds()
 	if ctx.Logger != nil {

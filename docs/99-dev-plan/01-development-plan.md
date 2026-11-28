@@ -577,6 +577,12 @@
 - **落地**：跨仓保存前拦截 team/agent/search/subflow
 - **Web**：开发计划 v1.161；前端设计 v1.129
 
+## [变更] 检索知识库 ID {{变量}} / last_search_kb_id（2026-11-28）
+
+- **原因**：知识库只能写死 ID
+- **落地**：`knowledge_base_id` 支持模板；写 `last_search_kb_id`；前端设计 v1.230
+- **Web**：开发计划 v1.268
+
 ## [变更] Team ID {{变量}} / last_team_id（2026-11-28）
 
 - **原因**：小队只能写死 ID

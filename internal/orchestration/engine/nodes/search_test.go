@@ -12,11 +12,13 @@ import (
 type mockKBSearcher struct {
 	lastQuery string
 	lastKB    string
+	lastTopK  int
 }
 
 func (m *mockKBSearcher) SearchByUser(_ context.Context, _, kbID string, req *knowledge.SearchRequest) (*knowledge.SearchResponse, error) {
 	m.lastKB = kbID
 	m.lastQuery = req.Query
+	m.lastTopK = req.TopK
 	return &knowledge.SearchResponse{
 		Query: req.Query,
 		Results: []knowledge.SearchResult{
@@ -32,10 +34,10 @@ func TestSearchNodeExecutor_OK(t *testing.T) {
 	ex := &SearchNodeExecutor{Knowledge: mock}
 	ctx := core.NewExecutionContext("wf", "exec", map[string]any{"query": "如何退款"})
 	ctx.UserID = "u1"
-	cfg, _ := json.Marshal(SearchNodeConfig{
-		KnowledgeBaseID: "kb-1",
-		Query:           "{{query}}",
-		TopK:            3,
+	cfg, _ := json.Marshal(map[string]any{
+		"knowledge_base_id": "kb-1",
+		"query":             "{{query}}",
+		"top_k":             3,
 	})
 	out, err := ex.Execute(ctx, cfg)
 	if err != nil {
@@ -51,8 +53,30 @@ func TestSearchNodeExecutor_OK(t *testing.T) {
 	if mock.lastKB != "kb-1" || mock.lastQuery == "" {
 		t.Fatalf("searcher not called properly: kb=%s q=%q", mock.lastKB, mock.lastQuery)
 	}
+	if mock.lastTopK != 3 {
+		t.Fatalf("lastTopK=%d", mock.lastTopK)
+	}
 	if v, _ := ctx.GetVariable("last_search_total"); v != 1 {
 		t.Fatalf("last_search_total=%v", v)
+	}
+}
+
+func TestSearchNodeExecutor_TopKTemplate(t *testing.T) {
+	mock := &mockKBSearcher{}
+	ex := &SearchNodeExecutor{Knowledge: mock}
+	ctx := core.NewExecutionContext("wf", "exec", map[string]any{"query": "hi"})
+	ctx.UserID = "u1"
+	ctx.SetVariable("k", "7")
+	cfg, _ := json.Marshal(map[string]any{
+		"knowledge_base_id": "kb-1",
+		"query":             "hi",
+		"top_k":             "{{k}}",
+	})
+	if _, err := ex.Execute(ctx, cfg); err != nil {
+		t.Fatal(err)
+	}
+	if mock.lastTopK != 7 {
+		t.Fatalf("lastTopK=%d", mock.lastTopK)
 	}
 }
 

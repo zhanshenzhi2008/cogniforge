@@ -14,14 +14,14 @@ import (
 // SearchNodeConfig 知识库检索节点（画布 type=search）
 // 空的 search_mode / top_k<=0 / min_score<=0 / rerank 未传 → 跟知识库默认
 type SearchNodeConfig struct {
-	KnowledgeBaseID      string   `json:"knowledge_base_id"`
-	Query                string   `json:"query,omitempty"`
-	TopK                 int      `json:"top_k,omitempty"`
-	MinScore             float64  `json:"min_score,omitempty"`
-	SearchMode           string   `json:"search_mode,omitempty"`
-	Rerank               *bool    `json:"rerank,omitempty"`
-	RerankProviderID     string   `json:"rerank_provider_id,omitempty"`
-	HybridSemanticWeight *float64 `json:"hybrid_semantic_weight,omitempty"`
+	KnowledgeBaseID      string          `json:"knowledge_base_id"`
+	Query                string          `json:"query,omitempty"`
+	TopK                 json.RawMessage `json:"top_k,omitempty"` // 数字或 "{{变量}}"；≤0 跟库默认
+	MinScore             float64         `json:"min_score,omitempty"`
+	SearchMode           string          `json:"search_mode,omitempty"`
+	Rerank               *bool           `json:"rerank,omitempty"`
+	RerankProviderID     string          `json:"rerank_provider_id,omitempty"`
+	HybridSemanticWeight *float64        `json:"hybrid_semantic_weight,omitempty"`
 }
 
 // KnowledgeSearcher 与 Chat RAG 共用的检索能力
@@ -70,13 +70,15 @@ func (e *SearchNodeExecutor) Execute(ctx *core.ExecutionContext, config json.Raw
 		return nil, fmt.Errorf("Search node: empty query (set config.query or input.query)")
 	}
 
+	topK := resolveFlexibleInt(cfg.TopK, ctx)
+
 	started := time.Now()
 	bg, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
 	resp, err := e.Knowledge.SearchByUser(bg, userID, cfg.KnowledgeBaseID, &knowledge.SearchRequest{
 		Query:                query,
-		TopK:                 cfg.TopK,
+		TopK:                 topK,
 		MinScore:             cfg.MinScore,
 		SearchMode:           cfg.SearchMode,
 		Rerank:               cfg.Rerank,
